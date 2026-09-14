@@ -31,22 +31,25 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Scoped into issues #1–#3 (search, booking, appointments list). Referral/orders screens not yet scoped — blocked on docforum-core Phase 3/4 existing enough to assume a contract against.**
+**Fully scoped into issues #1–#2, #4–#5.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
-- [ ] Referral accept/decline screen.
-- [ ] Orders list + facility-selection screen.
+- [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
+- [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
 
 ## Phase W3 — Doctor core flow
-- [ ] Today's appointments / intake view.
-- [ ] Consultation screen (notes, outcome, referral/order issuance).
+**Fully scoped into issues #6–#7.**
+- [ ] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts).
+- [ ] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — the densest single screen in the app, touches three separate `docforum-core` assumed contracts; the issue explicitly allows splitting into more than one PR if the scope proves unwieldy.
 
 ## Phase W4 — Facility core flow
-- [ ] Fulfillment queue.
-- [ ] Mark fulfilled/rejected, attach lab result.
+**Fully scoped into issue #8.**
+- [ ] Fulfillment queue. Tracked as [issue #8](https://github.com/DocForum/docforum-web/issues/8) (Medium, 150 pts).
+- [ ] Mark fulfilled/rejected, attach lab result. Folded into issue #8 above.
 
 ## Phase W5 — Payments UI (depends on docforum-core Phase 5.5)
+**Deliberately left unscoped.** `docforum-core` Phase 5.5 itself is unscoped, blocked on `docforum-escrow` publishing its SDK (issues #4/#5 there, still open) — that's two layers removed from anything this repo could build against right now. Opening issues here would hand a contributor work with no real contract to assume, not even a provisional one. Revisit once `docforum-core` Phase 5.5 has its own issues.
 - [ ] Wallet link screen (calls `docforum-core` API only, per
   `ARCHITECTURE_ESSENTIALS.md` hard rule 1 — no direct Stellar calls here).
 - [ ] Payment/escrow status display on orders.
@@ -213,3 +216,23 @@ real API" (no refresh-on-reload flow).
   Referral and orders screens intentionally left unscoped — not enough of
   a real contract to assume against yet (`docforum-core` Phase 3/4 don't
   exist). Phase W2 checklist above updated to link each item to its issue.
+- 2026-09-14 — Scoped the rest of the frontend roadmap that has a real
+  (even if assumed) backend contract to build against: five more issues
+  (#4–#8) covering the rest of W2 (referral accept/decline, orders +
+  facility-selection — now buildable since `docforum-core` opened issues
+  #5–#16 for the referral/order/facility work they assume against), all
+  of W3 (doctor's today view, and a deliberately large consultation
+  screen issue that explicitly permits splitting into multiple PRs given
+  it touches three separate assumed contracts at once), and all of W4
+  (facility fulfillment queue + status + lab-result attachment, folded
+  into one issue since both bullets are one cohesive feature). Every one
+  of these issues documents its assumed API shape in
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" as part of its DoD —
+  not yet done in this commit, tracked as part of each issue's own work,
+  not this roadmap update's.
+
+  W5 (Payments UI) deliberately left unscoped: it depends on
+  `docforum-core` Phase 5.5, which is itself unscoped pending
+  `docforum-escrow` publishing its SDK — two layers of "no real contract
+  to build against yet," so no issue was opened for it. All checklist
+  items above updated to link to their issues.
