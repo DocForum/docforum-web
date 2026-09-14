@@ -6,9 +6,12 @@ export function DoctorDashboardPage() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <div>
-      <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
-      <p>Today's appointments and consultations will live here — see ROADMAP.md Phase W3.</p>
+    <div className="container">
+      <div className="card">
+        <span className="statusPill">Phase W3 · not started</span>
+        <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
+        <p>Today's appointments and consultations will live here — see ROADMAP.md Phase W3.</p>
+      </div>
     </div>
   );
 }

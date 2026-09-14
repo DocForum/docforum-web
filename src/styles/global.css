@@ -1,62 +1,239 @@
-/* Design tokens. No UI library is decided in ARCHITECTURE.md — plain CSS
-   (CSS Modules per-component, tokens here) rather than pulling in a new
-   architecturally-significant dependency. Revisit if/when a design system
-   is actually chosen. */
+/* Design system: deliberately at the intersection of two niches —
+   clinical trust (medical) and network-native precision (web3). Deep,
+   desaturated jewel tones rather than bright/neon; a geometric display
+   face for structure, a humanist sans for legibility. No UI library
+   decided in ARCHITECTURE.md — plain CSS (tokens here, CSS Modules per
+   component) rather than an unauthorized new dependency. */
+
 :root {
   color-scheme: light dark;
 
-  --color-bg: #ffffff;
+  /* ---- Typography ---- */
+  --font-display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.5rem;
+  --text-4xl: 3.25rem;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+
+  /* ---- Spacing / shape ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
+  --shadow-lg: 0 24px 48px -16px rgba(15, 23, 42, 0.28);
+
+  /* ---- Color: light ---- */
+  --color-bg: #f6f7f9;
+  --color-bg-raised: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-hover: #f3f4f6;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-border: #d1d5db;
+  --color-surface-alt: #eef0f4;
+  --color-surface-hover: #e7eaf0;
+  --color-border: #e0e3e9;
+  --color-border-strong: #c9ced8;
 
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
+  --color-text: #0f1420;
+  --color-text-muted: #5b6472;
+  --color-text-faint: #8992a1;
+
+  --color-accent: #0f766e;
+  --color-accent-hover: #0b5e58;
   --color-accent-contrast: #ffffff;
-  --color-accent-subtle: #eff6ff;
+  --color-accent-subtle: #e6f5f3;
+  --color-accent-2: #6d28d9;
+  --color-accent-2-subtle: #f2ecfd;
+  --gradient-accent: linear-gradient(135deg, #0f766e 0%, #4c3fc9 60%, #6d28d9 100%);
 
-  --color-danger: #dc2626;
+  --color-success: #15803d;
+  --color-success-surface: #ecfdf3;
+  --color-warning: #b45309;
+  --color-warning-surface: #fef6e7;
+  --color-danger: #b91c1c;
   --color-danger-surface: #fef2f2;
+
+  --color-focus-ring: #0f766e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0b0f19;
-    --color-surface: #111827;
-    --color-surface-hover: #1f2937;
-    --color-text: #f3f4f6;
-    --color-text-muted: #9ca3af;
-    --color-border: #374151;
+    --color-bg: #0a0d13;
+    --color-bg-raised: #10141c;
+    --color-surface: #111621;
+    --color-surface-alt: #171d29;
+    --color-surface-hover: #1d2431;
+    --color-border: #232b3a;
+    --color-border-strong: #313c4f;
 
-    --color-accent: #60a5fa;
-    --color-accent-hover: #3b82f6;
-    --color-accent-contrast: #0b0f19;
-    --color-accent-subtle: #1e293b;
+    --color-text: #e8ebf1;
+    --color-text-muted: #99a1b1;
+    --color-text-faint: #6b7385;
 
+    --color-accent: #2dd4bf;
+    --color-accent-hover: #5eead4;
+    --color-accent-contrast: #04201c;
+    --color-accent-subtle: #0f2925;
+    --color-accent-2: #a78bfa;
+    --color-accent-2-subtle: #221b3d;
+    --gradient-accent: linear-gradient(135deg, #2dd4bf 0%, #8b7ef0 60%, #a78bfa 100%);
+
+    --color-success: #4ade80;
+    --color-success-surface: #10241a;
+    --color-warning: #f5a524;
+    --color-warning-surface: #2a2013;
     --color-danger: #f87171;
     --color-danger-surface: #2a1414;
+
+    --color-focus-ring: #2dd4bf;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.65);
   }
+}
+
+/* Subtle dot-grid texture — a web3-landing-page signature, kept faint so
+   it reads as "precision network" rather than decoration. Applied per-page
+   via .dot-grid, not globally, so plain UI screens stay clean. */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   background: var(--color-bg);
   color: var(--color-text);
 }
 
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+}
+
 h1 {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--text-3xl);
+}
+h2 {
+  font-size: var(--text-2xl);
+}
+h3 {
+  font-size: var(--text-lg);
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
 }
 
 a {
   color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+small {
+  color: var(--color-text-faint);
+  font-size: var(--text-sm);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* Reusable content container — auth/dashboard pages use this for a
+   readable measure; HomePage builds its own full-bleed sections instead. */
+.container {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-6);
+}
+
+/* Reusable elevated surface — used for the auth card and, sparingly,
+   dashboard summary panels. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-8);
+}
+
+.authContainer {
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-6);
+}
+
+.authFootnote {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.statusPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2);
+  margin-bottom: var(--space-4);
 }

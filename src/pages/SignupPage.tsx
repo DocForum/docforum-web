@@ -5,17 +5,17 @@ export function SignupPage() {
   const navigate = useNavigate();
 
   return (
-    <div>
-      <h1>Create your account</h1>
-      <SignupForm onSuccess={() => navigate('/', { replace: true })} />
-      <p>
+    <div className="authContainer">
+      <div className="card">
+        <h1>Create your account</h1>
+        <p>Search doctors by specialty, book a slot, and keep every referral and order in one thread.</p>
+        <SignupForm onSuccess={() => navigate('/', { replace: true })} />
+      </div>
+      <p className="authFootnote">
         Already have an account? <Link to="/login">Log in</Link>
-      </p>
-      <p>
-        <small>
-          Signing up as a lab or pharmacy? Facility accounts are set up by an admin — contact your
-          DocForum partner representative.
-        </small>
+        <br />
+        Signing up as a lab or pharmacy? Facility accounts are admin-invited — contact your DocForum
+        partner representative.
       </p>
     </div>
   );

@@ -8,9 +8,12 @@ export function PatientDashboardPage() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <div>
-      <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
-      <p>Doctor search, booking, and your appointments will live here — see ROADMAP.md Phase W2.</p>
+    <div className="container">
+      <div className="card">
+        <span className="statusPill">Phase W2 · in progress</span>
+        <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
+        <p>Doctor search, booking, and your appointments will live here — see ROADMAP.md Phase W2.</p>
+      </div>
     </div>
   );
 }

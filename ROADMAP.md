@@ -69,3 +69,13 @@ real API" (no refresh-on-reload flow).
   pointed at it, and `api-client.ts` sends `credentials: 'include'`
   (required for the cross-site refresh cookie). Signup/login verified
   working end-to-end against the live Pages URL.
+- 2026-09-14 — Visual design refactor (no functional/phase change):
+  full design-token rewrite in `global.css` (typography, color, spacing,
+  radius, shadow scales), Space Grotesk/Inter/IBM Plex Mono, a
+  hexagon-plus-pulse-line logo mark, and matching CSS Module updates
+  across `Button`/`TextField`/`FormError`/`RoleSelect`/`Layout`. `HomePage`
+  rewritten as a real landing page. No `frontend-design` skill exists to
+  install (checked — not a real available skill); done directly. **Not
+  visually verified in a browser this session** — no browser tool was
+  available (see chat). Typecheck/tests/build all pass; confirm the
+  rendered result at the live Pages URL.
