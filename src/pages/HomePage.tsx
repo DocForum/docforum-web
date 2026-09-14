@@ -50,7 +50,7 @@ export function HomePage() {
           {THREAD.map((step, i) => (
             <li key={step.label} className={styles.threadStep}>
               <div className={styles.threadNode}>
-                <span className={styles.threadDot} />
+                <span className={styles.threadDot} data-final={i === THREAD.length - 1} />
                 {i < THREAD.length - 1 && <span className={styles.threadLine} />}
               </div>
               <h3>{step.label}</h3>

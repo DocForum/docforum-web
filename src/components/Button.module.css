@@ -9,9 +9,8 @@
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: filter 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
 .button:active:not(:disabled) {
@@ -24,14 +23,12 @@
 }
 
 .primary {
-  background: var(--gradient-accent);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
-  box-shadow: var(--shadow-sm);
 }
 
 .primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  box-shadow: var(--shadow-md);
+  background: var(--color-accent-hover);
 }
 
 .secondary {

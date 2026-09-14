@@ -24,11 +24,10 @@
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: var(--text-lg);
   color: var(--color-text);
   text-decoration: none;
-  letter-spacing: -0.01em;
 }
 .brand:hover {
   text-decoration: none;
@@ -56,15 +55,14 @@
   align-items: center;
   padding: 0.6rem 1.125rem;
   border-radius: var(--radius-sm);
-  background: var(--gradient-accent);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-size: var(--text-sm);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  transition: filter 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 .navCta:hover {
-  filter: brightness(1.08);
+  background: var(--color-accent-hover);
   text-decoration: none;
 }
 

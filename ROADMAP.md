@@ -93,3 +93,35 @@ real API" (no refresh-on-reload flow).
   product's own core flow, genuinely sequential), dropped the unused IBM
   Plex Mono webfont. Saved the checklist to memory
   (`frontend_design_tells.md`) for future design work.
+- 2026-09-14 — Properly installed `frontend-design@claude-plugins-official`
+  via `claude plugin install` (the real plugin mechanism — supersedes the
+  manual `~/.claude/skills/frontend-design/` copy above, which was
+  removed). Also manually installed `Leonxlnx/taste-skill`'s
+  `taste-skill` skill at `~/.claude/skills/design-taste-frontend/`
+  (`npx`/`bunx skills add` both fail in this environment — Node 20.10.0
+  lacks `util.styleText`, added in Node 20.12+ — so fetched the file
+  directly instead; verified the repo/script/content first, same as the
+  frontend-design checks).
+
+  Applied that skill's process (brief inference → dials → solid palette →
+  typography → layout) to a full redesign, per explicit direction: no
+  gradients, solid colors, web3 × **hospitality** (not medical this
+  time — read as warmth/welcome, not clinical). New palette is solid pine
+  green (`--color-accent`, trust/value) + warm brass (`--color-accent-2`,
+  hospitality metal + web3 store-of-value) over warm porcelain/espresso
+  neutrals — replaces the teal/violet gradient pair entirely, in every
+  component (`Button`, nav CTA, hero CTA, the logo mark, the thread
+  diagram's connecting line — all were gradient-filled, none are now).
+  Typography swapped from Space Grotesk/Inter to Fraunces (warm serif —
+  the hospitality half) + IBM Plex Sans (precise grotesk — the web3
+  half), a more deliberate pairing than the previous tech-startup default.
+  Hero layout switched from centered to left-aligned/editorial — taste-
+  skill and the official skill both flag centered-hero-with-accent as the
+  generic default treatment. Logo mark redrawn: was a filled hexagon with
+  a literal medical pulse-line (too on-the-nose for "medical," and
+  gradient-filled); now an outlined hexagon (hospitality threshold / web3
+  node) around a three-point connected path, matching the thread
+  metaphor, ending in a solid brass point where the redesign puts
+  "this is where value settles." Not visually verified in a browser this
+  session (still no browser tool available) — typecheck/tests/build all
+  pass; confirm the rendered result at the live Pages URL.
