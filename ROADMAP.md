@@ -164,3 +164,33 @@ real API" (no refresh-on-reload flow).
   for those users) and still only runs while the section is actually on
   screen — the `IntersectionObserver` now play()/pause()s the loop
   instead of firing once, so it doesn't spend cycles off-screen.
+- 2026-09-14 — Loading UX pass, three gaps addressed:
+  - **Pre-hydration shell**: `index.html` had nothing but `<div
+    id="root">` — blank white page for however long the JS bundle
+    (~126KB gzip, now including GSAP) takes to download/parse/run. Added
+    a static HTML/CSS-only loading shell (brand mark + "Loading
+    DocForum…", pulse animation) inside `#root`, using `var(--color-*,
+    fallback)` so it's styled correctly independent of the app's own
+    stylesheet load order. React's `createRoot().render()` replaces it
+    automatically — no cleanup script needed.
+  - **Cold-start-aware auth loading**: docforum-core's Render deployment
+    (free tier, `docs/adr/0003-render-preview-deployment.md`) spins down
+    after 15 minutes idle — first request after that can take up to
+    ~a minute. Added `useSlowRequestHint(isPending, delayMs=4000)`
+    (`src/hooks/`, finally has real content — placeholder README
+    removed): past 4s of a pending login/signup, shows "the server may
+    be waking up... this can take up to a minute" instead of leaving a
+    spinner with no explanation indistinguishable from "broken."
+  - **`Button` gained a proper `loading` prop** (spinner + `aria-busy`,
+    implicitly disabled) — new `Spinner` component (`src/components/`,
+    functional motion exempted from the restrained-motion default since
+    it communicates real state, but still slows under
+    `prefers-reduced-motion` rather than freezing). Replaces manual
+    `disabled={mutation.isPending}` text-only toggling on
+    login/signup/logout buttons.
+
+  New tests: `Button.test.tsx` (loading/disabled states),
+  `useSlowRequestHint.test.ts` (timing behavior — real timers + small
+  delays, not `vi.useFakeTimers()`, which hangs Testing Library's
+  auto-cleanup in this environment). 21/21 tests, typecheck, and build
+  all pass.

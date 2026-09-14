@@ -230,6 +230,21 @@ code,
   color: var(--color-text-muted);
 }
 
+/* Shown once a request has been pending long enough that it's probably
+   the Render free-tier backend cold-starting, not a hang — see
+   useSlowRequestHint. */
+.slowHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 0.625rem 0.875rem;
+  margin: 0 0 var(--space-4);
+}
+
 .statusPill {
   display: inline-block;
   font-size: var(--text-xs);

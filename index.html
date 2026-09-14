@@ -11,9 +11,71 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Pre-hydration loading shell — the JS bundle (React + GSAP,
+         ~126KB gzipped) has to download, parse, and run before anything
+         else can paint. Pure CSS/HTML, deliberately independent of the
+         app's own stylesheet load timing: falls back to the real brand
+         colors via var(..., #fallback) rather than assuming
+         src/styles/global.css has applied yet. Removed automatically —
+         React's createRoot(...).render() replaces #root's children, it
+         isn't torn down by any script here. */
+      #app-loading {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: var(--color-bg, #faf6f0);
+      }
+      #app-loading svg {
+        animation: app-loading-pulse 1.4s ease-in-out infinite;
+      }
+      #app-loading span {
+        font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+        font-size: 0.8125rem;
+        color: var(--color-text-faint, #8c8271);
+      }
+      @keyframes app-loading-pulse {
+        0%,
+        100% {
+          opacity: 0.45;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading svg {
+          animation: none;
+          opacity: 0.75;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-loading" role="status" aria-label="Loading DocForum">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <path
+            d="M16 2.5 L28 9.25 V22.75 L16 29.5 L4 22.75 V9.25 Z"
+            stroke="var(--color-accent, #1f4d3a)"
+            stroke-width="1.75"
+          />
+          <path
+            d="M9 20 L14 12 L19 17 L24 11"
+            stroke="var(--color-accent, #1f4d3a)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          />
+          <circle cx="24" cy="11" r="2" fill="var(--color-accent-2, #a6763d)" />
+        </svg>
+        <span>Loading DocForum…</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

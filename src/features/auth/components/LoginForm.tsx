@@ -3,7 +3,9 @@ import type { FormEvent } from 'react';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { Spinner } from '../../../components/Spinner';
 import { useLogin } from '../hooks/useLogin';
+import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { validateEmail, validatePassword, type FieldErrors } from '../validation';
 import { ApiError } from '../../../services/api-client';
 
@@ -16,6 +18,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const loginMutation = useLogin();
+  const isSlow = useSlowRequestHint(loginMutation.isPending);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,6 +43,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} noValidate>
       <FormError message={submitError} />
+      {isSlow && (
+        <p className="slowHint" role="status">
+          <Spinner size={14} />
+          Still working — the server may be waking up after being idle. This can take up to a
+          minute.
+        </p>
+      )}
       <TextField
         label="Email"
         type="email"
@@ -56,7 +66,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
       />
-      <Button type="submit" disabled={loginMutation.isPending}>
+      <Button type="submit" loading={loginMutation.isPending}>
         {loginMutation.isPending ? 'Logging in…' : 'Log in'}
       </Button>
     </form>

@@ -25,8 +25,8 @@ export function Layout() {
                   {user.role}
                 </span>
               </span>
-              <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-                Log out
+              <Button variant="secondary" onClick={() => logoutMutation.mutate()} loading={logoutMutation.isPending}>
+                {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
               </Button>
             </>
           ) : (

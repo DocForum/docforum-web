@@ -46,6 +46,8 @@ here (see [`ARCHITECTURE_ESSENTIALS.md` hard rule 1](ARCHITECTURE_ESSENTIALS.md#
 | Build tool | Vite |
 | Server state | React Query — always refetch/cache against `docforum-core`'s API, never hand-roll persistence for server-derived data |
 | Client state | Zustand — client-only UI state |
+| Typography | Fraunces (display) + IBM Plex Sans (body/UI) |
+| Animation | GSAP core — two deliberate moments (logo + HomePage thread diagram), not applied broadly; `prefers-reduced-motion` respected throughout |
 
 ## Core flows
 
@@ -68,7 +70,7 @@ src/
   components/       Shared, reusable UI (Button, TextField, FormError, Layout, RequireAuth route guard)
   features/
     auth/           Phase W1 — LoginForm/SignupForm/RoleSelect, useLogin/useSignup/useLogout, validation
-  hooks/            Shared React hooks (none yet — empty until a cross-feature hook exists)
+  hooks/            Shared React hooks (useSlowRequestHint — cold-start-aware loading UX)
   services/         API client calls to docforum-core (api-client.ts, auth-service.ts)
   store/            Zustand client-state stores (auth-store.ts — in-memory only, never persisted)
   styles/           Design tokens / global styles (light + dark via prefers-color-scheme)
@@ -90,7 +92,7 @@ npm run dev        # → http://localhost:5173
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
-| `npm test` | Runs the vitest suite (14 tests today) |
+| `npm test` | Runs the vitest suite (21 tests today) |
 | `npm run typecheck` | `tsc -b --noEmit` only |
 
 All four are real and verified working — the app shell, routing, and

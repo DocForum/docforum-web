@@ -3,8 +3,10 @@ import type { FormEvent } from 'react';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { Spinner } from '../../../components/Spinner';
 import { RoleSelect } from './RoleSelect';
 import { useSignup } from '../hooks/useSignup';
+import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { validateEmail, validateFullName, validatePassword, type FieldErrors } from '../validation';
 import { ApiError } from '../../../services/api-client';
 import type { SelfServeRole } from '../../../types/models';
@@ -20,6 +22,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const signupMutation = useSignup();
+  const isSlow = useSlowRequestHint(signupMutation.isPending);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,6 +48,13 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   return (
     <form onSubmit={handleSubmit} noValidate>
       <FormError message={submitError} />
+      {isSlow && (
+        <p className="slowHint" role="status">
+          <Spinner size={14} />
+          Still working — the server may be waking up after being idle. This can take up to a
+          minute.
+        </p>
+      )}
       <RoleSelect value={role} onChange={setRole} />
       <TextField
         label="Full name"
@@ -69,7 +79,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
       />
-      <Button type="submit" disabled={signupMutation.isPending}>
+      <Button type="submit" loading={signupMutation.isPending}>
         {signupMutation.isPending ? 'Creating account…' : 'Create account'}
       </Button>
     </form>
