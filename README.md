@@ -4,6 +4,11 @@
 ![Status](https://img.shields.io/badge/status-Phase%20W1-yellow.svg)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20TypeScript%20%2B%20Vite-61DAFB.svg)
 
+**🔗 [Live UI preview](https://docforum.github.io/docforum-web/)** — deployed
+from `main` on every push. **Preview only:** `docforum-core` has no
+implemented API yet, so login/signup won't actually work — see
+[Getting started](#getting-started).
+
 **Frontend for DocForum** — the patient/doctor/facility web client for the
 booking → referral → prescription/lab-order → fulfillment flow described in
 [`docforum-core`'s `PRD.md`](https://github.com/DocForum/docforum-core/blob/main/PRD.md).

@@ -33,6 +33,20 @@ those first if you're new to the org, not just this file.
   localStorage/sessionStorage above; it applies to auth tokens too, not
   just business data.
 
+## Deployment
+- GitHub Pages, deployed on every push to `main` via
+  `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
+- **UI preview only.** `docforum-core` has no implemented API, so
+  login/signup will fail against a real server — see "Known assumptions"
+  below.
+- Router is `HashRouter`, not `BrowserRouter` — GitHub Pages has no
+  server-side rewrite for client-side routes, so a deep link like `/login`
+  would 404 on refresh under history-API routing. Switch back to
+  `BrowserRouter` if this ever deploys somewhere with a real rewrite rule
+  (e.g. behind `docforum-core` itself, or Vercel/Netlify).
+- `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
+  `npm run build:pages`) — plain `npm run build` still serves from `/`.
+
 ## Known assumptions (Phase W1 — reconcile once docforum-core has real routes)
 - `src/services/api-client.ts` / `auth-service.ts` assume `docforum-core`
   exposes `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
