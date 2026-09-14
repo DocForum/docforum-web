@@ -236,3 +236,15 @@ real API" (no refresh-on-reload flow).
   `docforum-escrow` publishing its SDK — two layers of "no real contract
   to build against yet," so no issue was opened for it. All checklist
   items above updated to link to their issues.
+- 2026-09-14 — Replaced the placeholder `.github/workflows/ci.yml`
+  (`pull_request`-only, `echo "TODO"`, never once run — this repo's
+  existing `deploy-pages.yml` was the only workflow that ever actually
+  ran) with a real one: `typecheck` → `test` → `build`, on push to
+  `main` and on PRs. Verified locally first (21/21 tests, typecheck, and
+  build all pass) and confirmed green in Actions. Companion fix applied
+  identically in `docforum-core` (issue #21) and, separately, already
+  done in `docforum-escrow` — all three org repos now run their real
+  checks in CI instead of a stub, done ahead of the `docforum-escrow`
+  Drips Wave application so any repo a reviewer or contributor lands on
+  looks actively maintained. No lint script exists in this repo's
+  `package.json` yet, so this doesn't include one.
