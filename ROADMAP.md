@@ -3,9 +3,11 @@
 > Update this file on every contribution that starts/completes/blocks an
 > item below — same rule as the rest of the org, see `AGENTS.md`.
 
-**Status: Phase W1 built (UI + client-side auth flow), not integration-tested
-against a real API since `docforum-core` doesn't have one yet. Deployed as
-a UI preview: https://docforum.github.io/docforum-web/**
+**Status: Phase W1 built (UI + client-side auth flow). `docforum-core`'s
+API now exists (its Phase 1) but this repo hasn't been wired up against a
+live instance yet — see `ARCHITECTURE_ESSENTIALS.md` "Known gaps against
+the real API" for what's missing (`credentials: 'include'`, no refresh-on-
+reload flow). Deployed as a UI preview: https://docforum.github.io/docforum-web/**
 
 ## Phase W1 — Shell & auth
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React

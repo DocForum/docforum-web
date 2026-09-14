@@ -47,21 +47,27 @@ those first if you're new to the org, not just this file.
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
 
-## Known assumptions (Phase W1 — reconcile once docforum-core has real routes)
-- `src/services/api-client.ts` / `auth-service.ts` assume `docforum-core`
-  exposes `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
-  returning `{ user, accessToken }`, and an error envelope of
-  `{ message: string }`. None of this is confirmed — `docforum-core`'s
-  `docs/api/README.md` says "No API implemented yet." Update both files
-  (and this note) once the real contract exists.
-- `User`/`PatientProfile`/`DoctorProfile`/`FacilityProfile` in
-  `src/types/models.ts` include a `fullName`/`name` field that doesn't
-  exist in `docforum-core`'s `schema.prisma` yet (still Phase 1, field-sparse).
-  Signup needs *some* name field; flagged rather than silently assumed.
-- Self-serve signup only offers `patient`/`doctor` roles
-  (`SelfServeRole` in `src/types/models.ts`) — facility accounts are
-  admin-invited only per PRD OQ-2. See `ROADMAP.md` Phase W1 for the
-  corrected wording.
+## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
+`docforum-core` now has a real, tested API — see its `docs/api/README.md`.
+Good news: the original W1 assumptions here turned out correct
+(`POST /auth/signup`/`login`/`logout`, `{ user, accessToken }`,
+`{ message: string }` error envelope, `fullName` is a real column,
+`role` restricted to `patient`/`doctor` at signup — server-enforced too,
+not just this UI). Two real gaps, not yet fixed here:
+- **`credentials: 'include'` is missing from `api-client.ts`'s `fetch`
+  call.** The real backend sets the refresh token as an httpOnly cookie —
+  without this, the cookie is never sent/received and refresh silently
+  can't work. One-line fix, not yet made.
+- **`POST /auth/refresh` exists on the backend but nothing here calls
+  it.** `auth-store.ts` still has no silent-reauth-on-reload flow — a
+  page refresh loses the session even though the refresh cookie would
+  still be valid. Tracked, not built (Phase W1 was scoped to
+  signup/login only).
+- Local-dev-only caveat inherited from the backend: its refresh cookie is
+  `sameSite: 'lax'`/`secure: false`, which may not survive true
+  cross-origin (different ports) `fetch` + `credentials: 'include'` in
+  every browser — not verified end-to-end. See `docforum-core`'s
+  `docs/api/README.md`.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
