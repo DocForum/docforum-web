@@ -194,3 +194,7 @@ real API" (no refresh-on-reload flow).
   delays, not `vi.useFakeTimers()`, which hangs Testing Library's
   auto-cleanup in this environment). 21/21 tests, typecheck, and build
   all pass.
+- 2026-09-14 — Added `.github/ISSUE_TEMPLATE/bug_report.md` (identical
+  copy across all three org repos — see `docforum-core`'s changelog for
+  the sourcing note: a user-supplied bug-report structure plus
+  drips.network's "Creating Meaningful Issues" guide).
