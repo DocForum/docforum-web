@@ -1,7 +1,7 @@
 # docforum-web
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
-![Status](https://img.shields.io/badge/status-pre--implementation-yellow.svg)
+![Status](https://img.shields.io/badge/status-Phase%20W1-yellow.svg)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20TypeScript%20%2B%20Vite-61DAFB.svg)
 
 **Frontend for DocForum** — the patient/doctor/facility web client for the
@@ -47,7 +47,7 @@ of `docforum-core`'s original (pre-split) Phase 7:
 
 | Phase | Flow |
 |---|---|
-| W1 | Shell & auth — signup/login per role (patient / doctor / facility) |
+| W1 ✅ | Shell & auth — signup (patient/doctor self-serve; facility is admin-invited, PRD OQ-2) + login for all three roles |
 | W2 | Patient core flow — doctor search, booking + intake, appointments, referral accept/decline, orders + facility selection |
 | W3 | Doctor core flow — today's appointments/intake, consultation screen (notes, outcome, referral/order issuance) |
 | W4 | Facility core flow — fulfillment queue, mark fulfilled/rejected, attach lab results |
@@ -57,31 +57,46 @@ of `docforum-core`'s original (pre-split) Phase 7:
 
 ```
 src/
-  pages/        Route-level components
-  components/   Shared, reusable UI
-  features/     Flow-specific logic — one folder per PRD core flow (booking, referral-accept, order-fulfillment selection, ...)
-  hooks/        Shared React hooks
-  services/     API client calls to docforum-core
-  store/        Zustand client-state stores
-  styles/       Design tokens / global styles
-  types/        Mirrors docforum-core's data-model shapes — never invent parallel frontend-only shapes for the same entities
-.github/        CI workflow, issue/PR templates
+  pages/            Route-level components (Home, Login, Signup, role dashboards, 404)
+  components/       Shared, reusable UI (Button, TextField, FormError, Layout, RequireAuth route guard)
+  features/
+    auth/           Phase W1 — LoginForm/SignupForm/RoleSelect, useLogin/useSignup/useLogout, validation
+  hooks/            Shared React hooks (none yet — empty until a cross-feature hook exists)
+  services/         API client calls to docforum-core (api-client.ts, auth-service.ts)
+  store/            Zustand client-state stores (auth-store.ts — in-memory only, never persisted)
+  styles/           Design tokens / global styles (light + dark via prefers-color-scheme)
+  types/            Mirrors docforum-core's data-model shapes — never invent parallel frontend-only shapes for the same entities
+  test/             Shared test setup + a custom render() wrapping providers
+.github/            CI workflow, issue/PR templates
 ```
 
 ## Getting started
-
-> **Honest status:** this repo is scaffolded, not runnable yet — `npm run
-> dev`/`build`/`test` are placeholders. It's blocked on `docforum-core`
-> having real, callable API endpoints (that repo's Phase 1/2).
 
 ```bash
 git clone https://github.com/DocForum/docforum-web.git
 cd docforum-web
 npm install
+npm run dev        # → http://localhost:5173
 ```
 
-What's real today: the `src/` folder structure above, a placeholder
-`App.tsx`/`main.tsx`, and `index.html`. There is no dev server to run yet.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
+| `npm test` | Runs the vitest suite (14 tests today) |
+| `npm run typecheck` | `tsc -b --noEmit` only |
+
+All four are real and verified working — the app shell, routing, and
+Phase W1 auth screens render and build cleanly.
+
+**One important caveat:** [`docforum-core`](https://github.com/DocForum/docforum-core)
+has no implemented API yet (Phase 1 not started there), so
+`src/services/api-client.ts`/`auth-service.ts` are built against a
+**documented assumption** of what the auth endpoints will look like, not
+a confirmed contract — see
+[`ARCHITECTURE_ESSENTIALS.md` "Known assumptions"](ARCHITECTURE_ESSENTIALS.md#known-assumptions-phase-w1--reconcile-once-docforum-core-has-real-routes).
+Signing in against a real backend hasn't been tested; set
+`VITE_API_BASE_URL` (see `.env.example`) once one exists.
 
 ## Documentation
 
@@ -93,8 +108,11 @@ What's real today: the `src/` folder structure above, a placeholder
 
 ## Project status
 
-**Not started.** Blocked on `docforum-core` exposing real, callable API
-endpoints. Full breakdown: [`ROADMAP.md`](ROADMAP.md).
+**Phase W1 (shell & auth) built and verified** — dev server, build, and
+test suite all work; UI and client-side auth flow are real. **Phases
+W2–W5 (patient/doctor/facility core flows, payments UI) are not started**
+and are blocked on `docforum-core` exposing real, callable API endpoints
+(its Phase 1/2). Full breakdown: [`ROADMAP.md`](ROADMAP.md).
 
 ## Contributing
 
