@@ -125,3 +125,30 @@ real API" (no refresh-on-reload flow).
   "this is where value settles." Not visually verified in a browser this
   session (still no browser tool available) — typecheck/tests/build all
   pass; confirm the rendered result at the live Pages URL.
+- 2026-09-14 — Applied `gsap-core` and `svg-animations` (installed
+  earlier) to two places, deliberately not "everywhere" — motion stays
+  restrained (trust-first territory) and tied to what the marks already
+  represent, per both design skills' "spend boldness in one place"
+  guidance:
+  - **Logo** (`Layout` header, mounts once): the three-point path now
+    draws itself in via `stroke-dasharray`/`stroke-dashoffset` (the
+    svg-animations path-drawing technique), dots popping in as the line
+    reaches them, GSAP-driven and timed.
+  - **HomePage thread diagram**: connector lines are now real SVG
+    `<line>` elements (were CSS-colored `<div>`s) that draw themselves
+    left to right as the section scrolls into view — the diagram extends
+    the same way the thread it represents does. Triggered by a plain
+    `IntersectionObserver` (no ScrollTrigger plugin — not installed, core
+    GSAP only), plays once. Hero headline/subhead/CTA also get one
+    staggered fade-up entrance on mount — a single reveal, not scattered
+    per-section effects.
+
+  Both wrapped in `gsap.matchMedia('(prefers-reduced-motion: no-preference)')`
+  — reduced-motion users get the finished state immediately, no animation,
+  per the official skill's accessibility floor. Added `gsap` as a real
+  dependency (+~29KB gzip to the bundle — 97KB → 126KB). Typecheck, all
+  14 tests, and build all pass. Not visually verified in a browser this
+  session (still no browser tool available) — the animation-specific risk
+  here is real (SVG geometry APIs, timing, matchMedia behavior are all
+  much harder to fully trust from code review alone than static CSS was)
+  — please actually look at this one before trusting it.

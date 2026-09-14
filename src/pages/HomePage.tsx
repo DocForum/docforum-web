@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
+import { gsap } from 'gsap';
 import { useAuthStore } from '../store/auth-store';
 import styles from './HomePage.module.css';
 
@@ -21,6 +23,80 @@ const THREAD = [
 export function HomePage() {
   const user = useAuthStore((state) => state.user);
 
+  const heroRef = useRef<HTMLElement>(null);
+  const threadSectionRef = useRef<HTMLElement>(null);
+  const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
+  const lineRefs = useRef<(SVGLineElement | null)[]>([]);
+
+  // Hero: one orchestrated entrance on mount — headline, then subhead, then
+  // the CTAs. A single reveal, not per-section scroll effects scattered
+  // down the page.
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        const targets = hero.querySelectorAll('[data-reveal]');
+        gsap.set(targets, { opacity: 0, y: 14 });
+        gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
+      });
+      return () => mm.revert();
+    }, hero);
+
+    return () => ctx.revert();
+  }, []);
+
+  // Thread: each connector line draws itself in, left to right, and the
+  // node at its far end pops as it arrives — the diagram extends the way
+  // the thread it represents does. Triggered on scroll-into-view (a plain
+  // IntersectionObserver, not the ScrollTrigger plugin — not installed;
+  // core GSAP only), and only once.
+  useEffect(() => {
+    const section = threadSectionRef.current;
+    if (!section) return;
+
+    const ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+        const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+
+        gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+        lines.forEach((line) => {
+          const length = line.getTotalLength();
+          gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+        });
+
+        const play = () => {
+          const tl = gsap.timeline();
+          tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+          lines.forEach((line, i) => {
+            tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
+            tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
+          });
+        };
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            if (entries[0]?.isIntersecting) {
+              play();
+              observer.disconnect();
+            }
+          },
+          { threshold: 0.3 },
+        );
+        observer.observe(section);
+
+        return () => observer.disconnect();
+      });
+      return () => mm.revert();
+    }, section);
+
+    return () => ctx.revert();
+  }, []);
+
   if (user) {
     const destination = DASHBOARD_BY_ROLE[user.role];
     if (destination) return <Navigate to={destination} replace />;
@@ -28,14 +104,16 @@ export function HomePage() {
 
   return (
     <div>
-      <section className={styles.hero}>
-        <h1 className={styles.headline}>The hospital visit, collapsed into one thread.</h1>
-        <p className={styles.subhead}>
+      <section className={styles.hero} ref={heroRef}>
+        <h1 className={styles.headline} data-reveal>
+          The hospital visit, collapsed into one thread.
+        </h1>
+        <p className={styles.subhead} data-reveal>
           A symptom becomes a booking, a referral, a structured order, and a settled fulfillment —
           without the patient repeating themselves at every desk, and without a facility getting
           paid until the work is actually confirmed done.
         </p>
-        <div className={styles.ctaRow}>
+        <div className={styles.ctaRow} data-reveal>
           <Link to="/signup" className={styles.ctaPrimary}>
             Get started
           </Link>
@@ -45,18 +123,45 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className={styles.thread} aria-label="How a visit flows through DocForum">
+      <section className={styles.thread} aria-label="How a visit flows through DocForum" ref={threadSectionRef}>
         <ol className={styles.threadList}>
-          {THREAD.map((step, i) => (
-            <li key={step.label} className={styles.threadStep}>
-              <div className={styles.threadNode}>
-                <span className={styles.threadDot} data-final={i === THREAD.length - 1} />
-                {i < THREAD.length - 1 && <span className={styles.threadLine} />}
-              </div>
-              <h3>{step.label}</h3>
-              <p>{step.body}</p>
-            </li>
-          ))}
+          {THREAD.map((step, i) => {
+            const isFinal = i === THREAD.length - 1;
+            return (
+              <li key={step.label} className={styles.threadStep}>
+                <div className={styles.threadNode}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" className={styles.threadDotSvg}>
+                    <circle
+                      ref={(el) => {
+                        dotRefs.current[i] = el;
+                      }}
+                      cx="7"
+                      cy="7"
+                      r={isFinal ? 6.5 : 5}
+                      fill={isFinal ? 'var(--color-accent-2)' : 'var(--color-accent)'}
+                    />
+                  </svg>
+                  {!isFinal && (
+                    <svg className={styles.threadLineSvg} height="2" preserveAspectRatio="none">
+                      <line
+                        ref={(el) => {
+                          lineRefs.current[i] = el;
+                        }}
+                        x1="0"
+                        y1="1"
+                        x2="100%"
+                        y2="1"
+                        stroke="var(--color-accent)"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <h3>{step.label}</h3>
+                <p>{step.body}</p>
+              </li>
+            );
+          })}
         </ol>
       </section>
     </div>

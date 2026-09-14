@@ -97,24 +97,16 @@
   margin-bottom: var(--space-4);
 }
 
-.threadDot {
-  width: 10px;
-  height: 10px;
+.threadDotSvg {
   flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--color-accent);
-}
-.threadDot[data-final='true'] {
-  width: 13px;
-  height: 13px;
-  background: var(--color-accent-2);
+  overflow: visible;
 }
 
-.threadLine {
+.threadLineSvg {
   flex: 1;
-  height: 2px;
+  width: 100%;
   margin-left: var(--space-2);
-  background: var(--color-border-strong);
+  overflow: visible;
 }
 
 @media (max-width: 760px) {
@@ -128,7 +120,7 @@
     gap: var(--space-6);
   }
 
-  .threadLine {
+  .threadLineSvg {
     display: none;
   }
 }
