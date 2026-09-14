@@ -152,3 +152,15 @@ real API" (no refresh-on-reload flow).
   here is real (SVG geometry APIs, timing, matchMedia behavior are all
   much harder to fully trust from code review alone than static CSS was)
   — please actually look at this one before trusting it.
+- 2026-09-14 — Thread diagram now loops continuously (explicit user
+  request — overrides the "single reveal, not scattered/repeated
+  effects" default both design skills recommend, which is fine per those
+  same skills: "where the brief pins down a direction, follow it
+  exactly"). The one-shot `IntersectionObserver` trigger became a
+  `gsap.timeline({repeat: -1, yoyo: true, repeatDelay: 1})`: draws in
+  (~1.7s) → holds fully drawn (~1.4s) → undraws in reverse (~1.7s) →
+  pauses (~1s) → repeats. Still gated by
+  `prefers-reduced-motion` (no animation at all, not just non-looping,
+  for those users) and still only runs while the section is actually on
+  screen — the `IntersectionObserver` now play()/pause()s the loop
+  instead of firing once, so it doesn't spend cycles off-screen.

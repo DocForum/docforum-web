@@ -50,9 +50,12 @@ export function HomePage() {
 
   // Thread: each connector line draws itself in, left to right, and the
   // node at its far end pops as it arrives — the diagram extends the way
-  // the thread it represents does. Triggered on scroll-into-view (a plain
-  // IntersectionObserver, not the ScrollTrigger plugin — not installed;
-  // core GSAP only), and only once.
+  // the thread it represents does. Then it holds, draws itself back out,
+  // and repeats — a continuous, gentle loop (draw ~1.7s, hold ~1.4s, undraw
+  // ~1.7s, pause ~1s) rather than a one-shot reveal. Runs only while the
+  // section is actually on screen (an IntersectionObserver play()/pause()s
+  // the timeline) so it doesn't spend cycles animating off-screen — core
+  // GSAP only, no ScrollTrigger plugin installed.
   useEffect(() => {
     const section = threadSectionRef.current;
     if (!section) return;
@@ -69,27 +72,27 @@ export function HomePage() {
           gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
         });
 
-        const play = () => {
-          const tl = gsap.timeline();
-          tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
-          lines.forEach((line, i) => {
-            tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
-            tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
-          });
-        };
+        const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
+        tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+        lines.forEach((line, i) => {
+          tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
+          tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
+        });
+        tl.to({}, { duration: 1.4 }); // hold fully-drawn before undrawing
 
         const observer = new IntersectionObserver(
           (entries) => {
-            if (entries[0]?.isIntersecting) {
-              play();
-              observer.disconnect();
-            }
+            if (entries[0]?.isIntersecting) tl.play();
+            else tl.pause();
           },
           { threshold: 0.3 },
         );
         observer.observe(section);
 
-        return () => observer.disconnect();
+        return () => {
+          observer.disconnect();
+          tl.kill();
+        };
       });
       return () => mm.revert();
     }, section);
