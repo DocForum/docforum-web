@@ -31,9 +31,10 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-- [ ] Doctor search (specialty + availability filter).
-- [ ] Booking + intake form.
-- [ ] My appointments list.
+**Scoped into issues #1–#3 (search, booking, appointments list). Referral/orders screens not yet scoped — blocked on docforum-core Phase 3/4 existing enough to assume a contract against.**
+- [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
+- [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
+- [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
 - [ ] Referral accept/decline screen.
 - [ ] Orders list + facility-selection screen.
 
@@ -198,3 +199,17 @@ real API" (no refresh-on-reload flow).
   copy across all three org repos — see `docforum-core`'s changelog for
   the sourcing note: a user-supplied bug-report structure plus
   drips.network's "Creating Meaningful Issues" guide).
+- 2026-09-14 — Scoped the start of Phase W2 into three real GitHub issues
+  (#1–#3): doctor search, booking + intake form, my appointments list.
+  Two of the three (search, booking) are explicitly built against a
+  **documented assumed API contract** — `docforum-core`'s Phase 2 doesn't
+  exist yet — flagged plainly in each issue rather than implied as
+  already-working; the third (appointments list) calls a real,
+  already-implemented `docforum-core` endpoint with no assumption
+  involved. Booking's issue specifically calls out handling the `409`
+  slot-taken response as a first-class case, not a generic error path —
+  that response is `docforum-core`'s actual double-booking-prevention
+  guarantee (Phase 1) surfacing at the UI layer for the first time.
+  Referral and orders screens intentionally left unscoped — not enough of
+  a real contract to assume against yet (`docforum-core` Phase 3/4 don't
+  exist). Phase W2 checklist above updated to link each item to its issue.
