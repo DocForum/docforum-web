@@ -71,11 +71,25 @@ real API" (no refresh-on-reload flow).
   working end-to-end against the live Pages URL.
 - 2026-09-14 — Visual design refactor (no functional/phase change):
   full design-token rewrite in `global.css` (typography, color, spacing,
-  radius, shadow scales), Space Grotesk/Inter/IBM Plex Mono, a
-  hexagon-plus-pulse-line logo mark, and matching CSS Module updates
-  across `Button`/`TextField`/`FormError`/`RoleSelect`/`Layout`. `HomePage`
-  rewritten as a real landing page. No `frontend-design` skill exists to
-  install (checked — not a real available skill); done directly. **Not
-  visually verified in a browser this session** — no browser tool was
-  available (see chat). Typecheck/tests/build all pass; confirm the
-  rendered result at the live Pages URL.
+  radius, shadow scales), Space Grotesk/Inter, a hexagon-plus-pulse-line
+  logo mark, and matching CSS Module updates across `Button`/`TextField`/
+  `FormError`/`RoleSelect`/`Layout`. `HomePage` rewritten as a real landing
+  page. **Not visually verified in a browser this session** — no browser
+  tool was available (see chat). Typecheck/tests/build all pass; confirm
+  the rendered result at the live Pages URL.
+- 2026-09-14 — Installed Anthropic's real official `frontend-design` skill
+  (`~/.claude/skills/frontend-design/`, verified byte-identical against
+  both `github.com/anthropics/claude-code` and
+  `github.com/anthropics/claude-plugins-official` — an unofficial
+  third-party site the user also linked pointed at a `frontend-design-2`
+  skill name that doesn't actually exist in either repo, disregarded).
+  Read its critique checklist and found the design pass above hit several
+  of its named "generic AI-design" tells almost exactly: an ALL-CAPS
+  eyebrow label, gradient-highlighted single words in the headline, a
+  monospace face used decoratively on small badges, and a 3-card grid for
+  content that's actually a sequence. Revised: dropped the eyebrow and the
+  headline word-highlighting, replaced the feature-card grid with a
+  connected "thread" diagram (book → refer → order → settle — the
+  product's own core flow, genuinely sequential), dropped the unused IBM
+  Plex Mono webfont. Saved the checklist to memory
+  (`frontend_design_tells.md`) for future design work.

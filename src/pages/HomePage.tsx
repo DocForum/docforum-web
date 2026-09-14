@@ -8,35 +8,14 @@ const DASHBOARD_BY_ROLE: Record<string, string> = {
   facility: '/facility',
 };
 
-const FEATURES = [
-  {
-    icon: (
-      <path d="M12 3 4 7v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V7l-8-4Z" strokeLinecap="round" strokeLinejoin="round" />
-    ),
-    title: 'Context that follows you',
-    body: 'A referral carries your intake and consultation notes forward — the specialist sees what the first doctor saw, so you never re-explain yourself at the next desk.',
-  },
-  {
-    icon: (
-      <>
-        <rect x="3" y="4" width="18" height="17" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M3 9h18M8 2v4M16 2v4" strokeLinecap="round" />
-      </>
-    ),
-    title: 'Availability, not guesswork',
-    body: 'Real-time slots with a database-level guarantee against double-booking — the same slot can never be given to two patients, under any load.',
-  },
-  {
-    icon: (
-      <path
-        d="M12 2 21 6v6c0 5.5-3.8 9.7-9 11-5.2-1.3-9-5.5-9-11V6l9-4Z M9 12l2 2 4-4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-    title: 'Escrow-secured fulfillment',
-    body: 'Facility payment is held in a Soroban smart-contract escrow and released only on confirmed fulfillment — not on a facility’s self-report.',
-  },
+// The content genuinely is a sequence — booking leads to referral leads to
+// an order leads to escrow-settled fulfillment — so a connected path, not
+// a grid of interchangeable cards, is the honest structural device here.
+const THREAD = [
+  { label: 'Book', body: 'Real availability, held with a database-level lock — never double-booked.' },
+  { label: 'Refer', body: 'Intake and notes travel with the referral. Nothing re-explained at the next desk.' },
+  { label: 'Order', body: 'Structured prescriptions and lab orders a pharmacy or lab can act on unambiguously.' },
+  { label: 'Settle', body: 'Facility payment sits in a Soroban escrow contract, released on confirmed fulfillment.' },
 ];
 
 export function HomePage() {
@@ -49,16 +28,12 @@ export function HomePage() {
 
   return (
     <div>
-      <section className={`${styles.hero} dot-grid`}>
-        <span className={styles.eyebrow}>Care continuity, verified on-chain fulfillment</span>
-        <h1 className={styles.headline}>
-          One continuous thread from <span className={styles.gradientText}>symptom</span> to{' '}
-          <span className={styles.gradientText}>settled order</span>.
-        </h1>
+      <section className={styles.hero}>
+        <h1 className={styles.headline}>The hospital visit, collapsed into one thread.</h1>
         <p className={styles.subhead}>
-          DocForum collapses the multi-visit, multi-queue hospital journey into a single digital
-          thread — booking, referral, prescription, and lab order, fulfilled at a qualified partner
-          facility with escrow-backed payment integrity.
+          A symptom becomes a booking, a referral, a structured order, and a settled fulfillment —
+          without the patient repeating themselves at every desk, and without a facility getting
+          paid until the work is actually confirmed done.
         </p>
         <div className={styles.ctaRow}>
           <Link to="/signup" className={styles.ctaPrimary}>
@@ -70,16 +45,19 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className={styles.features}>
-        {FEATURES.map((feature) => (
-          <article key={feature.title} className={styles.featureCard}>
-            <svg className={styles.featureIcon} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-              {feature.icon}
-            </svg>
-            <h3>{feature.title}</h3>
-            <p>{feature.body}</p>
-          </article>
-        ))}
+      <section className={styles.thread} aria-label="How a visit flows through DocForum">
+        <ol className={styles.threadList}>
+          {THREAD.map((step, i) => (
+            <li key={step.label} className={styles.threadStep}>
+              <div className={styles.threadNode}>
+                <span className={styles.threadDot} />
+                {i < THREAD.length - 1 && <span className={styles.threadLine} />}
+              </div>
+              <h3>{step.label}</h3>
+              <p>{step.body}</p>
+            </li>
+          ))}
+        </ol>
       </section>
     </div>
   );
