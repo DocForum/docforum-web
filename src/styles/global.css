@@ -1,0 +1,62 @@
+/* Design tokens. No UI library is decided in ARCHITECTURE.md — plain CSS
+   (CSS Modules per-component, tokens here) rather than pulling in a new
+   architecturally-significant dependency. Revisit if/when a design system
+   is actually chosen. */
+:root {
+  color-scheme: light dark;
+
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f3f4f6;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #d1d5db;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-contrast: #ffffff;
+  --color-accent-subtle: #eff6ff;
+
+  --color-danger: #dc2626;
+  --color-danger-surface: #fef2f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0b0f19;
+    --color-surface: #111827;
+    --color-surface-hover: #1f2937;
+    --color-text: #f3f4f6;
+    --color-text-muted: #9ca3af;
+    --color-border: #374151;
+
+    --color-accent: #60a5fa;
+    --color-accent-hover: #3b82f6;
+    --color-accent-contrast: #0b0f19;
+    --color-accent-subtle: #1e293b;
+
+    --color-danger: #f87171;
+    --color-danger-surface: #2a1414;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+a {
+  color: var(--color-accent);
+}

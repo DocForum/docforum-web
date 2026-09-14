@@ -1,0 +1,8 @@
+.error {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+}
