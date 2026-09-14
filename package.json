@@ -1,0 +1,12 @@
+{
+  "name": "dripswave-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo TODO: wire up Vite dev server (Phase 1)",
+    "build": "echo TODO",
+    "test": "echo TODO"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
