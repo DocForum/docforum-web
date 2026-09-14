@@ -3,11 +3,11 @@
 > Update this file on every contribution that starts/completes/blocks an
 > item below — same rule as the rest of the org, see `AGENTS.md`.
 
-**Status: Phase W1 built (UI + client-side auth flow). `docforum-core`'s
-API now exists (its Phase 1) but this repo hasn't been wired up against a
-live instance yet — see `ARCHITECTURE_ESSENTIALS.md` "Known gaps against
-the real API" for what's missing (`credentials: 'include'`, no refresh-on-
-reload flow). Deployed as a UI preview: https://docforum.github.io/docforum-web/**
+**Status: Phase W1 built and connected to a live backend.** The deployed
+Pages preview (https://docforum.github.io/docforum-web/) points at
+`docforum-core`'s Render deployment; signup/login work end-to-end. One
+gap remains — see `ARCHITECTURE_ESSENTIALS.md` "Known gaps against the
+real API" (no refresh-on-reload flow).
 
 ## Phase W1 — Shell & auth
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React
@@ -64,3 +64,8 @@ reload flow). Deployed as a UI preview: https://docforum.github.io/docforum-web/
   to `main`. Switched `BrowserRouter` → `HashRouter` for this (no
   server-side rewrite on Pages). Preview only — login/signup will fail
   since `docforum-core` has no live API.
+- 2026-09-14 — Connected to `docforum-core`'s new Render preview
+  deployment: `deploy-pages.yml` now builds with `VITE_API_BASE_URL`
+  pointed at it, and `api-client.ts` sends `credentials: 'include'`
+  (required for the cross-site refresh cookie). Signup/login verified
+  working end-to-end against the live Pages URL.

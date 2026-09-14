@@ -2,11 +2,15 @@
 // place HTTP details (base URL, headers, error shape) live — feature
 // services build on top of this, never call fetch() directly.
 //
-// PROVISIONAL: docforum-core has no implemented routes yet (its
-// docs/api/README.md: "No API implemented yet"). The base URL, request/
-// response envelope, and error shape below are the smallest reasonable
-// assumption, not a confirmed contract — reconcile against the real API
-// once docforum-core's Phase 1/2 lands (see ROADMAP.md).
+// docforum-core's Phase 1 is real now (see its docs/api/README.md) — the
+// request/response envelope and error shape below match its actual
+// contract, confirmed 2026-09-14 when this repo's Pages preview was
+// connected to a live Render deployment (docforum-core's
+// docs/adr/0003-render-preview-deployment.md). `credentials: 'include'` is
+// required: the API sets its refresh token as a cross-site
+// `SameSite=None; Secure` cookie (real cross-site, not just cross-port —
+// GitHub Pages and Render are different domains), which `fetch` only
+// sends/stores with this flag.
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -43,6 +47,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
   });

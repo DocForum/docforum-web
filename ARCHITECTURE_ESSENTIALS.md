@@ -36,9 +36,14 @@ those first if you're new to the org, not just this file.
 ## Deployment
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
-- **UI preview only.** `docforum-core` has no implemented API, so
-  login/signup will fail against a real server — see "Known assumptions"
-  below.
+- **Connected to a live backend as of 2026-09-14** —
+  `VITE_API_BASE_URL` is set at build time to `docforum-core`'s Render
+  preview deployment (`https://docforum-core-api.onrender.com`, see that
+  repo's `docs/adr/0003-render-preview-deployment.md`). Signup/login
+  actually work end-to-end against a real Postgres now. Still a
+  **preview**, not production: the free-tier backend spins down after 15
+  minutes idle (~1 minute cold-start delay on the next request), and its
+  Postgres expires 2026-10-14 unless renewed — data is disposable.
 - Router is `HashRouter`, not `BrowserRouter` — GitHub Pages has no
   server-side rewrite for client-side routes, so a deep link like `/login`
   would 404 on refresh under history-API routing. Switch back to
@@ -49,15 +54,15 @@ those first if you're new to the org, not just this file.
 
 ## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
 `docforum-core` now has a real, tested API — see its `docs/api/README.md`.
-Good news: the original W1 assumptions here turned out correct
-(`POST /auth/signup`/`login`/`logout`, `{ user, accessToken }`,
-`{ message: string }` error envelope, `fullName` is a real column,
-`role` restricted to `patient`/`doctor` at signup — server-enforced too,
-not just this UI). Two real gaps, not yet fixed here:
-- **`credentials: 'include'` is missing from `api-client.ts`'s `fetch`
-  call.** The real backend sets the refresh token as an httpOnly cookie —
-  without this, the cookie is never sent/received and refresh silently
-  can't work. One-line fix, not yet made.
+The original W1 assumptions here turned out correct (`POST /auth/signup`/
+`login`/`logout`, `{ user, accessToken }`, `{ message: string }` error
+envelope, `fullName` is a real column, `role` restricted to `patient`/
+`doctor` at signup — server-enforced too, not just this UI).
+`credentials: 'include'` is now set on the `fetch` call in
+`api-client.ts` (fixed 2026-09-14, alongside the Render connection — the
+real backend's refresh cookie is `SameSite=None; Secure`, cross-site
+between this repo's `github.io` domain and Render's, so it's required for
+the cookie to be sent/received at all). One gap remains:
 - **`POST /auth/refresh` exists on the backend but nothing here calls
   it.** `auth-store.ts` still has no silent-reauth-on-reload flow — a
   page refresh loses the session even though the refresh cookie would

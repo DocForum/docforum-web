@@ -1,11 +1,12 @@
-# Deploys a UI preview of this repo's current main branch to GitHub Pages.
-#
-# This is a preview only — docforum-core has no implemented API yet, so
-# anything here that calls the backend (login, signup) will fail against a
-# real server. See README.md and ARCHITECTURE_ESSENTIALS.md "Known
-# assumptions". This workflow is separate from ci.yml (still a Phase 1
-# placeholder — see ROADMAP.md) because it has a different trigger (push to
-# main, not pull_request) and a different purpose (deploy, not verify).
+# Deploys a UI preview of this repo's current main branch to GitHub Pages,
+# pointed at docforum-core's Render preview deployment (see that repo's
+# docs/adr/0003-render-preview-deployment.md). Still a preview, not
+# production: free-tier backend (cold-starts after 15min idle, Postgres
+# expires 2026-10-14 unless renewed) and free-tier disposable data — see
+# README.md and ARCHITECTURE_ESSENTIALS.md. This workflow is separate from
+# ci.yml (still a Phase 1 placeholder — see ROADMAP.md) because it has a
+# different trigger (push to main, not pull_request) and a different
+# purpose (deploy, not verify).
 name: Deploy Pages preview
 
 on:
@@ -34,6 +35,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build:pages
+        env:
+          VITE_API_BASE_URL: https://docforum-core-api.onrender.com
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

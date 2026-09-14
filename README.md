@@ -5,9 +5,11 @@
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20TypeScript%20%2B%20Vite-61DAFB.svg)
 
 **🔗 [Live UI preview](https://docforum.github.io/docforum-web/)** — deployed
-from `main` on every push. **Preview only:** `docforum-core` has no
-implemented API yet, so login/signup won't actually work — see
-[Getting started](#getting-started).
+from `main` on every push, connected to a real backend (`docforum-core`
+running on Render). Signup/login work end-to-end. **Still a preview, not
+production:** the free-tier backend cold-starts after 15 minutes idle
+(~1 minute delay on the first request) and its database expires
+2026-10-14 unless renewed — see [Getting started](#getting-started).
 
 **Frontend for DocForum** — the patient/doctor/facility web client for the
 booking → referral → prescription/lab-order → fulfillment flow described in
@@ -94,14 +96,15 @@ npm run dev        # → http://localhost:5173
 All four are real and verified working — the app shell, routing, and
 Phase W1 auth screens render and build cleanly.
 
-**One important caveat:** [`docforum-core`](https://github.com/DocForum/docforum-core)
-has no implemented API yet (Phase 1 not started there), so
-`src/services/api-client.ts`/`auth-service.ts` are built against a
-**documented assumption** of what the auth endpoints will look like, not
-a confirmed contract — see
-[`ARCHITECTURE_ESSENTIALS.md` "Known assumptions"](ARCHITECTURE_ESSENTIALS.md#known-assumptions-phase-w1--reconcile-once-docforum-core-has-real-routes).
-Signing in against a real backend hasn't been tested; set
-`VITE_API_BASE_URL` (see `.env.example`) once one exists.
+**Talking to a backend:** [`docforum-core`](https://github.com/DocForum/docforum-core)'s
+Phase 1 API is real now, confirmed against this repo's original W1
+assumptions — see [`ARCHITECTURE_ESSENTIALS.md` "Known gaps against the
+real API"](ARCHITECTURE_ESSENTIALS.md#known-gaps-against-the-real-api-docforum-core-phase-1-landed-2026-09-14).
+`npm run dev` locally defaults to `http://localhost:4000` (see
+`.env.example` — run `docforum-core`'s backend yourself to use this); the
+deployed Pages preview points at a hosted instance instead (set via
+`VITE_API_BASE_URL` in `.github/workflows/deploy-pages.yml`, not baked
+into the repo's own `.env.example`).
 
 ## Documentation
 
