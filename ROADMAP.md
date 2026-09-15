@@ -48,11 +48,24 @@ real API" (no refresh-on-reload flow).
 - [ ] Fulfillment queue. Tracked as [issue #8](https://github.com/DocForum/docforum-web/issues/8) (Medium, 150 pts).
 - [ ] Mark fulfilled/rejected, attach lab result. Folded into issue #8 above.
 
-## Phase W5 — Payments UI (depends on docforum-core Phase 5.5)
-**Deliberately left unscoped.** `docforum-core` Phase 5.5 itself is unscoped, blocked on `docforum-escrow` publishing its SDK (issues #4/#5 there, still open) — that's two layers removed from anything this repo could build against right now. Opening issues here would hand a contributor work with no real contract to assume, not even a provisional one. Revisit once `docforum-core` Phase 5.5 has its own issues.
-- [ ] Wallet link screen (calls `docforum-core` API only, per
-  `ARCHITECTURE_ESSENTIALS.md` hard rule 1 — no direct Stellar calls here).
-- [ ] Payment/escrow status display on orders.
+## Phase W5 — Payments UI
+**Built — `docforum-core` Phase 5.5 shipped for real (custodial v1, its docs/adr/0004), so the two-layer blocker (escrow-escrow SDK → docforum-core → here) cleared.** Every call from this repo goes through `docforum-core`'s real API — hard rule 1 (no direct Stellar calls here) held throughout.
+- [x] Wallet link screen (calls `docforum-core` API only, per
+  `ARCHITECTURE_ESSENTIALS.md` hard rule 1 — no direct Stellar calls
+  here). `src/features/payments/components/WalletLinkForm.tsx`, wired
+  into `FacilityDashboardPage` — a facility links the Stellar address
+  `docforum-core` pays out to.
+- [x] Payment/escrow status display — not literally "on orders" (Phase
+  4's `Prescription`/`LabOrder` don't exist yet, same reason
+  `docforum-core`'s `PaymentIntent.orderId` stays opaque), but a real,
+  functioning admin console instead: `AdminDashboardPage` at `/admin`
+  (new route, `admin`-role-gated) lets an admin create a `PaymentIntent`
+  and drive it through fund → release/refund, showing live status,
+  on-chain escrow id, and transaction hash — every click a real API
+  call to `docforum-core`, which makes a real Stellar testnet
+  transaction underneath. Admin accounts are seeded/invited, not
+  self-serve (PRD OQ-2, same as facility) — this page is real once such
+  a session exists, same caveat as the facility dashboard already had.
 
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
@@ -255,3 +268,23 @@ real API" (no refresh-on-reload flow).
   1 approval required to merge, force-push/deletion disabled,
   `enforce_admins` left `false` so the maintainer isn't blocked); added
   GitHub topics for discoverability.
+- 2026-09-15 — Built Phase W5 (Payments UI) for real, now that
+  `docforum-core`'s Phase 5.5 shipped: added `WalletLink`/`PaymentIntent`
+  types to `src/types/models.ts` (real, mirroring `docforum-core`'s
+  actual schema — not "assumed" like most of this repo's other types
+  still are), `src/services/payments-service.ts`, and
+  `src/features/payments/` (hooks + `WalletLinkForm`,
+  `CreatePaymentIntentForm`, `PaymentIntentPanel`). Wired `WalletLinkForm`
+  into `FacilityDashboardPage`; added a new `AdminDashboardPage` at
+  `/admin` (new `admin`-role-gated route) driving the full
+  create → fund → release/refund lifecycle. Every call goes through
+  `docforum-core`'s API only — confirmed no Stellar/`@docforum/escrow-sdk`
+  dependency was added here, holding hard rule 1. 6 new component tests
+  (mocking `payments-service`, following this repo's existing
+  `SignupForm.test.tsx` pattern) — 27/27 tests, typecheck, and build all
+  pass. Not visually verified in a browser this session (still no
+  browser tool available) — same disclosed gap as every other UI change
+  in this repo's history; the actual end-to-end payment mechanics
+  (fund/release/refund really moving testnet funds) are proven by
+  `docforum-core`'s own live-testnet integration test, which this UI
+  calls through unmodified endpoints.

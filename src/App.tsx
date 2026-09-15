@@ -7,6 +7,7 @@ import { SignupPage } from './pages/SignupPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -37,6 +38,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/*"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminDashboardPage />
             </RequireAuth>
           }
         />
