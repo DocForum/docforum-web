@@ -248,3 +248,10 @@ real API" (no refresh-on-reload flow).
   Drips Wave application so any repo a reviewer or contributor lands on
   looks actively maintained. No lint script exists in this repo's
   `package.json` yet, so this doesn't include one.
+- 2026-09-15 — General workspace-audit fixes (applied identically across
+  all three org repos, see `docforum-core`'s changelog for the full
+  rationale): added `CONTRIBUTING.md` (human onboarding — `AGENTS.md` is
+  agent-facing); enabled branch protection on `main` (real CI check +
+  1 approval required to merge, force-push/deletion disabled,
+  `enforce_admins` left `false` so the maintainer isn't blocked); added
+  GitHub topics for discoverability.
