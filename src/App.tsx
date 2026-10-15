@@ -8,6 +8,7 @@ import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { AccessLogPage } from './pages/AccessLogPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
@@ -72,6 +73,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['patient', 'doctor']}>
               <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="patient/orders/:orderId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <OrderDetailPage />
             </RequireAuth>
           }
         />

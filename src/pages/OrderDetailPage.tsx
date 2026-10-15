@@ -5,12 +5,17 @@
 // two screens read the same. The panel hides entirely when the order
 // has no payment intent; a failed payment load shows a quiet note
 // instead of breaking the page.
+//
+// Also embeds the verifiable QR code and print-friendly view (issue #71)
+// via <OrderDetail> — that component manages its own fetch of the richer
+// `Order` shape (token, items, doctorName) independently.
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
 import { Spinner } from '../components/Spinner';
 import { useOrder } from '../features/orders/hooks/useOrders';
 import { useOrderPaymentIntent } from '../features/payments/hooks/useOrderPaymentIntent';
 import { OrderPaymentPanel } from '../features/payments/components/OrderPaymentPanel';
+import { OrderDetail } from '../features/orders/components/OrderDetail';
 import { formatDay } from '../features/payments/status';
 import type { PatientOrder } from '../types/models';
 import styles from './OrderDetailPage.module.css';
@@ -38,9 +43,17 @@ function orderDetail(order: PatientOrder): string {
 }
 
 export function OrderDetailPage() {
-  const { orderId } = useParams();
+  const { orderId } = useParams<{ orderId: string }>();
   const orderQuery = useOrder(orderId);
   const paymentQuery = useOrderPaymentIntent(orderId);
+
+  if (!orderId) {
+    return (
+      <div className="container">
+        <p>Order not found. <Link to="/patient">Back to dashboard</Link></p>
+      </div>
+    );
+  }
 
   if (orderQuery.isPending) {
     return (
@@ -58,10 +71,10 @@ export function OrderDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1>{notFound ? 'Order not found' : 'Couldn’t load this order'}</h1>
+          <h1>{notFound ? 'Order not found' : "Couldn't load this order"}</h1>
           <p>
             {notFound
-              ? 'This order doesn’t exist, or it isn’t one of yours. Check the link, or ask the clinic that issued it.'
+              ? "This order doesn't exist, or it isn't one of yours. Check the link, or ask the clinic that issued it."
               : 'Something went wrong loading this order. Please try again.'}
           </p>
           <p>
@@ -77,9 +90,11 @@ export function OrderDetailPage() {
 
   return (
     <div className="container">
-      <p className={styles.back}>
-        <Link to="/patient/orders">← Your orders</Link>
-      </p>
+      <nav className="no-print" aria-label="Breadcrumb">
+        <p className={styles.back}>
+          <Link to="/patient/orders">← Your orders</Link>
+        </p>
+      </nav>
       <div className="card">
         <div className={styles.header}>
           <h1>{orderTitle(order)}</h1>
@@ -127,11 +142,15 @@ export function OrderDetailPage() {
         {paymentQuery.data != null && <OrderPaymentPanel intent={paymentQuery.data} />}
         {paymentQuery.isError && (
           <p className={styles.paymentUnavailable} role="status">
-            Payment status isn’t available right now — everything else about this order is shown
+            Payment status isn't available right now — everything else about this order is shown
             above.
           </p>
         )}
       </div>
+
+      {/* QR code and print-friendly view — self-manages its own fetch of the
+          richer Order shape (token, items, doctorName) from GET /orders/:id. */}
+      <OrderDetail orderId={orderId} />
     </div>
   );
 }

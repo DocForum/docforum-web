@@ -484,3 +484,42 @@ shell so the attachment composer/preview have a real home.
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
+
+## Known assumptions (Phase W2 orders — issue #25, added 2026-10-15)
+
+These are assumed contracts against `docforum-core` issue #71 (verifiable
+order tokens). Reconcile `src/types/models.ts` and `src/services/orders-service.ts`
+once those endpoints ship.
+
+### `GET /orders/:id` — order detail
+```json
+{
+  "id": "string",
+  "type": "prescription" | "lab_order",
+  "status": "active" | "superseded" | "expired" | "fulfilled" | "cancelled",
+  "token": "string | null",
+  "items": [{ "name": "string", "note": "string?" }],
+  "issuedAt": "ISO 8601",
+  "expiresAt": "ISO 8601 | null",
+  "doctorName": "string",
+  "facilityName": "string | null",
+  "patientProfileId": "string",
+  "createdAt": "ISO 8601",
+  "updatedAt": "ISO 8601"
+}
+```
+
+Key constraint: `token` is `null` for any order whose `status` is not
+`active`. The frontend enforces this by refusing to render a QR for any
+order with a null token or a non-active status — the facility scan is only
+meaningful against the current, valid order.
+
+### `GET /orders/mine` — list patient's own orders
+```json
+[
+  { /* same shape as GET /orders/:id */ }
+]
+```
+
+Route is guarded with a valid `Authorization: Bearer <accessToken>` header;
+returns only the authenticated patient's orders.
