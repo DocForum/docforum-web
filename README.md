@@ -132,7 +132,7 @@ every contribution that starts, completes, or blocks a tracked item — same
 rule as every other repo in the `DocForum` org.
 
 Questions, or want to talk through an issue before picking it up? Join the
-DocForum contributor chat on [Telegram](https://t.me/+NJ-9ZYDA_nE5ZTA0).
+DocForum contributor chat on [Telegram](https://t.me/+J9eZoFker_E4Y2M8).
 
 ## License
 
