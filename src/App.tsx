@@ -8,6 +8,7 @@ import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -22,6 +23,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['patient']}>
               <PatientDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="patient/orders/:orderId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <OrderDetailPage />
             </RequireAuth>
           }
         />

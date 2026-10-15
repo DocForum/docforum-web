@@ -255,3 +255,12 @@ code,
   color: var(--color-accent-2);
   margin-bottom: var(--space-4);
 }
+
+/* Utility: hide elements that should never appear in print/PDF output
+   (interactive controls, navigation, etc.). Applied as an HTML class so
+   CSS Modules don't tree-shake it away. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
