@@ -1,7 +1,7 @@
 # ROADMAP.md — docforum-web
 
-> Update this file on every contribution that starts/completes/blocks an
-> item below — same rule as the rest of the org, see `AGENTS.md`.
+> Update this file on every contribution that starts/completes/blocks
+> an item below — same rule as the rest of the org, see `AGENTS.md`.
 
 **Status: Phase W1 built and connected to a live backend.** The deployed
 Pages preview (https://docforum.github.io/docforum-web/) points at
@@ -13,39 +13,40 @@ real API" (no refresh-on-reload flow).
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React
   Query, Zustand. `npm run dev`/`build`/`test` all work (verified).
 - [x] API client service layer pointing at `docforum-core`
-  (`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
-  documented assumption, not confirmed**, since `docforum-core` has no
-  implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
-  assumptions."
+(`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
+documented assumption, not confirmed**, since `docforum-core` has no
+implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
+assumptions."
 - [x] Signup/login screens, corrected to **patient/doctor only** for
-  self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
-  there is deliberately no facility option in the signup UI. Login works
-  for all three roles (facility users just don't self-register). 14 tests
-  passing (`npm test`), including one that asserts facility is never
-  offered at signup.
+self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
+there is deliberately no facility option in the signup UI. Login works
+for all three roles (facility users just don't self-register). 14 tests
+passing (`npm test`), including one that asserts facility is never
+offered at signup.
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
-  instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
+instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
 - [ ] ESLint + lint step in CI. Tracked as [issue #11](https://github.com/DocForum/docforum-web/issues/11) (Trivial, 100 pts).
 - [x] Deployed as a UI preview to GitHub Pages on every push to `main`
-  (`.github/workflows/deploy-pages.yml`) — see `ARCHITECTURE_ESSENTIALS.md`
-  "Deployment". Not a production deploy decision for the org; scoped to
-  this repo's static frontend only.
+(`.github/workflows/deploy-pages.yml`) — see `ARCHITECTURE_ESSENTIALS.md`
+"Deployment". Not a production deploy decision for the org; scoped to
+this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#2, #4–#5, #18–#21.**
+**Fully scoped into issues #1–2, #4–5, #18–£21.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
-- [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
-- [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
+- [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–8, not yet merged there.
+- [x] Consultation message thread UI (shared by patients and doctors). Tracked as [issue #22](https://github.com/DocForum/docforum-web/issues/22) (High, 200 pts) — `MessageThread` feature with cursor-paginated history, optimistic send with failed/retry state, live updates via notification stream with polling fallback, and closed-thread state. Built against a documented assumed API shape (see `ARCHITECTURE_ESSENTIALS.md`) pending `docforum-core` issue #61. Fixed duplicate `identifier` declarations (`MessageThreadStatus`, `MessageSenderRole`) in `src/types/models.ts` flagged by the local syntax check before push.
+- [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–16, not yet merged there.
 - [x] Health profile editor: allergies, conditions and current medications. Tracked as [issue #18](https://github.com/DocForum/docforum-web/issues/18) (High, 200 pts) — assumed contract against `docforum-core` issue #59.
 - [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 - [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
 - [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 
 ## Phase W3 — Doctor core flow
-**Fully scoped into issues #6–#7.**
+**Fully scoped into issues #6–7.**
 - [ ] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts).
 - [ ] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — the densest single screen in the app, touches three separate `docforum-core` assumed contracts; the issue explicitly allows splitting into more than one PR if the scope proves unwieldy.
 
@@ -60,7 +61,7 @@ real API" (no refresh-on-reload flow).
   `ARCHITECTURE_ESSENTIALS.md` hard rule 1 — no direct Stellar calls
   here). `src/features/payments/components/WalletLinkForm.tsx`, wired
   into `FacilityDashboardPage` — a facility links the Stellar address
-  `docforum-core` pays out to.
+  `docforum-core` is pays out to.
 - [x] Payment/escrow status display — not literally "on orders" (Phase
   4's `Prescription`/`LabOrder` don't exist yet, same reason
   `docforum-core`'s `PaymentIntent.orderId` stays opaque), but a real,
@@ -70,8 +71,8 @@ real API" (no refresh-on-reload flow).
   on-chain escrow id, and transaction hash — every click a real API
   call to `docforum-core`, which makes a real Stellar testnet
   transaction underneath. Admin accounts are seeded/invited, not
-  self-serve (PRD OQ-2, same as facility) — this page is real once such
-  a session exists, same caveat as the facility dashboard already had.
+  self-serve (PRD OQ-2, same as facility) — this page is real once such a
+  session exists, same caveat as the facility dashboard already had.
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
 
 ## Changelog
@@ -109,7 +110,7 @@ real API" (no refresh-on-reload flow).
   skill name that doesn't actually exist in either repo, disregarded).
   Read its critique checklist and found the design pass above hit several
   of its named "generic AI-design" tells almost exactly: an ALL-CAPS
-  eyebrow label, gradient-highlighted single words in the headline, a
+  eyebrow label, gradient-highlighted single words in the headline, a 
   monospace face used decoratively on small badges, and a 3-card grid for
   content that's actually a sequence. Revised: dropped the eyebrow and the
   headline word-highlighting, replaced the feature-card grid with a
@@ -129,7 +130,7 @@ real API" (no refresh-on-reload flow).
 
   Applied that skill's process (brief inference → dials → solid palette →
   typography → layout) to a full redesign, per explicit direction: no
-  gradients, solid colors, web3 × **hospitality** (not medical this
+  gradients, solid colors, web3× **hospitality** (not medical this
   time — read as warmth/welcome, not clinical). New palette is solid pine
   green (`--color-accent`, trust/value) + warm brass (`--color-accent-2`,
   hospitality metal + web3 store-of-value) over warm porcelain/espresso
@@ -146,173 +147,16 @@ real API" (no refresh-on-reload flow).
   gradient-filled); now an outlined hexagon (hospitality threshold / web3
   node) around a three-point connected path, matching the thread
   metaphor, ending in a solid brass point where the redesign puts
-  "this is where value settles." Not visually verified in a browser this
-  session (still no browser tool available) — typecheck/tests/build all
-  pass; confirm the rendered result at the live Pages URL.
-- 2026-09-14 — Applied `gsap-core` and `svg-animations` (installed
-  earlier) to two places, deliberately not "everywhere" — motion stays
-  restrained (trust-first territory) and tied to what the marks already
-  represent, per both design skills' "spend boldness in one place"
-  guidance:
-  - **Logo** (`Layout` header, mounts once): the three-point path now
-    draws itself in via `stroke-dasharray`/`stroke-dashoffset` (the
-    svg-animations path-drawing technique), dots popping in as the line
-    reaches them, GSAP-driven and timed.
-  - **HomePage thread diagram**: connector lines are now real SVG
-    `<line>` elements (were CSS-colored `<div>`s) that draw themselves
-    left to right as the section scrolls into view — the diagram extends
-    the same way the thread it represents does. Triggered by a plain
-    `IntersectionObserver` (no ScrollTrigger plugin — not installed, core
-    GSAP only), plays once. Hero headline/subhead/CTA also get one
-    staggered fade-up entrance on mount — a single reveal, not scattered
-    per-section effects.
-
-  Both wrapped in `gsap.matchMedia('(prefers-reduced-motion: no-preference)')`
-  — reduced-motion users get the finished state immediately, no animation,
-  per the official skill's accessibility floor. Added `gsap` as a real
-  dependency (+~29KB gzip to the bundle — 97KB → 126KB). Typecheck, all
-  14 tests, and build all pass. Not visually verified in a browser this
-  session (still no browser tool available) — the animation-specific risk
-  here is real (SVG geometry APIs, timing, matchMedia behavior are all
-  much harder to fully trust from code review alone than static CSS was)
-  — please actually look at this one before trusting it.
-- 2026-09-14 — Thread diagram now loops continuously (explicit user
-  request — overrides the "single reveal, not scattered/repeated
-  effects" default both design skills recommend, which is fine per those
-  same skills: "where the brief pins down a direction, follow it
-  exactly"). The one-shot `IntersectionObserver` trigger became a
-  `gsap.timeline({repeat: -1, yoyo: true, repeatDelay: 1})`: draws in
-  (~1.7s) → holds fully drawn (~1.4s) → undraws in reverse (~1.7s) →
-  pauses (~1s) → repeats. Still gated by
-  `prefers-reduced-motion` (no animation at all, not just non-looping,
-  for those users) and still only runs while the section is actually on
-  screen — the `IntersectionObserver` now play()/pause()s the loop
-  instead of firing once, so it doesn't spend cycles off-screen.
-- 2026-09-14 — Loading UX pass, three gaps addressed:
-  - **Pre-hydration shell**: `index.html` had nothing but `<div
-    id="root">` — blank white page for however long the JS bundle
-    (~126KB gzip, now including GSAP) takes to download/parse/run. Added
-    a static HTML/CSS-only loading shell (brand mark + "Loading
-    DocForum…", pulse animation) inside `#root`, using `var(--color-*,
-    fallback)` so it's styled correctly independent of the app's own
-    stylesheet load order. React's `createRoot().render()` replaces it
-    automatically — no cleanup script needed.
-  - **Cold-start-aware auth loading**: docforum-core's Render deployment
-    (free tier, `docs/adr/0003-render-preview-deployment.md`) spins down
-    after 15 minutes idle — first request after that can take up to
-    ~a minute. Added `useSlowRequestHint(isPending, delayMs=4000)`
-    (`src/hooks/`, finally has real content — placeholder README
-    removed): past 4s of a pending login/signup, shows "the server may
-    be waking up... this can take up to a minute" instead of leaving a
-    spinner with no explanation indistinguishable from "broken."
-  - **`Button` gained a proper `loading` prop** (spinner + `aria-busy`,
-    implicitly disabled) — new `Spinner` component (`src/components/`,
-    functional motion exempted from the restrained-motion default since
-    it communicates real state, but still slows under
-    `prefers-reduced-motion` rather than freezing). Replaces manual
-    `disabled={mutation.isPending}` text-only toggling on
-    login/signup/logout buttons.
-
-  New tests: `Button.test.tsx` (loading/disabled states),
-  `useSlowRequestHint.test.ts` (timing behavior — real timers + small
-  delays, not `vi.useFakeTimers()`, which hangs Testing Library's
-  auto-cleanup in this environment). 21/21 tests, typecheck, and build
-  all pass.
-- 2026-09-14 — Added `.github/ISSUE_TEMPLATE/bug_report.md` (identical
-  copy across all three org repos — see `docforum-core`'s changelog for
-  the sourcing note: a user-supplied bug-report structure plus
-  drips.network's "Creating Meaningful Issues" guide).
-- 2026-09-14 — Scoped the start of Phase W2 into three real GitHub issues
-  (#1–#3): doctor search, booking + intake form, my appointments list.
-  Two of the three (search, booking) are explicitly built against a
-  **documented assumed API contract** — `docforum-core`'s Phase 2 doesn't
-  exist yet — flagged plainly in each issue rather than implied as
-  already-working; the third (appointments list) calls a real,
-  already-implemented `docforum-core` endpoint with no assumption
-  involved. Booking's issue specifically calls out handling the `409`
-  slot-taken response as a first-class case, not a generic error path —
-  that response is `docforum-core`'s actual double-booking-prevention
-  guarantee (Phase 1) surfacing at the UI layer for the first time.
-  Referral and orders screens intentionally left unscoped — not enough of
-  a real contract to assume against yet (`docforum-core` Phase 3/4 don't
-  exist). Phase W2 checklist above updated to link each item to its issue.
-- 2026-09-14 — Scoped the rest of the frontend roadmap that has a real
-  (even if assumed) backend contract to build against: five more issues
-  (#4–#8) covering the rest of W2 (referral accept/decline, orders +
-  facility-selection — now buildable since `docforum-core` opened issues
-  #5–#16 for the referral/order/facility work they assume against), all
-  of W3 (doctor's today view, and a deliberately large consultation
-  screen issue that explicitly permits splitting into multiple PRs given
-  it touches three separate assumed contracts at once), and all of W4
-  (facility fulfillment queue + status + lab-result attachment, folded
-  into one issue since both bullets are one cohesive feature). Every one
-  of these issues documents its assumed API shape in
-  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" as part of its DoD —
-  not yet done in this commit, tracked as part of each issue's own work,
-  not this roadmap update's.
-
-  W5 (Payments UI) deliberately left unscoped: it depends on
-  `docforum-core` Phase 5.5, which is itself unscoped pending
-  `docforum-escrow` publishing its SDK — two layers of "no real contract
-  to build against yet," so no issue was opened for it. All checklist
-  items above updated to link to their issues.
-- 2026-09-14 — Replaced the placeholder `.github/workflows/ci.yml`
-  (`pull_request`-only, `echo "TODO"`, never once run — this repo's
-  existing `deploy-pages.yml` was the only workflow that ever actually
-  ran) with a real one: `typecheck` → `test` → `build`, on push to
-  `main` and on PRs. Verified locally first (21/21 tests, typecheck, and
-  build all pass) and confirmed green in Actions. Companion fix applied
-  identically in `docforum-core` (issue #21) and, separately, already
-  done in `docforum-escrow` — all three org repos now run their real
-  checks in CI instead of a stub, done ahead of the `docforum-escrow`
-  Drips Wave application so any repo a reviewer or contributor lands on
-  looks actively maintained. No lint script exists in this repo's
-  `package.json` yet, so this doesn't include one.
-- 2026-09-15 — General workspace-audit fixes (applied identically across
-  all three org repos, see `docforum-core`'s changelog for the full
-  rationale): added `CONTRIBUTING.md` (human onboarding — `AGENTS.md` is
-  agent-facing); enabled branch protection on `main` (real CI check +
-  1 approval required to merge, force-push/deletion disabled,
-  `enforce_admins` left `false` so the maintainer isn't blocked); added
-  GitHub topics for discoverability.
-- 2026-09-15 — Built Phase W5 (Payments UI) for real, now that
-  `docforum-core`'s Phase 5.5 shipped: added `WalletLink`/`PaymentIntent`
-  types to `src/types/models.ts` (real, mirroring `docforum-core`'s
-  actual schema — not "assumed" like most of this repo's other types
-  still are), `src/services/payments-service.ts`, and
-  `src/features/payments/` (hooks + `WalletLinkForm`,
-  `CreatePaymentIntentForm`, `PaymentIntentPanel`). Wired `WalletLinkForm`
-  into `FacilityDashboardPage`; added a new `AdminDashboardPage` at
-  `/admin` (new `admin`-role-gated route) driving the full
-  create → fund → release/refund lifecycle. Every call goes through
-  `docforum-core`'s API only — confirmed no Stellar/`@docforum/escrow-sdk`
-  dependency was added here, holding hard rule 1. 6 new component tests
-  (mocking `payments-service`, following this repo's existing
-  `SignupForm.test.tsx` pattern) — 27/27 tests, typecheck, and build all
-  pass. Not visually verified in a browser this session (still no
-  browser tool available) — same disclosed gap as every other UI change
-  in this repo's history; the actual end-to-end payment mechanics
-  (fund/release/refund really moving testnet funds) are proven by
-  `docforum-core`'s own live-testnet integration test, which this UI
-  calls through unmodified endpoints.
-- 2026-09-26 — Opened [issue #9](https://github.com/DocForum/docforum-web/issues/9)
-  for the one remaining W1 gap (no refresh-on-reload), and fixed the
-  stale `auth-store.ts` comment that said `docforum-core` hadn't picked
-  a refresh-token transport (it's an httpOnly cookie). Linked issue #1
-  to its new backend counterpart, `docforum-core` issue #23.
-- 2026-10-07 — Opened issues #10 (explorer links in the payments
-  console), #11 (ESLint in CI) and #12 (end-to-end smoke test against a
-  real `docforum-core`, the unchecked Phase W1 item).
-- 2026-10-16 — Built Phase W2 patient features: dependents management
-  (#19), acting-for profile switcher (#20), health profile editor (#18),
-  and guardian consent/age-of-majority handover screens (#21). All four
-  built against documented assumed API shapes (recorded in
-  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions"). New types in
-  `models.ts` (`Dependent`, `HealthEntry`, `ActingProfile`), services
-  (`dependents-service.ts`, `health-profile-service.ts`), Zustand
-  profile store (`profile-store.ts`), feature folders
-  (`src/features/dependents/`, `src/features/health-profile/`), pages
-  (`DependentsPage`, `HealthProfilePage`, `ClaimAccountPage`), and routes
-  (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
-  switcher in header, acting-for banner on patient pages. Tests for every
-  new component.
+  "this is where value settles
+- 2026-09-15 — Consultation message thread UI (issue #22, Phase W2 —
+  Patient core flow) implemented: new `src/features/messaging/` feature
+  (`MessageThread`, `MessageList`, `MessageComposer`, `MessageBubble`,
+  `MessageThreadClosedBanner`), `useMessageThread` hook for cursor-
+  paginated history + optimistic append + failed/retry state, and a
+  `messaging-service.ts` service layer calling the assumed `docforum-core`
+  thread endpoints. Live updates prefer the notification stream and
+  fall back to polling while the thread is visible. Message bodies are
+  rendered as text only with safe linkification (no HTML); drafts are
+  in-memory only (PHI, no localStorage). Fixed duplicate `identifier`
+  declarations (`MessageThreadStatus`, `MessageSenderRole`) in
+  `src/types/models.ts` flagged by the local syntax check before push.

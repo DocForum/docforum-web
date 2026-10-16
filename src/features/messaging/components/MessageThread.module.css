@@ -1,0 +1,312 @@
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border-subtle, #e2e2e2);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4, 16px);
+  color: var(--color-text, #1a1a1a);
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: 600;
+  margin: 0;
+}
+
+.openBadge,
+.closedBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.openBadge {
+  background: var(--color-success-soft, #e6f4ea);
+  color: var(--color-success, #1f7a33);
+}
+
+.closedBadge {
+  background: var(--color-neutral-soft, #eeeeee);
+  color: var(--color-neutral, #555555);
+}
+
+.closedNotice {
+  margin: 0;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--color-neutral-soft, #eeeeee);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+}
+
+.scrollArea {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: 56vh;
+  padding-right: var(--space-1, 4px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.loadOlder {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--space-2, 8px);
+}
+
+.loadOlderButton {
+  background: transparent;
+  border: 1px solid var(--color-border-subtle, #e2e2e2);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.loadOlderButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.dayDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  color: var(--color-text-muted, #666666);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dayDivider::before,
+.dayDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-subtle, #e2e2e2);
+}
+
+.mine,
+.thems {
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.mine {
+  align-self: flex-end;
+  background: var(--color-accent-soft, #e8f0ea);
+  border: 1px solid var(--color-accent-border, #cfe0d5);
+}
+
+.thems {
+  align-self: flex-start;
+  background: var(--color-surface-subtle, #f7f7f7);
+  border: 1px solid var(--color-border-subtle, #e2e2e2);
+}
+
+.failed {
+  border-color: var(--color-danger, #b42626);
+  background: var(--color-danger-soft, #fdecec);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--color-neutral-soft, #eeeeee);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #666666);
+  text-align: center;
+}
+
+.messageHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #666666);
+}
+
+.sender {
+  font-weight: 600;
+  color: var(--color-text, #1a1a1a);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.body a {
+  color: var(--color-accent, #206b4c);
+  text-decoration: underline;
+}
+
+.statusLine {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #666666);
+  font-style: italic;
+}
+
+.failedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  font-size: 0.75rem;
+  color: var(--color-danger, #b42626);
+}
+
+.retryButton {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.state {
+  margin: 0;
+  color: var(--color-text-muted, #666666);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: var(--space-4, 16px) 0;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger, #b42626);
+  font-size: 0.875rem;
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  border-top: 1px solid var(--color-border-subtle, #e2e2e2);
+  padding-top: var(--space-3, 12px);
+}
+
+.composerLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted, #666666);
+}
+
+.composerInput {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 72px;
+  font: inherit;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border: 1px solid var(--color-border-subtle, #e2e2e2);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #ffffff);
+  color: inherit;
+}
+
+.composerInput:focus {
+  outline: 2px solid var(--color-accent, #206b4c);
+  outline-offset: 1px;
+}
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.composerHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #666666);
+}
+
+.composerSend {
+  background: var(--color-accent, #206b4c);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composerSend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.composerError {
+  margin: 0;
+  color: var(--color-danger, #b42626);
+  font-size: 0.8125rem;
+}
+
+.composerDisabled {
+  padding: var(--space-3, 12px);
+  background: var(--color-neutral-soft, #eeeeee);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #666666);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .thread {
+    padding: var(--space-3, 12px);
+  }
+
+  .scrollArea {
+    max-height: 60vh;
+  }
+
+  .mine,
+  .thems {
+    max-width: 95%;
+  }
+}
