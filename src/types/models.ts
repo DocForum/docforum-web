@@ -48,6 +48,61 @@ export interface FacilityProfile {
   type: FacilityType;
 }
 
+// --- Dependents (Phase W2 — assumed, docforum-core#42 not landed yet) ------
+
+export type Relationship = 'parent' | 'guardian' | 'carer';
+
+export type HandoverStatus = 'not_eligible' | 'eligible' | 'invited' | 'claimed';
+
+export interface Dependent {
+  id: string;
+  guardianProfileId: string;
+  fullName: string;
+  dateOfBirth: string;
+  relationship: Relationship;
+  handoverStatus: HandoverStatus;
+  claimEmail?: string;
+  claimInviteExpiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DependentInput {
+  fullName: string;
+  dateOfBirth: string;
+  relationship: Relationship;
+}
+
+// --- Health profile (Phase W2 — assumed, docforum-core#59 not landed yet) ---
+
+export type HealthSectionKey = 'allergies' | 'conditions' | 'medications';
+
+export interface HealthEntry {
+  id: string;
+  patientProfileId: string;
+  section: HealthSectionKey;
+  name: string;
+  details?: string;
+  version: number;
+  previousValue?: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface HealthEntryInput {
+  section: HealthSectionKey;
+  name: string;
+  details?: string;
+}
+
+// --- Acting-for profile (Phase W2 — client-only UI state + API scoping) ----
+
+export interface ActingProfile {
+  id: string;
+  fullName: string;
+  isSelf: boolean;
+}
+
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
 // repo's docs/adr/0004-custodial-payments-v1.md) ---------------------------
 // Custodial v1: docforum-core holds its own Stellar identities; this repo
