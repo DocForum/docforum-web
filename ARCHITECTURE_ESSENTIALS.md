@@ -74,6 +74,33 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
+## Known assumptions — Phase W2 (dependents, health profile, acting-for)
+
+These API shapes are assumed and not yet implemented in `docforum-core`.
+Reconcile against the real contract once the corresponding backend issues
+land.
+
+### Dependents (docforum-core#42)
+- `GET /patients/me/dependents` → `Dependent[]`
+- `POST /patients/me/dependents` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
+- `PATCH /patients/me/dependents/:id` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
+- `POST /patients/me/dependents/:id/handover-invite` (body: `{email}`) → `Dependent`
+- `POST /patients/me/dependents/:id/handover-invite/resend` → `Dependent`
+- `POST /auth/claim-account` (body: `{token, email, password}`) → `void`
+- `Dependent` shape: `{id, guardianProfileId, fullName, dateOfBirth, relationship: 'parent'|'guardian'|'carer', handoverStatus: 'not_eligible'|'eligible'|'invited'|'claimed', claimEmail?, claimInviteExpiresAt?, createdAt, updatedAt}`
+
+### Health profile (docforum-core#59)
+- `GET /patients/:profileId/health/:section` → `HealthEntry[]`
+- `POST /patients/:profileId/health` (body: `{section, name, details?}`) → `HealthEntry`
+- `PATCH /patients/:profileId/health/:entryId` (body: `{name, details?}`) → `HealthEntry`
+- `DELETE /patients/:profileId/health/:entryId` → `void`
+- `HealthEntry` shape: `{id, patientProfileId, section: 'allergies'|'conditions'|'medications', name, details?, version, previousValue?, updatedAt, createdAt}`
+
+### Acting-for profile switcher (#20)
+No new backend endpoint. The switcher is client-only UI state (Zustand
+store). Every patient API call and React Query key includes the selected
+`patientProfileId` so caches never mix profiles.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

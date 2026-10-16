@@ -33,12 +33,16 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#2, #4–#5.**
+**Fully scoped into issues #1–#2, #4–#5, #18–#21.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
 - [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
 - [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
+- [x] Health profile editor: allergies, conditions and current medications. Tracked as [issue #18](https://github.com/DocForum/docforum-web/issues/18) (High, 200 pts) — assumed contract against `docforum-core` issue #59.
+- [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
+- [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7.**
@@ -299,3 +303,16 @@ real API" (no refresh-on-reload flow).
 - 2026-10-07 — Opened issues #10 (explorer links in the payments
   console), #11 (ESLint in CI) and #12 (end-to-end smoke test against a
   real `docforum-core`, the unchecked Phase W1 item).
+- 2026-10-16 — Built Phase W2 patient features: dependents management
+  (#19), acting-for profile switcher (#20), health profile editor (#18),
+  and guardian consent/age-of-majority handover screens (#21). All four
+  built against documented assumed API shapes (recorded in
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions"). New types in
+  `models.ts` (`Dependent`, `HealthEntry`, `ActingProfile`), services
+  (`dependents-service.ts`, `health-profile-service.ts`), Zustand
+  profile store (`profile-store.ts`), feature folders
+  (`src/features/dependents/`, `src/features/health-profile/`), pages
+  (`DependentsPage`, `HealthProfilePage`, `ClaimAccountPage`), and routes
+  (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
+  switcher in header, acting-for banner on patient pages. Tests for every
+  new component.
