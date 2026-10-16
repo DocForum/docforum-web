@@ -139,3 +139,74 @@ export interface PaymentIntent {
   createdAt: string;
   updatedAt: string;
 }
+
+// --- Data export (Phase W2, issue #26 — docforum-core#40) -------------------
+
+export type DataExportStatus = 'pending' | 'processing' | 'ready' | 'expired' | 'failed';
+
+export interface DataExport {
+  id: string;
+  patientProfileId: string;
+  status: DataExportStatus;
+  requestedAt: string;
+  readyAt?: string | null;
+  expiresAt?: string | null;
+  fileSizeBytes?: number | null;
+  downloadUrl?: string | null;
+  errorMessage?: string | null;
+}
+
+// --- Account deletion (Phase W2, issue #27 — docforum-core#41) ---------------
+
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+  deletedAt: string;
+}
+
+// --- Care thread timeline (Phase W2, issue #28) ------------------------------
+
+export type CareStepType = 'appointment' | 'consultation' | 'referral' | 'order' | 'fulfillment' | 'payment';
+export type CareStepStatus = 'completed' | 'in_progress' | 'action_required' | 'pending' | 'skipped';
+
+export interface CareThreadStep {
+  id: string;
+  stepType: CareStepType;
+  title: string;
+  description: string;
+  status: CareStepStatus;
+  timestamp?: string | null;
+  actionLabel?: string | null;
+  actionUrl?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CareThread {
+  id: string;
+  patientProfileId: string;
+  title: string;
+  doctorName: string;
+  specialty: string;
+  startedAt: string;
+  updatedAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+  steps: CareThreadStep[];
+}
+
+// --- Facility finder with location & distance (Phase W2, issue #29) ----------
+
+export interface FacilityLocation {
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface FacilityWithDistance extends FacilityProfile {
+  location?: FacilityLocation;
+  distanceKm?: number | null;
+  isOpen?: boolean;
+  phone?: string;
+  rating?: number;
+}
+

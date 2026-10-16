@@ -33,7 +33,7 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#2, #4–#5, #18–#21.**
+**Fully scoped into issues #1–#5, #18–#21, #26–#29.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
@@ -43,6 +43,11 @@ real API" (no refresh-on-reload flow).
 - [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 - [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
 - [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Download my data: request, track and fetch a data export. Tracked as [issue #26](https://github.com/DocForum/docforum-web/issues/26) (High, 200 pts) — assumed contract against `docforum-core` issue #40.
+- [x] Account deletion flow with clear retention explanation. Tracked as [issue #27](https://github.com/DocForum/docforum-web/issues/27) (High, 200 pts) — assumed contract against `docforum-core` issue #41.
+- [x] Care thread timeline: one view from booking to results. Tracked as [issue #28](https://github.com/DocForum/docforum-web/issues/28) (High, 200 pts).
+- [x] Facility finder with a map and distance-sorted results. Tracked as [issue #29](https://github.com/DocForum/docforum-web/issues/29) (High, 200 pts) — assumed contract against `docforum-core` issue #74.
+
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7.**
@@ -316,3 +321,19 @@ real API" (no refresh-on-reload flow).
   (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
   switcher in header, acting-for banner on patient pages. Tests for every
   new component.
+- 2026-10-16 — Built Phase W2 patient core flows: download my data (#26),
+  account deletion with clinical retention explanation (#27), care thread
+  timeline (#28), and facility finder with map and distance-sorted results
+  (#29). Built against documented assumed API shapes in
+  `ARCHITECTURE_ESSENTIALS.md`. New types in `models.ts` (`DataExport`,
+  `DeleteAccountResponse`, `CareThread`, `CareThreadStep`, `FacilityWithDistance`),
+  services (`account-service.ts`, `care-thread-service.ts`, `facility-service.ts`),
+  features (`src/features/account/`, `src/features/care-thread/`, `src/features/orders/`),
+  components (`DataExportSection`, `DeleteAccountSection`, `CareTimeline`,
+  `FacilityFinder`, `FacilityMap`, `FacilityCard`), pages (`AccountSettingsPage`,
+  `AccountDeletedPage`, `CareThreadPage`, `FacilityFinderPage`), and routes
+  (`/patient/settings`, `/account-deleted`, `/care`, `/care/:threadId`,
+  `/patient/facilities`). Strict privacy enforcement: transient in-memory
+  location only (never persisted to storage or URLs). 15 test files and
+  62/62 tests passing.
+

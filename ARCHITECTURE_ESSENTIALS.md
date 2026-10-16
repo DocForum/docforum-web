@@ -101,7 +101,32 @@ No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
 
+### Data export (docforum-core#40, issue #26)
+- `POST /account/data-export` (body: `{password}`) → `DataExport`
+- `GET /account/data-export` → `DataExport | null`
+- `GET /account/data-export/:id/download` → file stream (`application/json`)
+- `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
+- Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
+
+### Account deletion (docforum-core#41, issue #27)
+- `POST /account/delete` (body: `{password, confirmation: 'DELETE'}`) → `{success, message, deletedAt}`
+- Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
+- Deletion is blocked if there are active orders or unreleased funded escrows.
+- Client clears all QueryClient cache and Zustand session/profile state.
+
+### Care thread timeline (issue #28)
+- `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
+- `GET /care-threads/:id` → `CareThread`
+- Aggregates appointments, consultations, referrals, orders, fulfillment, and escrow payment settlement into a single continuous journey timeline.
+- Progressive rendering and graceful degradation when modules are not yet implemented.
+
+### Facility finder with distance sorting (docforum-core#74, issue #29)
+- `GET /facilities?type=&lat=&lng=&query=` → `FacilityWithDistance[]`
+- OpenStreetMap tiles with attribution.
+- Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
+
