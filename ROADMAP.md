@@ -33,7 +33,7 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#2, #4–#5, #18–#21.**
+**Fully scoped into issues #1–#2, #4–#5, #18–#23.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
@@ -43,6 +43,7 @@ real API" (no refresh-on-reload flow).
 - [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 - [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
 - [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Message attachments: upload with progress, preview and secure download. Tracked as [issue #23](https://github.com/DocForum/docforum-web/issues/23) (High, 200 pts) — assumed contract against `docforum-core` issues #61/#62. Includes a minimal shared thread shell (`MessageThread`) so the attachment composer/preview have a real home; the full thread UX (optimistic send, live updates, pagination states) remains [issue #22](https://github.com/DocForum/docforum-web/issues/22).
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7.**
@@ -316,3 +317,20 @@ real API" (no refresh-on-reload flow).
   (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
   switcher in header, acting-for banner on patient pages. Tests for every
   new component.
+- 2026-10-16 — Built message attachments (#23): pick/capture, client-side
+  image downscale, real upload progress with cancel/retry, inline image
+  previews + PDF chips, and secure per-click signed downloads. Added
+  `apiUpload` to `api-client.ts` (the one `XMLHttpRequest` path — `fetch`
+  can't report upload progress — still the only place HTTP details live),
+  `messaging-service.ts`, the `messaging` types in `models.ts`,
+  `src/features/messaging/` (validation, image-utils, uploader/thread
+  hooks, `MessageComposer`, `AttachmentPreview`, `MessageThread`) and a
+  `MessageThreadPage` mounted at `/patient/messages/:threadId`. Signed URLs
+  are never cached — fetched fresh per click and held only transiently in
+  component state for the inline preview. A minimal shared thread shell
+  stands in until the full thread UI (#22) lands; both are built against a
+  documented assumed contract (recorded in `ARCHITECTURE_ESSENTIALS.md`
+  "Known assumptions"). 26 new tests (upload states + download flow);
+  70/70 tests, typecheck and build all pass. Not visually verified in a
+  browser this session (no browser tool available) — screenshots still
+  owed on the PR per the issue's DoD.

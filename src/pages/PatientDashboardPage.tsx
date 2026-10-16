@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/auth-store';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
+import { MessageThreadPage } from './MessageThreadPage';
 
 function PatientHome() {
   const user = useAuthStore((state) => state.user);
@@ -29,6 +30,7 @@ export function PatientDashboardPage() {
       <Route index element={<PatientHome />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
+      <Route path="messages/:threadId" element={<MessageThreadPage />} />
     </Routes>
   );
 }
