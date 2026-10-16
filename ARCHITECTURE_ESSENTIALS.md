@@ -74,6 +74,43 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
+## Known assumptions (assumed API contracts)
+Assumed shapes for not-yet-merged `docforum-core` work. Each entry names
+the backend issue it tracks — reconcile on sight once that issue merges.
+
+- **Lab results viewer (this repo issue #24 → `docforum-core` #72,
+  abnormal escalation + acknowledgement tracking, PRD §8.2.7).**
+  `docforum-core`'s `LabResult` table today only has
+  `id`/`resultFileUrl`/`summary`/`createdAt` (plus `TODO labOrderId`/
+  `fulfillingFacilityId`) and its `lab-orders/routes` is still a
+  placeholder — none of the below exists there yet.
+  Assumed endpoints (patient-scoped, `Authorization: Bearer` like the
+  rest of this repo's services):
+  - `GET /lab-results/mine` → `LabResult[]` (most recent first)
+  - `GET /lab-results/:id` → `LabResult`
+  Assumed `LabResult` fields beyond the real columns (see
+  `src/types/models.ts` — every assumed field is commented there):
+  `labOrderId`, `testName` (denormalized from `LabOrder.testType`),
+  `facilityId`, `facilityName` (denormalized), `status`
+  (`'pending' | 'ready'`), `abnormalityFlag`
+  (`'normal' | 'abnormal' | 'critical'`, set by the facility),
+  `acknowledgementStatus`
+  (`'not_required' | 'pending' | 'acknowledged' | 'escalated'`),
+  `doctorNotifiedAt`, `acknowledgedAt`, `withheldPendingReview`.
+  `withheldPendingReview` covers #72's open question ("decide whether
+  critical results are held until a doctor acknowledges them"): when true
+  the UI hides summary + file behind a "waiting for your doctor's review"
+  notice, so both backend decisions render safely.
+  File viewing is native-only (`<img loading="lazy">` for images, the
+  browser's built-in viewer via `<iframe>` for PDFs, plain anchors for
+  download) — no third-party viewer script is loaded from a CDN at
+  runtime, so no new CSP source is needed. File kind is sniffed from the
+  URL extension client-side (`kindForResultFileUrl`) because the real
+  table has no content-type column; unknown types fall back to
+  download-only. Doctor acknowledgement (`POST /lab-results/:id/
+  acknowledge` in #72) is doctor-side only — this patient UI reads
+  `acknowledgementStatus` but never calls it.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
