@@ -24,7 +24,7 @@ import type {
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
-  MessageThread,
+  DoctorMessageThread,
   PatientOrder,
   PaymentIntent,
   QualifiedOrderFacility,
@@ -85,7 +85,7 @@ export interface MockDb {
   appointments: Appointment[];
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
-  messageThreads: MessageThread[];
+  messageThreads: DoctorMessageThread[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
@@ -343,7 +343,7 @@ export function createSeedDb(): MockDb {
     effectiveDelayMin: 12,
   };
 
-  const messageThreads: MessageThread[] = [
+  const messageThreads: DoctorMessageThread[] = [
     {
       id: 'mth-demo-1',
       patientProfileId: PATIENT_PROFILE_ID,

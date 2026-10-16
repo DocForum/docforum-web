@@ -28,6 +28,7 @@ import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { MessageThreadPage } from './pages/MessageThreadPage';
 
 export default function App() {
   return (
@@ -100,6 +101,11 @@ export default function App() {
         <Route path="doctor/messages" element={
           <RequireAuth allowedRoles={['doctor']}>
             <DoctorInbox />
+          </RequireAuth>
+        } />
+        <Route path="doctor/messages/:threadId" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <MessageThreadPage />
           </RequireAuth>
         } />
         <Route
