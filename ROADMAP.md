@@ -36,6 +36,7 @@ real API" (no refresh-on-reload flow).
 **Fully scoped into issues #1–#2, #4–#5, #18–#21.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
+- [x] Red-flag symptom safety interstitial during intake. Tracked as [issue #22](https://github.com/DocForum/docforum-web/issues/22) (High, 200 pts) — assumed contract against `docforum-core` issue #58 (rule-based red-flag detection at intake). Full-screen interstitial after intake submission when the API returns `redFlags`, emergency number from config, plain-language matched reasons, explicit acknowledgement sent to the API, and "I'll seek urgent care now" as the primary action that ends the booking without creating it. Never auto-dismisses; assertive screen-reader announcement; works with reduced motion.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
 - [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
 - [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
@@ -149,6 +150,7 @@ real API" (no refresh-on-reload flow).
   "this is where value settles." Not visually verified in a browser this
   session (still no browser tool available) — typecheck/tests/build all
   pass; confirm the rendered result at the live Pages URL.
+- 2026-09-14 — Red-flag symptom safety interstitial during intake (Phase W2): after intake submission, if the API returns `redFlags`, a full-screen interstitial shows emergency guidance (local emergency number from config) and the matched reasons in plain language. Requires explicit acknowledgement (sent to the API) to continue; "I'll seek urgent care now" is the primary action and ends the booking without creating it. Never auto-dismisses, assertive screen-reader announcement, works with reduced motion. Built against a documented assumed API shape (see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions") pending `docforum-core` issue #58.
 - 2026-09-14 — Applied `gsap-core` and `svg-animations` (installed
   earlier) to two places, deliberately not "everywhere" — motion stays
   restrained (trust-first territory) and tied to what the marks already

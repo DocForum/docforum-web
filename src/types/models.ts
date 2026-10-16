@@ -95,6 +95,31 @@ export interface HealthEntryInput {
   details?: string;
 }
 
+// --- Red-flag symptom detection (Phase W2 — assumed, docforum-core#58 not
+// landed yet) ---------------------------------------------------------------
+// The API returns `redFlags` on the intake submission response when the
+// rule set matches. Shape below is the smallest reasonable guess needed to
+// render the safety interstitial; reconcile once docforum-core#58 defines
+// the real contract.
+
+export interface RedFlagReason {
+  /** Stable machine-readable rule id, e.g. "chest_pain_with_dyspnea". */
+  code: string;
+  /** Plain-language explanation shown to the patient, reviewed for tone. */
+  message: string;
+}
+
+export interface RedFlagResult {
+  reasons: RedFlagReason[];
+  /** Local emergency number resolved from config, e.g. "911" or "112". */
+  emergencyNumber: string;
+}
+
+export interface RedFlagAcknowledgementInput {
+  /** True when the patient explicitly acknowledged the guidance. */
+  acknowledged: boolean;
+}
+
 // --- Acting-for profile (Phase W2 — client-only UI state + API scoping) ----
 
 export interface ActingProfile {
@@ -102,6 +127,8 @@ export interface ActingProfile {
   fullName: string;
   isSelf: boolean;
 }
+
+
 
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
 // repo's docs/adr/0004-custodial-payments-v1.md) ---------------------------
