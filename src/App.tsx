@@ -8,6 +8,7 @@ import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
+        <Route path="claim-account" element={<ClaimAccountPage />} />
         <Route
           path="patient/*"
           element={
