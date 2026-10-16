@@ -43,6 +43,11 @@ real API" (no refresh-on-reload flow).
 - [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
 - [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
 - [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Patient home as a care hub: action-first dashboard ranking what needs
+  attention now. Tracked as [issue #33](https://github.com/DocForum/docforum-web/issues/33) (High, 200 pts) — no new backend contract; aggregates the
+  dependents and health-profile endpoints above. Its "Coming up" section
+  stays hidden until [issue #3](https://github.com/DocForum/docforum-web/issues/3) (my appointments list) lands, which this issue lists as a
+  soft dependency.
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7.**
@@ -316,3 +321,26 @@ real API" (no refresh-on-reload flow).
   (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
   switcher in header, acting-for banner on patient pages. Tests for every
   new component.
+- 2026-10-16 — Rebuilt `PatientDashboardPage` from a placeholder into the
+  patient care hub ([issue #33](https://github.com/DocForum/docforum-web/issues/33)): `src/features/care-hub/` holds a pure
+  ranking module (`ranking.ts`) plus `useCareHub`, which fans out to the
+  existing dependents and health-profile queries in parallel and turns
+  their results into cards ranked `blocked now → needs you → good to know`,
+  with a 30-day "Recent" window. One failing source degrades its own
+  section instead of blanking the page, and a health section that *errored*
+  is never reported to the patient as an empty profile. Sections for
+  unbuilt features are hidden, not stubbed — "Coming up" appears only once
+  [#3](https://github.com/DocForum/docforum-web/issues/3)
+  supplies appointment cards. Adds `src/features/care-hub/ranking.test.ts`
+  and `src/pages/PatientDashboardPage.test.tsx`; 56 tests pass (was 44),
+  typecheck and build green.
+- 2026-10-16 — Verified the three other assigned W2 issues against the
+  current code and backend: #32 (check-in + live queue position), #34
+  ("who viewed my records" access log) and #37 (payment history and
+  receipts) each need a `docforum-core` endpoint that does not exist yet —
+  no check-in/queue route, no access-log route, and
+  `src/services/payments-service.ts` can create/read/fund a single
+  `PaymentIntent` by id but has no list-the-patient's-payments route. Per
+  hard rule 1 these are API gaps to file against `docforum-core`, not
+  shapes to invent here, so they stay unimplemented rather than built on a
+  fabricated contract.

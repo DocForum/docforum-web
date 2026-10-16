@@ -101,6 +101,36 @@ No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
 
+### Care hub — patient home (#33)
+No new backend endpoint and no new assumed shape. The hub is a
+client-side aggregation over the two contracts above —
+`GET /patients/me/dependents` and `GET /patients/:profileId/health/:section`
+— ranked into sections in `src/features/care-hub/ranking.ts`. The derived
+`CareCard` is deliberately a presentation-only type (it exists in the
+browser and is never sent to or received from `docforum-core`), so it does
+not violate hard rule 2.
+
+Two things the issues ask for are not yet wired because their backend
+contract does not exist here:
+- **There is no way to learn the signed-in patient's own `patientProfileId`.**
+  `#20`'s profile store is populated only by tests — no response in this
+  repo carries an `ActingProfile`, and `User` has no profile id — so
+  `selectedProfileId` is `null` in a real session and every health-profile
+  query stays disabled. That is a `docforum-core` gap to file (hard rule 1),
+  not something to paper over by assuming `profileId === userId`. The care
+  hub reports such a source as `unavailable` rather than loading or failed,
+  so the screen renders the cards it *can* derive instead of spinning
+  forever, and never reads "we could not ask" as "you have nothing saved".
+  The health editor and dependents screens have the same dependency.
+- **"Coming up"** (upcoming appointments) waits on the `GET /appointments/mine`
+  list from issue #3, which is not built in this repo yet. The section
+  renders nothing until a card source for it lands, rather than showing an
+  empty appointments-shaped shell.
+- **Referrals awaiting acceptance, orders needing a facility, results
+  ready, waitlist offers, follow-ups** wait on `docforum-core`#5–#16
+  (see issues #4 and #5 here). Each will contribute its own card source
+  when that lands.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
