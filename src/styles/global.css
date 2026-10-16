@@ -255,3 +255,13 @@ code,
   color: var(--color-accent-2);
   margin-bottom: var(--space-4);
 }
+
+/* Printing should hand over the document, not the app around it. The patient
+   receipt (#37) is the first thing here worth printing. */
+@media print {
+  header,
+  nav,
+  footer {
+    display: none;
+  }
+}

@@ -3,12 +3,14 @@ import { render, screen, within } from '../test/render';
 import { PatientDashboardPage } from './PatientDashboardPage';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
-import type { Dependent, HealthEntry, HealthSectionKey } from '../types/models';
+import type { Appointment, Dependent, HealthEntry, HealthSectionKey } from '../types/models';
 import * as dependentsService from '../services/dependents-service';
 import * as healthService from '../services/health-profile-service';
+import * as appointmentsService from '../services/appointments-service';
 
 vi.mock('../services/dependents-service');
 vi.mock('../services/health-profile-service');
+vi.mock('../services/appointments-service');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -48,12 +50,45 @@ function mockHealth(bySection: Partial<Record<HealthSectionKey, HealthEntry[] | 
   });
 }
 
+/** "Late this evening" is the one slot time that is guaranteed to still be
+ * today *and* still ahead of the patient, whatever local timezone CI runs in —
+ * a fixed `09:00` would be in the past for an afternoon run. */
+function laterToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 50, 0);
+}
+
+function appointment(start: Date, status: Appointment['status'] = 'scheduled'): Appointment {
+  return {
+    id: 'apt-1',
+    patientProfileId: 'pp-1',
+    doctorProfileId: 'dp-1',
+    availabilitySlotId: 'slot-1',
+    status,
+    origin: 'direct_booking',
+    createdAt: '2026-10-13T09:00:00Z',
+    updatedAt: '2026-10-13T09:00:00Z',
+    availabilitySlot: {
+      id: 'slot-1',
+      doctorProfileId: 'dp-1',
+      status: 'booked',
+      startTime: start.toISOString(),
+      endTime: new Date(start.getTime() + 10 * 60 * 1000).toISOString(),
+      createdAt: '2026-10-01T09:00:00Z',
+      updatedAt: '2026-10-01T09:00:00Z',
+    },
+  };
+}
+
 describe('PatientDashboardPage care hub', () => {
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'test-token', user: null });
     useProfileStore.setState({ profiles: [{ id: 'pp-1', fullName: 'Self', isSelf: true }], selectedProfileId: 'pp-1' });
     vi.mocked(dependentsService.listDependents).mockReset();
     vi.mocked(healthService.listHealthEntries).mockReset();
+    vi.mocked(appointmentsService.listMyAppointments).mockReset();
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([]);
+    mockHealth();
   });
 
   it('ranks an expired handover invite above a not-yet-blocked one', async () => {
@@ -162,5 +197,72 @@ describe('PatientDashboardPage care hub', () => {
     await screen.findByText(/Nothing needs your attention right now/i);
     expect(screen.getByRole('link', { name: /manage dependents/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /health profile/i })).toBeInTheDocument();
+  });
+
+  it('brings a visit happening today into Action needed and points at check-in', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment(laterToday())]);
+
+    render(<PatientDashboardPage />);
+
+    const action = within(screen.getByRole('heading', { name: 'Action needed' }).parentElement as HTMLElement);
+    const card = await action.findByRole('link', { name: /check in for your visit today/i });
+    expect(card).toHaveAttribute('href', '/patient/appointments/apt-1');
+    expect(within(card).getByText('Today')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Coming up' })).not.toBeInTheDocument();
+  });
+
+  it('files a later visit under Coming up without promising check-in today', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
+      appointment(new Date(Date.now() + 26 * 60 * 60 * 1000)),
+    ]);
+
+    render(<PatientDashboardPage />);
+
+    const comingUp = await screen.findByRole('heading', { name: 'Coming up' });
+    const section = within(comingUp.parentElement as HTMLElement);
+    const card = await section.findByRole('link', { name: /visit tomorrow at \d{2}:\d{2}/i });
+    expect(section.getByText('Check-in opens on the day of your visit.')).toBeInTheDocument();
+    expect(card).toHaveAttribute('href', '/patient/appointments/apt-1');
+    expect(screen.getByRole('heading', { name: 'Action needed' }).parentElement).not.toHaveTextContent(/visit tomorrow/i);
+  });
+
+  it('does not offer a cancelled visit for check-in', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
+      appointment(laterToday(), 'cancelled'),
+    ]);
+
+    render(<PatientDashboardPage />);
+
+    // Anchor on *something* the hub settled into: the empty-profile prompt,
+    // which only appears once every other source has answered.
+    await screen.findByText(/Add your allergies/i);
+    expect(screen.queryByText(/check in for your visit today/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Coming up' })).not.toBeInTheDocument();
+  });
+
+  it('says the visit list could not be loaded instead of showing no visits', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([dependent({ handoverStatus: 'eligible' })]);
+    vi.mocked(appointmentsService.listMyAppointments).mockRejectedValue(new Error('offline'));
+
+    render(<PatientDashboardPage />);
+
+    expect(await screen.findByText(/could not be loaded/i)).toBeInTheDocument();
+    // The rest of the hub is still real, so it must still be on screen.
+    expect(screen.getByText(/Start Child One's handover/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing needs your attention right now/i)).not.toBeInTheDocument();
+  });
+
+  it('makes no visit request without a session, and does not spin forever', async () => {
+    useAuthStore.setState({ accessToken: null });
+
+    render(<PatientDashboardPage />);
+
+    expect(await screen.findByText(/Nothing needs your attention right now/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Loading your care summary/i)).not.toBeInTheDocument();
+    expect(appointmentsService.listMyAppointments).not.toHaveBeenCalled();
+    expect(screen.queryByText(/could not be loaded/i)).not.toBeInTheDocument();
   });
 });

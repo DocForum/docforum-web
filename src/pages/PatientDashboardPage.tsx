@@ -3,6 +3,7 @@ import { ActingForBanner } from '../features/dependents/components/ActingForBann
 import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
+import { AppointmentDetailPage } from './AppointmentDetailPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import styles from './PatientDashboardPage.module.css';
@@ -13,7 +14,7 @@ function PatientHome() {
 
   // A source that failed must not blank the hub: its section says so, the
   // others still render from the data that did arrive.
-  const anyLoading = sources.dependents.isLoading || sources.health.isLoading;
+  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.health.isLoading;
 
   return (
     <div className="container">
@@ -29,7 +30,7 @@ function PatientHome() {
           <h2 id="action-needed" className={styles.heading}>
             Action needed
           </h2>
-          {sources.dependents.failed || sources.health.failed ? (
+          {sources.dependents.failed || sources.appointments.failed || sources.health.failed ? (
             <p className={styles.sourceError} role="status">
               Some of your information could not be loaded. Everything else below is still current — retry
               by reloading this page.
@@ -42,8 +43,6 @@ function PatientHome() {
           ) : null}
         </section>
 
-        {/* "Coming up" is appointments-shaped and stays hidden until the
-            appointments list lands — see docforum-web#3. */}
         {sections.upcoming.length > 0 && (
           <section aria-labelledby="coming-up">
             <h2 id="coming-up" className={styles.heading}>
@@ -65,6 +64,8 @@ function PatientHome() {
         <nav className={styles.links} aria-label="Your record">
           <Link to="dependents">Manage dependents</Link>
           <Link to="health">Health profile</Link>
+          <Link to="/payments">Payments</Link>
+          <Link to="/account/access-log">Who viewed my records</Link>
         </nav>
       </div>
     </div>
@@ -77,6 +78,7 @@ export function PatientDashboardPage() {
       <Route index element={<PatientHome />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
+      <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
     </Routes>
   );
 }

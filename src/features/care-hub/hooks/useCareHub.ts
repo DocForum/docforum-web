@@ -1,5 +1,7 @@
 import { useDependents } from '../../dependents/hooks/useDependents';
 import { useHealthEntries } from '../../health-profile/hooks/useHealthEntries';
+import { useMyAppointments } from '../../appointments/hooks/useAppointments';
+import { formatSlotDate, formatSlotTime, isOnSlotDay, isUpcoming } from '../../appointments/slot';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import { PRIORITY, type CareCard } from '../ranking';
@@ -16,7 +18,7 @@ export interface SourceStatus {
 
 export interface CareHub {
   cards: CareCard[];
-  sources: { dependents: SourceStatus; health: SourceStatus };
+  sources: { dependents: SourceStatus; health: SourceStatus; appointments: SourceStatus };
 }
 
 /** A handover invite with no expiry sent by the backend is not the same thing
@@ -29,12 +31,14 @@ export function useCareHub(now: Date = new Date()): CareHub {
   const accessToken = useAuthStore((state) => state.accessToken);
   const profileId = useProfileStore((state) => state.selectedProfileId);
   const dependents = useDependents();
+  const appointments = useMyAppointments();
   const allergies = useHealthEntries('allergies');
   const conditions = useHealthEntries('conditions');
   const medications = useHealthEntries('medications');
   const healthQueries = [allergies, conditions, medications];
 
   const dependentsUnavailable = !accessToken;
+  const appointmentsUnavailable = !accessToken;
   const healthUnavailable = !accessToken || !profileId;
 
   const healthEntries = healthQueries.flatMap((query) => query.data ?? []);
@@ -64,6 +68,25 @@ export function useCareHub(now: Date = new Date()): CareHub {
         to: '/patient/dependents',
       });
     }
+  }
+
+  // A visit happening today is the most concrete thing a patient can act on
+  // right now, so it leads "Action needed"; later visits wait in "Coming up".
+  for (const appointment of appointments.data ?? []) {
+    if (!isUpcoming(appointment, now)) continue;
+    const startsAt = appointment.availabilitySlot.startTime;
+    const today = isOnSlotDay(appointment, now);
+    cards.push({
+      id: `appointment-${appointment.id}`,
+      section: today ? 'action' : 'upcoming',
+      priority: today ? PRIORITY.needsYou : PRIORITY.goodToKnow,
+      title: today ? 'Check in for your visit today' : `Visit ${formatSlotDate(startsAt, now)} at ${formatSlotTime(startsAt)}`,
+      detail: today
+        ? `Your appointment is at ${formatSlotTime(startsAt)}. Open it to check in and see your place in the queue.`
+        : 'Check-in opens on the day of your visit.',
+      to: `/patient/appointments/${appointment.id}`,
+      badge: today ? 'Today' : undefined,
+    });
   }
 
   // Only claim the profile is empty once every section answered successfully —
@@ -102,6 +125,11 @@ export function useCareHub(now: Date = new Date()): CareHub {
         isLoading: !dependentsUnavailable && dependents.isPending,
         failed: !dependentsUnavailable && dependents.isError,
         unavailable: dependentsUnavailable,
+      },
+      appointments: {
+        isLoading: !appointmentsUnavailable && appointments.isPending,
+        failed: !appointmentsUnavailable && appointments.isError,
+        unavailable: appointmentsUnavailable,
       },
       health: {
         isLoading: !healthUnavailable && healthQueries.some((query) => query.isPending),

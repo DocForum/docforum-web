@@ -139,3 +139,96 @@ export interface PaymentIntent {
   createdAt: string;
   updatedAt: string;
 }
+
+// --- Appointments (docforum-core Phase 1 — real) -------------------------
+// Mirrors `prisma.appointment.findMany({ include: { availabilitySlot: true } })`
+// in docforum-core's appointments/repositories, which is exactly what its
+// real `GET /appointments/mine` returns (a bare array, newest first).
+// Dates are ISO strings here because that is what JSON carries.
+
+export type SlotStatus = 'open' | 'held' | 'booked';
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+export type AppointmentOrigin = 'direct_booking' | 'referral';
+
+export interface AvailabilitySlot {
+  id: string;
+  doctorProfileId: string;
+  status: SlotStatus;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Appointment {
+  id: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  availabilitySlotId: string;
+  status: AppointmentStatus;
+  origin: AppointmentOrigin;
+  availabilitySlot: AvailabilitySlot;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Check-in + live queue position (assumed, docforum-core#129) ---------
+// `AppointmentStatus` has no checked-in or being-seen value, so the visit's
+// phase cannot come from the appointment row. It comes from this assumed
+// queue projection instead. Reconcile when core#129 lands.
+
+export type QueuePhase = 'not_open' | 'waiting' | 'being_seen' | 'completed';
+
+export interface AppointmentQueue {
+  appointmentId: string;
+  phase: QueuePhase;
+  /** Patients still ahead. null means no queue is published yet — which is
+   * not the same as being first. */
+  peopleAhead: number | null;
+  /** Minutes. Always rendered as an estimate. */
+  estimatedWaitMinutes: number | null;
+  /** null = this backend has no check-in window, so the UI says "check in on
+   * the day" instead of inventing an opening time. */
+  checkInOpensAt: string | null;
+  checkedInAt: string | null;
+}
+
+// --- 'Who viewed my records' access log (assumed, docforum-core#45) ------
+
+export type AccessActorRole = 'doctor' | 'facility' | 'patient' | 'admin';
+export type AccessRecordType = 'health_profile' | 'appointment' | 'referral' | 'order' | 'dependent';
+export type AccessReason = 'consultation' | 'order_fulfillment' | 'result_delivery' | 'handover_claim' | 'support';
+
+export interface AccessLogEvent {
+  id: string;
+  occurredAt: string;
+  actorRole: AccessActorRole;
+  actorName: string;
+  recordType: AccessRecordType;
+  reason: AccessReason;
+}
+
+export interface AccessLogPage {
+  events: AccessLogEvent[];
+  nextCursor: string | null;
+}
+
+// --- Payment history for patients (assumed, docforum-core#90) ------------
+// `PaymentIntent` above is the real, mirrored shape and stays untouched; the
+// patient-facing list is assumed to return it plus two display fields.
+// Neither #34's nor #37's list exists in docforum-core yet, and it has no
+// pagination helper to mirror, so both assume the same smallest envelope:
+// send `?cursor=`, read `nextCursor` (null once exhausted).
+
+export interface PaymentHistoryEntry extends PaymentIntent {
+  /** assumed — the real row has no refund deadline column. */
+  refundDeadlineAt?: string | null;
+  /** assumed — the real response carries only `facilityId`, an internal id
+   * the patient-facing UI must not render. */
+  facilityName?: string;
+}
+
+export interface PaymentHistoryPage {
+  intents: PaymentHistoryEntry[];
+  nextCursor: string | null;
+}
