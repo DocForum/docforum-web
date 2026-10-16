@@ -3,7 +3,9 @@ import { useAuthStore } from '../store/auth-store';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
-import { BookingPage } from './BookingPage';
+import { AccountSettingsPage } from './AccountSettingsPage';
+import { FacilityFinderPage } from './FacilityFinderPage';
+import { CareThreadPage } from './CareThreadPage';
 
 function PatientHome() {
   const user = useAuthStore((state) => state.user);
@@ -14,11 +16,13 @@ function PatientHome() {
       <div className="card">
         <span className="statusPill">Phase W2 · in progress</span>
         <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
-        <p>Doctor search, booking, and your appointments will live here — see ROADPAP.md Phase W2.</p>
-        <nav style={{ display: 'flex', gap: 'var (--space-4)', marginTop: 'var(--space-4)' }}>
+        <p>Doctor search, booking, and your appointments will live here — see ROADMAP.md Phase W2.</p>
+        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
           <Link to="dependents">Manage dependents</Link>
           <Link to="health">Health profile</Link>
-          <Link to="booking">Book an appointment</Link>
+          <Link to="/care">Care journey timeline</Link>
+          <Link to="facilities">Find pharmacies & labs</Link>
+          <Link to="settings">Account settings & privacy</Link>
         </nav>
       </div>
     </div>
@@ -31,7 +35,9 @@ export function PatientDashboardPage() {
       <Route index element={<PatientHome />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
-      <Route path="booking/*" element={<BookingPage />} />
+      <Route path="facilities" element={<FacilityFinderPage />} />
+      <Route path="settings" element={<AccountSettingsPage />} />
+      <Route path="care/*" element={<CareThreadPage />} />
     </Routes>
   );
 }

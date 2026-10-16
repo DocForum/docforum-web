@@ -9,6 +9,8 @@ import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { CareThreadPage } from './pages/CareThreadPage';
+import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -19,6 +21,15 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="account-deleted" element={<AccountDeletedPage />} />
+        <Route
+          path="care/*"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="patient/*"
           element={
