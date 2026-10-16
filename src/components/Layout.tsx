@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { useLogout } from '../features/auth/hooks/useLogout';
+import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
 import styles from './Layout.module.css';
@@ -19,6 +20,7 @@ export function Layout() {
         <nav className={styles.nav}>
           {user ? (
             <>
+              {user.role === 'patient' && <ProfileSwitcher />}
               <span className={styles.user}>
                 {user.email}
                 <span className={styles.roleBadge} data-role={user.role}>
