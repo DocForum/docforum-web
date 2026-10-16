@@ -33,12 +33,13 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#2, #4–#5.**
+**Fully scoped into issues #1–#5 plus #24 (results viewer).**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
 - [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
 - [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
+- [x] Lab results viewer with abnormal-value highlighting. Built for [issue #24](https://github.com/DocForum/docforum-web/issues/24) (High, 200 pts) — results list + detail per lab order (status, facility, date, summary, abnormality flag), lazy native PDF/image viewer with download, and calm "your doctor has been notified" next-steps + acknowledgement status for abnormal/critical instead of alarming raw text. Critical results withheld pending doctor review render as a waiting notice. **Assumed contract** against `docforum-core` issue #72 (not merged) — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions". Standalone at `/patient/results` until issue #5's orders list exists to link from.
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7.**
@@ -299,3 +300,18 @@ real API" (no refresh-on-reload flow).
 - 2026-10-07 — Opened issues #10 (explorer links in the payments
   console), #11 (ESLint in CI) and #12 (end-to-end smoke test against a
   real `docforum-core`, the unchecked Phase W1 item).
+- 2026-10-16 — Built the lab results viewer (issue #24, PRD §4 patient
+  core flow — results are the end of the book → consult → order → fulfil
+  thread): `LabResult`/`LabOrder` types in `src/types/models.ts` (real
+  columns mirrored, flag/acknowledgement/withheld fields marked assumed
+  against `docforum-core` #72), `src/services/results-service.ts`
+  (`GET /lab-results/mine`, `GET /lab-results/:id`), `src/features/
+  results/` (React Query hooks, `LabResultsList`, `LabResultDetail` with
+  calm next-steps copy + acknowledgement status, native lazy PDF/image
+  `ResultFileViewer` with download and no CDN script), `/patient/results`
+  + `/patient/results/:id` patient-gated routes linked from the patient
+  dashboard. 13 new component tests (each flag state + withheld +
+  viewer kinds). `ARCHITECTURE_ESSENTIALS.md` "Known assumptions"
+  documents the exact assumed shape. Not visually verified in a browser
+  this session — same disclosed gap as every other UI change here;
+  component tests + typecheck + build pass.

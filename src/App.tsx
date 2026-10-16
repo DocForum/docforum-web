@@ -5,6 +5,8 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { PatientResultsPage } from './pages/PatientResultsPage';
+import { PatientResultDetailPage } from './pages/PatientResultDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
@@ -17,6 +19,22 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
+        <Route
+          path="patient/results/:resultId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PatientResultDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="patient/results"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PatientResultsPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="patient/*"
           element={
