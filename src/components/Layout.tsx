@@ -4,6 +4,7 @@ import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
+import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -33,6 +34,7 @@ export function Layout() {
               )}
               <span className={styles.user}>
                 {user.email}
+                {user.role === 'doctor' && <UnreadBadge />}
                 <span className={styles.roleBadge} data-role={user.role}>
                   {user.role}
                 </span>

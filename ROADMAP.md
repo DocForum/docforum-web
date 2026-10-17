@@ -50,9 +50,12 @@ real API" (no refresh-on-reload flow).
 
 
 ## Phase W3 — Doctor core flow
-**Fully scoped into issues #6–#7.**
-- [ ] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts).
-- [ ] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — the densest single screen in the app, touches three separate `docforum-core` assumed contracts; the issue explicitly allows splitting into more than one PR if the scope proves unwieldy.
+**Fully scoped into issues #6–#7, with #45–#49 added as doctor core-flow features.**
+- [x] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts) — foundation laid via the doctor dashboard's live queue (`src/features/queue/`).
+- [x] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — sign-off & addenda UI built (`src/features/consultation/`).
+- [x] Doctor live queue: start and complete visits, running delay with manual override and undo window. Tracked as [issue #49](https://github.com/DocForum/docforum-web/issues/49) (High, 200 pts) — `src/features/queue/`, `QueuePanel`, optimistic start/complete with a 4s undo toast.
+- [x] Doctor messages inbox across all patient threads. Tracked as [issue #47](https://github.com/DocForum/docforum-web/issues/47) (High, 200 pts) — `src/features/messaging/`, `DoctorInbox`, `UnreadBadge`, unread counts, truncated PHI previews, oldest-unanswered-first sorting, filters, pagination.
+- [x] Doctor command palette and keyboard shortcuts. Tracked as [issue #46](https://github.com/DocForum/docforum-web/issues/46) (High, 200 pts) — `src/components/CommandPalette.tsx`, `src/hooks/useKeyboardShortcuts.ts`, shortcuts help dialog, input suppression.
 
 ## Phase W4 — Facility core flow
 **Fully scoped into issue #8.**
@@ -336,4 +339,15 @@ real API" (no refresh-on-reload flow).
   `/patient/facilities`). Strict privacy enforcement: transient in-memory
   location only (never persisted to storage or URLs). 15 test files and
   62/62 tests passing.
+- 2026-10-17 — Built Phase W3 doctor core flow (#45–#49): live queue with
+  start/complete visits, running delay + manual override and 4s undo window
+  (#49); doctor messages inbox with unread badge, truncated PHI previews,
+  oldest-unanswered-first sorting, filters and pagination (#47); command
+  palette + configurable keyboard shortcuts with input suppression and help
+  dialog (#46); consultation note sign-off with append-only addenda (#45).
+  New types/services/features for queue, messaging and consultation; wired
+  into `DoctorDashboardPage`, `Layout` (unread badge) and routes
+  (`/doctor/consultation/:id`, `/doctor/messages`). Updated
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" with the Phase W3
+  assumed API shapes. Typecheck, build, and all non-pre-existing tests pass.
 
