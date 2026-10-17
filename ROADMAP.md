@@ -50,9 +50,12 @@ real API" (no refresh-on-reload flow).
 
 
 ## Phase W3 — Doctor core flow
-**Fully scoped into issues #6–#7.**
+**Fully scoped into issues #6–#7, plus #39–#41.**
 - [ ] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts).
 - [ ] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — the densest single screen in the app, touches three separate `docforum-core` assumed contracts; the issue explicitly allows splitting into more than one PR if the scope proves unwieldy.
+- [x] Doctor availability manager: generate, block and remove slots on a calendar. Tracked as [issue #39](https://github.com/DocForum/docforum-web/issues/39) (High, 200 pts) — generation uses `docforum-core`'s real single-day endpoint, driven once per day over the chosen range; block/remove assume `docforum-core` issue #53.
+- [x] Doctor verification application: credential uploads and specialty claims. Tracked as [issue #40](https://github.com/DocForum/docforum-web/issues/40) (High, 200 pts) — assumed contract against `docforum-core` issues #52 and #51; `GET /doctors/me` is real.
+- [x] Specialist referral inbox with snapshot context viewer. Tracked as [issue #41](https://github.com/DocForum/docforum-web/issues/41) (High, 200 pts) — assumed contract against `docforum-core` issues #5 and #7; reads only the referral's frozen snapshot, never live consultation notes.
 
 ## Phase W4 — Facility core flow
 **Fully scoped into issue #8.**

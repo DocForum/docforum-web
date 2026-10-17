@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -30,6 +31,10 @@ function PatientHome() {
 }
 
 export function PatientDashboardPage() {
+  // Profile-scoped reads (`/patients/:profileId/...`) need the caller's own
+  // profile id, which the auth session does not carry.
+  useProfileBootstrap();
+
   return (
     <Routes>
       <Route index element={<PatientHome />} />
