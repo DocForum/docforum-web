@@ -1,0 +1,267 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.privacyCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.privacyText {
+  margin: 0;
+  color: var(--color-text);
+  line-height: var(--leading-normal);
+}
+
+.controlsBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.filterTabs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tabButton {
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tabActive {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.layoutSplit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  min-height: 520px;
+}
+
+@media (max-width: 900px) {
+  .layoutSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.listColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+}
+
+.mapColumn {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mapWrapper {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+.mapTilesGrid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  opacity: 0.85;
+}
+
+.tileImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.mapOverlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.marker {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.marker:hover,
+.markerActive {
+  transform: translate(-50%, -100%) scale(1.15);
+  z-index: 10;
+}
+
+.pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-accent);
+  border: 2px solid #ffffff;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.markerActive .pin {
+  background: var(--color-accent-2);
+}
+
+.pinIcon {
+  transform: rotate(45deg);
+  font-size: 11px;
+  color: #ffffff;
+}
+
+.markerLabel {
+  margin-top: 4px;
+  padding: 2px 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.mapAttribution {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+  color: #333333;
+  border-top-left-radius: var(--radius-sm);
+  z-index: 5;
+}
+
+.mapAttribution a {
+  color: #1f4d3a;
+  text-decoration: underline;
+}
+
+.facilityCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.facilityCard:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-hover);
+}
+
+.facilityCardActive {
+  border-color: var(--color-accent-2);
+  background: var(--color-accent-2-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.facilityName {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badgePharmacy {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+.badgeLab {
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2);
+}
+
+.distancePill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.cardDetails {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-snug);
+}

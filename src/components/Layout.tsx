@@ -20,7 +20,17 @@ export function Layout() {
         <nav className={styles.nav}>
           {user ? (
             <>
-              {user.role === 'patient' && <ProfileSwitcher />}
+              {user.role === 'patient' && (
+                <>
+                  <ProfileSwitcher />
+                  <Link to="/care" className={styles.navLink}>
+                    Care journey
+                  </Link>
+                  <Link to="/patient/settings" className={styles.navLink}>
+                    Settings
+                  </Link>
+                </>
+              )}
               <span className={styles.user}>
                 {user.email}
                 <span className={styles.roleBadge} data-role={user.role}>

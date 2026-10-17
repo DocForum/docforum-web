@@ -62,3 +62,29 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   return payload as T;
 }
+
+export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const { method = 'GET', body, accessToken, signal } = options;
+
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers,
+    credentials: 'include',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (!response.ok) {
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const payload = isJson ? await response.json().catch(() => undefined) : undefined;
+    const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
+    throw new ApiError(message, response.status, payload);
+  }
+
+  return response.blob();
+}
+
