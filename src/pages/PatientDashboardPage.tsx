@@ -1,6 +1,9 @@
 import { Link, Route, Routes } from 'react-router-dom';
-import { useAuthStore } from '../store/auth-store';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { CareCardList } from '../features/care-hub/components/CareCardList';
+import { useCareHub } from '../features/care-hub/hooks/useCareHub';
+import { groupBySection } from '../features/care-hub/ranking';
+import { AppointmentDetailPage } from './AppointmentDetailPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -8,11 +11,17 @@ import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
 
 function PatientHome() {
-  const user = useAuthStore((state) => state.user);
+  const { cards, sources } = useCareHub();
+  const sections = groupBySection(cards);
+
+  // A source that failed must not blank the hub: its section says so, the
+  // others still render from the data that did arrive.
+  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.health.isLoading;
 
   return (
     <div className="container">
       <ActingForBanner />
+
       <div className="card">
         <span className="statusPill">Phase W2 · in progress</span>
         <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
