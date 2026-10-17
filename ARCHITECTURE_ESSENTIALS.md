@@ -125,6 +125,36 @@ store). Every patient API call and React Query key includes the selected
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
 
+### Appointment detail + reschedule (docforum-core#55, issue #14)
+Reads — **real**, no assumption:
+- `GET /appointments/mine` → `Appointment[]` (with `availabilitySlot`). The
+  detail page resolves `/appointments/:id` against this list, which is why a
+  foreign id renders "not found" instead of another patient's data.
+- `GET /availability/doctors/:doctorProfileId/slots` → `AvailabilitySlot[]`
+  (same doctor, open + future only).
+
+Writes and fields — **assumed**, reconcile when these land:
+- `POST /appointments/:appointmentId/reschedule` (body: `{ newSlotId }`) →
+  `Appointment` (docforum-core#55). `409` when the new slot is already taken —
+  the appointment and both slots are unchanged, which is the contract this UI
+  is built around: on `409` the list/detail caches are *not* invalidated and
+  only the slot list is refreshed. `404` = unknown appointment **or** the route
+  not being deployed yet ("not available on this deployment", never "you have
+  no appointments"). Non-`scheduled` appointments are rejected server-side.
+- Cutoff: 2 hours before start, enforced client-side in
+  `features/appointments/cutoff.ts` (assumed — docforum-core#55 proposes "e.g.
+  no reschedule within 2h of start"; docforum-core#56 owns the policy). The
+  server's own rejection, when it exists, is surfaced verbatim instead of
+  being overridden by this value.
+- `GET /doctors/:doctorProfileId` → `DoctorProfile` (docforum-core#23) — the
+  clinician's name, since `/appointments/mine` carries only `doctorProfileId`.
+  Until it lands the page shows a labelled "name isn't available on this
+  deployment" placeholder; it never invents a name.
+- `Appointment.intake?: IntakeSummary | null` (docforum-core#1/#2 — intake is
+  not modelled on the appointment yet). `undefined` means "this deployment
+  cannot answer", `null` means "not submitted"; the page renders those as
+  different statements.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

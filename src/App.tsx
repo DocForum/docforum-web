@@ -11,6 +11,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
+import { AppointmentDetailPage } from './pages/AppointmentDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -35,6 +36,17 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['patient']}>
               <PatientDashboardPage />
+            </RequireAuth>
+          }
+        />
+        {/* Deep-linkable appointment detail (issue #14). Top-level rather than
+            nested under `patient/*` because the issue specifies the literal
+            path `/appointments/:id`; the appointments list (#3) links here. */}
+        <Route
+          path="appointments/:id"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <AppointmentDetailPage />
             </RequireAuth>
           }
         />

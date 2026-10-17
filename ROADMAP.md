@@ -33,10 +33,11 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#5, #18–#21, #26–#29.**
+**Fully scoped into issues #1–#5, #14, #18–#21, #26–#29.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
+- [x] Appointment detail page with an atomic reschedule flow. Tracked as [issue #14](https://github.com/DocForum/docforum-web/issues/14) (High, 200 pts) — `/appointments/:id` plus a same-doctor slot picker; the reschedule write is an assumed contract against `docforum-core` issue #55 (open), the reads are real.
 - [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
 - [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
 - [x] Health profile editor: allergies, conditions and current medications. Tracked as [issue #18](https://github.com/DocForum/docforum-web/issues/18) (High, 200 pts) — assumed contract against `docforum-core` issue #59.
@@ -336,4 +337,25 @@ real API" (no refresh-on-reload flow).
   `/patient/facilities`). Strict privacy enforcement: transient in-memory
   location only (never persisted to storage or URLs). 15 test files and
   62/62 tests passing.
+- 2026-10-17 — Built Phase W2 appointment detail with an atomic reschedule
+  flow ([issue #14](https://github.com/DocForum/docforum-web/issues/14)).
+  New patient-gated route `/appointments/:id`, new feature folder
+  `src/features/appointments/` (`cutoff.ts`, `slots.ts`, `errors.ts`,
+  `hooks/useAppointments.ts`, `hooks/useReschedule.ts`, `SlotPicker`,
+  `RescheduleDialog`), `appointments-service.ts`, and `Appointment` /
+  `AvailabilitySlot` / `AppointmentStatus` / `IntakeSummary` types in
+  `models.ts` mirroring `docforum-core`'s schema. The reads are real:
+  `GET /appointments/mine` (the detail page resolves its `:id` against the
+  patient's own list first, so a forwarded or guessed id renders not-found
+  instead of probing another patient's appointment) and
+  `GET /availability/doctors/:doctorProfileId/slots` for the same-doctor
+  picker. Assumed and recorded in `ARCHITECTURE_ESSENTIALS.md` "Known
+  assumptions": `POST /appointments/:id/reschedule` (`docforum-core#55`,
+  open), the 2-hour cutoff window (`docforum-core#55`/`#56`), the clinician
+  read for a name (`docforum-core#23`) and `intake` (`docforum-core#1`/`#2`).
+  On `409` the list and detail caches are deliberately left alone — the
+  original appointment stays on screen and only the slot list is refetched;
+  on success both caches are invalidated. Cutoff disables the action with the
+  reason rendered beside it. 20 test files, 104/104 tests, typecheck and
+  build green.
 
