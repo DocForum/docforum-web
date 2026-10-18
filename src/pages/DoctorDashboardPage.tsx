@@ -65,6 +65,16 @@ export function DoctorDashboardPage() {
         navigate('/doctor/consultation/new');
       },
     },
+    {
+      id: 'insights',
+      label: 'Open practice insights',
+      category: 'navigation',
+      shortcut: 'mod+4',
+      run: () => {
+        setPaletteOpen(false);
+        navigate('/doctor/insights');
+      },
+    },
   ];
 
   return (
@@ -73,6 +83,9 @@ export function DoctorDashboardPage() {
         <h1>Doctor dashboard</h1>
         <div className={styles.dashboardHeaderRight}>
           <UnreadBadge />
+          <Button variant="secondary" onClick={() => navigate('/doctor/insights')}>
+            Practice insights
+          </Button>
           <Button variant="secondary" onClick={() => setHelpOpen(true)}>
             Shortcuts (?)
           </Button>

@@ -292,3 +292,139 @@ export interface AddAddendumInput {
   content: string;
 }
 
+// --- Phase W3 — Doctor Practice Insights (issue #50, depends on docforum-core#124) ---
+
+export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
+
+export interface DateRange {
+  preset: DateRangePreset;
+  startDate: string; // ISO date YYYY-MM-DD
+  endDate: string;   // ISO date YYYY-MM-DD
+}
+
+export interface UtilisationWeek {
+  weekLabel: string;
+  startDate: string;
+  endDate: string;
+  offeredSlots: number;
+  bookedSlots: number;
+  completedSlots: number;
+  utilisationRate: number; // percentage 0-100
+}
+
+export interface NoShowMetrics {
+  totalScheduled: number;
+  completedVisits: number;
+  noShows: number;
+  lateCancellations: number;
+  onTimeCancellations: number;
+  noShowRate: number;        // percentage
+  lateCancelRate: number;    // percentage
+  sampleSizeWarning: boolean;
+}
+
+export interface ReferralTurnaroundMetrics {
+  totalSent: number;
+  totalAccepted: number;
+  totalPending: number;
+  averageAcceptanceHours: number;
+  medianAcceptanceHours: number;
+  breakdownUnder24h: number;
+  breakdown24to48h: number;
+  breakdownOver48h: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface MessageResponseMetrics {
+  totalThreads: number;
+  averageFirstResponseMinutes: number;
+  medianFirstResponseMinutes: number;
+  respondedWithin2hCount: number;
+  respondedWithin24hCount: number;
+  rateWithin2h: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface DoctorPracticeInsights {
+  doctorProfileId: string;
+  range: DateRange;
+  generatedAt: string;
+  utilisation: {
+    weeks: UtilisationWeek[];
+    overallOfferedSlots: number;
+    overallBookedSlots: number;
+    overallUtilisationRate: number;
+    sampleSizeWarning: boolean;
+  };
+  noShows: NoShowMetrics;
+  referrals: ReferralTurnaroundMetrics;
+  messages: MessageResponseMetrics;
+}
+
+// --- Phase W4 — Facility Staff Accounts & Fulfillment Attribution (issue #51, docforum-core#75) ---
+
+export type FacilityMemberRole = 'owner' | 'staff';
+
+export interface FacilityMember {
+  id: string;
+  facilityId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  role: FacilityMemberRole;
+  joinedAt: string;
+  isCurrentUser?: boolean;
+}
+
+export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface FacilityInvite {
+  id: string;
+  facilityId: string;
+  email: string;
+  role: FacilityMemberRole;
+  invitedBy: string;
+  invitedAt: string;
+  expiresAt: string;
+  status: InviteStatus;
+}
+
+export interface InviteMemberInput {
+  email: string;
+  role: FacilityMemberRole;
+}
+
+export interface RemoveMemberResponse {
+  success: boolean;
+  memberId: string;
+  sessionsRevoked: boolean;
+  message: string;
+}
+
+export type FulfillmentOrderType = 'prescription' | 'lab';
+export type FulfillmentItemStatus = 'pending' | 'in_progress' | 'fulfilled' | 'rejected';
+
+export interface FulfillmentActionAttribution {
+  action: 'dispensed' | 'sample_collected' | 'verified' | 'rejected';
+  performedByUserId: string;
+  performedByName: string;
+  performedByEmail: string;
+  performedByRole: FacilityMemberRole;
+  timestamp: string;
+  notes?: string | null;
+}
+
+export interface FulfillmentQueueItem {
+  id: string;
+  facilityId: string;
+  orderId: string;
+  orderType: FulfillmentOrderType;
+  patientName: string;
+  patientProfileId: string;
+  itemName: string;
+  instructions?: string | null;
+  status: FulfillmentItemStatus;
+  receivedAt: string;
+  attribution?: FulfillmentActionAttribution | null;
+}
+

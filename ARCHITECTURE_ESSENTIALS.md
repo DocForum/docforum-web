@@ -154,8 +154,27 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `POST /consultation-notes/:id/addenda` (body: `{content}`) → `ConsultationAddendum` — append-only; no edit/delete UI for addenda.
 - Auto sign-off deadline, if present, is exposed as `autoSignOffAt` on the note.
 
+#### Doctor practice insights (issue #50, depends on docforum-core#124)
+- `GET /doctor/insights?preset=&startDate=&endDate=` → `DoctorPracticeInsights`
+- Scoped strictly to the authenticated doctor's own practice data; peer-comparison suppression guarantees no benchmarking against other named doctors.
+- Aggregates weekly slot utilisation (offered vs booked), no-show and late-cancellation (<24h) rates, referral acceptance turnaround (average, median, distribution), and message response time (within 2h/24h).
+- Small-sample caveats (`sampleSizeWarning: true`) automatically flagged when denominators are low (total slots < 10, referrals < 5, message threads < 5) to warn against misleading rate volatility.
+- Every chart view has a full accessible `<table>` alternative with semantic captions, headers, and tabular numeric alignment.
+
+### Phase W4 — Facility staff accounts & fulfillment attribution (issue #51, docforum-core#75)
+- `GET /facilities/:facilityId/members` → `FacilityMember[]` — facility staff and owners.
+- `GET /facilities/:facilityId/invites` → `FacilityInvite[]` — pending invitations (owner-only access; hidden for staff).
+- `POST /facilities/:facilityId/invites` (body: `{email, role: 'owner'|'staff'}`) → `FacilityInvite` — invite staff by email (owner-only).
+- `POST /facilities/:facilityId/invites/:inviteId/resend` → `FacilityInvite` — resend invitation email (owner-only).
+- `DELETE /facilities/:facilityId/invites/:inviteId` → `{success: boolean}` — revoke invite (owner-only).
+- `DELETE /facilities/:facilityId/members/:memberId` → `RemoveMemberResponse` — remove member and immediately invalidate/revoke their active backend sessions (owner-only; cannot remove the last owner of a facility).
+- Non-owner staff users see the team page in read-only mode (invite, revoke, and remove actions are hidden and rejected if forced).
+- `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
+- `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
+
 

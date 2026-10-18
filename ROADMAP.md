@@ -56,9 +56,11 @@ real API" (no refresh-on-reload flow).
 - [x] Doctor live queue: start and complete visits, running delay with manual override and undo window. Tracked as [issue #49](https://github.com/DocForum/docforum-web/issues/49) (High, 200 pts) — `src/features/queue/`, `QueuePanel`, optimistic start/complete with a 4s undo toast.
 - [x] Doctor messages inbox across all patient threads. Tracked as [issue #47](https://github.com/DocForum/docforum-web/issues/47) (High, 200 pts) — `src/features/messaging/`, `DoctorInbox`, `UnreadBadge`, unread counts, truncated PHI previews, oldest-unanswered-first sorting, filters, pagination.
 - [x] Doctor command palette and keyboard shortcuts. Tracked as [issue #46](https://github.com/DocForum/docforum-web/issues/46) (High, 200 pts) — `src/components/CommandPalette.tsx`, `src/hooks/useKeyboardShortcuts.ts`, shortcuts help dialog, input suppression.
+- [x] Doctor practice insights: utilisation, no-shows and turnaround. Tracked as [issue #50](https://github.com/DocForum/docforum-web/issues/50) (High, 200 pts) — `src/features/insights/`, `DoctorPracticeInsightsPage`, slot utilisation by week, no-show/late-cancel rates, referral turnaround, message response time; charts with accessible table alternatives; date range selector; small-sample caveats; doctor-only data (no peer comparisons).
 
 ## Phase W4 — Facility core flow
-**Fully scoped into issue #8.**
+**Fully scoped into issues #8 and #51.**
+- [x] Facility staff accounts: invite, list and remove. Tracked as [issue #51](https://github.com/DocForum/docforum-web/issues/51) (High, 200 pts) — `src/features/facility-team/`, `FacilityTeamPage`, owner staff invite by email with fixed roles, pending invites with resend/revoke, member removal with backend session revocation and last-owner protection, read-only staff view, and fulfillment queue action attribution (PRD §7).
 - [ ] Fulfillment queue. Tracked as [issue #8](https://github.com/DocForum/docforum-web/issues/8) (Medium, 150 pts).
 - [ ] Mark fulfilled/rejected, attach lab result. Folded into issue #8 above.
 
@@ -350,4 +352,9 @@ real API" (no refresh-on-reload flow).
   (`/doctor/consultation/:id`, `/doctor/messages`). Updated
   `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" with the Phase W3
   assumed API shapes. Typecheck, build, and all non-pre-existing tests pass.
+- 2026-10-18 — Built Phase W3 Doctor practice insights (#50) and Phase W4 Facility staff accounts with fulfillment attribution (#51):
+  - `#50 Doctor practice insights`: private insights page (`/doctor/insights`) with weekly slot utilisation, no-show and late-cancellation rates, referral acceptance turnaround, and messages response time. Includes SVG charts paired with accessible semantic `<table>` alternatives, date range selector (presets + custom), clearly labelled small-sample caveats, and strict peer-comparison suppression (doctor's own confidential data only). Wired into `DoctorDashboardPage`, command palette (`⌘K`), and navigation.
+  - `#51 Facility staff accounts & fulfillment attribution`: dedicated team management page (`/facility/team`) with member list, role assignment (`owner` vs `staff`), email invitations, resend/revoke pending invites, member removal with backend session revocation warning, and last-owner deletion protection. Enforced read-only view and action suppression for staff members. In the fulfillment queue (`/facility`), added action attribution display showing which staff member dispensed/fulfilled each order for PRD §7 audit trail.
+  - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 24 test files and 112/112 tests passing; typecheck and build green.
+
 

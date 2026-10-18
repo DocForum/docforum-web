@@ -14,6 +14,8 @@ import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ConsultationNote } from './features/consultation/components/ConsultationNote';
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';
+import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
+import { FacilityTeamPage } from './pages/FacilityTeamPage';
 
 export default function App() {
   return (
@@ -45,6 +47,11 @@ export default function App() {
             <DoctorDashboardPage />
           </RequireAuth>
         } />
+        <Route path="doctor/insights" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorPracticeInsightsPage />
+          </RequireAuth>
+        } />
         <Route path="doctor/consultation/:appointmentId" element={
           <RequireAuth allowedRoles={['doctor']}>
             <ConsultationNote />
@@ -55,6 +62,14 @@ export default function App() {
             <DoctorInbox />
           </RequireAuth>
         } />
+        <Route
+          path="facility/team"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="facility/*"
           element={

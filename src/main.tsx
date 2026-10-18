@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 // Revisit if this ever deploys somewhere with a real rewrite rule.
 import { HashRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuthStore } from './store/auth-store';
 import App from './App';
 import './styles/global.css';
 
@@ -17,6 +18,22 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Enable preview session when previewRole query param is set (useful for screenshots & review)
+const urlParams = new URLSearchParams(window.location.search);
+const previewRole = urlParams.get('previewRole');
+if (previewRole && (previewRole === 'doctor' || previewRole === 'facility' || previewRole === 'patient' || previewRole === 'admin')) {
+  useAuthStore.getState().setSession(
+    {
+      id: `preview-${previewRole}-user`,
+      email: `${previewRole}@docforum.org`,
+      role: previewRole,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    'preview-token',
+  );
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root element not found');
