@@ -13,6 +13,8 @@ import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { AppointmentDetailPage } from './pages/AppointmentDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ConsultationNote } from './features/consultation/components/ConsultationNote';
+import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 
 export default function App() {
   return (
@@ -39,25 +41,21 @@ export default function App() {
             </RequireAuth>
           }
         />
-        {/* Deep-linkable appointment detail (issue #14). Top-level rather than
-            nested under `patient/*` because the issue specifies the literal
-            path `/appointments/:id`; the appointments list (#3) links here. */}
-        <Route
-          path="appointments/:id"
-          element={
-            <RequireAuth allowedRoles={['patient']}>
-              <AppointmentDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="doctor/*"
-          element={
-            <RequireAuth allowedRoles={['doctor']}>
-              <DoctorDashboardPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="doctor" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorDashboardPage />
+          </RequireAuth>
+        } />
+        <Route path="doctor/consultation/:appointmentId" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <ConsultationNote />
+          </RequireAuth>
+        } />
+        <Route path="doctor/messages" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorInbox />
+          </RequireAuth>
+        } />
         <Route
           path="facility/*"
           element={

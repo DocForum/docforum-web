@@ -125,35 +125,34 @@ store). Every patient API call and React Query key includes the selected
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
 
-### Appointment detail + reschedule (docforum-core#55, issue #14)
-Reads — **real**, no assumption:
-- `GET /appointments/mine` → `Appointment[]` (with `availabilitySlot`). The
-  detail page resolves `/appointments/:id` against this list, which is why a
-  foreign id renders "not found" instead of another patient's data.
-- `GET /availability/doctors/:doctorProfileId/slots` → `AvailabilitySlot[]`
-  (same doctor, open + future only).
+### Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
 
-Writes and fields — **assumed**, reconcile when these land:
-- `POST /appointments/:appointmentId/reschedule` (body: `{ newSlotId }`) →
-  `Appointment` (docforum-core#55). `409` when the new slot is already taken —
-  the appointment and both slots are unchanged, which is the contract this UI
-  is built around: on `409` the list/detail caches are *not* invalidated and
-  only the slot list is refreshed. `404` = unknown appointment **or** the route
-  not being deployed yet ("not available on this deployment", never "you have
-  no appointments"). Non-`scheduled` appointments are rejected server-side.
-- Cutoff: 2 hours before start, enforced client-side in
-  `features/appointments/cutoff.ts` (assumed — docforum-core#55 proposes "e.g.
-  no reschedule within 2h of start"; docforum-core#56 owns the policy). The
-  server's own rejection, when it exists, is surfaced verbatim instead of
-  being overridden by this value.
-- `GET /doctors/:doctorProfileId` → `DoctorProfile` (docforum-core#23) — the
-  clinician's name, since `/appointments/mine` carries only `doctorProfileId`.
-  Until it lands the page shows a labelled "name isn't available on this
-  deployment" placeholder; it never invents a name.
-- `Appointment.intake?: IntakeSummary | null` (docforum-core#1/#2 — intake is
-  not modelled on the appointment yet). `undefined` means "this deployment
-  cannot answer", `null` means "not submitted"; the page renders those as
-  different statements.
+These shapes back issues #45–#49. docforum-core issues #61 (message thread),
+#129 (in-person check-in / live queue position) and the today's-appointments
+consultation contracts are not landed yet, so the endpoints below are the
+smallest reasonable assumption and must be reconciled once the real API
+exists.
+
+#### Today's appointments & live queue (issue #49, depends on #6)
+- `GET /doctor/appointments/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
+- `GET /doctor/queue/today` → `QueueEntry[]` — checked-in patients in queue order (computed server-side from `checkInAt`).
+- `POST /appointments/:id/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`). Idempotent if already started.
+- `POST /appointments/:id/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`).
+- `GET /doctor/queue/running-delay` → `RunningDelay` — computed delay from the current in-progress visit vs its scheduled end, plus any manual override.
+- `PATCH /doctor/queue/running-delay` (body: `{manualOverrideMin?: number | null}`) → `RunningDelay` — set/clear a manual "running late by X min" override.
+
+Undo behaviour: start/complete are applied optimistically and can be reverted within a short undo window (a few seconds) by re-calling the inverse action or clearing the optimistic timestamp; the UI surfaces an undo toast.
+
+#### Doctor messages inbox (issue #47)
+- `GET /doctor/messages/threads?filter=&cursor=&limit=` → `{threads: MessageThread[], nextCursor?: string | null}` — threads with unread counts, last-message preview (PHI — kept short), waiting time, oldest unanswered first by default.
+- `POST /message-threads/:id/read` → `{}` — mark a thread read (clears its unread count).
+- Header badge reads total unread = sum of `unreadCount` across threads.
+
+#### Consultation notes sign-off & addenda (issue #45, depends on #7)
+- `GET /consultation-notes/:appointmentId` → `ConsultationNote`
+- `POST /consultation-notes/:id/sign-off` → `ConsultationNote` — sets `signedAt`/`signedBy`; note becomes immutable after this.
+- `POST /consultation-notes/:id/addenda` (body: `{content}`) → `ConsultationAddendum` — append-only; no edit/delete UI for addenda.
+- Auto sign-off deadline, if present, is exposed as `autoSignOffAt` on the note.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
