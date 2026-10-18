@@ -18,6 +18,7 @@ import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
 import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
+import { AdminSystemPage } from './pages/AdminSystemPage';
 
 export default function App() {
   return (
@@ -93,6 +94,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminReferralsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/system"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminSystemPage />
             </RequireAuth>
           }
         />

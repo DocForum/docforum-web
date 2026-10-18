@@ -34,6 +34,9 @@ export function AdminDashboardPage() {
         <p>
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
         </p>
+        <p>
+          <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
+        </p>
       </div>
 
       <CreatePaymentIntentForm onCreated={setSelectedIntentId} />
