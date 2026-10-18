@@ -84,6 +84,12 @@ real API" (no refresh-on-reload flow).
   a session exists, same caveat as the facility dashboard already had.
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
 
+## Phase W7 — Platform quality: reliability, accessibility, performance, testing
+- [x] Mock API for local development (MSW). Tracked as [issue #95](https://github.com/DocForum/docforum-web/issues/95) (High, 200 pts) — `npm run dev:mock` serves every endpoint the app uses through the normal service layer via `src/mocks/`: seeded obviously-fake fixtures, a dev-panel role switcher (patient/doctor/facility/admin), scenario toggles (empty states, forced errors), a latency slider, and a fixture reset. 26 handler tests drive the real `src/services/` layer against MSW; CI fails if mock code ever enters a production bundle (`npm run check:dist`). Documented in `CONTRIBUTING.md`.
+- [ ] Generate MSW handlers and fixtures from the backend OpenAPI spec. Tracked as [issue #96](https://github.com/DocForum/docforum-web/issues/96) (High, 200 pts) — **blocked**: depends on [docforum-core#112](https://github.com/DocForum/docforum-core/issues/112) (OpenAPI 3.1 spec generated from the Zod schemas), which is still open — there is no authoritative `openapi.json` to generate from yet. Do not fabricate one; see that issue.
+- [ ] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts).
+- [ ] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts).
+
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
   of the 3-repo org split.
@@ -356,5 +362,26 @@ real API" (no refresh-on-reload flow).
   - `#50 Doctor practice insights`: private insights page (`/doctor/insights`) with weekly slot utilisation, no-show and late-cancellation rates, referral acceptance turnaround, and messages response time. Includes SVG charts paired with accessible semantic `<table>` alternatives, date range selector (presets + custom), clearly labelled small-sample caveats, and strict peer-comparison suppression (doctor's own confidential data only). Wired into `DoctorDashboardPage`, command palette (`⌘K`), and navigation.
   - `#51 Facility staff accounts & fulfillment attribution`: dedicated team management page (`/facility/team`) with member list, role assignment (`owner` vs `staff`), email invitations, resend/revoke pending invites, member removal with backend session revocation warning, and last-owner deletion protection. Enforced read-only view and action suppression for staff members. In the fulfillment queue (`/facility`), added action attribution display showing which staff member dispensed/fulfilled each order for PRD §7 audit trail.
   - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 24 test files and 112/112 tests passing; typecheck and build green.
+- 2026-10-18 — Started Phase W7 (platform quality) with the mock API for
+  local development (#95): `npm run dev:mock` boots Vite with an MSW
+  service worker intercepting every endpoint the app's service layer
+  calls (auth, dependents, health profile, care threads, consultation
+  notes, doctor queue/messages/insights, facility finder/team/fulfillment,
+  payments, account export/delete). Fixtures are deliberately fake
+  (`example.test` personas); a dev panel switches roles (patient, doctor,
+  facility, admin), scenarios (normal / empty states / forced errors),
+  response latency (0–3s), and resets the in-memory database. Mocks boot
+  before React's first render (top-level await, dev-only) so deep links
+  into protected routes work; production builds are byte-for-byte
+  unaffected — `npm run check:dist` (new CI step) fails if any mock
+  marker leaks into `dist/`. New `src/query-client.ts` shares the app's
+  QueryClient so the panel can invalidate caches. 26 new handler tests
+  exercise the real service layer through MSW (node env), including
+  scenario/latency switches and 404/409 paths; 138/138 tests, typecheck,
+  build, and the bundle-exclusion check all pass. Also verified in a real
+  browser (Playwright/Chromium): role switching, empty/error scenarios,
+  mobile layout, and deep links — screenshots in `screenshots/mock-*`.
+  Issue #96 (generated mocks) confirmed **blocked** on
+  docforum-core#112, which is still open.
 
 

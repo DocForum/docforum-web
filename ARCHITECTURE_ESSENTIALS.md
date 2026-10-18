@@ -25,6 +25,13 @@ those first if you're new to the org, not just this file.
 ## Where things live
 - `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
   the only place fetch/base-URL/error-envelope details live.
+- `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
+  mirror the same real/assumed contracts `src/services/` calls, over
+  obviously fake `example.test` fixtures. Loaded only behind the
+  `import.meta.env.DEV && VITE_ENABLE_MOCKS` guard in `main.tsx`, before
+  the first render; production bundles must never contain it — CI enforces
+  this via `npm run check:dist`. When an assumed contract in this file is
+  reconciled, update `src/mocks/` fixtures/handlers in the same PR.
 - `src/features/` — flow-specific logic (booking, referral-accept, order
   fulfillment selection, etc.) — one feature folder per PRD core flow.
 - `src/pages/` — route-level components.
