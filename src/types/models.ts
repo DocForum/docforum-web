@@ -428,3 +428,83 @@ export interface FulfillmentQueueItem {
   attribution?: FulfillmentActionAttribution | null;
 }
 
+// --- Phase W4 — Scan-to-verify orders (issue #52, docforum-core#71) ---
+
+export type OrderVerificationStatus =
+  | 'valid'
+  | 'superseded'
+  | 'expired'
+  | 'fulfilled'
+  | 'not_eligible';
+
+export interface VerifiedOrderSummary {
+  orderId: string;
+  orderType: FulfillmentOrderType;
+  patientName: string;
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  supersededBy?: string | null;
+  fulfilledAt?: string | null;
+  fulfilledByFacility?: string | null;
+}
+
+export interface VerifyOrderResponse {
+  status: OrderVerificationStatus;
+  token: string;
+  verifiedAt: string;
+  message?: string;
+  order?: VerifiedOrderSummary | null;
+}
+
+// --- Phase W4 — Facility Payout Ledger (issue #53, docforum-core#90) ---
+
+export type EscrowPayoutStatus = 'held' | 'released' | 'refunded';
+export type PayoutAsset = 'XLM' | 'USDC';
+
+export interface EscrowTerms {
+  releaser: 'patient' | 'auto_dispense' | 'platform';
+  releaserDescription: string;
+  refundDeadline: string; // ISO timestamp
+  isApproachingDeadline: boolean; // within 48h
+  hoursUntilRefund: number;
+}
+
+export interface FacilityLedgerEntry {
+  id: string;
+  facilityId: string;
+  orderId: string;
+  orderType: FulfillmentOrderType;
+  orderItemName: string;
+  patientName: string;
+  amountStroops: string; // BigInt-safe string representation
+  asset: PayoutAsset;
+  status: EscrowPayoutStatus;
+  escrowId: string;
+  contractId?: string | null;
+  fundTxHash: string;
+  releaseTxHash?: string | null;
+  refundTxHash?: string | null;
+  terms: EscrowTerms;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssetTotals {
+  heldStroops: string;
+  releasedStroops: string;
+  refundedStroops: string;
+}
+
+export interface FacilityPayoutTotals {
+  xlm: AssetTotals;
+  usdc: AssetTotals;
+}
+
+export interface FacilityLedgerPage {
+  entries: FacilityLedgerEntry[];
+  nextCursor?: string | null;
+  totals: FacilityPayoutTotals;
+}
+

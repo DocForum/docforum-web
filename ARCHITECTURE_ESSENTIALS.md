@@ -25,6 +25,13 @@ those first if you're new to the org, not just this file.
 ## Where things live
 - `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
   the only place fetch/base-URL/error-envelope details live.
+- `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
+  mirror the same real/assumed contracts `src/services/` calls, over
+  obviously fake `example.test` fixtures. Loaded only behind the
+  `import.meta.env.DEV && VITE_ENABLE_MOCKS` guard in `main.tsx`, before
+  the first render; production bundles must never contain it — CI enforces
+  this via `npm run check:dist`. When an assumed contract in this file is
+  reconciled, update `src/mocks/` fixtures/handlers in the same PR.
 - `src/features/` — flow-specific logic (booking, referral-accept, order
   fulfillment selection, etc.) — one feature folder per PRD core flow.
 - `src/pages/` — route-level components.
@@ -175,6 +182,23 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - Non-owner staff users see the team page in read-only mode (invite, revoke, and remove actions are hidden and rejected if forced).
 - `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
 - `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
+
+### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
+- `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`
+  - Token verification endpoint returning 5 explicit states: `valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`.
+  - Minimal order summary for fulfillment verification: `orderId`, `orderType`, `patientName`, `medicationOrTest`, `instructions`, `issuedAt`, `expiresAt`, `supersededBy`, `fulfilledAt`, `fulfilledByFacility`.
+  - Rate-limiting (HTTP 429) protection against brute-force token enumeration; error surfaced clearly in UI with retry guidance.
+  - Device camera QR scanning using `BarcodeDetector` API with fallback; strict camera media stream track teardown on unmount or screen exit.
+  - Manual token entry fallback.
+
+### Facility payout ledger & escrow terms (issue #53, docforum-core#90)
+- `GET /facilities/:facilityId/payout-ledger?cursor=&status=&asset=` → `FacilityLedgerPage`
+  - Cursor-paginated ledger of on-chain escrow deposits, releases, and refunds.
+  - Totals breakdown for held, released, and refunded funds separated by asset (`XLM` vs `USDC`).
+  - Strict BigInt-safe amount formatting for Stellar stroops (7 decimals: 1 XLM/USDC = 10,000,000 stroops).
+  - Escrow terms in plain language (releaser condition, refund deadline countdown).
+  - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
+  - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
