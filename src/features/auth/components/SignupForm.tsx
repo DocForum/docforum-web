@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
@@ -21,8 +21,15 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const signupMutation = useSignup();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
+
+  useEffect(() => {
+    if (fieldErrors.fullName || fieldErrors.email || fieldErrors.password) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [fieldErrors]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,8 +53,13 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         : null;
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} noValidate>
       <FormError message={submitError} />
+      {signupMutation.isPending && (
+        <p className="srOnly" role="status">
+          Creating your account. Please wait.
+        </p>
+      )}
       {isSlow && (
         <p className="slowHint" role="status">
           <Spinner size={14} />
@@ -62,6 +74,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         value={fullName}
         onChange={(e) => setFullName(e.target.value)}
         error={fieldErrors.fullName}
+        required
       />
       <TextField
         label="Email"
@@ -70,6 +83,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
+        required
       />
       <TextField
         label="Password"
@@ -78,6 +92,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
+        hint="At least 8 characters."
+        required
       />
       <Button type="submit" loading={signupMutation.isPending}>
         {signupMutation.isPending ? 'Creating account…' : 'Create account'}

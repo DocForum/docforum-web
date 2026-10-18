@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMessageThreads } from '../hooks/useMessageThreads';
 import { Button } from '../../../components/Button';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './DoctorInbox.module.css';
 
 function truncate(text: string | undefined | null, max = 60) {
@@ -22,6 +23,7 @@ type ThreadFilter = 'all' | 'unread' | 'closing_soon';
 const FILTERS: ThreadFilter[] = ['all', 'unread', 'closing_soon'];
 
 export function DoctorInbox() {
+  const { formatNumber } = useFormat();
   const [filter, setFilter] = useState<ThreadFilter>('all');
   const [cursor, setCursor] = useState<string | null>(null);
 
@@ -62,6 +64,7 @@ export function DoctorInbox() {
               setCursor(null);
             }}
             className={filter === f ? styles.activeFilter : undefined}
+            aria-pressed={filter === f}
           >
             {filterLabel(f)}
           </Button>
@@ -74,24 +77,29 @@ export function DoctorInbox() {
         <p className={styles.empty}>No threads match the current filter.</p>
       ) : (
         <table className={styles.table}>
+          <caption className="srOnly">
+            Patient message threads, oldest unanswered first, with waiting time and unread count
+          </caption>
           <thead>
             <tr>
-              <th>Patient</th>
-              <th>Last message</th>
-              <th className={styles.waitingCol}>Waiting</th>
-              <th className={styles.unreadCol}>Unread</th>
-              <th className={styles.actionCol}>Action</th>
+              <th scope="col">Patient</th>
+              <th scope="col">Last message</th>
+              <th scope="col" className={styles.waitingCol}>Waiting</th>
+              <th scope="col" className={styles.unreadCol}>Unread</th>
+              <th scope="col" className={styles.actionCol}>Action</th>
             </tr>
           </thead>
           <tbody>
             {threads.map((thread) => (
               <tr key={thread.id} className={styles.row}>
-                <td className={styles.name}>
+                <th scope="row" className={styles.name}>
                   <Link to={'/care/threads/' + thread.id}>{thread.patientName}</Link>
-                </td>
+                </th>
                 <td className={styles.preview}>{truncate(thread.lastPreview)}</td>
                 <td className={styles.waitingCol}>
-                  {thread.waitingMinutes == null ? '—' : thread.waitingMinutes + ' min'}
+                  {thread.waitingMinutes == null
+            ? '—'
+            : `${formatNumber(thread.waitingMinutes)} min`}
                 </td>
                 <td className={styles.unreadCol}>
                   {thread.unreadCount > 0 ? (

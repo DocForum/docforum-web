@@ -20,7 +20,9 @@ those first if you're new to the org, not just this file.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
-   — keep this shape.
+   — keep this shape. `src/i18n/` was added in Phase W7 for locale-aware
+   formatting and direction (issue #88); it is not a place for business
+   logic.
 
 ## Where things live
 - `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
@@ -171,6 +173,45 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - Non-owner staff users see the team page in read-only mode (invite, revoke, and remove actions are hidden and rejected if forced).
 - `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
 - `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
+
+## Known assumptions — Phase W7 (issue #85, #88, #89, #90)
+
+### Idempotency-Key for safe mutation retries (#85, docforum-core#48)
+- Mutating requests that are safe to retry send `Idempotency-Key: <uuid>`.
+  The header is set in `src/services/api-client.ts` from
+  `RequestOptions.idempotencyKey`; one key is generated per user action
+  and reused across that action's network retries.
+- Assumed contract: docforum-core deduplicates a repeated `POST` with the
+  same key and returns the original result instead of applying it twice.
+  This repo cannot enforce that; until docforum-core#48 lands, retries
+  are still limited to two attempts and the endpoint should treat an
+  unknown key as a fresh request (never double-charge).
+- `api-client.ts` never retries a mutation without a key, no matter what
+  React Query is configured to do (its mutation retry is disabled in
+  `main.tsx`). Reads retry up to 3 times on `408`, `429`, `5xx` and network
+  failures, with capped exponential backoff and jitter.
+- The booking flow has no frontend service yet (W2 booking is not built).
+  When it lands, its mutation calls must use `createIdempotencyKey()` the
+  same way `payments-service.ts` does.
+
+### Locale-aware formatting and RTL (#88)
+- No API change. Locale and time zone are client-only UI state
+  (`src/i18n/locale-store.ts`, in-memory like the other stores). The API
+  continues to return ISO-8601 timestamps and bigint-string amounts.
+- `formatAssetAmount(amount, asset, {decimals})` assumes `amount` is an
+  integer minor-unit string (stroops for XLM, cents for USDC). If
+  docforum-core ever returns decimals instead, that helper is the single
+  place to change.
+- A real i18n framework/translation catalogue is still out of scope; the
+  current locale switch covers formatting and direction only.
+
+### Accessibility conventions (#89, #90)
+- No API change. All modals must use `src/components/Dialog.tsx`; tables
+  need captions/scoped headers; live updates use `useAnnouncer` batching.
+  See `docs/accessibility/patterns.md` and the audit in
+  `docs/accessibility/audit.md`.
+- The public `/accessibility` route is static content and does not call
+  the API.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

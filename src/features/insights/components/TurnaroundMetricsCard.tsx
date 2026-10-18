@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReferralTurnaroundMetrics, MessageResponseMetrics } from '../../../types/models';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './PracticeInsights.module.css';
 
 interface TurnaroundMetricsCardProps {
@@ -8,6 +9,7 @@ interface TurnaroundMetricsCardProps {
 }
 
 export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetricsCardProps) {
+  const { formatDuration, formatNumber, formatPercent } = useFormat();
   const [refViewMode, setRefViewMode] = useState<'chart' | 'table'>('chart');
   const [msgViewMode, setMsgViewMode] = useState<'chart' | 'table'>('chart');
 
@@ -56,7 +58,7 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
           <div className={styles.caveatBanner} role="note">
             <span className={styles.caveatPill}>Small sample caveat</span>
             <span>
-              Only {referrals.totalSent} referrals issued in this period. Turnaround averages may be skewed by anomalous delays.
+              Only {formatNumber(referrals.totalSent)} referrals issued in this period. Turnaround averages may be skewed by anomalous delays.
             </span>
           </div>
         )}
@@ -66,8 +68,8 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
             <span className={styles.statLabel}>Median acceptance</span>
             <span className={styles.statValue}>
               {referrals.medianAcceptanceHours < 24
-                ? `${referrals.medianAcceptanceHours.toFixed(1)}h`
-                : `${(referrals.medianAcceptanceHours / 24).toFixed(1)}d`}
+                ? formatDuration(referrals.medianAcceptanceHours, 'hour')
+                : formatDuration(referrals.medianAcceptanceHours / 24, 'day')}
             </span>
             <span className={styles.statHint}>50% accepted faster than this</span>
           </div>
@@ -75,10 +77,12 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
             <span className={styles.statLabel}>Average turnaround</span>
             <span className={styles.statValue}>
               {referrals.averageAcceptanceHours < 24
-                ? `${referrals.averageAcceptanceHours.toFixed(1)}h`
-                : `${(referrals.averageAcceptanceHours / 24).toFixed(1)}d`}
+                ? formatDuration(referrals.averageAcceptanceHours, 'hour')
+                : formatDuration(referrals.averageAcceptanceHours / 24, 'day')}
             </span>
-            <span className={styles.statHint}>{referrals.totalAccepted} of {referrals.totalSent} accepted</span>
+            <span className={styles.statHint}>
+              {formatNumber(referrals.totalAccepted)} of {formatNumber(referrals.totalSent)} accepted
+            </span>
           </div>
         </div>
 
@@ -89,31 +93,31 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${refUnder24Pct}%`, background: 'var(--color-accent)' }}
-                title={`Under 24 hours: ${referrals.breakdownUnder24h}`}
+                title={`Under 24 hours: ${formatNumber(referrals.breakdownUnder24h)}`}
               />
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${ref24to48Pct}%`, background: '#b87b28' }}
-                title={`24 to 48 hours: ${referrals.breakdown24to48h}`}
+                title={`24 to 48 hours: ${formatNumber(referrals.breakdown24to48h)}`}
               />
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${refOver48Pct}%`, background: '#8c5b00' }}
-                title={`Over 48 hours: ${referrals.breakdownOver48h}`}
+                title={`Over 48 hours: ${formatNumber(referrals.breakdownOver48h)}`}
               />
             </div>
             <div className={styles.chartLegend}>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: 'var(--color-accent)' }} />
-                <span>&lt;24h ({referrals.breakdownUnder24h})</span>
+                <span>&lt;24h ({formatNumber(referrals.breakdownUnder24h)})</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: '#b87b28' }} />
-                <span>24–48h ({referrals.breakdown24to48h})</span>
+                <span>24–48h ({formatNumber(referrals.breakdown24to48h)})</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: '#8c5b00' }} />
-                <span>&gt;48h ({referrals.breakdownOver48h})</span>
+                <span>&gt;48h ({formatNumber(referrals.breakdownOver48h)})</span>
               </div>
             </div>
           </div>
@@ -132,27 +136,27 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
             <tbody>
               <tr>
                 <th scope="row">Under 24 hours</th>
-                <td className="num">{referrals.breakdownUnder24h}</td>
-                <td className="num">{refUnder24Pct.toFixed(1)}%</td>
+                <td className="num">{formatNumber(referrals.breakdownUnder24h)}</td>
+                <td className="num">{formatPercent(refUnder24Pct)}</td>
               </tr>
               <tr>
                 <th scope="row">24 to 48 hours</th>
-                <td className="num">{referrals.breakdown24to48h}</td>
-                <td className="num">{ref24to48Pct.toFixed(1)}%</td>
+                <td className="num">{formatNumber(referrals.breakdown24to48h)}</td>
+                <td className="num">{formatPercent(ref24to48Pct)}</td>
               </tr>
               <tr>
                 <th scope="row">Over 48 hours</th>
-                <td className="num">{referrals.breakdownOver48h}</td>
-                <td className="num">{refOver48Pct.toFixed(1)}%</td>
+                <td className="num">{formatNumber(referrals.breakdownOver48h)}</td>
+                <td className="num">{formatPercent(refOver48Pct)}</td>
               </tr>
               <tr style={{ fontWeight: 600 }}>
                 <th scope="row">Total Accepted</th>
-                <td className="num">{referrals.totalAccepted}</td>
-                <td className="num">100.0%</td>
+                <td className="num">{formatNumber(referrals.totalAccepted)}</td>
+                <td className="num">{formatPercent(100)}</td>
               </tr>
               <tr>
                 <th scope="row">Pending Acceptance</th>
-                <td className="num">{referrals.totalPending}</td>
+                <td className="num">{formatNumber(referrals.totalPending)}</td>
                 <td className="num">—</td>
               </tr>
             </tbody>
@@ -193,7 +197,7 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
           <div className={styles.caveatBanner} role="note">
             <span className={styles.caveatPill}>Small sample caveat</span>
             <span>
-              Only {messages.totalThreads} message threads in this period. Response averages may reflect single isolated conversations.
+              Only {formatNumber(messages.totalThreads)} message threads in this period. Response averages may reflect single isolated conversations.
             </span>
           </div>
         )}
@@ -203,15 +207,17 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
             <span className={styles.statLabel}>Median response</span>
             <span className={styles.statValue}>
               {messages.medianFirstResponseMinutes < 60
-                ? `${messages.medianFirstResponseMinutes}m`
-                : `${(messages.medianFirstResponseMinutes / 60).toFixed(1)}h`}
+                ? formatDuration(messages.medianFirstResponseMinutes, 'minute', 0)
+                : formatDuration(messages.medianFirstResponseMinutes / 60, 'hour')}
             </span>
             <span className={styles.statHint}>50% replied faster</span>
           </div>
           <div className={styles.summaryStat}>
             <span className={styles.statLabel}>Within 2 hours</span>
-            <span className={styles.statValue}>{messages.rateWithin2h.toFixed(0)}%</span>
-            <span className={styles.statHint}>{messages.respondedWithin2hCount} of {messages.totalThreads} threads</span>
+            <span className={styles.statValue}>{formatPercent(messages.rateWithin2h, 0)}</span>
+            <span className={styles.statHint}>
+              {formatNumber(messages.respondedWithin2hCount)} of {formatNumber(messages.totalThreads)} threads
+            </span>
           </div>
         </div>
 
@@ -222,31 +228,33 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${msgWithin2hPct}%`, background: 'var(--color-accent)' }}
-                title={`Within 2 hours: ${messages.respondedWithin2hCount}`}
+                title={`Within 2 hours: ${formatNumber(messages.respondedWithin2hCount)}`}
               />
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${msg2to24hPct}%`, background: '#b87b28' }}
-                title={`2 to 24 hours: ${messages.respondedWithin24hCount - messages.respondedWithin2hCount}`}
+                title={`2 to 24 hours: ${formatNumber(messages.respondedWithin24hCount - messages.respondedWithin2hCount)}`}
               />
               <div
                 className={styles.distributionSegment}
                 style={{ width: `${msgOver24hPct}%`, background: 'var(--color-surface-hover)' }}
-                title={`Over 24 hours: ${msgTotal - messages.respondedWithin24hCount}`}
+                title={`Over 24 hours: ${formatNumber(msgTotal - messages.respondedWithin24hCount)}`}
               />
             </div>
             <div className={styles.chartLegend}>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: 'var(--color-accent)' }} />
-                <span>&lt;2h ({messages.respondedWithin2hCount})</span>
+                <span>&lt;2h ({formatNumber(messages.respondedWithin2hCount)})</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: '#b87b28' }} />
-                <span>2–24h ({Math.max(0, messages.respondedWithin24hCount - messages.respondedWithin2hCount)})</span>
+                <span>
+                  2–24h ({formatNumber(Math.max(0, messages.respondedWithin24hCount - messages.respondedWithin2hCount))})
+                </span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ background: 'var(--color-surface-hover)', border: '1px solid var(--color-border)' }} />
-                <span>&gt;24h ({Math.max(0, msgTotal - messages.respondedWithin24hCount)})</span>
+                <span>&gt;24h ({formatNumber(Math.max(0, msgTotal - messages.respondedWithin24hCount))})</span>
               </div>
             </div>
           </div>
@@ -265,23 +273,27 @@ export function TurnaroundMetricsCard({ referrals, messages }: TurnaroundMetrics
             <tbody>
               <tr>
                 <th scope="row">Within 2 hours</th>
-                <td className="num">{messages.respondedWithin2hCount}</td>
-                <td className="num">{msgWithin2hPct.toFixed(1)}%</td>
+                <td className="num">{formatNumber(messages.respondedWithin2hCount)}</td>
+                <td className="num">{formatPercent(msgWithin2hPct)}</td>
               </tr>
               <tr>
                 <th scope="row">2 to 24 hours</th>
-                <td className="num">{Math.max(0, messages.respondedWithin24hCount - messages.respondedWithin2hCount)}</td>
-                <td className="num">{msg2to24hPct.toFixed(1)}%</td>
+                <td className="num">
+                  {formatNumber(Math.max(0, messages.respondedWithin24hCount - messages.respondedWithin2hCount))}
+                </td>
+                <td className="num">{formatPercent(msg2to24hPct)}</td>
               </tr>
               <tr>
                 <th scope="row">Over 24 hours</th>
-                <td className="num">{Math.max(0, msgTotal - messages.respondedWithin24hCount)}</td>
-                <td className="num">{msgOver24hPct.toFixed(1)}%</td>
+                <td className="num">
+                  {formatNumber(Math.max(0, msgTotal - messages.respondedWithin24hCount))}
+                </td>
+                <td className="num">{formatPercent(msgOver24hPct)}</td>
               </tr>
               <tr style={{ fontWeight: 600 }}>
                 <th scope="row">Total Threads</th>
-                <td className="num">{messages.totalThreads}</td>
-                <td className="num">100.0%</td>
+                <td className="num">{formatNumber(messages.totalThreads)}</td>
+                <td className="num">{formatPercent(100)}</td>
               </tr>
             </tbody>
           </table>

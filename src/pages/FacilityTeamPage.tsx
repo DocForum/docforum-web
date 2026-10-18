@@ -9,7 +9,11 @@ export function FacilityTeamPage() {
         <Link to="/facility" className={styles.tabLink}>
           Fulfillment Queue
         </Link>
-        <Link to="/facility/team" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
+        <Link
+          to="/facility/team"
+          className={`${styles.tabLink} ${styles.tabLinkActive}`}
+          aria-current="page"
+        >
           Team &amp; Staff Accounts
         </Link>
       </nav>

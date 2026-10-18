@@ -1,4 +1,5 @@
 import { Button } from '../../../components/Button';
+import { useFormat } from '../../../i18n/useFormat';
 import type { FacilityInvite } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -19,6 +20,8 @@ export function PendingInvitesList({
   isResending,
   isRevoking,
 }: PendingInvitesListProps) {
+  const { formatDate } = useFormat();
+
   // If not owner, do not render pending invites (hidden for staff)
   if (!isOwner) return null;
 
@@ -37,7 +40,10 @@ export function PendingInvitesList({
         <div className={styles.emptyState}>No pending invitations</div>
       ) : (
         <div className={styles.tableWrapper}>
-          <table className={styles.dataTable} aria-label="Pending facility invitations">
+          <table className={styles.dataTable}>
+            <caption className="srOnly">
+              Pending facility invitations with role, sender, send date and expiry
+            </caption>
             <thead>
               <tr>
                 <th scope="col">Invited email</th>
@@ -45,13 +51,13 @@ export function PendingInvitesList({
                 <th scope="col">Invited by</th>
                 <th scope="col">Sent</th>
                 <th scope="col">Expires</th>
-                <th scope="col" style={{ textAlign: 'right' }}>Actions</th>
+                <th scope="col" className={styles.actionCell}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {invites.map((invite) => (
                 <tr key={invite.id}>
-                  <td><strong>{invite.email}</strong></td>
+                  <th scope="row"><strong>{invite.email}</strong></th>
                   <td>
                     <span
                       className={`${styles.memberRoleBadge} ${
@@ -62,8 +68,12 @@ export function PendingInvitesList({
                     </span>
                   </td>
                   <td>{invite.invitedBy}</td>
-                  <td>{new Date(invite.invitedAt).toLocaleDateString()}</td>
-                  <td>{new Date(invite.expiresAt).toLocaleDateString()}</td>
+                  <td>
+                    <time dateTime={invite.invitedAt}>{formatDate(invite.invitedAt)}</time>
+                  </td>
+                  <td>
+                    <time dateTime={invite.expiresAt}>{formatDate(invite.expiresAt)}</time>
+                  </td>
                   <td className={styles.actionCell}>
                     <div className={styles.buttonGroup}>
                       <Button
