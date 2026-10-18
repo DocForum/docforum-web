@@ -74,13 +74,17 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
-## Known assumptions — Phase W2 (dependents, health profile, acting-for)
+## Known assumptions
+
+- **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
+
+### Phase W2 — Patient core flow (dependents, health profile, acting-for)
 
 These API shapes are assumed and not yet implemented in `docforum-core`.
 Reconcile against the real contract once the corresponding backend issues
 land.
 
-### Dependents (docforum-core#42)
+#### Dependents (docforum-core#42)
 - `GET /patients/me/dependents` → `Dependent[]`
 - `POST /patients/me/dependents` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
 - `PATCH /patients/me/dependents/:id` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
@@ -89,38 +93,38 @@ land.
 - `POST /auth/claim-account` (body: `{token, email, password}`) → `void`
 - `Dependent` shape: `{id, guardianProfileId, fullName, dateOfBirth, relationship: 'parent'|'guardian'|'carer', handoverStatus: 'not_eligible'|'eligible'|'invited'|'claimed', claimEmail?, claimInviteExpiresAt?, createdAt, updatedAt}`
 
-### Health profile (docforum-core#59)
+#### Health profile (docforum-core#59)
 - `GET /patients/:profileId/health/:section` → `HealthEntry[]`
 - `POST /patients/:profileId/health` (body: `{section, name, details?}`) → `HealthEntry`
 - `PATCH /patients/:profileId/health/:entryId` (body: `{name, details?}`) → `HealthEntry`
 - `DELETE /patients/:profileId/health/:entryId` → `void`
 - `HealthEntry` shape: `{id, patientProfileId, section: 'allergies'|'conditions'|'medications', name, details?, version, previousValue?, updatedAt, createdAt}`
 
-### Acting-for profile switcher (#20)
+#### Acting-for profile switcher (#20)
 No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
 
-### Data export (docforum-core#40, issue #26)
+#### Data export (docforum-core#40, issue #26)
 - `POST /account/data-export` (body: `{password}`) → `DataExport`
 - `GET /account/data-export` → `DataExport | null`
 - `GET /account/data-export/:id/download` → file stream (`application/json`)
 - `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
 - Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
 
-### Account deletion (docforum-core#41, issue #27)
+#### Account deletion (docforum-core#41, issue #27)
 - `POST /account/delete` (body: `{password, confirmation: 'DELETE'}`) → `{success, message, deletedAt}`
 - Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
-### Care thread timeline (issue #28)
+#### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
 - `GET /care-threads/:id` → `CareThread`
 - Aggregates appointments, consultations, referrals, orders, fulfillment, and escrow payment settlement into a single continuous journey timeline.
 - Progressive rendering and graceful degradation when modules are not yet implemented.
 
-### Facility finder with distance sorting (docforum-core#74, issue #29)
+#### Facility finder with distance sorting (docforum-core#74, issue #29)
 - `GET /facilities?type=&lat=&lng=&query=` → `FacilityWithDistance[]`
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
@@ -157,7 +161,7 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 #### Doctor practice insights (issue #50, depends on docforum-core#124)
 - `GET /doctor/insights?preset=&startDate=&endDate=` → `DoctorPracticeInsights`
 - Scoped strictly to the authenticated doctor's own practice data; peer-comparison suppression guarantees no benchmarking against other named doctors.
-- Aggregates weekly slot utilisation (offered vs booked), no-show and late-cancellation (<24h) rates, referral acceptance turnaround (average, median, distribution), and message response time (within 2h/24h).
+- Aggregates weekly slot utilisation (offered vs booked), no-show and late-cancellation rates, referral acceptance turnaround (average, median, distribution), and message response time (within 2h/24h).
 - Small-sample caveats (`sampleSizeWarning: true`) automatically flagged when denominators are low (total slots < 10, referrals < 5, message threads < 5) to warn against misleading rate volatility.
 - Every chart view has a full accessible `<table>` alternative with semantic captions, headers, and tabular numeric alignment.
 
@@ -176,5 +180,3 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
-
-
