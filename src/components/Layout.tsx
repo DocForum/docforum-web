@@ -47,8 +47,14 @@ export function Layout() {
                   <Link to="/facility" className={styles.navLink}>
                     Queue
                   </Link>
+                  <Link to="/facility/verify" className={styles.navLink}>
+                    Verify
+                  </Link>
                   <Link to="/facility/team" className={styles.navLink}>
                     Team
+                  </Link>
+                  <Link to="/facility/payments" className={styles.navLink}>
+                    Payouts
                   </Link>
                 </>
               )}

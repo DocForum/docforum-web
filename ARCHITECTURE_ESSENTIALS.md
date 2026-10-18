@@ -25,6 +25,13 @@ those first if you're new to the org, not just this file.
 ## Where things live
 - `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
   the only place fetch/base-URL/error-envelope details live.
+- `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
+  mirror the same real/assumed contracts `src/services/` calls, over
+  obviously fake `example.test` fixtures. Loaded only behind the
+  `import.meta.env.DEV && VITE_ENABLE_MOCKS` guard in `main.tsx`, before
+  the first render; production bundles must never contain it — CI enforces
+  this via `npm run check:dist`. When an assumed contract in this file is
+  reconciled, update `src/mocks/` fixtures/handlers in the same PR.
 - `src/features/` — flow-specific logic (booking, referral-accept, order
   fulfillment selection, etc.) — one feature folder per PRD core flow.
 - `src/pages/` — route-level components.
@@ -74,13 +81,17 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
-## Known assumptions — Phase W2 (dependents, health profile, acting-for)
+## Known assumptions
+
+- **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
+
+### Phase W2 — Patient core flow (dependents, health profile, acting-for)
 
 These API shapes are assumed and not yet implemented in `docforum-core`.
 Reconcile against the real contract once the corresponding backend issues
 land.
 
-### Dependents (docforum-core#42)
+#### Dependents (docforum-core#42)
 - `GET /patients/me/dependents` → `Dependent[]`
 - `POST /patients/me/dependents` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
 - `PATCH /patients/me/dependents/:id` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
@@ -89,38 +100,38 @@ land.
 - `POST /auth/claim-account` (body: `{token, email, password}`) → `void`
 - `Dependent` shape: `{id, guardianProfileId, fullName, dateOfBirth, relationship: 'parent'|'guardian'|'carer', handoverStatus: 'not_eligible'|'eligible'|'invited'|'claimed', claimEmail?, claimInviteExpiresAt?, createdAt, updatedAt}`
 
-### Health profile (docforum-core#59)
+#### Health profile (docforum-core#59)
 - `GET /patients/:profileId/health/:section` → `HealthEntry[]`
 - `POST /patients/:profileId/health` (body: `{section, name, details?}`) → `HealthEntry`
 - `PATCH /patients/:profileId/health/:entryId` (body: `{name, details?}`) → `HealthEntry`
 - `DELETE /patients/:profileId/health/:entryId` → `void`
 - `HealthEntry` shape: `{id, patientProfileId, section: 'allergies'|'conditions'|'medications', name, details?, version, previousValue?, updatedAt, createdAt}`
 
-### Acting-for profile switcher (#20)
+#### Acting-for profile switcher (#20)
 No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
 
-### Data export (docforum-core#40, issue #26)
+#### Data export (docforum-core#40, issue #26)
 - `POST /account/data-export` (body: `{password}`) → `DataExport`
 - `GET /account/data-export` → `DataExport | null`
 - `GET /account/data-export/:id/download` → file stream (`application/json`)
 - `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
 - Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
 
-### Account deletion (docforum-core#41, issue #27)
+#### Account deletion (docforum-core#41, issue #27)
 - `POST /account/delete` (body: `{password, confirmation: 'DELETE'}`) → `{success, message, deletedAt}`
 - Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
-### Care thread timeline (issue #28)
+#### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
 - `GET /care-threads/:id` → `CareThread`
 - Aggregates appointments, consultations, referrals, orders, fulfillment, and escrow payment settlement into a single continuous journey timeline.
 - Progressive rendering and graceful degradation when modules are not yet implemented.
 
-### Facility finder with distance sorting (docforum-core#74, issue #29)
+#### Facility finder with distance sorting (docforum-core#74, issue #29)
 - `GET /facilities?type=&lat=&lng=&query=` → `FacilityWithDistance[]`
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
@@ -157,7 +168,7 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 #### Doctor practice insights (issue #50, depends on docforum-core#124)
 - `GET /doctor/insights?preset=&startDate=&endDate=` → `DoctorPracticeInsights`
 - Scoped strictly to the authenticated doctor's own practice data; peer-comparison suppression guarantees no benchmarking against other named doctors.
-- Aggregates weekly slot utilisation (offered vs booked), no-show and late-cancellation (<24h) rates, referral acceptance turnaround (average, median, distribution), and message response time (within 2h/24h).
+- Aggregates weekly slot utilisation (offered vs booked), no-show and late-cancellation rates, referral acceptance turnaround (average, median, distribution), and message response time (within 2h/24h).
 - Small-sample caveats (`sampleSizeWarning: true`) automatically flagged when denominators are low (total slots < 10, referrals < 5, message threads < 5) to warn against misleading rate volatility.
 - Every chart view has a full accessible `<table>` alternative with semantic captions, headers, and tabular numeric alignment.
 
@@ -236,10 +247,24 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
 - **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
 - An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
+- `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`
+  - Token verification endpoint returning 5 explicit states: `valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`.
+  - Minimal order summary for fulfillment verification: `orderId`, `orderType`, `patientName`, `medicationOrTest`, `instructions`, `issuedAt`, `expiresAt`, `supersededBy`, `fulfilledAt`, `fulfilledByFacility`.
+  - Rate-limiting (HTTP 429) protection against brute-force token enumeration; error surfaced clearly in UI with retry guidance.
+  - Device camera QR scanning using `BarcodeDetector` API with fallback; strict camera media stream track teardown on unmount or screen exit.
+  - Manual token entry fallback.
+
+### Facility payout ledger & escrow terms (issue #53, docforum-core#90)
+- `GET /facilities/:facilityId/payout-ledger?cursor=&status=&asset=` → `FacilityLedgerPage`
+  - Cursor-paginated ledger of on-chain escrow deposits, releases, and refunds.
+  - Totals breakdown for held, released, and refunded funds separated by asset (`XLM` vs `USDC`).
+  - Strict BigInt-safe amount formatting for Stellar stroops (7 decimals: 1 XLM/USDC = 10,000,000 stroops).
+  - Escrow terms in plain language (releaser condition, refund deadline countdown).
+  - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
+  - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
-
-

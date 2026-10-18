@@ -20,6 +20,8 @@ import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { OrderVerifyPage } from './pages/OrderVerifyPage';
+import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 
 export default function App() {
   return (
@@ -66,6 +68,22 @@ export default function App() {
             <DoctorInbox />
           </RequireAuth>
         } />
+        <Route
+          path="facility/verify"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <OrderVerifyPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/payments"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityPaymentsPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="facility/team"
           element={
