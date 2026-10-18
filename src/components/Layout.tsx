@@ -57,6 +57,9 @@ export function Layout() {
                   <Link to="/admin" className={styles.navLink}>
                     Payments
                   </Link>
+                  <Link to="/admin/referrals" className={styles.navLink}>
+                    Referrals
+                  </Link>
                   <Link to="/admin/audit" className={styles.navLink}>
                     Audit trail
                   </Link>

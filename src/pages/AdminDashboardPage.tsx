@@ -28,6 +28,10 @@ export function AdminDashboardPage() {
           on Stellar testnet, entirely through docforum-core's API.
         </p>
         <p>
+          <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
+          pending too long.
+        </p>
+        <p>
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
         </p>
       </div>

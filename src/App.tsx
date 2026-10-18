@@ -17,6 +17,7 @@ import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
 import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
+import { AdminReferralsPage } from './pages/AdminReferralsPage';
 
 export default function App() {
   return (
@@ -84,6 +85,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/referrals"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminReferralsPage />
             </RequireAuth>
           }
         />

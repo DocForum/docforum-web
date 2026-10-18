@@ -190,6 +190,24 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - Entity links: only `PaymentIntent` has an admin-reachable view (`/admin?intent=<id>`). Appointment and doctor-profile ids render as plain text until admin views exist.
 - CSV export is client-side and covers exactly the rows on screen; cells starting with `= + - @` are prefixed with `'` to defuse spreadsheet formulas.
 
+### Phase W6 — Stuck referrals console (issue #72, depends on docforum-core#68 and #65)
+
+docforum-core#68 names the three endpoints but not their shapes, and its
+`Referral` model is still field-sparse in `schema.prisma`. Everything below
+is assumed; `ReferralStatus` and `Specialty` are the only real types, and the
+`Referral` fields follow docforum-core's `ARCHITECTURE.md` §4.4 plus
+`parentReferralId` from #65.
+
+- `GET /admin/referrals?status=pending&olderThan=<24h|48h|72h|168h>&cursor=` → `{items: StuckReferral[], nextCursor}`, oldest first (the console re-sorts the loaded pages by `createdAt` anyway). `olderThan` is the only filter sent; the reason filter is client-side over loaded pages, because #68 doesn't define one.
+- `StuckReferral` = `Referral` (without `snapshotNotes`, which is encrypted clinical text the console never needs) plus `stuckReason: 'no_doctor'|'doctor_inactive'|'loop_flagged'`, embedded `targetSpecialty: Specialty`, `referringDoctor`/`targetDoctor` as `{id, fullName}`, and `chain: ReferralChainLink[] | null`, sent only for `loop_flagged`, oldest hop first, ending with the referral itself. `ReferralChainLink` = `{referralId, referringDoctor, targetSpecialty, targetDoctor, status, createdAt}`. No patient name or id is shown.
+- `GET /admin/doctors?specialtyId=&verificationStatus=verified` → `DoctorAvailability[]` = `{id, fullName, verificationStatus, specialties: Specialty[], openSlotCount, nextAvailableAt}` (open slots in the next 7 days).
+- `POST /admin/referrals/:id/reassign` (body: `{targetDoctorId, reason, expectedUpdatedAt}`) → `Referral`.
+- `POST /admin/referrals/:id/cancel` (body: `{reason, expectedUpdatedAt}`) → `Referral`. docforum-core notifies the patient; the client doesn't. Cancellation's resulting status isn't assumed: `ReferralStatus` has no `cancelled` value yet, and the referral just leaves the queue.
+- **Conflicts:** `expectedUpdatedAt` is the referral's `updatedAt` as the admin saw it, so docforum-core can answer `409` when someone else acted first. `409` and `404` close the dialog, explain, and refetch the queue. `400`/`422` keep the dialog open with the server's message (`422` also refetches the doctor list). A network failure keeps the dialog open; retrying is safe because a duplicate comes back as `409`.
+- **Eligibility is enforced client-side as well:** the picker only offers doctors that are `verified`, list the referral's `targetSpecialtyId`, and are neither the referral's current target doctor nor its referring doctor (`eligibleCandidates`). Anything else docforum-core returns is hidden, and the picker says how many were hidden. Verification is per doctor today; when per-specialty verification lands (docforum-core#51), `DoctorAvailability` needs a per-specialty status and the check should use it.
+- Reasons are required, 10–500 characters, with whitespace collapsed. The UI asks admins to keep clinical details out, because reasons land in the audit trail. After an action, the console links to `/admin/audit?entityType=Referral&entityId=<id>`, which assumes the referral audit events use `entityType: 'Referral'`.
+- `404` on the queue or doctor listing is shown as "docforum-core doesn't serve this yet (#68)".
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

@@ -470,3 +470,77 @@ export interface AccessLog {
   route: string;
   createdAt: string;
 }
+
+// --- Phase W6 — Stuck referrals console (issue #72) --------------------------
+// ReferralStatus and Specialty are real (docforum-core schema.prisma); the
+// Referral fields follow its ARCHITECTURE.md §4.4, which schema.prisma hasn't
+// caught up with yet. The admin queue/candidate shapes are assumed —
+// docforum-core#68 (admin referral operations) and #65 (loop detection)
+// haven't landed. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+export type ReferralStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
+
+export interface Specialty {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/** `snapshotNotes` is deliberately absent: it's encrypted clinical text that
+ * the admin endpoints don't return and the console never needs. */
+export interface Referral {
+  id: string;
+  sourceConsultationId: string;
+  referringDoctorId: string;
+  targetSpecialtyId: string;
+  targetDoctorId: string | null;
+  // docforum-core#65: the referral whose appointment produced this one.
+  parentReferralId: string | null;
+  status: ReferralStatus;
+  resultingAppointmentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DoctorSummary = Pick<DoctorProfile, 'id' | 'fullName'>;
+
+export type StuckReferralReason = 'no_doctor' | 'doctor_inactive' | 'loop_flagged';
+
+export interface ReferralChainLink {
+  referralId: string;
+  referringDoctor: DoctorSummary;
+  targetSpecialty: Specialty;
+  targetDoctor: DoctorSummary | null;
+  status: ReferralStatus;
+  createdAt: string;
+}
+
+export interface StuckReferral extends Referral {
+  stuckReason: StuckReferralReason;
+  targetSpecialty: Specialty;
+  referringDoctor: DoctorSummary;
+  targetDoctor: DoctorSummary | null;
+  /** Oldest first, ending with this referral. Only sent for `loop_flagged`. */
+  chain: ReferralChainLink[] | null;
+}
+
+/** A doctor as offered in the reassign picker, with near-term availability. */
+export interface DoctorAvailability extends Pick<DoctorProfile, 'id' | 'fullName' | 'verificationStatus'> {
+  specialties: Specialty[];
+  // Open AvailabilitySlots in the next 7 days.
+  openSlotCount: number;
+  nextAvailableAt: string | null;
+}
+
+export interface ReassignReferralInput {
+  targetDoctorId: string;
+  reason: string;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else acted on the referral in the meantime. */
+  expectedUpdatedAt: string;
+}
+
+export interface CancelReferralInput {
+  reason: string;
+  expectedUpdatedAt: string;
+}
