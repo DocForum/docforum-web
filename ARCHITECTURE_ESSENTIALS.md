@@ -172,6 +172,24 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
 - `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
 
+### Phase W6 — Admin audit & access log viewer (issue #71)
+
+#### State-change events — real, docforum-core#43 (see its `docs/api/README.md` "Audit trail")
+- `GET /admin/audit-events?entityType=&entityId=&actorUserId=&from=&to=&limit=&cursor=` → `{items: AuditEvent[], nextCursor: string | null}`, newest first, keyset-paginated on `(createdAt, id)`.
+- `entityId` is only accepted together with `entityType`; `from`/`to` are inclusive ISO dates; `limit` is 1–200 (this UI sends 50). Unknown parameters are `400`; a malformed cursor is `400 INVALID_CURSOR` (the UI offers "Back to newest").
+- `AuditEvent` shape: `{id, actorUserId, actorRole, entityType, entityId, action, fromState, toState, requestId, metadata, createdAt}`, mirrored in `models.ts`. `metadata` never holds personal data (server-enforced).
+- **API gap:** there is no `action` filter. Because unknown parameters are `400`, the viewer filters by action client-side, within the loaded page only, and says so on screen. Worth a `docforum-core` issue to add server-side `action` filtering.
+
+#### PHI access logs — assumed, docforum-core#45 not landed
+- `GET /admin/access-logs` with the **same** query parameters and `{items, nextCursor}` envelope as audit events (#45 itself only specifies `?entityId=`).
+- `AccessLog` shape: `{id, actorUserId, actorRole, entityType, entityId, route, createdAt}`. `actorRole` is assumed so the column matches the events tab.
+- A `404` is shown as "docforum-core doesn't serve access logs yet" rather than a generic error.
+
+#### Frontend behaviour
+- Filters, tab and cursor live in the URL query (`tab`, `entityType`, `entityId`, `actor`, `action`, `from`, `to`, `cursor`); values from the URL are validated (charset, length, real calendar dates, `from ≤ to`) and invalid ones are dropped with a visible notice.
+- Entity links: only `PaymentIntent` has an admin-reachable view (`/admin?intent=<id>`). Appointment and doctor-profile ids render as plain text until admin views exist.
+- CSV export is client-side and covers exactly the rows on screen; cells starting with `= + - @` are prefixed with `'` to defuse spreadsheet formulas.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

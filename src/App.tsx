@@ -16,6 +16,7 @@ import { ConsultationNote } from './features/consultation/components/Consultatio
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
 import { FacilityTeamPage } from './pages/FacilityTeamPage';
+import { AdminAuditPage } from './pages/AdminAuditPage';
 
 export default function App() {
   return (
@@ -75,6 +76,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/audit"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminAuditPage />
             </RequireAuth>
           }
         />

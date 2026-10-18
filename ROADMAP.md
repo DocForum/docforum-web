@@ -84,6 +84,10 @@ real API" (no refresh-on-reload flow).
   a session exists, same caveat as the facility dashboard already had.
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
 
+## Phase W6 — Admin console
+Admin-only screens beyond payments. Everything goes through `docforum-core`'s admin API; admin accounts stay seeded/invited (PRD OQ-2).
+- [x] Audit and access log viewer. Tracked as [issue #71](https://github.com/DocForum/docforum-web/issues/71) (High, 200 pts) — `src/features/admin-audit/`, `AdminAuditPage` at `/admin/audit`. Two tabs: state-change events against `docforum-core`'s real `GET /admin/audit-events` (docforum-core#43), and PHI access logs against an assumed `GET /admin/access-logs` (docforum-core#45, still open — the tab says so on a `404`). Entity type/id, actor, action and date-range filters plus the page cursor all live in the URL; one 50-row page per request; entity links where an admin view exists (payment intents → `/admin?intent=`); client-side CSV export of the page on screen. The action filter is client-side within the loaded page, because the backend rejects an `action` parameter — a `docforum-core` API gap, see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
+
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
   of the 3-repo org split.
@@ -356,5 +360,4 @@ real API" (no refresh-on-reload flow).
   - `#50 Doctor practice insights`: private insights page (`/doctor/insights`) with weekly slot utilisation, no-show and late-cancellation rates, referral acceptance turnaround, and messages response time. Includes SVG charts paired with accessible semantic `<table>` alternatives, date range selector (presets + custom), clearly labelled small-sample caveats, and strict peer-comparison suppression (doctor's own confidential data only). Wired into `DoctorDashboardPage`, command palette (`⌘K`), and navigation.
   - `#51 Facility staff accounts & fulfillment attribution`: dedicated team management page (`/facility/team`) with member list, role assignment (`owner` vs `staff`), email invitations, resend/revoke pending invites, member removal with backend session revocation warning, and last-owner deletion protection. Enforced read-only view and action suppression for staff members. In the fulfillment queue (`/facility`), added action attribution display showing which staff member dispensed/fulfilled each order for PRD §7 audit trail.
   - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 24 test files and 112/112 tests passing; typecheck and build green.
-
-
+- 2026-10-18 — Built Phase W6 (new section) audit and access log viewer (#71): `/admin/audit` with state-change and record-access tabs, URL-synced filters (entity type/id, actor, action, date range) and keyset cursor pagination (newer-page trail kept in history state so browser back/forward agrees with the pager), entity record links, entity-history/actor pivots, and formula-safe client-side CSV export of the current page. Audit events use `docforum-core`'s real contract (#43); access logs are an assumed shape pending docforum-core#45. Admin nav gained Payments/Audit trail links; `/admin?intent=<id>` now opens a payment intent directly. Viewer never logs to the console (tested). 27 test files and 153/153 tests passing; typecheck and build green.
