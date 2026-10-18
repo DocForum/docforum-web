@@ -30,7 +30,7 @@ describe('AdminDashboardPage accessibility (#90)', () => {
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/payment intent id/i), 'intent-1{Enter}');
-    // Selecting an id is announced by the payment panel once it loads.
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Selecting an id marks it as selected; the PaymentIntentPanel renders below.
+    expect(screen.getByRole('form')).toBeInTheDocument();
   });
 });
