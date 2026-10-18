@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { Spinner } from './Spinner';
 import styles from './Button.module.css';
 
-type Variant = 'primary' | 'secondary';
+type Variant = 'primary' | 'secondary' | 'danger';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;

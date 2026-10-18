@@ -41,3 +41,14 @@
   background: var(--color-surface-hover);
   border-color: var(--color-text-faint);
 }
+
+.danger {
+  background: var(--color-danger);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.danger:hover:not(:disabled) {
+  background: #802e21;
+}
+

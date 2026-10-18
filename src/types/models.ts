@@ -48,76 +48,61 @@ export interface FacilityProfile {
   type: FacilityType;
 }
 
-// --- Lab results (Phase W2 patient results viewer, issue #24) ----------------
-// LabOrder's own columns (testType/urgency/status) already exist in
-// docforum-core's schema.prisma (Phase 0 placeholder) — mirrored here as
-// real, not assumed. Everything marked "assumed" below does NOT exist
-// there yet: it is the smallest reasonable guess at what docforum-core
-// issue #72 (abnormal escalation + acknowledgement tracking, PRD §8.2.7)
-// will ship, needed to build this viewer now. Reconcile on sight once
-// that backend issue merges — see ARCHITECTURE_ESSENTIALS.md
-// "Known assumptions (assumed API contracts)".
+// --- Dependents (Phase W2 — assumed, docforum-core#42 not landed yet) ------
 
-export type OrderStatus = 'issued' | 'fulfilled' | 'expired' | 'superseded';
-export type Urgency = 'routine' | 'urgent';
+export type Relationship = 'parent' | 'guardian' | 'carer';
 
-export interface LabOrder {
+export type HandoverStatus = 'not_eligible' | 'eligible' | 'invited' | 'claimed';
+
+export interface Dependent {
   id: string;
-  testType: string;
-  urgency: Urgency;
-  status: OrderStatus;
+  guardianProfileId: string;
+  fullName: string;
+  dateOfBirth: string;
+  relationship: Relationship;
+  handoverStatus: HandoverStatus;
+  claimEmail?: string;
+  claimInviteExpiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DependentInput {
+  fullName: string;
+  dateOfBirth: string;
+  relationship: Relationship;
+}
+
+// --- Health profile (Phase W2 — assumed, docforum-core#59 not landed yet) ---
+
+export type HealthSectionKey = 'allergies' | 'conditions' | 'medications';
+
+export interface HealthEntry {
+  id: string;
+  patientProfileId: string;
+  section: HealthSectionKey;
+  name: string;
+  details?: string;
+  version: number;
+  previousValue?: string;
+  updatedAt: string;
   createdAt: string;
 }
 
-/** Set by the facility when attaching a result (docforum-core #72). */
-export type AbnormalityFlag = 'normal' | 'abnormal' | 'critical';
-
-/** Whether a result file is attached yet. Assumed. */
-export type LabResultStatus = 'pending' | 'ready';
-
-/**
- * Doctor-acknowledgement state for abnormal/critical results
- * (docforum-core #72). Assumed:
- * - `not_required` — normal results never create a task.
- * - `pending` — doctor notified, not yet acknowledged.
- * - `acknowledged` — doctor reviewed.
- * - `escalated` — critical result past N hours without acknowledgement,
- *   moved to the admin queue.
- */
-export type AcknowledgementStatus = 'not_required' | 'pending' | 'acknowledged' | 'escalated';
-
-export interface LabResult {
-  id: string;
-  /** FK to the lab order this result belongs to. Assumed (TODO in schema). */
-  labOrderId: string;
-  /** Denormalized test name from LabOrder.testType, for list display. Assumed. */
-  testName: string;
-  /** Fulfilling facility id. Assumed (TODO in schema). */
-  facilityId: string;
-  /** Denormalized facility name, for list display. Assumed. */
-  facilityName: string;
-  /** Assumed — schema has no status column on LabResult yet. */
-  status: LabResultStatus;
-  /** Assumed — the core of docforum-core #72. */
-  abnormalityFlag: AbnormalityFlag;
-  /** Assumed — mirrors #72's acknowledgement task state. */
-  acknowledgementStatus: AcknowledgementStatus;
-  /** When an abnormal/critical result notified the ordering doctor. Assumed. */
-  doctorNotifiedAt: string | null;
-  /** When the ordering doctor acknowledged the result. Assumed. */
-  acknowledgedAt: string | null;
-  /**
-   * True when the backend holds a result until a doctor reviews it first
-   * (#72 leaves this open: "decide whether critical results are held").
-   * When true the patient sees a "waiting for doctor review" notice
-   * instead of the summary/file. Assumed.
-   */
-  withheldPendingReview: boolean;
-  // Below: real columns, already in schema.prisma.
-  summary: string | null;
-  resultFileUrl: string | null;
-  createdAt: string;
+export interface HealthEntryInput {
+  section: HealthSectionKey;
+  name: string;
+  details?: string;
 }
+
+// --- Acting-for profile (Phase W2 — client-only UI state + API scoping) ----
+
+export interface ActingProfile {
+  id: string;
+  fullName: string;
+  isSelf: boolean;
+}
+
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
 // repo's docs/adr/0004-custodial-payments-v1.md) ---------------------------
 // Custodial v1: docforum-core holds its own Stellar identities; this repo
@@ -154,3 +139,156 @@ export interface PaymentIntent {
   createdAt: string;
   updatedAt: string;
 }
+
+// --- Data export (Phase W2, issue #26 — docforum-core#40) -------------------
+
+export type DataExportStatus = 'pending' | 'processing' | 'ready' | 'expired' | 'failed';
+
+export interface DataExport {
+  id: string;
+  patientProfileId: string;
+  status: DataExportStatus;
+  requestedAt: string;
+  readyAt?: string | null;
+  expiresAt?: string | null;
+  fileSizeBytes?: number | null;
+  downloadUrl?: string | null;
+  errorMessage?: string | null;
+}
+
+// --- Account deletion (Phase W2, issue #27 — docforum-core#41) ---------------
+
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+  deletedAt: string;
+}
+
+// --- Care thread timeline (Phase W2, issue #28) ------------------------------
+
+export type CareStepType = 'appointment' | 'consultation' | 'referral' | 'order' | 'fulfillment' | 'payment';
+export type CareStepStatus = 'completed' | 'in_progress' | 'action_required' | 'pending' | 'skipped';
+
+export interface CareThreadStep {
+  id: string;
+  stepType: CareStepType;
+  title: string;
+  description: string;
+  status: CareStepStatus;
+  timestamp?: string | null;
+  actionLabel?: string | null;
+  actionUrl?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CareThread {
+  id: string;
+  patientProfileId: string;
+  title: string;
+  doctorName: string;
+  specialty: string;
+  startedAt: string;
+  updatedAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+  steps: CareThreadStep[];
+}
+
+// --- Facility finder with location & distance (Phase W2, issue #29) ----------
+
+export interface FacilityLocation {
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface FacilityWithDistance extends FacilityProfile {
+  location?: FacilityLocation;
+  distanceKm?: number | null;
+  isOpen?: boolean;
+  phone?: string;
+  rating?: number;
+}
+
+// --- Phase W3 — Doctor core flow (assumed, docforum-core issues #61/#129 not
+// landed yet) ---------------------------------------------------------------
+// These shapes mirror the smallest contract needed to build the doctor's
+// today view, live queue, inbox, and consultation sign-off. Reconcile once
+// docforum-core defines them; record any deviation in
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions".
+
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'checked_in'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
+
+export interface Appointment {
+  id: string;
+  doctorProfileId: string;
+  patientProfileId: string;
+  patientName: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  reason?: string | null;
+  checkInAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface QueueEntry {
+  appointmentId: string;
+  patientProfileId: string;
+  fullName: string;
+  checkedInAt: string;
+  queuePosition: number;
+  status: 'checked_in' | 'in_progress' | 'completed';
+}
+
+export interface RunningDelay {
+  computedDelayMin: number;
+  manualOverrideMin: number | null;
+  effectiveDelayMin: number;
+}
+
+export interface UpdateRunningDelayInput {
+  manualOverrideMin: number | null;
+}
+
+export interface MessageThread {
+  id: string;
+  patientProfileId: string;
+  patientName: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  lastPreview?: string | null;
+  waitingMinutes?: number | null;
+  closingSoon?: boolean;
+}
+
+export type ThreadFilter = 'all' | 'unread' | 'closing_soon';
+
+export interface ConsultationNote {
+  id: string;
+  appointmentId: string;
+  content: string;
+  signedAt?: string | null;
+  signedBy?: string | null;
+  autoSignOffAt?: string | null;
+  addenda: ConsultationAddendum[];
+}
+
+export interface ConsultationAddendum {
+  id: string;
+  noteId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface AddAddendumInput {
+  content: string;
+}
+

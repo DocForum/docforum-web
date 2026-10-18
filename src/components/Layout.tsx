@@ -1,8 +1,10 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { useLogout } from '../features/auth/hooks/useLogout';
+import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
+import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -19,8 +21,20 @@ export function Layout() {
         <nav className={styles.nav}>
           {user ? (
             <>
+              {user.role === 'patient' && (
+                <>
+                  <ProfileSwitcher />
+                  <Link to="/care" className={styles.navLink}>
+                    Care journey
+                  </Link>
+                  <Link to="/patient/settings" className={styles.navLink}>
+                    Settings
+                  </Link>
+                </>
+              )}
               <span className={styles.user}>
                 {user.email}
+                {user.role === 'doctor' && <UnreadBadge />}
                 <span className={styles.roleBadge} data-role={user.role}>
                   {user.role}
                 </span>

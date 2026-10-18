@@ -74,44 +74,88 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
-## Known assumptions (assumed API contracts)
-Assumed shapes for not-yet-merged `docforum-core` work. Each entry names
-the backend issue it tracks — reconcile on sight once that issue merges.
+## Known assumptions — Phase W2 (dependents, health profile, acting-for)
 
-- **Lab results viewer (this repo issue #24 → `docforum-core` #72,
-  abnormal escalation + acknowledgement tracking, PRD §8.2.7).**
-  `docforum-core`'s `LabResult` table today only has
-  `id`/`resultFileUrl`/`summary`/`createdAt` (plus `TODO labOrderId`/
-  `fulfillingFacilityId`) and its `lab-orders/routes` is still a
-  placeholder — none of the below exists there yet.
-  Assumed endpoints (patient-scoped, `Authorization: Bearer` like the
-  rest of this repo's services):
-  - `GET /lab-results/mine` → `LabResult[]` (most recent first)
-  - `GET /lab-results/:id` → `LabResult`
-  Assumed `LabResult` fields beyond the real columns (see
-  `src/types/models.ts` — every assumed field is commented there):
-  `labOrderId`, `testName` (denormalized from `LabOrder.testType`),
-  `facilityId`, `facilityName` (denormalized), `status`
-  (`'pending' | 'ready'`), `abnormalityFlag`
-  (`'normal' | 'abnormal' | 'critical'`, set by the facility),
-  `acknowledgementStatus`
-  (`'not_required' | 'pending' | 'acknowledged' | 'escalated'`),
-  `doctorNotifiedAt`, `acknowledgedAt`, `withheldPendingReview`.
-  `withheldPendingReview` covers #72's open question ("decide whether
-  critical results are held until a doctor acknowledges them"): when true
-  the UI hides summary + file behind a "waiting for your doctor's review"
-  notice, so both backend decisions render safely.
-  File viewing is native-only (`<img loading="lazy">` for images, the
-  browser's built-in viewer via `<iframe>` for PDFs, plain anchors for
-  download) — no third-party viewer script is loaded from a CDN at
-  runtime, so no new CSP source is needed. File kind is sniffed from the
-  URL extension client-side (`kindForResultFileUrl`) because the real
-  table has no content-type column; unknown types fall back to
-  download-only. Doctor acknowledgement (`POST /lab-results/:id/
-  acknowledge` in #72) is doctor-side only — this patient UI reads
-  `acknowledgementStatus` but never calls it.
+These API shapes are assumed and not yet implemented in `docforum-core`.
+Reconcile against the real contract once the corresponding backend issues
+land.
+
+### Dependents (docforum-core#42)
+- `GET /patients/me/dependents` → `Dependent[]`
+- `POST /patients/me/dependents` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
+- `PATCH /patients/me/dependents/:id` (body: `{fullName, dateOfBirth, relationship}`) → `Dependent`
+- `POST /patients/me/dependents/:id/handover-invite` (body: `{email}`) → `Dependent`
+- `POST /patients/me/dependents/:id/handover-invite/resend` → `Dependent`
+- `POST /auth/claim-account` (body: `{token, email, password}`) → `void`
+- `Dependent` shape: `{id, guardianProfileId, fullName, dateOfBirth, relationship: 'parent'|'guardian'|'carer', handoverStatus: 'not_eligible'|'eligible'|'invited'|'claimed', claimEmail?, claimInviteExpiresAt?, createdAt, updatedAt}`
+
+### Health profile (docforum-core#59)
+- `GET /patients/:profileId/health/:section` → `HealthEntry[]`
+- `POST /patients/:profileId/health` (body: `{section, name, details?}`) → `HealthEntry`
+- `PATCH /patients/:profileId/health/:entryId` (body: `{name, details?}`) → `HealthEntry`
+- `DELETE /patients/:profileId/health/:entryId` → `void`
+- `HealthEntry` shape: `{id, patientProfileId, section: 'allergies'|'conditions'|'medications', name, details?, version, previousValue?, updatedAt, createdAt}`
+
+### Acting-for profile switcher (#20)
+No new backend endpoint. The switcher is client-only UI state (Zustand
+store). Every patient API call and React Query key includes the selected
+`patientProfileId` so caches never mix profiles.
+
+### Data export (docforum-core#40, issue #26)
+- `POST /account/data-export` (body: `{password}`) → `DataExport`
+- `GET /account/data-export` → `DataExport | null`
+- `GET /account/data-export/:id/download` → file stream (`application/json`)
+- `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
+- Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
+
+### Account deletion (docforum-core#41, issue #27)
+- `POST /account/delete` (body: `{password, confirmation: 'DELETE'}`) → `{success, message, deletedAt}`
+- Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
+- Deletion is blocked if there are active orders or unreleased funded escrows.
+- Client clears all QueryClient cache and Zustand session/profile state.
+
+### Care thread timeline (issue #28)
+- `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
+- `GET /care-threads/:id` → `CareThread`
+- Aggregates appointments, consultations, referrals, orders, fulfillment, and escrow payment settlement into a single continuous journey timeline.
+- Progressive rendering and graceful degradation when modules are not yet implemented.
+
+### Facility finder with distance sorting (docforum-core#74, issue #29)
+- `GET /facilities?type=&lat=&lng=&query=` → `FacilityWithDistance[]`
+- OpenStreetMap tiles with attribution.
+- Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
+
+### Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
+
+These shapes back issues #45–#49. docforum-core issues #61 (message thread),
+#129 (in-person check-in / live queue position) and the today's-appointments
+consultation contracts are not landed yet, so the endpoints below are the
+smallest reasonable assumption and must be reconciled once the real API
+exists.
+
+#### Today's appointments & live queue (issue #49, depends on #6)
+- `GET /doctor/appointments/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
+- `GET /doctor/queue/today` → `QueueEntry[]` — checked-in patients in queue order (computed server-side from `checkInAt`).
+- `POST /appointments/:id/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`). Idempotent if already started.
+- `POST /appointments/:id/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`).
+- `GET /doctor/queue/running-delay` → `RunningDelay` — computed delay from the current in-progress visit vs its scheduled end, plus any manual override.
+- `PATCH /doctor/queue/running-delay` (body: `{manualOverrideMin?: number | null}`) → `RunningDelay` — set/clear a manual "running late by X min" override.
+
+Undo behaviour: start/complete are applied optimistically and can be reverted within a short undo window (a few seconds) by re-calling the inverse action or clearing the optimistic timestamp; the UI surfaces an undo toast.
+
+#### Doctor messages inbox (issue #47)
+- `GET /doctor/messages/threads?filter=&cursor=&limit=` → `{threads: MessageThread[], nextCursor?: string | null}` — threads with unread counts, last-message preview (PHI — kept short), waiting time, oldest unanswered first by default.
+- `POST /message-threads/:id/read` → `{}` — mark a thread read (clears its unread count).
+- Header badge reads total unread = sum of `unreadCount` across threads.
+
+#### Consultation notes sign-off & addenda (issue #45, depends on #7)
+- `GET /consultation-notes/:appointmentId` → `ConsultationNote`
+- `POST /consultation-notes/:id/sign-off` → `ConsultationNote` — sets `signedAt`/`signedBy`; note becomes immutable after this.
+- `POST /consultation-notes/:id/addenda` (body: `{content}`) → `ConsultationAddendum` — append-only; no edit/delete UI for addenda.
+- Auto sign-off deadline, if present, is exposed as `autoSignOffAt` on the note.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
+

@@ -10,7 +10,12 @@ import { PatientResultDetailPage } from './pages/PatientResultDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { CareThreadPage } from './pages/CareThreadPage';
+import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ConsultationNote } from './features/consultation/components/ConsultationNote';
+import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 
 export default function App() {
   return (
@@ -19,6 +24,16 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
+        <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="account-deleted" element={<AccountDeletedPage />} />
+        <Route
+          path="care/*"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="patient/results/:resultId"
           element={
@@ -43,14 +58,21 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route
-          path="doctor/*"
-          element={
-            <RequireAuth allowedRoles={['doctor']}>
-              <DoctorDashboardPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="doctor" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorDashboardPage />
+          </RequireAuth>
+        } />
+        <Route path="doctor/consultation/:appointmentId" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <ConsultationNote />
+          </RequireAuth>
+        } />
+        <Route path="doctor/messages" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorInbox />
+          </RequireAuth>
+        } />
         <Route
           path="facility/*"
           element={

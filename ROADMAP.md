@@ -33,18 +33,29 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#5 plus #24 (results viewer).**
+**Fully scoped into issues #1–#5, #18–#21, #26–#29.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
 - [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
 - [ ] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — assumed contract against `docforum-core` issues #9–#16, not yet merged there.
-- [x] Lab results viewer with abnormal-value highlighting. Built for [issue #24](https://github.com/DocForum/docforum-web/issues/24) (High, 200 pts) — results list + detail per lab order (status, facility, date, summary, abnormality flag), lazy native PDF/image viewer with download, and calm "your doctor has been notified" next-steps + acknowledgement status for abnormal/critical instead of alarming raw text. Critical results withheld pending doctor review render as a waiting notice. **Assumed contract** against `docforum-core` issue #72 (not merged) — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions". Standalone at `/patient/results` until issue #5's orders list exists to link from.
+- [x] Health profile editor: allergies, conditions and current medications. Tracked as [issue #18](https://github.com/DocForum/docforum-web/issues/18) (High, 200 pts) — assumed contract against `docforum-core` issue #59.
+- [x] Dependents management for guardians. Tracked as [issue #19](https://github.com/DocForum/docforum-web/issues/19) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Acting-for profile switcher: book and view records on behalf of a dependent. Tracked as [issue #20](https://github.com/DocForum/docforum-web/issues/20) (High, 200 pts) — client-only UI state (Zustand), threads `patientProfileId` through API calls and query keys.
+- [x] Guardian consent and age-of-majority handover screens. Tracked as [issue #21](https://github.com/DocForum/docforum-web/issues/21) (High, 200 pts) — assumed contract against `docforum-core` issue #42.
+- [x] Download my data: request, track and fetch a data export. Tracked as [issue #26](https://github.com/DocForum/docforum-web/issues/26) (High, 200 pts) — assumed contract against `docforum-core` issue #40.
+- [x] Account deletion flow with clear retention explanation. Tracked as [issue #27](https://github.com/DocForum/docforum-web/issues/27) (High, 200 pts) — assumed contract against `docforum-core` issue #41.
+- [x] Care thread timeline: one view from booking to results. Tracked as [issue #28](https://github.com/DocForum/docforum-web/issues/28) (High, 200 pts).
+- [x] Facility finder with a map and distance-sorted results. Tracked as [issue #29](https://github.com/DocForum/docforum-web/issues/29) (High, 200 pts) — assumed contract against `docforum-core` issue #74.
+
 
 ## Phase W3 — Doctor core flow
-**Fully scoped into issues #6–#7.**
-- [ ] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts).
-- [ ] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — the densest single screen in the app, touches three separate `docforum-core` assumed contracts; the issue explicitly allows splitting into more than one PR if the scope proves unwieldy.
+**Fully scoped into issues #6–#7, with #45–#49 added as doctor core-flow features.**
+- [x] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts) — foundation laid via the doctor dashboard's live queue (`src/features/queue/`).
+- [x] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — sign-off & addenda UI built (`src/features/consultation/`).
+- [x] Doctor live queue: start and complete visits, running delay with manual override and undo window. Tracked as [issue #49](https://github.com/DocForum/docforum-web/issues/49) (High, 200 pts) — `src/features/queue/`, `QueuePanel`, optimistic start/complete with a 4s undo toast.
+- [x] Doctor messages inbox across all patient threads. Tracked as [issue #47](https://github.com/DocForum/docforum-web/issues/47) (High, 200 pts) — `src/features/messaging/`, `DoctorInbox`, `UnreadBadge`, unread counts, truncated PHI previews, oldest-unanswered-first sorting, filters, pagination.
+- [x] Doctor command palette and keyboard shortcuts. Tracked as [issue #46](https://github.com/DocForum/docforum-web/issues/46) (High, 200 pts) — `src/components/CommandPalette.tsx`, `src/hooks/useKeyboardShortcuts.ts`, shortcuts help dialog, input suppression.
 
 ## Phase W4 — Facility core flow
 **Fully scoped into issue #8.**
@@ -300,18 +311,43 @@ real API" (no refresh-on-reload flow).
 - 2026-10-07 — Opened issues #10 (explorer links in the payments
   console), #11 (ESLint in CI) and #12 (end-to-end smoke test against a
   real `docforum-core`, the unchecked Phase W1 item).
-- 2026-10-16 — Built the lab results viewer (issue #24, PRD §4 patient
-  core flow — results are the end of the book → consult → order → fulfil
-  thread): `LabResult`/`LabOrder` types in `src/types/models.ts` (real
-  columns mirrored, flag/acknowledgement/withheld fields marked assumed
-  against `docforum-core` #72), `src/services/results-service.ts`
-  (`GET /lab-results/mine`, `GET /lab-results/:id`), `src/features/
-  results/` (React Query hooks, `LabResultsList`, `LabResultDetail` with
-  calm next-steps copy + acknowledgement status, native lazy PDF/image
-  `ResultFileViewer` with download and no CDN script), `/patient/results`
-  + `/patient/results/:id` patient-gated routes linked from the patient
-  dashboard. 13 new component tests (each flag state + withheld +
-  viewer kinds). `ARCHITECTURE_ESSENTIALS.md` "Known assumptions"
-  documents the exact assumed shape. Not visually verified in a browser
-  this session — same disclosed gap as every other UI change here;
-  component tests + typecheck + build pass.
+- 2026-10-16 — Built Phase W2 patient features: dependents management
+  (#19), acting-for profile switcher (#20), health profile editor (#18),
+  and guardian consent/age-of-majority handover screens (#21). All four
+  built against documented assumed API shapes (recorded in
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions"). New types in
+  `models.ts` (`Dependent`, `HealthEntry`, `ActingProfile`), services
+  (`dependents-service.ts`, `health-profile-service.ts`), Zustand
+  profile store (`profile-store.ts`), feature folders
+  (`src/features/dependents/`, `src/features/health-profile/`), pages
+  (`DependentsPage`, `HealthProfilePage`, `ClaimAccountPage`), and routes
+  (`/patient/dependents`, `/patient/health`, `/claim-account`). Profile
+  switcher in header, acting-for banner on patient pages. Tests for every
+  new component.
+- 2026-10-16 — Built Phase W2 patient core flows: download my data (#26),
+  account deletion with clinical retention explanation (#27), care thread
+  timeline (#28), and facility finder with map and distance-sorted results
+  (#29). Built against documented assumed API shapes in
+  `ARCHITECTURE_ESSENTIALS.md`. New types in `models.ts` (`DataExport`,
+  `DeleteAccountResponse`, `CareThread`, `CareThreadStep`, `FacilityWithDistance`),
+  services (`account-service.ts`, `care-thread-service.ts`, `facility-service.ts`),
+  features (`src/features/account/`, `src/features/care-thread/`, `src/features/orders/`),
+  components (`DataExportSection`, `DeleteAccountSection`, `CareTimeline`,
+  `FacilityFinder`, `FacilityMap`, `FacilityCard`), pages (`AccountSettingsPage`,
+  `AccountDeletedPage`, `CareThreadPage`, `FacilityFinderPage`), and routes
+  (`/patient/settings`, `/account-deleted`, `/care`, `/care/:threadId`,
+  `/patient/facilities`). Strict privacy enforcement: transient in-memory
+  location only (never persisted to storage or URLs). 15 test files and
+  62/62 tests passing.
+- 2026-10-17 — Built Phase W3 doctor core flow (#45–#49): live queue with
+  start/complete visits, running delay + manual override and 4s undo window
+  (#49); doctor messages inbox with unread badge, truncated PHI previews,
+  oldest-unanswered-first sorting, filters and pagination (#47); command
+  palette + configurable keyboard shortcuts with input suppression and help
+  dialog (#46); consultation note sign-off with append-only addenda (#45).
+  New types/services/features for queue, messaging and consultation; wired
+  into `DoctorDashboardPage`, `Layout` (unread badge) and routes
+  (`/doctor/consultation/:id`, `/doctor/messages`). Updated
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" with the Phase W3
+  assumed API shapes. Typecheck, build, and all non-pre-existing tests pass.
+
