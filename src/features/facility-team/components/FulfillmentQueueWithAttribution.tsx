@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useFormat } from '../../../i18n/useFormat';
 import type { FulfillmentQueueItem } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -15,6 +16,7 @@ export function FulfillmentQueueWithAttribution({
   isUpdating,
 }: FulfillmentQueueProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const { formatDate, formatDateTime } = useFormat();
 
   const handleAction = async (itemId: string, action: 'fulfilled' | 'rejected') => {
     setSelectedItem(itemId);
@@ -44,14 +46,18 @@ export function FulfillmentQueueWithAttribution({
             const isItemUpdating = isUpdating && selectedItem === item.id;
 
             return (
-              <div key={item.id} className={styles.queueItem} tabIndex={0}>
+              <article key={item.id} className={styles.queueItem} aria-labelledby={`queue-item-${item.id}`}>
                 <div className={styles.queueItemHeader}>
                   <div>
-                    <span className={styles.orderTitle}>{item.itemName}</span>
+                    <h3 id={`queue-item-${item.id}`} className={styles.orderTitle}>
+                      {item.itemName}
+                    </h3>
                     <div className={styles.orderMeta}>
                       <span>Patient: {item.patientName}</span> •{' '}
                       <span>Type: {item.orderType === 'prescription' ? 'Prescription Dispense' : 'Diagnostic Order'}</span> •{' '}
-                      <span>Received: {new Date(item.receivedAt).toLocaleDateString()}</span>
+                      <span>
+                        Received: <time dateTime={item.receivedAt}>{formatDate(item.receivedAt)}</time>
+                      </span>
                     </div>
                   </div>
                   <div>
@@ -77,7 +83,7 @@ export function FulfillmentQueueWithAttribution({
 
                 {/* Audit Attribution Box (PRD §7 & Issue #51 requirement) */}
                 {item.attribution ? (
-                  <div className={styles.attributionBox} aria-label="Action attribution">
+                  <div className={styles.attributionBox} role="note" aria-label="Action attribution">
                     <span aria-hidden="true">✓</span>
                     <span>
                       {item.attribution.action === 'dispensed' && 'Dispensed by '}
@@ -86,7 +92,9 @@ export function FulfillmentQueueWithAttribution({
                       {item.attribution.action === 'rejected' && 'Rejected by '}
                       <strong className={styles.attributionActor}>{item.attribution.performedByName}</strong>{' '}
                       ({item.attribution.performedByRole}) on{' '}
-                      {new Date(item.attribution.timestamp).toLocaleString()}
+                      <time dateTime={item.attribution.timestamp}>
+                        {formatDateTime(item.attribution.timestamp)}
+                      </time>
                       {item.attribution.notes && ` — "${item.attribution.notes}"`}
                     </span>
                   </div>
@@ -116,7 +124,7 @@ export function FulfillmentQueueWithAttribution({
                     </div>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>

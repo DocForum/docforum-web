@@ -1,5 +1,6 @@
 import type { FacilityWithDistance } from '../../../types/models';
 import { Button } from '../../../components/Button';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './FacilityFinder.module.css';
 
 interface FacilityCardProps {
@@ -9,6 +10,7 @@ interface FacilityCardProps {
 }
 
 export function FacilityCard({ facility, isSelected = false, onSelect }: FacilityCardProps) {
+  const { formatNumber } = useFormat();
   const isPharmacy = facility.type === 'pharmacy';
 
   return (
@@ -35,7 +37,12 @@ export function FacilityCard({ facility, isSelected = false, onSelect }: Facilit
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-2)' }}>
         {facility.distanceKm !== undefined && facility.distanceKm !== null ? (
           <span className={styles.distancePill}>
-            📍 {facility.distanceKm.toFixed(1)} km away
+            <span aria-hidden="true">📍</span>{' '}
+            {formatNumber(facility.distanceKm, {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
+            km away
           </span>
         ) : (
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)' }}>Distance unknown</span>

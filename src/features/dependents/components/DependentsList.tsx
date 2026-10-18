@@ -5,14 +5,11 @@ import { FormError } from '../../../components/FormError';
 import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
 import { ApiError } from '../../../services/api-client';
+import { useFormat } from '../../../i18n/useFormat';
 import type { Dependent, DependentInput } from '../../../types/models';
 import styles from './DependentsList.module.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function handoverLabel(d: Dependent): string {
+function handoverLabel(d: Dependent, formatDate: (iso: string) => string): string {
   switch (d.handoverStatus) {
     case 'eligible':
       return 'Eligible for handover';
@@ -26,6 +23,7 @@ function handoverLabel(d: Dependent): string {
 }
 
 export function DependentsList() {
+  const { formatDate } = useFormat();
   const { data: dependents, isLoading, error: fetchError } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
@@ -100,10 +98,12 @@ export function DependentsList() {
                 <span className={styles.name}>{d.fullName}</span>
                 <span className={styles.relationship}>{d.relationship}</span>
               </div>
-              <span className={styles.dob}>Born {formatDate(d.dateOfBirth)}</span>
+              <span className={styles.dob}>
+                Born <time dateTime={d.dateOfBirth}>{formatDate(d.dateOfBirth)}</time>
+              </span>
               {d.handoverStatus !== 'not_eligible' && (
                 <span className={styles.handover} data-status={d.handoverStatus}>
-                  {handoverLabel(d)}
+                  {handoverLabel(d, formatDate)}
                 </span>
               )}
               {d.handoverStatus !== 'claimed' && (

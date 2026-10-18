@@ -5,6 +5,7 @@ import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
 import { ApiError } from '../../../services/api-client';
+import { useFormat } from '../../../i18n/useFormat';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function HealthSection({ section }: Props) {
+  const { formatDate } = useFormat();
   const { data: entries, isLoading } = useHealthEntries(section);
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
@@ -79,6 +81,9 @@ export function HealthSection({ section }: Props) {
       {isLoading && (
         <div className={styles.loading}>
           <Spinner size={18} />
+          <span className="srOnly" role="status">
+            Loading {SECTION_LABELS[section].toLowerCase()}…
+          </span>
         </div>
       )}
 
@@ -126,7 +131,8 @@ export function HealthSection({ section }: Props) {
                 <span className={styles.entryName}>{entry.name}</span>
                 {entry.version > 1 && (
                   <span className={styles.version}>
-                    v{entry.version} — updated {new Date(entry.updatedAt).toLocaleDateString()}
+                    v{entry.version} — updated{' '}
+                    <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt)}</time>
                     {entry.previousValue && <span className={styles.prev}> (was: {entry.previousValue})</span>}
                   </span>
                 )}

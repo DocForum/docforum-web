@@ -1,6 +1,7 @@
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { ApiError } from '../../../services/api-client';
+import { useFormat } from '../../../i18n/useFormat';
 import { usePaymentIntent, useFundPaymentIntent, useReleasePaymentIntent, useRefundPaymentIntent } from '../hooks/usePaymentIntent';
 import type { PaymentIntentStatus } from '../../../types/models';
 
@@ -17,6 +18,7 @@ const NEXT_ACTION: Record<PaymentIntentStatus, string | null> = {
  * triggers a real Stellar contract call on docforum-core's side — this
  * repo never touches Stellar directly (hard rule 1). */
 export function PaymentIntentPanel({ intentId }: { intentId: string }) {
+  const { formatAssetAmount } = useFormat();
   const intentQuery = usePaymentIntent(intentId);
   const fundMutation = useFundPaymentIntent();
   const releaseMutation = useReleasePaymentIntent();
@@ -46,7 +48,10 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
           {intent.orderType} · {intent.orderId}
         </dd>
         <dt>Amount</dt>
-        <dd>{intent.amountStroops} stroops</dd>
+        <dd>
+          {formatAssetAmount(intent.amountStroops, 'XLM', { decimals: 7 })}{' '}
+          <small>({intent.amountStroops} stroops)</small>
+        </dd>
         {intent.escrowId && (
           <>
             <dt>On-chain escrow id</dt>

@@ -3,30 +3,22 @@ import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
+import { Dialog } from '../../../components/Dialog';
 import { useDataExport, useDownloadExport, useRequestDataExport } from '../hooks/useDataExport';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './DataExportSection.module.css';
 
-function formatBytes(bytes?: number | null): string {
+function formatBytes(bytes: number | null | undefined, formatNumber: (value: number) => string): string {
   if (!bytes) return 'Unknown size';
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return `${formatNumber(bytes)} B`;
   const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  return `${(kb / 1024).toFixed(1)} MB`;
-}
-
-function formatDate(iso?: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch {
-    return iso;
-  }
+  if (kb < 1024) return `${formatNumber(kb)} KB`;
+  return `${formatNumber(kb / 1024)} MB`;
 }
 
 export function DataExportSection() {
+  const { formatDateTime, formatNumber, formatDate: formatDay } = useFormat();
+  const formatDate = (iso?: string | null): string => (iso ? formatDateTime(iso) : '—');
   const { data: exportData, isLoading, error: queryError } = useDataExport();
   const requestMutation = useRequestDataExport();
   const { download, isDownloading, downloadError } = useDownloadExport();
@@ -136,7 +128,8 @@ export function DataExportSection() {
                     : 'Export failed'}
             </span>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-              Requested: {formatDate(exportData.requestedAt)}
+              Requested:{' '}
+              <time dateTime={exportData.requestedAt}>{formatDate(exportData.requestedAt)}</time>
             </span>
           </div>
 
@@ -152,10 +145,19 @@ export function DataExportSection() {
           {status === 'ready' && (
             <div>
               <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sm)' }}>
-                Your data export is ready. Download it before it expires on <strong>{formatDate(exportData.expiresAt)}</strong>.
+                Your data export is ready. Download it before it expires on{' '}
+                <strong>{formatDay(exportData.expiresAt ?? '')}</strong>.
               </p>
               <div className={styles.metaInfo} style={{ marginBottom: 'var(--space-3)' }}>
-                <span>File size: {formatBytes(exportData.fileSizeBytes)}</span>
+                <span>
+                  File size:{' '}
+                  {formatBytes(exportData.fileSizeBytes, (value) =>
+                    formatNumber(value, {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    }),
+                  )}
+                </span>
                 <span>Format: JSON bundle (FHIR-compatible)</span>
               </div>
               <Button
@@ -192,38 +194,41 @@ export function DataExportSection() {
         </div>
       )}
 
-      {isModalOpen && (
-        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="modal-reauth-title">
-          <div className={styles.modal}>
-            <h3 id="modal-reauth-title" className={styles.modalTitle}>
-              Confirm your password
-            </h3>
-            <p className={styles.modalText}>
-              To protect sensitive health information, please enter your account password to confirm this data export
-              request.
-            </p>
-            <form onSubmit={handleSubmitRequest}>
-              <TextField
-                label="Account password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoFocus
-                required
-              />
-              {modalError && <FormError message={modalError} />}
-              <div className={styles.modalActions}>
-                <Button type="button" variant="secondary" onClick={handleCloseModal}>
-                  Cancel
-                </Button>
-                <Button type="submit" loading={requestMutation.isPending}>
-                  {requestMutation.isPending ? 'Verifying…' : 'Confirm & request'}
-                </Button>
-              </div>
-            </form>
+      <Dialog
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        labelledBy="modal-reauth-title"
+        describedBy="modal-reauth-description"
+        overlayClassName={styles.modalOverlay}
+        panelClassName={styles.modal}
+      >
+        <h3 id="modal-reauth-title" className={styles.modalTitle}>
+          Confirm your password
+        </h3>
+        <p id="modal-reauth-description" className={styles.modalText}>
+          To protect sensitive health information, please enter your account password to confirm this data export
+          request.
+        </p>
+        <form onSubmit={handleSubmitRequest} noValidate>
+          <TextField
+            label="Account password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            error={modalError ?? undefined}
+            required
+          />
+          <div className={styles.modalActions}>
+            <Button type="button" variant="secondary" onClick={handleCloseModal}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={requestMutation.isPending}>
+              {requestMutation.isPending ? 'Verifying…' : 'Confirm & request'}
+            </Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Dialog>
     </section>
   );
 }

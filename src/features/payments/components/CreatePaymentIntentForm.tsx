@@ -41,9 +41,14 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
       <h2>Create payment intent</h2>
       <FormError message={submitError} />
 
-      <label>
+      <label htmlFor="payment-order-type" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
         Order type
-        <select value={orderType} onChange={(e) => setOrderType(e.target.value as OrderTypeForPayment)}>
+        <select
+          id="payment-order-type"
+          value={orderType}
+          onChange={(e) => setOrderType(e.target.value as OrderTypeForPayment)}
+          style={{ display: 'block', width: '100%', minHeight: 'var(--target-size)' }}
+        >
           <option value="lab_order">Lab order</option>
           <option value="prescription">Prescription</option>
         </select>
@@ -60,6 +65,7 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
       <TextField
         label="Amount (stroops)"
         inputMode="numeric"
+        hint="Minor units, e.g. 10000000 = 1.00 XLM."
         value={amountStroops}
         onChange={(e) => setAmountStroops(e.target.value)}
         required

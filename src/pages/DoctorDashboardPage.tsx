@@ -99,7 +99,7 @@ export function DoctorDashboardPage() {
 
       <div className={styles.dashboardGrid}>
         <section className={styles.card}>
-          <h2>Today\'s appointments</h2>
+          <h2>Today&apos;s appointments</h2>
           <p>Appointments for today open in the live queue once the patient checks in.</p>
         </section>
         <section className={styles.card}>

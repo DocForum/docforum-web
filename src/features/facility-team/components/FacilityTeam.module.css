@@ -82,7 +82,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
-  text-align: left;
+  text-align: start;
 }
 
 .dataTable th,
@@ -94,6 +94,13 @@
 .dataTable th {
   background: var(--color-surface-alt);
   color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Row headers name the entity; they are not column headers. */
+.dataTable tbody th {
+  background: transparent;
+  text-align: start;
   font-weight: 600;
 }
 
@@ -124,7 +131,7 @@
 
 .youBadge {
   display: inline-block;
-  margin-left: var(--space-2);
+  margin-inline-start: var(--space-2);
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
@@ -134,7 +141,7 @@
 }
 
 .actionCell {
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 }
 
@@ -157,6 +164,8 @@
 }
 
 .modalContent {
+  max-height: 90vh;
+  overflow-y: auto;
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -190,6 +199,32 @@
   margin-top: var(--space-2);
 }
 
+.roleSelect {
+  min-height: var(--target-size);
+  background: var(--color-bg-raised);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+
+.dangerNotice {
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+}
+
+.warningNotice {
+  background: var(--color-warning-surface);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+}
+
 /* Queue with Attribution */
 .queueItem {
   border: 1px solid var(--color-border);
@@ -210,6 +245,8 @@
 }
 
 .orderTitle {
+  margin: 0;
+  font-family: var(--font-sans);
   font-weight: 600;
   font-size: var(--text-base);
   color: var(--color-text);
