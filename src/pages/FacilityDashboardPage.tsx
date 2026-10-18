@@ -115,8 +115,14 @@ export function FacilityDashboardPage() {
         >
           Fulfillment Queue
         </Link>
+        <Link to="/facility/verify" className={styles.tabLink}>
+          Verify Order
+        </Link>
         <Link to="/facility/team" className={styles.tabLink}>
           Team &amp; Staff Accounts
+        </Link>
+        <Link to="/facility/payments" className={styles.tabLink}>
+          Payouts &amp; Escrow
         </Link>
       </nav>
 

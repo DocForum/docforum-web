@@ -88,12 +88,14 @@ export function Layout() {
                   >
                     Queue
                   </Link>
-                  <Link
-                    to="/facility/team"
-                    className={styles.navLink}
-                    aria-current={location.pathname === '/facility/team' ? 'page' : undefined}
-                  >
+                  <Link to="/facility/verify" className={styles.navLink}>
+                    Verify
+                  </Link>
+                  <Link to="/facility/team" className={styles.navLink}>
                     Team
+                  </Link>
+                  <Link to="/facility/payments" className={styles.navLink}>
+                    Payouts
                   </Link>
                 </>
               )}
