@@ -222,6 +222,21 @@ mirrored in `models.ts` under "Phase W6 — System health".
 - **Derived states, all client-side:** a job is *overdue* once `nextRunAt` is more than 5 minutes past (this is how a stalled expiry job shows up); *running* beats *last run failed*, which beats *overdue*, which beats *never run* and *healthy*. A readiness round trip of 10 s or more is flagged as a likely free-tier cold start.
 - **Refresh:** all three queries poll every 30 s through React Query's `refetchInterval`, which skips ticks while `document.visibilityState` is `hidden`. Refetch-on-focus catches the page up when the tab comes back. A failed poll after earlier success shows readiness as *Unreachable* (never a stale *Ready*) and keeps the last job list with a "couldn't refresh" banner.
 
+### Phase W6 — Feature flags console (issue #74, depends on docforum-core#132)
+
+docforum-core#132 describes the flag service (boolean and percentage flags,
+targeting by role or user-id allowlist, admin list/toggle endpoints, audit
+event per change) but no shapes, and hasn't landed. Everything below is
+assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
+
+- `GET /admin/flags` → `FeatureFlag[]`, unpaginated (tens of flags per environment). `FeatureFlag` = `{id, key, description, kind: 'boolean'|'percentage', enabled, rolloutPercentage, targeting: {roles: Role[], userIds: string[]}, createdAt, updatedAt}`. `rolloutPercentage` is a whole number 0–100 for percentage flags and `null` for boolean ones. Each environment has its own database, so the list is simply "this environment's flags"; there's no `environment` field.
+- `PATCH /admin/flags/:key` (body: any of `{enabled, rolloutPercentage, targeting}` plus `expectedUpdatedAt`) → the saved `FeatureFlag`. Only changed fields are sent. `targeting` is replaced as a whole whenever roles or allowlist change. `409` means someone else changed the flag first, `404` means it's gone, and `400`/`422` carry the server's message.
+- **Evaluation order assumed for the "who it reaches" text:** `enabled: false` is a kill switch (off for everyone, allowlist included). When enabled, allowlisted users always get the flag. Everyone else must match `roles` (empty means all roles) and, for percentage flags, fall in the sticky hash bucket. If #132 lands with different precedence, `describeAudience` in `features/admin-flags/flags.ts` is the one place to change.
+- **Last changed by / when** comes from the *real* audit listing (#43): one `GET /admin/audit-events?entityType=FeatureFlag&limit=200`, newest event per `entityId` (the flag's `id`). This assumes #132 writes flag changes with `entityType: 'FeatureFlag'` and the flag id as `entityId`. Flags missing from that page say "before the latest 200 flag changes" if there are more pages, otherwise "no changes recorded since it was created". The actor is shown as role and short user id, or "you", because audit events carry no email. If the audit request fails, the console still works and says the last change is unavailable.
+- **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
+- **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
+- An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

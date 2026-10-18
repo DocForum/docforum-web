@@ -19,6 +19,7 @@ import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminFlagsPage } from './pages/AdminFlagsPage';
 
 export default function App() {
   return (
@@ -102,6 +103,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminSystemPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/flags"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminFlagsPage />
             </RequireAuth>
           }
         />

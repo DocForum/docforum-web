@@ -35,6 +35,9 @@ export function AdminDashboardPage() {
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
         </p>
         <p>
+          <Link to="/admin/flags">Manage feature flags</Link> to stage rollouts like wallet payments or 2FA enforcement.
+        </p>
+        <p>
           <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
         </p>
       </div>

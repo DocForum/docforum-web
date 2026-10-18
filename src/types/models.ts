@@ -610,3 +610,45 @@ export interface OutboxSummary {
   deadLetterCount: number;
   oldestPendingAt: string | null;
 }
+
+// --- Phase W6 — Feature flags console (issue #74) -----------------------------
+// Assumed: docforum-core#132 (DB-backed feature flags) hasn't landed. The shape
+// follows what #132 asks for — boolean and percentage flags, targeting by role
+// or user-id allowlist, admin list/toggle endpoints with every change written
+// as an audit event. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+export type FeatureFlagKind = 'boolean' | 'percentage';
+
+export interface FeatureFlagTargeting {
+  /** Empty means every role is eligible. */
+  roles: Role[];
+  /** On for these users while the flag is enabled, whatever the roles or
+   * rollout percentage say. */
+  userIds: string[];
+}
+
+export interface FeatureFlag {
+  id: string;
+  /** Stable identifier the backend evaluates, e.g. `wallet_payments`. */
+  key: string;
+  description: string | null;
+  kind: FeatureFlagKind;
+  /** The kill switch: off means off for everyone, allowlist included. */
+  enabled: boolean;
+  /** Whole number 0–100 for `percentage` flags (sticky per user, hash-based),
+   * null for `boolean` ones. */
+  rolloutPercentage: number | null;
+  targeting: FeatureFlagTargeting;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Only the fields being changed are sent. */
+export interface UpdateFeatureFlagInput {
+  enabled?: boolean;
+  rolloutPercentage?: number;
+  targeting?: FeatureFlagTargeting;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else changed the flag in the meantime. */
+  expectedUpdatedAt: string;
+}
