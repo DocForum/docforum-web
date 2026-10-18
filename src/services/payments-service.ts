@@ -3,7 +3,7 @@
 // never calls Stellar/docforum-escrow directly (hard rule 1,
 // ARCHITECTURE_ESSENTIALS.md) — everything here goes through
 // docforum-core's API.
-import { apiFetch } from './api-client';
+import { apiFetch, createIdempotencyKey } from './api-client';
 import type { OrderTypeForPayment, PaymentIntent, WalletLink } from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<WalletLink> {
@@ -11,6 +11,8 @@ export function linkWallet(stellarPublicKey: string, accessToken: string): Promi
     method: 'POST',
     body: { stellarPublicKey },
     accessToken,
+    // One key per user action; api-client reuses it across network retries.
+    idempotencyKey: createIdempotencyKey(),
   });
 }
 
@@ -27,7 +29,12 @@ export interface CreatePaymentIntentInput {
 }
 
 export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>('/payments/intents', { method: 'POST', body: input, accessToken });
+  return apiFetch<PaymentIntent>('/payments/intents', {
+    method: 'POST',
+    body: input,
+    accessToken,
+    idempotencyKey: createIdempotencyKey(),
+  });
 }
 
 export function getPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
@@ -35,13 +42,25 @@ export function getPaymentIntent(id: string, accessToken: string): Promise<Payme
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/fund`, { method: 'POST', accessToken });
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}/fund`, {
+    method: 'POST',
+    accessToken,
+    idempotencyKey: createIdempotencyKey(),
+  });
 }
 
 export function releasePaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/release`, { method: 'POST', accessToken });
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}/release`, {
+    method: 'POST',
+    accessToken,
+    idempotencyKey: createIdempotencyKey(),
+  });
 }
 
 export function refundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/refund`, { method: 'POST', accessToken });
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}/refund`, {
+    method: 'POST',
+    accessToken,
+    idempotencyKey: createIdempotencyKey(),
+  });
 }

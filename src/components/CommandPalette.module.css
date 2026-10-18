@@ -101,20 +101,20 @@ ul[role='listbox'] {
 }
 
 .label {
-  text-align: left;
+  text-align: start;
 }
 
 .kind {
   font-size: var(--text-xs);
   opacity: 0.6;
-  margin-right: var(--space-3);
+  margin-inline-end: var(--space-3);
 }
 
 .shortcut {
   font-size: var(--text-xs);
   font-family: var(--font-sans);
   opacity: 0.55;
-  margin-left: var(--space-3);
+  margin-inline-start: var(--space-3);
 }
 
 .hint {

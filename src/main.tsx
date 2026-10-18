@@ -5,16 +5,39 @@ import { createRoot } from 'react-dom/client';
 // under history-API routing. Hash-based routing needs no server config.
 // Revisit if this ever deploys somewhere with a real rewrite rule.
 import { HashRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth-store';
 import App from './App';
 import './styles/global.css';
 
+// Feed the browser's connectivity into React Query so queries pause while
+// offline and refetch on reconnect. (Poor-network resilience, issue #85.)
+onlineManager.setEventListener((setOnline) => {
+  const handleOnline = () => setOnline(true);
+  const handleOffline = () => setOnline(false);
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
+});
+onlineManager.setOnline(typeof navigator === 'undefined' || navigator.onLine !== false);
+
+// Retries live in `apiFetch` (backoff, offline-aware, and only for
+// mutations that carry an Idempotency-Key). React Query must not retry on
+// its own or a mutation could be replayed without a key.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: false,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      networkMode: 'online',
+    },
+    mutations: {
+      retry: false,
+      networkMode: 'online',
     },
   },
 });

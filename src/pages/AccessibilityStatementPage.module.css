@@ -1,0 +1,27 @@
+.section {
+  margin-block-start: var(--space-8);
+}
+
+.section h2 {
+  font-size: var(--text-xl);
+  margin-block-end: var(--space-2);
+}
+
+.list {
+  margin: 0;
+  padding-inline-start: var(--space-6);
+  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list li {
+  max-inline-size: 70ch;
+}
+
+.reviewed {
+  margin-block: var(--space-8) 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { RemoveMemberModal } from './RemoveMemberModal';
+import { useFormat } from '../../../i18n/useFormat';
 import type { FacilityMember } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -18,6 +19,7 @@ export function FacilityMemberList({
   isRemoving,
 }: FacilityMemberListProps) {
   const [selectedMember, setSelectedMember] = useState<FacilityMember | null>(null);
+  const { formatDate } = useFormat();
 
   const ownerCount = members.filter((m) => m.role === 'owner').length;
 
@@ -33,14 +35,17 @@ export function FacilityMemberList({
       </div>
 
       <div className={styles.tableWrapper}>
-        <table className={styles.dataTable} aria-label="Facility team members">
+        <table className={styles.dataTable}>
+          <caption className="srOnly">
+            Facility team members with their role and join date
+          </caption>
           <thead>
             <tr>
               <th scope="col">Name</th>
               <th scope="col">Email</th>
               <th scope="col">Role</th>
               <th scope="col">Joined</th>
-              {isOwner && <th scope="col" style={{ textAlign: 'right' }}>Actions</th>}
+              {isOwner && <th scope="col" className={styles.actionCell}>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -49,10 +54,10 @@ export function FacilityMemberList({
 
               return (
                 <tr key={m.id}>
-                  <td>
+                  <th scope="row">
                     <strong>{m.fullName}</strong>
                     {m.isCurrentUser && <span className={styles.youBadge}>You</span>}
-                  </td>
+                  </th>
                   <td>{m.email}</td>
                   <td>
                     <span
@@ -63,7 +68,9 @@ export function FacilityMemberList({
                       {m.role}
                     </span>
                   </td>
-                  <td>{new Date(m.joinedAt).toLocaleDateString()}</td>
+                  <td>
+                    <time dateTime={m.joinedAt}>{formatDate(m.joinedAt)}</time>
+                  </td>
                   {isOwner && (
                     <td className={styles.actionCell}>
                       <Button
