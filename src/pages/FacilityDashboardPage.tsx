@@ -5,6 +5,8 @@ import { WalletLinkForm } from '../features/payments/components/WalletLinkForm';
 import { FulfillmentQueueWithAttribution } from '../features/facility-team/components/FulfillmentQueueWithAttribution';
 import { useFulfillmentQueue, useUpdateFulfillmentItem } from '../features/facility-team/hooks/useFacilityTeam';
 import type { FulfillmentQueueItem } from '../types/models';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useT } from '../i18n/useT';
 import styles from '../features/facility-team/components/FacilityTeam.module.css';
 
 export const DEFAULT_MOCK_QUEUE: FulfillmentQueueItem[] = [
@@ -68,6 +70,7 @@ export const DEFAULT_MOCK_QUEUE: FulfillmentQueueItem[] = [
 export function FacilityDashboardPage() {
   const user = useAuthStore((state) => state.user);
   const facilityId = 'fac-main';
+  const t = useT();
 
   const { data: queueData } = useFulfillmentQueue(facilityId);
   const updateMutation = useUpdateFulfillmentItem(facilityId);
@@ -107,15 +110,15 @@ export function FacilityDashboardPage() {
 
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
-      <nav className={styles.tabsNav} aria-label="Facility navigation">
+      <nav className={styles.tabsNav} aria-label={t('facility.tabsNavAria', 'Facility navigation')}>
         <Link to="/facility" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
-          Fulfillment Queue
+          {t('facility.tabQueue', 'Fulfillment Queue')}
         </Link>
         <Link to="/facility/verify" className={styles.tabLink}>
           Verify Order
         </Link>
         <Link to="/facility/team" className={styles.tabLink}>
-          Team &amp; Staff Accounts
+          {t('facility.tabTeam', 'Team & Staff Accounts')}
         </Link>
         <Link to="/facility/payments" className={styles.tabLink}>
           Payouts &amp; Escrow
@@ -124,20 +127,26 @@ export function FacilityDashboardPage() {
 
       <div className={styles.header}>
         <div>
-          <h1>Facility dashboard</h1>
+          <h1>{t('facility.title', 'Facility dashboard')}</h1>
           <p className={styles.headerSubtitle}>
-            Welcome{user ? `, ${user.email}` : ''} • Central Pharmacy &amp; Diagnostic Center
+            {t('facility.welcome', 'Welcome, {email} • Central Pharmacy & Diagnostic Center', {
+              email: user?.email ?? '',
+            })}
           </p>
         </div>
       </div>
 
-      <FulfillmentQueueWithAttribution
-        items={displayQueue}
-        onAction={handleQueueAction}
-        isUpdating={updateMutation.isPending}
-      />
+      <ErrorBoundary level="section">
+        <FulfillmentQueueWithAttribution
+          items={displayQueue}
+          onAction={handleQueueAction}
+          isUpdating={updateMutation.isPending}
+        />
+      </ErrorBoundary>
 
-      <WalletLinkForm />
+      <ErrorBoundary level="section">
+        <WalletLinkForm />
+      </ErrorBoundary>
     </div>
   );
 }

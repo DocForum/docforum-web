@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
 import { RemoveMemberModal } from './RemoveMemberModal';
 import type { FacilityMember } from '../../../types/models';
@@ -18,6 +19,7 @@ export function FacilityMemberList({
   isRemoving,
 }: FacilityMemberListProps) {
   const [selectedMember, setSelectedMember] = useState<FacilityMember | null>(null);
+  const t = useT();
 
   const ownerCount = members.filter((m) => m.role === 'owner').length;
 
@@ -25,9 +27,9 @@ export function FacilityMemberList({
     <section className={styles.card} aria-labelledby="members-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="members-heading">Facility members</h2>
+          <h2 id="members-heading">{t('facilityTeam.membersTitle', 'Facility members')}</h2>
           <p className={styles.headerSubtitle}>
-            Current staff and owners with access to this facility.
+            {t('facilityTeam.membersSubtitle', 'Current staff and owners with access to this facility.')}
           </p>
         </div>
       </div>
@@ -51,7 +53,7 @@ export function FacilityMemberList({
                 <tr key={m.id}>
                   <td>
                     <strong>{m.fullName}</strong>
-                    {m.isCurrentUser && <span className={styles.youBadge}>You</span>}
+                    {m.isCurrentUser && <span className={styles.youBadge}>{t('facilityTeam.youBadge', 'You')}</span>}
                   </td>
                   <td>{m.email}</td>
                   <td>

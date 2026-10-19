@@ -7,7 +7,8 @@ import { Spinner } from '../../../components/Spinner';
 import { useLogin } from '../hooks/useLogin';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { validateEmail, validatePassword, type FieldErrors } from '../validation';
-import { ApiError } from '../../../services/api-client';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 
 export interface LoginFormProps {
   onSuccess?: () => void;
@@ -19,6 +20,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const loginMutation = useLogin();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,12 +36,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     loginMutation.mutate({ email, password }, { onSuccess });
   }
 
-  const submitError =
-    loginMutation.error instanceof ApiError
-      ? loginMutation.error.message
-      : loginMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
+  const submitError = errorMessage(loginMutation.error);
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -46,12 +44,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       {isSlow && (
         <p className="slowHint" role="status">
           <Spinner size={14} />
-          Still working — the server may be waking up after being idle. This can take up to a
-          minute.
+          {t('auth.slowHint', 'Still working — the server may be waking up after being idle. This can take up to a minute.')}
         </p>
       )}
       <TextField
-        label="Email"
+        label={t('auth.email', 'Email')}
         type="email"
         autoComplete="email"
         value={email}
@@ -59,7 +56,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         error={fieldErrors.email}
       />
       <TextField
-        label="Password"
+        label={t('auth.password', 'Password')}
         type="password"
         autoComplete="current-password"
         value={password}
@@ -67,7 +64,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         error={fieldErrors.password}
       />
       <Button type="submit" loading={loginMutation.isPending}>
-        {loginMutation.isPending ? 'Logging in…' : 'Log in'}
+        {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
       </Button>
     </form>
   );

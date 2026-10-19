@@ -8,6 +8,8 @@ import { HashRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { useAuthStore } from './store/auth-store';
+import { I18nProvider } from './i18n/I18nProvider';
+import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
 import App from './App';
 import './styles/global.css';
 
@@ -45,10 +47,13 @@ if (!rootElement) throw new Error('#root element not found');
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <App />
-      </HashRouter>
-    </QueryClientProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <HashRouter>
+          <App />
+          <UpdatePromptContainer />
+        </HashRouter>
+      </QueryClientProvider>
+    </I18nProvider>
   </StrictMode>,
 );

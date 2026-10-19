@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
 import type { FulfillmentQueueItem } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
@@ -15,6 +16,7 @@ export function FulfillmentQueueWithAttribution({
   isUpdating,
 }: FulfillmentQueueProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const t = useT();
 
   const handleAction = async (itemId: string, action: 'fulfilled' | 'rejected') => {
     setSelectedItem(itemId);
@@ -31,13 +33,13 @@ export function FulfillmentQueueWithAttribution({
         <div>
           <h2 id="queue-heading">Fulfillment queue &amp; action attribution</h2>
           <p className={styles.headerSubtitle}>
-            Prescriptions and diagnostic tests assigned to this facility with audit trail attribution.
+            {t('facilityTeam.queueSubtitle', 'Prescriptions and diagnostic tests assigned to this facility with audit trail attribution.')}
           </p>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className={styles.emptyState}>No items in fulfillment queue</div>
+        <div className={styles.emptyState}>{t('facilityTeam.noQueue', 'No items in fulfillment queue')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {items.map((item) => {
@@ -93,7 +95,7 @@ export function FulfillmentQueueWithAttribution({
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                      Pending staff action. Fulfilling or rejecting will record your staff credentials for statutory attribution.
+                      {t('facilityTeam.pendingAction', 'Pending staff action. Fulfilling or rejecting will record your staff credentials for statutory attribution.')}
                     </span>
                     <div className={styles.buttonGroup}>
                       <Button
@@ -103,7 +105,7 @@ export function FulfillmentQueueWithAttribution({
                         disabled={isUpdating}
                         style={{ fontSize: 'var(--text-xs)', padding: '0.3rem 0.7rem', color: '#b3261e' }}
                       >
-                        Reject
+                        {t('facilityTeam.reject', 'Reject')}
                       </Button>
                       <Button
                         onClick={() => handleAction(item.id, 'fulfilled')}
@@ -111,7 +113,9 @@ export function FulfillmentQueueWithAttribution({
                         disabled={isUpdating}
                         style={{ fontSize: 'var(--text-xs)', padding: '0.3rem 0.7rem' }}
                       >
-                        {item.orderType === 'prescription' ? 'Dispense & Fulfill' : 'Collect & Fulfill'}
+                        {item.orderType === 'prescription'
+                          ? t('facilityTeam.dispense', 'Dispense & Fulfill')
+                          : t('facilityTeam.collect', 'Collect & Fulfill')}
                       </Button>
                     </div>
                   </div>

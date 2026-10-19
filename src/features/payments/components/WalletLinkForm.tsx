@@ -4,6 +4,7 @@ import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { ApiError } from '../../../services/api-client';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLinkWallet, useOwnWalletLink } from '../hooks/useWalletLink';
 
 const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
@@ -17,6 +18,7 @@ export function WalletLinkForm() {
   const [fieldError, setFieldError] = useState<string | undefined>();
   const walletQuery = useOwnWalletLink();
   const linkMutation = useLinkWallet();
+  const errorMessage = useErrorMessage();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,12 +30,7 @@ export function WalletLinkForm() {
     linkMutation.mutate(publicKey);
   }
 
-  const submitError =
-    linkMutation.error instanceof ApiError
-      ? linkMutation.error.message
-      : linkMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
+  const submitError = errorMessage(linkMutation.error);
 
   const currentWallet = walletQuery.data;
   const hasNoWalletYet = walletQuery.error instanceof ApiError && walletQuery.error.status === 404;
