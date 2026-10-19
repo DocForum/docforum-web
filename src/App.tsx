@@ -16,6 +16,10 @@ import { ConsultationNote } from './features/consultation/components/Consultatio
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
 import { FacilityTeamPage } from './pages/FacilityTeamPage';
+import { AdminAuditPage } from './pages/AdminAuditPage';
+import { AdminReferralsPage } from './pages/AdminReferralsPage';
+import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 
@@ -93,6 +97,38 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/audit"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/referrals"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminReferralsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/system"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminSystemPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/flags"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminFlagsPage />
             </RequireAuth>
           }
         />

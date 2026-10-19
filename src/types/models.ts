@@ -508,3 +508,226 @@ export interface FacilityLedgerPage {
   totals: FacilityPayoutTotals;
 }
 
+// --- Phase W6 — Admin audit & access logs (issue #71) -----------------------
+// AuditEvent is real: mirrors docforum-core's `AuditEvent` model and
+// `GET /admin/audit-events` (docforum-core#43, see its docs/api/README.md).
+// AccessLog is assumed — docforum-core#45 hasn't landed; see
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+/** One page of a keyset-paginated admin listing. `nextCursor` is opaque —
+ * pass it back as `cursor`; `null` means this is the last page. */
+export interface CursorPage<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  // Null only for system-initiated transitions.
+  actorUserId: string | null;
+  actorRole: Role | null;
+  // e.g. 'Appointment', 'DoctorProfile', 'PaymentIntent'.
+  entityType: string;
+  entityId: string;
+  // e.g. 'appointment.booked', 'payment_intent.released'.
+  action: string;
+  fromState: string | null;
+  toState: string | null;
+  requestId: string | null;
+  // Small flat map of ids/codes — never personal data (server-enforced).
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AccessLog {
+  id: string;
+  actorUserId: string | null;
+  actorRole: Role | null;
+  entityType: string;
+  entityId: string;
+  // The API route that returned the PHI-bearing payload.
+  route: string;
+  createdAt: string;
+}
+
+// --- Phase W6 — Stuck referrals console (issue #72) --------------------------
+// ReferralStatus and Specialty are real (docforum-core schema.prisma); the
+// Referral fields follow its ARCHITECTURE.md §4.4, which schema.prisma hasn't
+// caught up with yet. The admin queue/candidate shapes are assumed —
+// docforum-core#68 (admin referral operations) and #65 (loop detection)
+// haven't landed. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+export type ReferralStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
+
+export interface Specialty {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/** `snapshotNotes` is deliberately absent: it's encrypted clinical text that
+ * the admin endpoints don't return and the console never needs. */
+export interface Referral {
+  id: string;
+  sourceConsultationId: string;
+  referringDoctorId: string;
+  targetSpecialtyId: string;
+  targetDoctorId: string | null;
+  // docforum-core#65: the referral whose appointment produced this one.
+  parentReferralId: string | null;
+  status: ReferralStatus;
+  resultingAppointmentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DoctorSummary = Pick<DoctorProfile, 'id' | 'fullName'>;
+
+export type StuckReferralReason = 'no_doctor' | 'doctor_inactive' | 'loop_flagged';
+
+export interface ReferralChainLink {
+  referralId: string;
+  referringDoctor: DoctorSummary;
+  targetSpecialty: Specialty;
+  targetDoctor: DoctorSummary | null;
+  status: ReferralStatus;
+  createdAt: string;
+}
+
+export interface StuckReferral extends Referral {
+  stuckReason: StuckReferralReason;
+  targetSpecialty: Specialty;
+  referringDoctor: DoctorSummary;
+  targetDoctor: DoctorSummary | null;
+  /** Oldest first, ending with this referral. Only sent for `loop_flagged`. */
+  chain: ReferralChainLink[] | null;
+}
+
+/** A doctor as offered in the reassign picker, with near-term availability. */
+export interface DoctorAvailability extends Pick<DoctorProfile, 'id' | 'fullName' | 'verificationStatus'> {
+  specialties: Specialty[];
+  // Open AvailabilitySlots in the next 7 days.
+  openSlotCount: number;
+  nextAvailableAt: string | null;
+}
+
+export interface ReassignReferralInput {
+  targetDoctorId: string;
+  reason: string;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else acted on the referral in the meantime. */
+  expectedUpdatedAt: string;
+}
+
+export interface CancelReferralInput {
+  reason: string;
+  expectedUpdatedAt: string;
+}
+
+// --- Phase W6 — System health (issue #73) ------------------------------------
+// All assumed. Readiness follows docforum-core#104 (`/health/ready`: database,
+// migrations, required config, optional Stellar RPC); jobs follow #100's
+// `JobRun` table and `GET /admin/jobs`; the outbox summary follows #94's
+// dead-letter state. None of the three has landed. See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+/** `degraded`: only optional checks are failing (e.g. Stellar RPC down takes
+ * payments out, not the whole API — docforum-core#104). */
+export type ReadinessStatus = 'ready' | 'degraded' | 'not_ready';
+
+export type ReadinessCheckStatus = 'pass' | 'warn' | 'fail';
+
+export interface ReadinessCheck {
+  /** `database`, `migrations`, `config`, `stellar_rpc` today; others are shown by name. */
+  name: string;
+  status: ReadinessCheckStatus;
+  /** Optional checks degrade readiness instead of failing it. */
+  required: boolean;
+  durationMs: number | null;
+  /** Operator-facing detail, e.g. "2 migrations pending". Never secrets. */
+  message: string | null;
+}
+
+export interface ReadinessReport {
+  status: ReadinessStatus;
+  /** When the checks actually ran — docforum-core caches the result for a few seconds. */
+  checkedAt: string;
+  checks: ReadinessCheck[];
+}
+
+export type JobRunStatus = 'running' | 'succeeded' | 'failed';
+
+/** Mirrors docforum-core#100's `JobRun` row. */
+export interface JobRun {
+  id: string;
+  job: string;
+  status: JobRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  /** Failure message for `failed` runs; `null` otherwise. */
+  error: string | null;
+  itemsProcessed: number | null;
+  /** `schedule` for ticks, `manual` for admin-triggered runs. */
+  trigger: 'schedule' | 'manual';
+}
+
+export interface BackgroundJob {
+  name: string;
+  /** Human-readable schedule as registered, e.g. "every 5 minutes" or a cron expression. */
+  schedule: string;
+  lastRun: JobRun | null;
+  lastSuccess: JobRun | null;
+  lastFailure: JobRun | null;
+  nextRunAt: string | null;
+  /** True while any instance holds the job's advisory lock. */
+  running: boolean;
+}
+
+export interface OutboxSummary {
+  pendingCount: number;
+  /** Events that exhausted their delivery attempts (docforum-core#94). */
+  deadLetterCount: number;
+  oldestPendingAt: string | null;
+}
+
+// --- Phase W6 — Feature flags console (issue #74) -----------------------------
+// Assumed: docforum-core#132 (DB-backed feature flags) hasn't landed. The shape
+// follows what #132 asks for — boolean and percentage flags, targeting by role
+// or user-id allowlist, admin list/toggle endpoints with every change written
+// as an audit event. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+export type FeatureFlagKind = 'boolean' | 'percentage';
+
+export interface FeatureFlagTargeting {
+  /** Empty means every role is eligible. */
+  roles: Role[];
+  /** On for these users while the flag is enabled, whatever the roles or
+   * rollout percentage say. */
+  userIds: string[];
+}
+
+export interface FeatureFlag {
+  id: string;
+  /** Stable identifier the backend evaluates, e.g. `wallet_payments`. */
+  key: string;
+  description: string | null;
+  kind: FeatureFlagKind;
+  /** The kill switch: off means off for everyone, allowlist included. */
+  enabled: boolean;
+  /** Whole number 0–100 for `percentage` flags (sticky per user, hash-based),
+   * null for `boolean` ones. */
+  rolloutPercentage: number | null;
+  targeting: FeatureFlagTargeting;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Only the fields being changed are sent. */
+export interface UpdateFeatureFlagInput {
+  enabled?: boolean;
+  rolloutPercentage?: number;
+  targeting?: FeatureFlagTargeting;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else changed the flag in the meantime. */
+  expectedUpdatedAt: string;
+}

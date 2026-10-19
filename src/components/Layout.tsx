@@ -99,6 +99,25 @@ export function Layout() {
                   </Link>
                 </>
               )}
+              {user.role === 'admin' && (
+                <>
+                  <Link to="/admin" className={styles.navLink}>
+                    Payments
+                  </Link>
+                  <Link to="/admin/referrals" className={styles.navLink}>
+                    Referrals
+                  </Link>
+                  <Link to="/admin/audit" className={styles.navLink}>
+                    Audit trail
+                  </Link>
+                  <Link to="/admin/flags" className={styles.navLink}>
+                    Flags
+                  </Link>
+                  <Link to="/admin/system" className={styles.navLink}>
+                    System
+                  </Link>
+                </>
+              )}
               <span className={styles.user}>
                 {user.email}
                 {user.role === 'doctor' && <UnreadBadge />}
