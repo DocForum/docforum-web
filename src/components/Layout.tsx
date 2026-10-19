@@ -24,6 +24,9 @@ export function Layout() {
               {user.role === 'patient' && (
                 <>
                   <ProfileSwitcher />
+                  <Link to="/patient/search" className={styles.navLink}>
+                    Find a doctor
+                  </Link>
                   <Link to="/care" className={styles.navLink}>
                     Care journey
                   </Link>

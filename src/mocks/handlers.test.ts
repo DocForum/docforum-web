@@ -23,6 +23,7 @@ import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as searchService from '../services/search-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -380,6 +381,85 @@ describe('payments', () => {
   });
 });
 
+describe('doctor & symptom search', () => {
+  it('autocomplete-suggests controlled-vocabulary symptoms', async () => {
+    const matches = await searchService.searchSymptoms('chest', MOCK_ACCESS_TOKEN);
+    expect(matches).toEqual([{ slug: 'chest-pain', term: 'Chest pain' }]);
+
+    // Case-insensitive substring match, not just a prefix.
+    const shouted = await searchService.searchSymptoms('RASH', MOCK_ACCESS_TOKEN);
+    expect(shouted.map((s) => s.slug)).toContain('rash');
+
+    // Honours the requested limit.
+    const limited = await searchService.searchSymptoms('a', MOCK_ACCESS_TOKEN);
+    const capped = await fetch(
+      `http://localhost:4000/symptoms?q=a&limit=2`,
+    ).then((r) => r.json() as Promise<Array<{ slug: string }>>);
+    expect(limited.length).toBeGreaterThan(capped.length);
+    expect(capped).toHaveLength(2);
+
+    await expect(searchService.searchSymptoms('zzz', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
+  });
+
+  it('maps a symptom to its specialties and 404s on unknown slugs', async () => {
+    const mapping = await searchService.getSymptomMapping('rash', MOCK_ACCESS_TOKEN);
+    expect(mapping.term).toBe('Rash');
+    expect(mapping.specialties.map((s) => s.slug)).toEqual(['dermatology', 'allergy-immunology']);
+
+    await expect(
+      searchService.getSymptomMapping('not-a-symptom', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('searches doctors by specialty (OR) and availability', async () => {
+    const derm = await searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN);
+    expect(derm.map((d) => d.id)).toEqual(['doc-demo-derm-1', 'doc-demo-derm-2']);
+
+    // "Chest pain" maps to Cardiology + General practice — doctors in
+    // either specialty come back, soonest available first.
+    const chestPain = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(chestPain.map((d) => d.id)).toEqual([
+      'doc-demo-cardio-1', // +8h
+      'doc-demo-gp-1', // +26h
+      'doc-demo-cardio-2', // +10d
+    ]);
+
+    const today = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(today.map((d) => d.id)).toEqual(['doc-demo-cardio-1']);
+
+    const week = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'], availability: 'week' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(week.map((d) => d.id)).toEqual(['doc-demo-cardio-1', 'doc-demo-gp-1']);
+
+    // Unbookable doctors drop out of every availability window.
+    const dermToday = await searchService.searchDoctors(
+      { specialtyIds: ['spc-derm'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(dermToday.map((d) => d.id)).toEqual(['doc-demo-derm-1']);
+
+    // "Fever" maps to General practice + Paediatrics; nobody in either has
+    // a slot inside the "today" window, so the list is genuinely empty.
+    const feverToday = await searchService.searchDoctors(
+      { specialtyIds: ['spc-gp', 'spc-peds'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(feverToday).toEqual([]);
+
+    await expect(
+      searchService.searchDoctors({ specialtyIds: ['spc-none'] }, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
+  });
+});
+
 describe('dev panel scenarios', () => {
   it('forces 500s in the "error" scenario', async () => {
     useMockStore.setState({ scenario: 'error' });
@@ -403,6 +483,10 @@ describe('dev panel scenarios', () => {
     ).resolves.toEqual([]);
     await expect(accountService.getDataExportStatus(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
+    await expect(searchService.searchSymptoms('rash', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
+    await expect(
+      searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
   });
 
   it('delays responses by the configured latency', async () => {

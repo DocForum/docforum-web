@@ -21,7 +21,10 @@ import './styles/global.css';
 // login screen mid-boot).
 if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS === 'true') {
   const { startMockApi } = await import('./mocks/setup');
-  startMockApi();
+  // Awaited so the mock worker controls this page before the first render
+  // fires its queries — otherwise they race the worker's startup and bypass
+  // it (see setup.tsx).
+  await startMockApi();
 }
 
 // Enable preview session when previewRole query param is set (useful for screenshots & review)
