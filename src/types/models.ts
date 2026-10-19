@@ -732,88 +732,48 @@ export interface UpdateFeatureFlagInput {
   expectedUpdatedAt: string;
 }
 
-// --- Phase W6 — Fulfilment disputes (assumed) -------------------------------
-// docforum-core has no dispute model or endpoints yet: a patient reports a
-// problem with a fulfilled order and payment release is blocked until an
-// admin resolves it. These shapes are the smallest contract the admin queue
-// needs and are mirrored by `src/mocks/handlers/disputes.ts`. Reconcile with
-// docforum-core's real contract (and record any deviation in
-// ARCHITECTURE_ESSENTIALS.md) once it lands.
-
-export type DisputeStatus = 'open' | 'resolved_facility' | 'resolved_patient';
-
-/** Which way an admin settled it. Resolutions are final — there is no
- * reopen transition. */
-export type DisputeResolution = 'facility' | 'patient';
-
-/** Evidence metadata only. A `DisputeAttachment` never carries a URL: fresh
- * signed URLs are minted per open (see `SignedAttachmentUrl`), so a stale or
- * leaked link can't be reused. */
-export interface DisputeAttachment {
+export interface AbnormalResult {
   id: string;
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-  uploadedAt: string;
-  uploadedBy: 'patient' | 'facility';
-}
-
-export type DisputeTimelineKind = 'opened' | 'facility_evidence' | 'admin_note' | 'resolved';
-
-export interface DisputeTimelineEntry {
-  id: string;
-  kind: DisputeTimelineKind;
-  at: string;
-  actor: string;
-  actorRole: Role | 'system';
-  summary: string;
-}
-
-/** Queue row: enough to triage, oldest first, without loading the report,
- * evidence or timeline. */
-export interface FulfillmentDisputeSummary {
-  id: string;
-  orderId: string;
-  orderType: FulfillmentOrderType;
-  orderItemName: string;
+  patientProfileId: string;
   patientName: string;
-  facilityId: string;
-  facilityName: string;
-  amountStroops: string;
-  asset: PayoutAsset;
-  status: DisputeStatus;
-  openedAt: string;
-  updatedAt: string;
-  /** The first part of the patient's report, for the queue card. */
-  reportExcerpt: string;
-  attachmentCount: number;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isCritical: boolean;
+  isAbnormal: boolean;
+  issuedAt: string;
 }
 
-export interface FulfillmentDisputeDetail extends FulfillmentDisputeSummary {
-  patientReport: string;
-  /** The facility's written response, if they have given one. */
-  facilityProof: string | null;
-  attachments: DisputeAttachment[];
-  timeline: DisputeTimelineEntry[];
-  paymentIntentId: string | null;
-  escrowId: string | null;
-  resolution: DisputeResolution | null;
-  resolutionNote: string | null;
-  resolvedAt: string | null;
-  resolvedBy: string | null;
+export interface AcknowledgeResultInput {
+  note?: string;
 }
 
-/** `POST /admin/disputes/:id/attachments/:attachmentId/signed-url` —
- * short-lived, single-open URL. Never persisted client-side. */
-export interface SignedAttachmentUrl {
-  url: string;
+export interface CalendarFeedResponse {
+  icsUrl: string;
+  // Token is part of the URL; we don't expose it separately
+}
+
+export interface RotateTokenResponse {
+  icsUrl: string;
+}
+
+export interface Order {
+  id: string;
+  orderType: 'prescription' | 'lab_order';
+  patientName: string;
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
   expiresAt: string;
+  status: 'active' | 'completed' | 'cancelled';
 }
 
-export interface ResolveDisputeInput {
-  resolution: DisputeResolution;
-  note: string;
-  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
-   * another admin resolved it first. */
-  expectedUpdatedAt: string;
+export interface LabResult {
+  id: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isAbnormal: boolean;
+  isCritical: boolean;
+  issuedAt: string;
 }
