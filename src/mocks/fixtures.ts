@@ -13,6 +13,7 @@ import type {
   DataExport,
   Dependent,
   DoctorPracticeInsights,
+  DoctorSearchResult,
   FacilityInvite,
   FacilityMember,
   FacilityWithDistance,
@@ -21,6 +22,7 @@ import type {
   MessageThread,
   PaymentIntent,
   RunningDelay,
+  Specialty,
   User,
   WalletLink,
 } from '../types/models';
@@ -67,6 +69,45 @@ export const DEPENDENT_PROFILE_ID = 'prf-dependent-demo';
 export const DOCTOR_PROFILE_ID = 'prf-doctor-demo';
 export const FACILITY_ID = 'fac-demo-pharmacy';
 
+// --- Doctor & symptom search (issues #1/#30) -------------------------------
+
+export const SPECIALTIES: Specialty[] = [
+  { id: 'spc-derm', name: 'Dermatology', slug: 'dermatology' },
+  { id: 'spc-allergy', name: 'Allergy & immunology', slug: 'allergy-immunology' },
+  { id: 'spc-cardio', name: 'Cardiology', slug: 'cardiology' },
+  { id: 'spc-gp', name: 'General practice', slug: 'general-practice' },
+  { id: 'spc-peds', name: 'Paediatrics', slug: 'paediatrics' },
+  { id: 'spc-neuro', name: 'Neurology', slug: 'neurology' },
+];
+
+/** One entry of the mock's controlled symptom vocabulary (docforum-core#60). */
+export interface MockSymptom {
+  slug: string;
+  term: string;
+  specialtyIds: string[];
+}
+
+export const SYMPTOM_VOCABULARY: MockSymptom[] = [
+  { slug: 'rash', term: 'Rash', specialtyIds: ['spc-derm', 'spc-allergy'] },
+  { slug: 'itchy-skin', term: 'Itchy skin', specialtyIds: ['spc-derm', 'spc-allergy'] },
+  { slug: 'chest-pain', term: 'Chest pain', specialtyIds: ['spc-cardio', 'spc-gp'] },
+  { slug: 'palpitations', term: 'Heart palpitations', specialtyIds: ['spc-cardio'] },
+  { slug: 'headache', term: 'Headache', specialtyIds: ['spc-neuro', 'spc-gp'] },
+  { slug: 'sore-throat', term: 'Sore throat', specialtyIds: ['spc-gp'] },
+  { slug: 'cough', term: 'Cough', specialtyIds: ['spc-gp'] },
+  { slug: 'fever', term: 'Fever', specialtyIds: ['spc-gp', 'spc-peds'] },
+  { slug: 'stomach-pain', term: 'Stomach pain', specialtyIds: ['spc-gp'] },
+  { slug: 'ear-pain', term: 'Ear pain', specialtyIds: ['spc-peds', 'spc-gp'] },
+];
+
+const HOUR_MS = 3_600_000;
+
+/** Relative to seed time so the mock availability filter keeps making
+ * sense whenever the dev server is actually run. */
+function inHours(hours: number): string {
+  return new Date(Date.now() + hours * HOUR_MS).toISOString();
+}
+
 // --- Seed database -----------------------------------------------------------
 
 export interface MockDb {
@@ -86,6 +127,9 @@ export interface MockDb {
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  specialties: Specialty[];
+  doctors: DoctorSearchResult[];
+  symptoms: MockSymptom[];
 }
 
 export function createSeedDb(): MockDb {
@@ -644,6 +688,63 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Patient-facing doctors (issue #1/#30). Availability windows are
+  // relative to seed time: Dana within a few hours (inside the "today"
+  // window), Cora later today, Pia tomorrow (inside the week), Nils and
+  // Bea beyond a week, Ravi fully booked (null). Cora practises cardiology
+  // only, so a general-practice symptom like "fever" has no doctor inside
+  // the "today" window — the dev panel can show a real no-match state.
+  const doctors: DoctorSearchResult[] = [
+    {
+      id: 'doc-demo-derm-1',
+      fullName: 'Dr. Dana Placeholder (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[0], SPECIALTIES[1]],
+      openSlotCount: 4,
+      nextAvailableAt: inHours(3),
+    },
+    {
+      id: 'doc-demo-derm-2',
+      fullName: 'Dr. Ravi Example (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[0]],
+      openSlotCount: 0,
+      nextAvailableAt: null,
+    },
+    {
+      id: 'doc-demo-cardio-1',
+      fullName: 'Dr. Cora Sample (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[2]],
+      openSlotCount: 2,
+      nextAvailableAt: inHours(8),
+    },
+    {
+      id: 'doc-demo-cardio-2',
+      fullName: 'Dr. Bea Demo (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[2]],
+      openSlotCount: 1,
+      nextAvailableAt: inHours(10 * 24),
+    },
+    {
+      id: 'doc-demo-gp-1',
+      fullName: 'Dr. Pia Fiction (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[3], SPECIALTIES[4]],
+      openSlotCount: 3,
+      nextAvailableAt: inHours(26),
+    },
+    {
+      id: 'doc-demo-neuro-1',
+      fullName: 'Dr. Nils Madeup (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[5]],
+      openSlotCount: 2,
+      nextAvailableAt: inHours(9 * 24),
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -661,5 +762,8 @@ export function createSeedDb(): MockDb {
     walletLink,
     paymentIntents,
     consultationAddenda,
+    specialties: SPECIALTIES.map((specialty) => ({ ...specialty })),
+    doctors,
+    symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),
   };
 }

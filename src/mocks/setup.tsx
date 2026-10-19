@@ -13,9 +13,21 @@ import { useMockStore } from './mock-store';
  * top-level await BEFORE the first React render, so the persona session
  * exists when route guards first evaluate — otherwise RequireAuth would
  * bounce a deep-linked protected route to #/login before the mocks boot.
+ *
+ * `worker.start()` is awaited on purpose: until it resolves, the service
+ * worker passes requests through untouched, so a deep-linked page firing
+ * its queries during boot would hit the real API URL instead of the mocks
+ * (with `bypass`, silently). Rendering only after the worker is ready
+ * closes that race.
  */
-export function startMockApi(): void {
-  worker.start({ onUnhandledRequest: 'bypass' });
+export async function startMockApi(): Promise<void> {
+  try {
+    await worker.start({ onUnhandledRequest: 'bypass' });
+  } catch (error) {
+    // Still boot the app (and the dev panel) — without the worker, requests
+    // simply fall through to the configured API base URL.
+    console.warn('[MSW] Mock worker failed to start; requests are not mocked.', error);
+  }
 
   // Sign the persona in immediately. Navigate to the role's home screen
   // unless the URL already deep-links a route, which we leave untouched.
