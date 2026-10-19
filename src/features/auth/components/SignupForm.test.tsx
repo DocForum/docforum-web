@@ -4,14 +4,16 @@ import { render, screen } from '../../../test/render';
 import { SignupForm } from './SignupForm';
 
 describe('SignupForm', () => {
-  it('offers only patient and doctor as self-serve roles, never facility', () => {
+  it('offers only patient and doctor as self-serve roles, never facility or admin', () => {
     render(<SignupForm />);
 
-    // PRD OQ-2: facility accounts are admin-invited only — no self-serve
-    // facility signup should ever be offered here.
+    // PRD OQ-2: facility and admin accounts are invite-only — no
+    // self-serve facility/admin signup should ever be offered here.
     expect(screen.getByRole('radio', { name: 'Patient' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Doctor' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /facility/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /admin/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/role/i)).not.toBeInTheDocument();
   });
 
   it('defaults to the patient role', () => {

@@ -9,6 +9,7 @@ import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { InvitePage } from './pages/InvitePage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="invite" element={<InvitePage />} />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
           path="care/*"
