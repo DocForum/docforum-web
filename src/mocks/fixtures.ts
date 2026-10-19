@@ -20,6 +20,7 @@ import type {
   HealthEntry,
   MessageThread,
   PaymentIntent,
+  PatientOrder,
   RunningDelay,
   User,
   WalletLink,
@@ -66,6 +67,89 @@ export const PATIENT_PROFILE_ID = 'prf-patient-demo';
 export const DEPENDENT_PROFILE_ID = 'prf-dependent-demo';
 export const DOCTOR_PROFILE_ID = 'prf-doctor-demo';
 export const FACILITY_ID = 'fac-demo-pharmacy';
+
+// --- Patient orders (issue #61, read-only demo data) -------------------------
+// Paired with the seeded payment intents below: rx-1 → escrowed, lab-1 →
+// created, rx-2 → released, rx-4 → refunded, rx-5 → failed, rx-3 → no
+// intent at all (the payment panel hides — issue #61).
+export const PATIENT_ORDERS: PatientOrder[] = [
+  {
+    id: 'ord-demo-rx-1',
+    orderType: 'prescription',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo Metformin 850mg (fake)',
+    instructions: 'Take one tablet twice daily with food.',
+    status: 'issued',
+    issuedAt: '2026-10-16T10:00:00.000Z',
+    expiresAt: '2026-11-16T10:00:00.000Z',
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
+  },
+  {
+    id: 'ord-demo-lab-1',
+    orderType: 'lab',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo blood panel (fake)',
+    instructions: 'Fasting sample required.',
+    status: 'issued',
+    issuedAt: '2026-10-18T08:00:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: { id: 'fac-demo-lab', name: 'Example Lab (fake)' },
+  },
+  {
+    // Paid + released — the facility completed it.
+    id: 'ord-demo-rx-2',
+    orderType: 'prescription',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo Amoxicillin 250mg (fake)',
+    instructions: 'Take one capsule three times daily.',
+    status: 'fulfilled',
+    issuedAt: '2026-10-12T09:00:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
+  },
+  {
+    // No payment intent exists for this order — panel must hide.
+    id: 'ord-demo-rx-3',
+    orderType: 'prescription',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo Vitamin D drops (fake)',
+    instructions: null,
+    status: 'issued',
+    issuedAt: '2026-10-19T07:30:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: null,
+  },
+  {
+    // Refunded — the order fell through and the escrow came back.
+    id: 'ord-demo-rx-4',
+    orderType: 'prescription',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo Insulin pen (fake)',
+    instructions: null,
+    status: 'cancelled',
+    issuedAt: '2026-10-14T11:00:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
+  },
+  {
+    // Failed payment — the panel shows "contact support".
+    id: 'ord-demo-rx-5',
+    orderType: 'prescription',
+    patientProfileId: PATIENT_PROFILE_ID,
+    itemName: 'Demo blood thinners (fake)',
+    instructions: null,
+    status: 'issued',
+    issuedAt: '2026-10-17T15:00:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder (fake)',
+    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
+  },
+];
 
 // --- Seed database -----------------------------------------------------------
 
@@ -641,6 +725,36 @@ export function createSeedDb(): MockDb {
       sorobanContractId: 'CD demo contract (fake)',
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-16T09:00:00.000Z',
+    },
+    {
+      // Refunded — backs ord-demo-rx-4 (issue #61).
+      id: 'pin-demo-4',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-4',
+      status: 'refunded',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '40000000',
+      escrowId: 'esc-demo-4 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000004',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-14T11:05:00.000Z',
+      updatedAt: '2026-10-15T16:00:00.000Z',
+    },
+    {
+      // Failed — backs ord-demo-rx-5 (issue #61).
+      id: 'pin-demo-5',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-5',
+      status: 'failed',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '1250000000',
+      escrowId: null,
+      stellarTxHash: null,
+      sorobanContractId: null,
+      createdAt: '2026-10-17T15:05:00.000Z',
+      updatedAt: '2026-10-17T15:06:00.000Z',
     },
   ];
 

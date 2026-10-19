@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
@@ -45,6 +46,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['patient']}>
               <PatientDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="orders/:orderId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <OrderDetailPage />
             </RequireAuth>
           }
         />

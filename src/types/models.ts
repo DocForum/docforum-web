@@ -120,6 +120,28 @@ export interface WalletLink {
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
 export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
 
+// --- Patient orders (Phase W5, issue #61) — ASSUMED -------------------------
+// docforum-core has no Order model yet (its docforum-core#9 / #85 are
+// open), so the shape below is the smallest reasonable guess for an order
+// detail view. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Patient
+// order detail & payment panel".
+
+export type PatientOrderStatus = 'issued' | 'ready' | 'fulfilled' | 'cancelled';
+
+export interface PatientOrder {
+  id: string;
+  orderType: 'prescription' | 'lab';
+  patientProfileId: string;
+  itemName: string;
+  instructions?: string | null;
+  status: PatientOrderStatus;
+  issuedAt: string;
+  expiresAt?: string | null;
+  doctorName: string;
+  /** Assigned facility; null until the patient picks one. */
+  facility: { id: string; name: string } | null;
+}
+
 export interface PaymentIntent {
   id: string;
   orderType: OrderTypeForPayment;

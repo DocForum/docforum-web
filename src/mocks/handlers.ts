@@ -10,6 +10,7 @@ import { facilityHandlers } from './handlers/facility';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { messagingHandlers } from './handlers/messaging';
+import { ordersHandlers } from './handlers/orders';
 import { paymentsHandlers } from './handlers/payments';
 import { queueHandlers } from './handlers/queue';
 
@@ -25,5 +26,6 @@ export const handlers = [
   ...insightsHandlers,
   ...facilityHandlers,
   ...facilityTeamHandlers,
+  ...ordersHandlers,
   ...paymentsHandlers,
 ];

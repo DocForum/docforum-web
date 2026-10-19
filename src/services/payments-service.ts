@@ -3,7 +3,7 @@
 // never calls Stellar/docforum-escrow directly (hard rule 1,
 // ARCHITECTURE_ESSENTIALS.md) — everything here goes through
 // docforum-core's API.
-import { apiFetch } from './api-client';
+import { apiFetch, ApiError } from './api-client';
 import type { OrderTypeForPayment, PaymentIntent, WalletLink, PayoutAsset, FacilityLedgerPage } from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<WalletLink> {
@@ -32,6 +32,29 @@ export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken
 
 export function getPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
   return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken });
+}
+
+/**
+ * The payment intent for a patient's order, or `null` when the order has
+ * none (issue #61 — the panel simply hides). ASSUMED lookup: docforum-core
+ * doesn't serve intents by order yet (docforum-core#85, real FKs on
+ * PaymentIntent, is open) — see ARCHITECTURE_ESSENTIALS.md "Known
+ * assumptions — Patient order detail & payment panel". A `404` means
+ * "no intent for this order", not an error the UI should show.
+ */
+export function getPaymentIntentForOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<PaymentIntent | null> {
+  return apiFetch<PaymentIntent>(
+    `/payments/intents?orderId=${encodeURIComponent(orderId)}`,
+    { accessToken },
+  )
+    .then((intent) => intent ?? null)
+    .catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
