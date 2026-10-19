@@ -23,6 +23,19 @@ real API" (no refresh-on-reload flow).
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Invite landing + redemption for admins and facility staff. Tracked
+  as [issue #81](https://github.com/DocForum/docforum-web/issues/81)
+  (High, 200 pts) — `InvitePage` at `/invite?token=` +
+  `src/features/invite/`. Validates the token, shows the inviting
+  organisation, role and inviter, and creates the account with the
+  invite's role (never a form field, never in the request payload) or
+  lets an already-signed-in user accept with one click (existing users
+  are routed through `/login` and back to the invite via router state).
+  Clear expired / revoked / already-used / not-found states. The token
+  is read from the URL once and immediately stripped. **Built against
+  assumed shapes:** docforum-core#39 (admin invites) and #75 (facility
+  staff invites) haven't landed — see `ARCHITECTURE_ESSENTIALS.md`
+  "Known assumptions".
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
@@ -378,6 +391,28 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   - `#52 Scan-to-verify orders with device camera`: dedicated verification page (`/facility/verify`) enabling facility staff to scan order QR codes via device camera or enter tokens manually. Uses native `BarcodeDetector` API with fallback; guarantees complete media stream track teardown on screen unmount/exit. Dispatches to `POST /facilities/me/verify-order` and cleanly displays all 5 result states (`valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`) alongside minimal clinical order summaries. Valid results feature an immediate CTA to jump into fulfillment (`/facility?orderId=...`). Surfaces HTTP 429 rate-limit protection against enumeration.
   - `#53 Facility payout ledger with escrow terms`: dedicated payments page (`/facility/payments`) displaying held, released, and refunded totals for both XLM and USDC. Uses BigInt-safe math (`formatStroops`) for Stellar 7-decimal stroop precision. Renders cursor-paginated escrow ledger with plain-language terms (releaser rules and refund deadline countdowns) adhering to threat model T8. Prominently flags approaching refund deadlines (< 48h) on unfulfilled orders. Integrates direct deep links to Stellar Expert testnet explorer for funding, release, and refund transactions.
   - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 26 test files and 124/124 tests passing; typecheck and build green. Captured desktop and mobile screenshots into `screenshots/`.
+- 2026-10-19 — Built invitation redemption for admins & facility staff
+  (#81, PRD OQ-2): `InvitePage` at `/#/invite?token=` that validates the
+  token, shows the inviting organisation, role and inviter, and drives
+  both acceptance paths — new-user account creation (email locked to
+  the invite; role comes from the invite and is never a form field or a
+  request field) and existing-user accept (one click when already signed
+  in, or through `/login` and straight back to the invite via router
+  state). Clear expired / revoked / already-used / not-found states. The
+  token is read from the URL once and immediately stripped, so the
+  credential never lingers in the address bar or history; nothing is
+  persisted to storage. New: `AccountInvite`/`InviteRole` types in
+  `models.ts`, `getInvite`/`acceptInvite` in `auth-service.ts`,
+  `src/features/invite/`, the `/invite` route, and MSW mock handlers
+  with demo tokens (`admin-demo`, `expired-demo`, `revoked-demo`,
+  `used-demo`, `missing`). Tests: 13 new — invite detail/state screens,
+  a `?role=admin` URL-tampering test proving the role and payload stay
+  server-derived, the login round trip, and the bearer token on
+  existing-user accept — plus the signup test extended to assert
+  facility AND admin are never offered at self-serve signup.
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" updated with the
+  assumed contract (pending docforum-core#39/#75). Screenshots captured
+  into `screenshots/`.
 
 
 
