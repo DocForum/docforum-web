@@ -23,11 +23,13 @@ import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { I18nProvider } from './i18n/I18nProvider';
 
 export default function App() {
   return (
-    <ErrorBoundary level="app">
-      <Routes>
+    <I18nProvider>
+      <ErrorBoundary level="app">
+        <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
@@ -144,7 +146,8 @@ export default function App() {
           />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
-      </Routes>
-    </ErrorBoundary>
+        </Routes>
+      </ErrorBoundary>
+    </I18nProvider>
   );
 }

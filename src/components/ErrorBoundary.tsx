@@ -1,5 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { useIntl } from 'react-intl';
+import { Component, useContext, type ErrorInfo, type ReactNode } from 'react';
+import { IntlContext } from 'react-intl';
 import { describeError, supportReference } from '../services/error-catalogue';
 import { Button } from './Button';
 import styles from './ErrorBoundary.module.css';
@@ -83,19 +83,24 @@ function ErrorFallback({
   error: unknown;
   onReset: () => void;
 }) {
-  const intl = useIntl();
+  // Error boundaries are also rendered directly by route tests and during
+  // startup, before the provider may exist. Keep the fallback recoverable in
+  // that case while still using the active locale in the normal app tree.
+  const intl = useContext(IntlContext);
   const descriptor = describeError(error);
   const reference = supportReference(error);
+  const format = (id: string, defaultMessage: string, values?: Record<string, string>) =>
+    intl?.formatMessage({ id, defaultMessage }, values);
 
   const defaultTitle =
     level === 'section'
-      ? intl.formatMessage({ id: 'errors.boundary.sectionTitle', defaultMessage: 'This section could not be shown' })
+      ? format('errors.boundary.sectionTitle', 'This section could not be shown')
       : level === 'route'
-        ? intl.formatMessage({ id: 'errors.boundary.routeTitle', defaultMessage: 'This page could not be shown' })
-        : intl.formatMessage({ id: 'errors.boundary.appTitle', defaultMessage: 'DocForum could not load' });
+        ? format('errors.boundary.routeTitle', 'This page could not be shown')
+        : format('errors.boundary.appTitle', 'DocForum could not load');
 
-  const message = intl.formatMessage({ id: descriptor.messageId, defaultMessage: descriptor.defaultMessage });
-  const retryLabel = intl.formatMessage({ id: 'errors.actions.tryAgain', defaultMessage: 'Try again' });
+  const message = format(descriptor.messageId, descriptor.defaultMessage);
+  const retryLabel = format('errors.actions.tryAgain', 'Try again');
 
   return (
     <div
@@ -108,10 +113,7 @@ function ErrorFallback({
       <p className={styles.message}>{message}</p>
       {reference && (
         <p className={styles.reference}>
-          {intl.formatMessage(
-            { id: 'errors.reference', defaultMessage: 'Reference: {reference}' },
-            { reference },
-          )}
+          {format('errors.reference', 'Reference: {reference}', { reference })}
         </p>
       )}
       <Button variant="secondary" onClick={onReset}>

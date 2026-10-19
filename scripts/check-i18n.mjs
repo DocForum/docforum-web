@@ -47,6 +47,7 @@ const sourceFiles = walk(srcDir).filter(
 
 // Static ids referenced in code. Matches:
 //   t('some.key', 'Default')
+//   format('some.key', 'Default')
 //   intl.formatMessage({ id: 'some.key', ... }) / formatMessage({ id: 'some.key' })
 //   messageId: 'errors.foo' / actionMessageId: 'errors.actions.foo'
 //
@@ -55,6 +56,7 @@ const sourceFiles = walk(srcDir).filter(
 // message ids.
 const ID_PATTERNS = [
   /\bt\(\s*['"]([\w.]+)['"]/g,
+  /\bformat\(\s*['"]([\w.]+)['"]/g,
   /\bformatMessage\(\s*\{\s*id:\s*['"]([\w.]+)['"]/g,
   /\bmessageId:\s*['"]([\w.]+)['"]/g,
   /\bactionMessageId:\s*['"]([\w.]+)['"]/g,
