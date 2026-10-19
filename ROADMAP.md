@@ -23,6 +23,21 @@ real API" (no refresh-on-reload flow).
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Idle timeout & automatic sign-out for shared devices. Tracked as
+  [issue #82](https://github.com/DocForum/docforum-web/issues/82)
+  (High, 200 pts) — `src/hooks/idle-timeout.ts` (pure timestamp logic) +
+  `src/hooks/useIdleTimeout.ts`, `SessionTimeoutWarning` /
+  `SessionTimeoutController` mounted in `Layout`. Timestamp-based
+  activity tracking (input, focus, visibility — never
+  interval-counting, so throttled background tabs stay correct), a
+  warning modal with "Stay signed in", cross-tab `BroadcastChannel`
+  coordination, and role-based defaults (patient 30 min, doctor/facility
+  15 min, admin 10 min) with a backend value taking precedence when
+  served. On timeout: API logout, ALL client state cleared, then
+  `/login?reason=idle-timeout` with an explanation. Unsaved form data is
+  flagged in the modal via `useUnsavedChangesWarning`. **Built against
+  assumed shape:** `GET /auth/session-timeout` (not in docforum-core) —
+  see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
@@ -378,6 +393,35 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   - `#52 Scan-to-verify orders with device camera`: dedicated verification page (`/facility/verify`) enabling facility staff to scan order QR codes via device camera or enter tokens manually. Uses native `BarcodeDetector` API with fallback; guarantees complete media stream track teardown on screen unmount/exit. Dispatches to `POST /facilities/me/verify-order` and cleanly displays all 5 result states (`valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`) alongside minimal clinical order summaries. Valid results feature an immediate CTA to jump into fulfillment (`/facility?orderId=...`). Surfaces HTTP 429 rate-limit protection against enumeration.
   - `#53 Facility payout ledger with escrow terms`: dedicated payments page (`/facility/payments`) displaying held, released, and refunded totals for both XLM and USDC. Uses BigInt-safe math (`formatStroops`) for Stellar 7-decimal stroop precision. Renders cursor-paginated escrow ledger with plain-language terms (releaser rules and refund deadline countdowns) adhering to threat model T8. Prominently flags approaching refund deadlines (< 48h) on unfulfilled orders. Integrates direct deep links to Stellar Expert testnet explorer for funding, release, and refund transactions.
   - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 26 test files and 124/124 tests passing; typecheck and build green. Captured desktop and mobile screenshots into `screenshots/`.
+- 2026-10-19 — Built idle timeout & automatic sign-out for shared devices
+  (#82): every signed-in session now tracks activity (pointer, keyboard,
+  touch, wheel, window focus, tab visibility) with purely
+  timestamp-based checks, so browser timer throttling in background tabs
+  can never compute a wrong state. Approaching the role-based timeout
+  (patient 30 min, doctor/facility 15 min, admin 10 min — stricter for
+  the roles that see other people's records) shows a warning modal with
+  "Stay signed in", a live countdown, an immediate "Sign out now", and a
+  warning when any form (health-profile editor, via
+  `useUnsavedChangesWarning`) holds unsaved input. Activity is shared
+  across tabs over a `BroadcastChannel`, so one busy tab keeps the
+  others alive. On expiry: best-effort API logout, all client state
+  cleared (React Query cache, profile store, unsaved registry, session),
+  and a redirect to `/login?reason=idle-timeout` that explains the
+  sign-out (the reason is also held in memory, so a route guard's
+  redirect can never strip the notice). Backend per-role settings take
+  precedence over the frontend
+  defaults when served — `GET /auth/session-timeout` is an ASSUMED
+  contract (docforum-core doesn't serve it yet; 404 falls back to the
+  defaults), documented in `ARCHITECTURE_ESSENTIALS.md` "Known
+  assumptions", with MSW mock handlers. New: `SessionTimeoutSettings`
+  type, `session-timeout-service.ts`, `src/hooks/idle-timeout.ts` +
+  `useIdleTimeout.ts` + `useUnsavedChangesWarning.ts`,
+  `SessionTimeoutWarning`/`SessionTimeoutController`,
+  `unsaved-changes-store`. 31 new tests (phase math and sanitisation,
+  hook timing with real delays, cross-tab merge, modal, backend
+  precedence, full timeout sequence, login-reason notice, unsaved-changes
+  registry, mock handler). Typecheck, tests and build green;
+  screenshots captured into `screenshots/`.
 
 
 

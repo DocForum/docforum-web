@@ -5,6 +5,7 @@ import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitch
 import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { SessionTimeoutController } from './SessionTimeoutController';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -103,6 +104,8 @@ export function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+      {/* Idle timeout for shared devices (issue #82) — no-op when signed out. */}
+      <SessionTimeoutController />
       <footer className={styles.footer}>
         <span>DocForum — care continuity, escrow-secured fulfillment.</span>
       </footer>

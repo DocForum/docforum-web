@@ -4,6 +4,7 @@ import { TextField } from '../../../components/TextField';
 import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
+import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { ApiError } from '../../../services/api-client';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
@@ -30,6 +31,17 @@ export function HealthSection({ section }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDetails, setEditDetails] = useState('');
+  // What the edit form opened with, so "dirty" means actually changed.
+  const [editOriginals, setEditOriginals] = useState<{ name: string; details: string } | null>(null);
+
+  // The idle-timeout warning (issue #82) tells the user when signing them
+  // out would lose typed-but-unsaved input.
+  useUnsavedChangesWarning(showAdd && (name.trim().length > 0 || details.trim().length > 0));
+  useUnsavedChangesWarning(
+    editingId !== null &&
+      editOriginals !== null &&
+      (editName !== editOriginals.name || editDetails !== editOriginals.details),
+  );
 
   function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -50,6 +62,7 @@ export function HealthSection({ section }: Props) {
     setEditingId(entryId);
     setEditName(currentName);
     setEditDetails(currentDetails ?? '');
+    setEditOriginals({ name: currentName, details: currentDetails ?? '' });
   }
 
   function handleUpdate(e: FormEvent) {
@@ -57,7 +70,12 @@ export function HealthSection({ section }: Props) {
     if (!editName.trim() || !editingId) return;
     updateMutation.mutate(
       { entryId: editingId, section, input: { name: editName.trim(), details: editDetails.trim() || undefined } },
-      { onSuccess: () => setEditingId(null) },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditOriginals(null);
+        },
+      },
     );
   }
 
@@ -115,9 +133,9 @@ export function HealthSection({ section }: Props) {
                 <Button type="submit" loading={updateMutation.isPending}>
                   Save
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => { setEditingId(null); updateMutation.reset(); }}>
-                  Cancel
-                </Button>
+            <Button type="button" variant="secondary" onClick={() => { setEditingId(null); setEditOriginals(null); updateMutation.reset(); }}>
+              Cancel
+            </Button>
               </div>
             </form>
           ) : (
