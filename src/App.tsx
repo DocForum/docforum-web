@@ -11,6 +11,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
+import { AppointmentDetailPage } from './pages/AppointmentDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ConsultationNote } from './features/consultation/components/ConsultationNote';
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';

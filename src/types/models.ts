@@ -193,6 +193,58 @@ export interface CareThread {
   steps: CareThreadStep[];
 }
 
+// --- Appointments (Phase W2, issue #14) --------------------------------------
+// `Appointment`, `AvailabilitySlot` and their statuses mirror
+// backend/prisma/schema.prisma in docforum-core exactly (Phase 1 is live for
+// the reads). The reschedule write, the cutoff and the optional intake
+// summary are ASSUMED — docforum-core#55/#56 and #1/#2 have not landed.
+// Reconcile against those issues; see ARCHITECTURE_ESSENTIALS.md "Known
+// assumptions — appointment detail + reschedule".
+
+export type SlotStatus = 'open' | 'held' | 'booked';
+
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+
+export type AppointmentOrigin = 'direct_booking' | 'referral';
+
+export interface AvailabilitySlot {
+  id: string;
+  doctorProfileId: string;
+  status: SlotStatus;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** ASSUMED projection (docforum-core#1/#2): `IntakeForm` in schema.prisma is
+ * still a placeholder carrying only `id`/`createdAt`, and `Appointment` has no
+ * `intakeId` yet. Kept to the fields that schema's own TODO names. */
+export interface IntakeSummary {
+  id: string;
+  createdAt: string;
+  symptoms?: string[] | null;
+  freeTextNotes?: string | null;
+}
+
+export interface Appointment {
+  id: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  availabilitySlotId: string;
+  status: AppointmentStatus;
+  origin: AppointmentOrigin;
+  createdAt: string;
+  updatedAt: string;
+  /** Real — `GET /appointments/mine` includes it. */
+  availabilitySlot: AvailabilitySlot;
+  /** ASSUMED and optional (docforum-core#1/#2 — intake is not modelled yet).
+   * `undefined` means "this deployment cannot answer"; `null` means "the
+   * patient has not submitted one". Those are different statements and the
+   * UI must not render them the same way. */
+  intake?: IntakeSummary | null;
+}
+
 // --- Facility finder with location & distance (Phase W2, issue #29) ----------
 
 export interface FacilityLocation {
