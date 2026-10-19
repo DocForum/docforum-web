@@ -722,6 +722,16 @@ export interface FeatureFlag {
   updatedAt: string;
 }
 
+/** Only the fields being changed are sent. */
+export interface UpdateFeatureFlagInput {
+  enabled?: boolean;
+  rolloutPercentage?: number;
+  targeting?: FeatureFlagTargeting;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else changed the flag in the meantime. */
+  expectedUpdatedAt: string;
+}
+
 // --- Phase W6 — Fulfilment disputes (assumed) -------------------------------
 // docforum-core has no dispute model or endpoints yet: a patient reports a
 // problem with a fulfilled order and payment release is blocked until an
@@ -805,15 +815,5 @@ export interface ResolveDisputeInput {
   note: string;
   /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
    * another admin resolved it first. */
-  expectedUpdatedAt: string;
-}
-
-/** Only the fields being changed are sent. */
-export interface UpdateFeatureFlagInput {
-  enabled?: boolean;
-  rolloutPercentage?: number;
-  targeting?: FeatureFlagTargeting;
-  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
-   * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
 }
