@@ -182,6 +182,16 @@ verification semantics. The boundary check in
 `scripts/check-stellar-boundary.mjs` guards the direct-network prohibition
 while that work remains outstanding.
 
+- **W7 browser suites (#91–#94)**: Playwright uses the existing `src/mocks/`
+  browser handlers and `example.test` fixtures. No new API shape is assumed.
+  Fraunces and IBM Plex Sans are served locally so visual baselines do not
+  depend on a third-party font response at test time.
+  Patient doctor search/booking/intake/appointments and doctor order issuance
+  screens are absent, so their browser journeys remain uncovered until those
+  routes exist. The existing mock payment intent uses the provisional W5
+  contract already documented below. Browser MSW startup is awaited before
+  the first React render to avoid an unmocked request race.
+
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
 ### Phase W5 — Pay with wallet (issue #59)

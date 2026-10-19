@@ -87,7 +87,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   return (
     <section className={styles.note}>
       <header className={styles.noteHeader}>
-        <h2>Consultation note</h2>
+        <h1>Consultation note</h1>
         <span className={styles.status}>
           {signed ? 'Signed · locked' : 'Draft'}
         </span>
@@ -128,6 +128,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               {editing ? (
                 <>
                   <textarea
+                    aria-label="Consultation note draft"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}

@@ -151,7 +151,7 @@ export default function App() {
         } />
         <Route path="doctor/messages" element={
           <RequireAuth allowedRoles={['doctor']}>
-            <DoctorInbox />
+            <div className="container"><h1>Messages</h1><DoctorInbox /></div>
           </RequireAuth>
         } />
         <Route path="doctor/messages/:threadId" element={

@@ -89,7 +89,7 @@ export function HealthSection({ section }: Props) {
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>{SECTION_LABELS[section]}</h3>
+        <h2 className={styles.sectionTitle}>{SECTION_LABELS[section]}</h2>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
             Add
