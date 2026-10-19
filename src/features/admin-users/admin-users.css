@@ -1,0 +1,29 @@
+.au-page { display: grid; gap: 1.5rem; padding: 1rem; max-width: 72rem; margin: 0 auto; }
+.au-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
+.au-filters label, .au-detail label { display: grid; gap: 0.25rem; font-size: 0.875rem; }
+.au-table-wrap { overflow-x: auto; }
+.au-table { width: 100%; border-collapse: collapse; }
+.au-table th, .au-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+.au-table tr[aria-selected='true'] { background: color-mix(in srgb, currentColor 8%, transparent); }
+.au-badge { padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.8125rem; border: 1px solid currentColor; }
+.au-badge-deactivated { color: #b42318; }
+.au-pagination { display: flex; gap: 1rem; align-items: center; }
+.au-detail, .au-invites { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 0.5rem; padding: 1rem; display: grid; gap: 0.75rem; }
+.au-detail-header { display: flex; justify-content: space-between; align-items: center; }
+.au-detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
+.au-detail dd { margin: 0; }
+.au-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.au-list li { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; }
+.au-error { border-left: 4px solid #b42318; padding: 0.5rem 0.75rem; margin: 0; }
+.au-danger { background: #b42318; color: #fff; border: 0; padding: 0.5rem 0.9rem; border-radius: 0.375rem; cursor: pointer; }
+.au-overlay { position: fixed; inset: 0; background: rgb(0 0 0 / 0.5); display: grid; place-items: center; padding: 1rem; z-index: 50; }
+.au-dialog { background: Canvas; color: CanvasText; max-width: 28rem; width: 100%; padding: 1.25rem; border-radius: 0.5rem; display: grid; gap: 0.75rem; }
+.au-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.au-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 640px) {
+  .au-table thead { position: absolute; left: -9999px; }
+  .au-table tr { display: block; margin-bottom: 0.75rem; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 0.5rem; }
+  .au-table td { display: flex; justify-content: space-between; border: 0; }
+  .au-table td::before { content: attr(data-label); font-weight: 600; }
+}
