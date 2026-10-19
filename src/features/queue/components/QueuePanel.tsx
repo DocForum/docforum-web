@@ -4,7 +4,6 @@ import {
   useVisitActions,
   useRunningDelay,
   useUpdateRunningDelay,
-  UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
@@ -25,20 +24,14 @@ function statusLabel(status: string) {
 
 export function QueuePanel() {
   const { data: queue = [] } = useQueue();
-  const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
+  const { startVisit, completeVisit, isPending } = useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
 
   const [overrideMin, setOverrideMin] = useState('');
-  const [undoTarget, setUndoTarget] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const byPosition = [...queue].sort((a, b) => a.queuePosition - b.queuePosition);
-
-  const handleUndo = () => {
-    if (undoTarget) undo(undoTarget);
-    setUndoTarget(null);
-  };
 
   const handleApplyOverride = () => {
     const value = overrideMin.trim() === '' ? null : parseInt(overrideMin, 10);
@@ -61,15 +54,6 @@ export function QueuePanel() {
         </div>
       </header>
 
-      {hasPendingUndo && undoTarget && (
-        <div className={styles.undoToast}>
-          Action applied.{' '}
-          <Button variant="secondary" onClick={handleUndo}>
-            Undo
-          </Button>
-          <span className={styles.undoHint}>reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s</span>
-        </div>
-      )}
 
       {byPosition.length === 0 ? (
         <p className={styles.empty}>No checked-in patients yet.</p>
@@ -100,10 +84,7 @@ export function QueuePanel() {
                   <td className={styles.actionsCol}>
                     {entry.status === 'checked_in' && (
                       <Button
-                        onClick={() => {
-                          setUndoTarget(entry.appointmentId);
-                          startVisit(entry.appointmentId);
-                        }}
+                        onClick={() => startVisit(entry.appointmentId)}
                         disabled={isPendingAction}
                         loading={isPendingAction}
                       >
@@ -113,10 +94,7 @@ export function QueuePanel() {
                     {entry.status === 'in_progress' && (
                       <Button
                         variant="secondary"
-                        onClick={() => {
-                          setUndoTarget(entry.appointmentId);
-                          completeVisit(entry.appointmentId);
-                        }}
+                        onClick={() => completeVisit(entry.appointmentId)}
                         disabled={isPendingAction}
                         loading={isPendingAction}
                       >

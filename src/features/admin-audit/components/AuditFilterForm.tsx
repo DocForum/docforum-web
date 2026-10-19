@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
+import { DatePicker } from '../../../components/DatePicker';
 import { checkFilters, FIELD_LABELS } from '../filters';
 import type { AuditTab, FilterDraft, FilterErrors } from '../filters';
 import styles from './AuditLogViewer.module.css';
@@ -57,8 +58,20 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
         {tab === 'events' && (
           <TextField {...bind('action')} list={actionsId} placeholder="payment_intent" autoComplete="off" />
         )}
-        <TextField {...bind('from')} type="date" max={draft.to || undefined} />
-        <TextField {...bind('to')} type="date" min={draft.from || undefined} />
+        <DatePicker
+          label={FIELD_LABELS.from}
+          value={draft.from}
+          onChange={(value) => setDraft((current) => ({ ...current, from: value }))}
+          max={draft.to || undefined}
+          error={errors.from}
+        />
+        <DatePicker
+          label={FIELD_LABELS.to}
+          value={draft.to}
+          onChange={(value) => setDraft((current) => ({ ...current, to: value }))}
+          min={draft.from || undefined}
+          error={errors.to}
+        />
       </div>
 
       <datalist id={entityTypesId}>

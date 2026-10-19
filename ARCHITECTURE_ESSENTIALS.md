@@ -103,11 +103,15 @@ land and consume `appointmentKeys.list(profileId)`.
   **preview**, not production: the free-tier backend spins down after 15
   minutes idle (~1 minute cold-start delay on the next request), and its
   Postgres expires 2026-10-14 unless renewed — data is disposable.
-- Router is `HashRouter`, not `BrowserRouter` — GitHub Pages has no
-  server-side rewrite for client-side routes, so a deep link like `/login`
-  would 404 on refresh under history-API routing. Switch back to
-  `BrowserRouter` if this ever deploys somewhere with a real rewrite rule
-  (e.g. behind `docforum-core` itself, or Vercel/Netlify).
+- Routing is a `createHashRouter` data router (`src/router.tsx`), not
+  `BrowserRouter` — GitHub Pages has no server-side rewrite for
+  client-side routes, so a deep link like `/login` would 404 on refresh
+  under history-API routing. Route modules are lazy, loaders prefetch
+  React Query data (`ensureQueryData` with the same keys/shapes the pages
+  use), guards are loaders that await session restore, and each section
+  has a route-level `RouteError`. Switch back to `createBrowserRouter` if
+  this ever deploys somewhere with a real rewrite rule (e.g. behind
+  `docforum-core` itself, or Vercel/Netlify).
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
 
@@ -156,11 +160,13 @@ envelope, `fullName` is a real column, `role` restricted to `patient`/
 real backend's refresh cookie is `SameSite=None; Secure`, cross-site
 between this repo's `github.io` domain and Render's, so it's required for
 the cookie to be sent/received at all). One gap remains:
-- **`POST /auth/refresh` exists on the backend but nothing here calls
-  it.** `auth-store.ts` still has no silent-reauth-on-reload flow — a
-  page refresh loses the session even though the refresh cookie would
-  still be valid. Tracked, not built (Phase W1 was scoped to
-  signup/login only).
+- **`POST /auth/refresh` silent re-auth is implemented** by the W7
+  data-router migration (#112): `restoreSession()` in `auth-store.ts`
+  calls it once (single-flight) and every loader guard awaits that
+  promise, so a deep link no longer bounces through `/login`. The
+  response is assumed to be the same `{ user, accessToken }` envelope as
+  login; issue #9 stays open for an end-to-end check against the real
+  backend.
 - Local-dev-only caveat inherited from the backend: its refresh cookie is
   `sameSite: 'lax'`/`secure: false`, which may not survive true
   cross-origin (different ports) `fetch` + `credentials: 'include'` in
@@ -649,6 +655,32 @@ localStorage/sessionStorage); EXIF is never read or displayed here (the
 server strips it). The full thread UX (optimistic send, live updates,
 per-side layout) is #22's scope — `MessageThread` here is a minimal shared
 shell so the attachment composer/preview have a real home.
+### Phase W7 — Platform quality (issues #112–#115)
+
+- **Session restore contract (#112, depends on #9):** `POST /auth/refresh`
+  (no body; the httpOnly cookie carries the token, sent because
+  `apiFetch` uses `credentials: 'include'`) returns the same
+  `{user: User, accessToken: string}` envelope as `POST /auth/login`. A
+  failure is treated as "signed out", not as an app error. The frontend
+  never stores the refresh token.
+- **Upload contract (#115):** `POST /uploads` (overridable via the
+  component's `endpoint`/`uploadFile` props) sends `multipart/form-data`
+  with the file under `file` (plus optional text `fields`), bearer auth,
+  `credentials: 'include'`, and returns `{ id?, url?, ... }`. Progress and
+  cancellation use XHR because `fetch` exposes no upload-progress event.
+  Client-side type validation sniffs magic bytes (JPEG/PNG/GIF/WebP/PDF/
+  ZIP + text); the server must re-check. Assumed pending a real endpoint
+  in docforum-core.
+- **Picker semantics (#114):** dates are plain `YYYY-MM-DD` calendar
+  strings, never instants. The optional `timeZone` (IANA) only decides
+  what "today" is and what is shown as a hint; formatting anchors at UTC
+  noon so a date never shifts. Times are `HH:mm` 24-hour strings.
+- **Toast/optimistic rule (#113):** `useOptimisticMutation` and
+  `useDeferredAction` must never be used for money movements (payment
+  intent fund/release/refund) — those always show the server's result.
+  Toast messages complement, never replace, inline form errors. Undo
+  uses a delayed commit; if the component unmounts before the window
+  elapses, the optimistic change is reverted rather than left uncommitted.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { DateRangePreset } from '../../../types/models';
+import { DatePicker } from '../../../components/DatePicker';
 import styles from './PracticeInsights.module.css';
 
 interface DateRangeSelectorProps {
@@ -50,26 +51,20 @@ export function DateRangeSelector({
 
       {currentPreset === 'custom' && (
         <form onSubmit={handleApplyCustom} className={styles.customInputs} aria-label="Custom dates">
-          <label htmlFor="custom-start-date" className={styles.srOnly}>Start date</label>
-          <input
-            id="custom-start-date"
-            type="date"
-            className={styles.dateInput}
+          <DatePicker
+            label="Start date"
             value={customStart}
-            onChange={(e) => setCustomStart(e.target.value)}
+            onChange={setCustomStart}
+            max={customEnd || undefined}
             required
-            aria-label="Start date"
           />
           <span aria-hidden="true">to</span>
-          <label htmlFor="custom-end-date" className={styles.srOnly}>End date</label>
-          <input
-            id="custom-end-date"
-            type="date"
-            className={styles.dateInput}
+          <DatePicker
+            label="End date"
             value={customEnd}
-            onChange={(e) => setCustomEnd(e.target.value)}
+            onChange={setCustomEnd}
+            min={customStart || undefined}
             required
-            aria-label="End date"
           />
           <button type="submit" className={styles.presetButton}>
             Apply

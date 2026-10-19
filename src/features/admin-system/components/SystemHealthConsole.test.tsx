@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { MemoryRouter } from 'react-router-dom';
+import { renderRoute } from '../../../test/render';
 import { SystemHealthConsole } from './SystemHealthConsole';
 import { ApiError } from '../../../services/api-client';
 import * as systemService from '../../../services/system-health-service';
@@ -116,11 +116,6 @@ const NEVER_RUN: BackgroundJob = {
 const ALL_JOBS = [HEALTHY, FAILING, OVERDUE, RUNNING, NEVER_RUN];
 
 const OUTBOX: OutboxSummary = { pendingCount: 120, deadLetterCount: 0, oldestPendingAt: ago(3 * MINUTE) };
-
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-testid="location">{location.pathname}</output>;
-}
 
 function signIn(role: Role) {
   useAuthStore.setState({
@@ -541,15 +536,7 @@ describe('SystemHealthConsole — auto-refresh', () => {
 
 describe('/admin/system route', () => {
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/system']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    return renderRoute('/admin/system');
   }
 
   it('is reachable by admins and linked from the admin nav', async () => {

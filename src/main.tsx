@@ -2,18 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { init } from '@sentry/react';
 import { phiScrubber, phiBeforeBreadcrumb } from './utils/phi-scrubber';
-// Router selection: BrowserRouter by default; HashRouter only when
-// VITE_USE_HASH_ROUTER=true (set by the GitHub Pages build — see
-// docs/adr/0001-routing-strategy.md and deploy-pages.yml).
-import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { useAuthStore } from './store/auth-store';
 import App from './App';
 import './styles/global.css';
-
-const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
-const Router = useHashRouter ? HashRouter : BrowserRouter;
 
 // Mock API for local development (issue #95) — only runs under
 // `npm run dev:mock` (a DEV build with VITE_ENABLE_MOCKS=true). In
@@ -65,9 +58,7 @@ if (!rootElement) throw new Error('#root element not found');
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <App />
-      </Router>
+      <App />
     </QueryClientProvider>
   </StrictMode>,
 );

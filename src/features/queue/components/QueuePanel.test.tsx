@@ -102,7 +102,7 @@ describe('QueuePanel', () => {
     await screen.findByText(/in progress/i);
     await user.click(screen.getByRole('button', { name: /complete/i }));
 
-    expect(await screen.findByText(/completed/i)).toBeInTheDocument();
+    expect(await screen.findByText('Completed')).toBeInTheDocument();
     await waitFor(
       () => {
         expect(queueService.completeVisit).toHaveBeenCalledWith('appt-1', 'test-token');
