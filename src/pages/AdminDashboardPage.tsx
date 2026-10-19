@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { CreatePaymentIntentForm } from '../features/payments/components/CreatePaymentIntentForm';
 import { PaymentIntentPanel } from '../features/payments/components/PaymentIntentPanel';
@@ -9,8 +10,11 @@ import { TextField } from '../components/TextField';
 // (PRD OQ-2). This page is real once an admin session exists.
 export function AdminDashboardPage() {
   const user = useAuthStore((state) => state.user);
-  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
-  const [lookupId, setLookupId] = useState('');
+  // `?intent=<id>` opens an intent directly — the audit trail links here.
+  const [searchParams] = useSearchParams();
+  const linkedIntentId = searchParams.get('intent')?.trim() || null;
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(linkedIntentId);
+  const [lookupId, setLookupId] = useState(linkedIntentId ?? '');
 
   return (
     <div className="container">
@@ -22,6 +26,19 @@ export function AdminDashboardPage() {
             custodial escrow payments
           </a>{' '}
           on Stellar testnet, entirely through docforum-core's API.
+        </p>
+        <p>
+          <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
+          pending too long.
+        </p>
+        <p>
+          <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
+        </p>
+        <p>
+          <Link to="/admin/flags">Manage feature flags</Link> to stage rollouts like wallet payments or 2FA enforcement.
+        </p>
+        <p>
+          <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
         </p>
       </div>
 

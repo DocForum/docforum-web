@@ -4,6 +4,7 @@ import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
+import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -31,8 +32,54 @@ export function Layout() {
                   </Link>
                 </>
               )}
+              {user.role === 'doctor' && (
+                <>
+                  <Link to="/doctor" className={styles.navLink}>
+                    Dashboard
+                  </Link>
+                  <Link to="/doctor/insights" className={styles.navLink}>
+                    Insights
+                  </Link>
+                </>
+              )}
+              {user.role === 'facility' && (
+                <>
+                  <Link to="/facility" className={styles.navLink}>
+                    Queue
+                  </Link>
+                  <Link to="/facility/verify" className={styles.navLink}>
+                    Verify
+                  </Link>
+                  <Link to="/facility/team" className={styles.navLink}>
+                    Team
+                  </Link>
+                  <Link to="/facility/payments" className={styles.navLink}>
+                    Payouts
+                  </Link>
+                </>
+              )}
+              {user.role === 'admin' && (
+                <>
+                  <Link to="/admin" className={styles.navLink}>
+                    Payments
+                  </Link>
+                  <Link to="/admin/referrals" className={styles.navLink}>
+                    Referrals
+                  </Link>
+                  <Link to="/admin/audit" className={styles.navLink}>
+                    Audit trail
+                  </Link>
+                  <Link to="/admin/flags" className={styles.navLink}>
+                    Flags
+                  </Link>
+                  <Link to="/admin/system" className={styles.navLink}>
+                    System
+                  </Link>
+                </>
+              )}
               <span className={styles.user}>
                 {user.email}
+                {user.role === 'doctor' && <UnreadBadge />}
                 <span className={styles.roleBadge} data-role={user.role}>
                   {user.role}
                 </span>
