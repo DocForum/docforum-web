@@ -19,6 +19,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Check generated API client version
+        run: npm run check:api-client
+
+      - name: Check i18n catalogues
+        run: npm run check:i18n
+
       - run: npm run typecheck
 
       - run: npm run test

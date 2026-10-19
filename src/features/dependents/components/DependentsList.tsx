@@ -4,7 +4,8 @@ import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
-import { ApiError } from '../../../services/api-client';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { Dependent, DependentInput } from '../../../types/models';
 import styles from './DependentsList.module.css';
 
@@ -12,26 +13,30 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function handoverLabel(d: Dependent): string {
-  switch (d.handoverStatus) {
-    case 'eligible':
-      return 'Eligible for handover';
-    case 'invited':
-      return `Invite sent${d.claimInviteExpiresAt ? ` (expires ${formatDate(d.claimInviteExpiresAt)})` : ''}`;
-    case 'claimed':
-      return 'Account claimed — you no longer manage this record';
-    default:
-      return '';
-  }
-}
-
 export function DependentsList() {
   const { data: dependents, isLoading, error: fetchError } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  function handoverLabel(d: Dependent): string {
+    switch (d.handoverStatus) {
+      case 'eligible':
+        return t('dependents.eligible', 'Eligible for handover');
+      case 'invited':
+        return d.claimInviteExpiresAt
+          ? t('dependents.invitedWithExpiry', 'Invite sent (expires {date})', { date: formatDate(d.claimInviteExpiresAt) })
+          : t('dependents.invited', 'Invite sent');
+      case 'claimed':
+        return t('dependents.claimed', 'Account claimed — you no longer manage this record');
+      default:
+        return '';
+    }
+  }
 
   function handleAdd(input: DependentInput) {
     addMutation.mutate(input, { onSuccess: () => setShowAdd(false) });
@@ -45,20 +50,20 @@ export function DependentsList() {
     return (
       <div className={styles.loading}>
         <Spinner size={24} />
-        <span>Loading dependents…</span>
+        <span>{t('dependents.loading', 'Loading dependents…')}</span>
       </div>
     );
   }
 
-  const apiError = fetchError instanceof ApiError ? fetchError.message : fetchError ? 'Failed to load dependents.' : null;
+  const apiError = errorMessage(fetchError);
 
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Dependents</h2>
+        <h2 className={styles.title}>{t('dependents.title', 'Dependents')}</h2>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
-            Add dependent
+            {t('dependents.add', 'Add dependent')}
           </Button>
         )}
       </div>
@@ -66,7 +71,7 @@ export function DependentsList() {
       <FormError message={apiError} />
 
       <p className={styles.notice}>
-        As a guardian you manage these profiles. You control their bookings and health records until they claim their own account.
+        {t('dependents.notice', 'As a guardian you manage these profiles. You control their bookings and health records until they claim their own account.')}
       </p>
 
       {showAdd && (
@@ -75,13 +80,13 @@ export function DependentsList() {
             onSubmit={handleAdd}
             onCancel={() => { setShowAdd(false); addMutation.reset(); }}
             loading={addMutation.isPending}
-            error={addMutation.error instanceof ApiError ? addMutation.error.message : addMutation.error ? 'Failed to add dependent.' : null}
+            error={errorMessage(addMutation.error)}
           />
         </div>
       )}
 
       {dependents && dependents.length === 0 && !showAdd && (
-        <p className={styles.empty}>No dependents added yet.</p>
+        <p className={styles.empty}>{t('dependents.empty', 'No dependents added yet.')}</p>
       )}
 
       {dependents?.map((d) => (
@@ -92,7 +97,7 @@ export function DependentsList() {
               onSubmit={(input) => handleEdit(d.id, input)}
               onCancel={() => { setEditingId(null); editMutation.reset(); }}
               loading={editMutation.isPending}
-              error={editMutation.error instanceof ApiError ? editMutation.error.message : editMutation.error ? 'Failed to save.' : null}
+              error={errorMessage(editMutation.error)}
             />
           ) : (
             <>
@@ -100,7 +105,7 @@ export function DependentsList() {
                 <span className={styles.name}>{d.fullName}</span>
                 <span className={styles.relationship}>{d.relationship}</span>
               </div>
-              <span className={styles.dob}>Born {formatDate(d.dateOfBirth)}</span>
+              <span className={styles.dob}>{t('dependents.born', 'Born {date}', { date: formatDate(d.dateOfBirth) })}</span>
               {d.handoverStatus !== 'not_eligible' && (
                 <span className={styles.handover} data-status={d.handoverStatus}>
                   {handoverLabel(d)}
@@ -108,7 +113,7 @@ export function DependentsList() {
               )}
               {d.handoverStatus !== 'claimed' && (
                 <Button variant="secondary" onClick={() => setEditingId(d.id)}>
-                  Edit
+                  {t('common.edit', 'Edit')}
                 </Button>
               )}
             </>

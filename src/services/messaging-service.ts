@@ -1,5 +1,5 @@
-import { apiFetch } from './api-client';
-import type { MessageThread } from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
 export interface ListThreadsInput {
   filter?: 'all' | 'unread' | 'closing_soon';
@@ -7,24 +7,16 @@ export interface ListThreadsInput {
   limit?: number;
 }
 
-export interface ListThreadsResult {
-  threads: MessageThread[];
-  nextCursor: string | null;
-}
+export type ListThreadsResult = Schemas['ListThreadsResult'];
 
 export function listThreads(input: ListThreadsInput, accessToken: string): Promise<ListThreadsResult> {
-  const params = new URLSearchParams();
-  if (input.filter && input.filter !== 'all') params.set('filter', input.filter);
-  if (input.cursor) params.set('cursor', input.cursor);
-  if (input.limit) params.set('limit', String(input.limit));
-  const qs = params.toString() ? `?${params.toString()}` : '';
-  return apiFetch<ListThreadsResult>(`/doctor/messages/threads${qs}`, { accessToken });
+  return api.messaging.listThreads(input, { accessToken });
 }
 
 export function markThreadRead(threadId: string, accessToken: string): Promise<void> {
-  return apiFetch<void>(`/message-threads/${threadId}/read`, { method: 'POST', accessToken });
+  return api.messaging.markThreadRead(threadId, { accessToken });
 }
 
-export function totalUnread(threads: MessageThread[]): number {
+export function totalUnread(threads: Schemas['MessageThread'][]): number {
   return threads.reduce((sum, t) => sum + t.unreadCount, 0);
 }

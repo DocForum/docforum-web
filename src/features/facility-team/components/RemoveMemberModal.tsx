@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { FacilityMember } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -22,6 +24,8 @@ export function RemoveMemberModal({
   isOwner,
 }: RemoveMemberModalProps) {
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   if (!member) return null;
 
@@ -44,16 +48,16 @@ export function RemoveMemberModal({
       await onConfirm(member.id);
       onClose();
     } catch (err) {
-      setError((err as Error).message || 'Failed to remove member');
+      setError(errorMessage(err) ?? t('facilityTeam.removeFailed', 'Failed to remove member'));
     }
   };
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="remove-title">
       <div className={styles.modalContent}>
-        <h3 id="remove-title">Remove team member</h3>
+        <h3 id="remove-title">{t('facilityTeam.removeTitle', 'Remove team member')}</h3>
         <p className={styles.modalDescription}>
-          Are you sure you want to remove <strong>{member.fullName}</strong> ({member.email}) from this facility?
+          {t('facilityTeam.removeConfirm', 'Are you sure you want to remove <strong>{member.fullName}</strong> ({member.email}) from this facility?')}
         </p>
 
         <div style={{ background: '#fdf2f2', border: '1px solid #f2b8b5', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', color: '#b3261e', fontSize: 'var(--text-xs)' }}>
@@ -62,7 +66,7 @@ export function RemoveMemberModal({
 
         {isLastOwner && member.role === 'owner' && (
           <div style={{ background: '#fff8e6', border: '1px solid #ebd08c', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', color: '#8c5b00', fontSize: 'var(--text-xs)' }}>
-            ⚠️ This user is the only registered owner for this facility. A facility must retain at least one active owner.
+            {t('facilityTeam.onlyOwnerWarning', '⚠️ This user is the only registered owner for this facility. A facility must retain at least one active owner.')}
           </div>
         )}
 

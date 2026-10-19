@@ -2,9 +2,12 @@ import { useRef } from 'react';
 import { DataExportSection } from '../features/account/components/DataExportSection';
 import { DeleteAccountSection } from '../features/account/components/DeleteAccountSection';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useT } from '../i18n/useT';
 
 export function AccountSettingsPage() {
   const exportSectionRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   const handleScrollToExport = () => {
     exportSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -15,20 +18,27 @@ export function AccountSettingsPage() {
       <ActingForBanner />
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-3xl)', margin: '0 0 var(--space-2)' }}>
-          Account settings & privacy
+          {t('accountSettings.title', 'Account settings & privacy')}
         </h1>
         <p style={{ color: 'var(--color-text-muted)', margin: 0, fontSize: 'var(--text-base)' }}>
-          Manage your personal health data rights, privacy controls, and account lifecycle.
+          {t(
+            'accountSettings.subtitle',
+            'Manage your personal health data rights, privacy controls, and account lifecycle.',
+          )}
         </p>
       </div>
 
-      <div ref={exportSectionRef}>
-        <DataExportSection />
-      </div>
+      <ErrorBoundary level="section">
+        <div ref={exportSectionRef}>
+          <DataExportSection />
+        </div>
+      </ErrorBoundary>
 
-      <div>
-        <DeleteAccountSection onRequestExportClick={handleScrollToExport} />
-      </div>
+      <ErrorBoundary level="section">
+        <div>
+          <DeleteAccountSection onRequestExportClick={handleScrollToExport} />
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

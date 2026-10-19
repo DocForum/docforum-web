@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
-import { ApiError } from '../../../services/api-client';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useCreatePaymentIntent } from '../hooks/usePaymentIntent';
 import type { OrderTypeForPayment } from '../../../types/models';
 
@@ -20,6 +20,7 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
   const [facilityId, setFacilityId] = useState('');
   const [amountStroops, setAmountStroops] = useState('');
   const createMutation = useCreatePaymentIntent();
+  const errorMessage = useErrorMessage();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,12 +30,7 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
     );
   }
 
-  const submitError =
-    createMutation.error instanceof ApiError
-      ? createMutation.error.message
-      : createMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
+  const submitError = errorMessage(createMutation.error);
 
   return (
     <form onSubmit={handleSubmit} noValidate className="card">

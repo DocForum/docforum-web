@@ -1,18 +1,18 @@
-import { apiFetch } from './api-client';
-import type { ConsultationNote, AddAddendumInput, ConsultationAddendum } from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
-export function getConsultationNote(appointmentId: string, accessToken: string): Promise<ConsultationNote> {
-  return apiFetch<ConsultationNote>(`/consultation-notes/${appointmentId}`, { accessToken });
+export function getConsultationNote(appointmentId: string, accessToken: string): Promise<Schemas['ConsultationNote']> {
+  return api.consultation.getNote(appointmentId, { accessToken });
 }
 
-export function signOffNote(noteId: string, accessToken: string): Promise<ConsultationNote> {
-  return apiFetch<ConsultationNote>(`/consultation-notes/${noteId}/sign-off`, { method: 'POST', accessToken });
+export function signOffNote(noteId: string, accessToken: string): Promise<Schemas['ConsultationNote']> {
+  return api.consultation.signOff(noteId, { accessToken });
 }
 
-export function addAddendum(noteId: string, input: AddAddendumInput, accessToken: string): Promise<ConsultationAddendum> {
-  return apiFetch<ConsultationAddendum>(`/consultation-notes/${noteId}/addenda`, {
-    method: 'POST',
-    body: input,
-    accessToken,
-  });
+export function addAddendum(
+  noteId: string,
+  input: Schemas['AddAddendumInput'],
+  accessToken: string,
+): Promise<Schemas['ConsultationAddendum']> {
+  return api.consultation.addAddendum(noteId, input, { accessToken });
 }

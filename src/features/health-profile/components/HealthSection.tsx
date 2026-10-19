@@ -4,7 +4,7 @@ import { TextField } from '../../../components/TextField';
 import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
-import { ApiError } from '../../../services/api-client';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
 
@@ -23,6 +23,7 @@ export function HealthSection({ section }: Props) {
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
   const removeMutation = useRemoveHealthEntry();
+  const errorMessage = useErrorMessage();
 
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
@@ -87,7 +88,7 @@ export function HealthSection({ section }: Props) {
           <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
           <TextField label="Details (optional)" value={details} onChange={(e) => setDetails(e.target.value)} />
           <FormError
-            message={addMutation.error instanceof ApiError ? addMutation.error.message : addMutation.error ? 'Failed to add.' : null}
+            message={errorMessage(addMutation.error)}
           />
           <div className={styles.actions}>
             <Button type="submit" loading={addMutation.isPending}>
@@ -109,7 +110,7 @@ export function HealthSection({ section }: Props) {
               <TextField label="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
               <TextField label="Details (optional)" value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
               <FormError
-                message={updateMutation.error instanceof ApiError ? updateMutation.error.message : updateMutation.error ? 'Failed to save.' : null}
+                message={errorMessage(updateMutation.error)}
               />
               <div className={styles.actions}>
                 <Button type="submit" loading={updateMutation.isPending}>

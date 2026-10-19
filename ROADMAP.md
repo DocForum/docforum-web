@@ -98,6 +98,12 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [ ] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts).
 - [ ] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts).
 
+## Phase W7 — Platform quality: reliability, accessibility, performance, testing
+- [x] [Issue #83](https://github.com/DocForum/docforum-web/issues/83): adopt the generated `@docforum/api-client`, re-export generated model types, route every service through the typed client, preserve BigInt amounts as strings, and add a warn-only spec-version check in CI.
+- [x] [Issue #84](https://github.com/DocForum/docforum-web/issues/84): map machine-readable error codes to localized recovery copy, keep raw server messages out of the UI, and contain render failures with app, route, and feature-section error boundaries.
+- [x] [Issue #86](https://github.com/DocForum/docforum-web/issues/86): add an installable HashRouter-compatible PWA with static app-shell precaching, no API runtime cache, logout cache hygiene, and an explicit update prompt.
+- [x] [Issue #87](https://github.com/DocForum/docforum-web/issues/87): add lazy ICU locale bundles, a language preference switcher, extracted message catalogues, and a CI check for missing, unused, and invalid ICU messages.
+
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
   of the 3-repo org split.
@@ -381,3 +387,16 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 
 
 
+- 2026-10-19 — i18n (#87) + safe error rendering (#84) for the auth,
+  account and dependents feature components. Migrated hard-coded English
+  UI copy to `useT()`/`react-intl`; forms now render `useErrorMessage()`
+  instead of raw `ApiError.message` values. Remaining literals without
+  catalogue ids (data-export and account-deletion screens) are reported
+  for a follow-up catalogue addition. `npx vitest run src/features`
+  (19 files, 90 tests) and `tsc -b --noEmit` pass.
+- 2026-10-19 — Completed W7 platform quality issues #83, #84, #86, and #87:
+  vendored the generated API client and replaced hand-written model/service
+  contracts; added typed error-code mapping and layered error boundaries;
+  shipped a static-only installable PWA with prompted updates; and added
+  lazy ICU locale bundles with CI validation. Full validation is recorded in
+  the pull request.

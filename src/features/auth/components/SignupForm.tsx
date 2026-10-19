@@ -8,7 +8,8 @@ import { RoleSelect } from './RoleSelect';
 import { useSignup } from '../hooks/useSignup';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { validateEmail, validateFullName, validatePassword, type FieldErrors } from '../validation';
-import { ApiError } from '../../../services/api-client';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { SelfServeRole } from '../../../types/models';
 
 export interface SignupFormProps {
@@ -23,6 +24,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const signupMutation = useSignup();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,12 +41,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     signupMutation.mutate({ role, fullName, email, password }, { onSuccess });
   }
 
-  const submitError =
-    signupMutation.error instanceof ApiError
-      ? signupMutation.error.message
-      : signupMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
+  const submitError = errorMessage(signupMutation.error);
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -51,20 +49,19 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
       {isSlow && (
         <p className="slowHint" role="status">
           <Spinner size={14} />
-          Still working — the server may be waking up after being idle. This can take up to a
-          minute.
+          {t('auth.slowHint', 'Still working — the server may be waking up after being idle. This can take up to a minute.')}
         </p>
       )}
       <RoleSelect value={role} onChange={setRole} />
       <TextField
-        label="Full name"
+        label={t('auth.fullName', 'Full name')}
         autoComplete="name"
         value={fullName}
         onChange={(e) => setFullName(e.target.value)}
         error={fieldErrors.fullName}
       />
       <TextField
-        label="Email"
+        label={t('auth.email', 'Email')}
         type="email"
         autoComplete="email"
         value={email}
@@ -72,7 +69,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         error={fieldErrors.email}
       />
       <TextField
-        label="Password"
+        label={t('auth.password', 'Password')}
         type="password"
         autoComplete="new-password"
         value={password}
@@ -80,7 +77,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         error={fieldErrors.password}
       />
       <Button type="submit" loading={signupMutation.isPending}>
-        {signupMutation.isPending ? 'Creating account…' : 'Create account'}
+        {signupMutation.isPending ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create account')}
       </Button>
     </form>
   );
