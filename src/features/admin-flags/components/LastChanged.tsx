@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth-store';
 import { HISTORY_LIMIT } from '../hooks/useFeatureFlags';
 import { auditTrailLink, formatRelative, formatTimestamp, shortId } from '../flags';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import type { AuditEvent, FeatureFlag } from '../../../types/models';
 import styles from './FeatureFlags.module.css';
 
@@ -22,8 +23,9 @@ interface LastChangedProps {
 }
 
 function When({ iso, now }: { iso: string; now: number }) {
+  const { timeZone } = useTimeZone();
   return (
-    <time dateTime={iso} title={formatTimestamp(iso)}>
+    <time dateTime={iso} title={formatTimestamp(iso, timeZone)}>
       {formatRelative(iso, now)}
     </time>
   );

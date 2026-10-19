@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate, formatDateTime } from '../../../i18n/time-zone';
 import type { FulfillmentQueueItem } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -15,6 +17,7 @@ export function FulfillmentQueueWithAttribution({
   isUpdating,
 }: FulfillmentQueueProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const { timeZone } = useTimeZone();
 
   const handleAction = async (itemId: string, action: 'fulfilled' | 'rejected') => {
     setSelectedItem(itemId);
@@ -51,7 +54,7 @@ export function FulfillmentQueueWithAttribution({
                     <div className={styles.orderMeta}>
                       <span>Patient: {item.patientName}</span> •{' '}
                       <span>Type: {item.orderType === 'prescription' ? 'Prescription Dispense' : 'Diagnostic Order'}</span> •{' '}
-                      <span>Received: {new Date(item.receivedAt).toLocaleDateString()}</span>
+                      <span>Received: {formatDate(item.receivedAt, timeZone)}</span>
                     </div>
                   </div>
                   <div>
@@ -86,7 +89,7 @@ export function FulfillmentQueueWithAttribution({
                       {item.attribution.action === 'rejected' && 'Rejected by '}
                       <strong className={styles.attributionActor}>{item.attribution.performedByName}</strong>{' '}
                       ({item.attribution.performedByRole}) on{' '}
-                      {new Date(item.attribution.timestamp).toLocaleString()}
+                      {formatDateTime(item.attribution.timestamp, timeZone)}
                       {item.attribution.notes && ` — "${item.attribution.notes}"`}
                     </span>
                   </div>

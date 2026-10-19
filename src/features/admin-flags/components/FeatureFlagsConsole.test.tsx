@@ -14,6 +14,9 @@ import type { AuditEvent, FeatureFlag, Role } from '../../../types/models';
 
 vi.mock('../../../services/feature-flags-service');
 vi.mock('../../../services/audit-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString();

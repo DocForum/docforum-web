@@ -5,6 +5,7 @@
 // shapes in src/types/models.ts (which mirror docforum-core's schema) —
 // see ARCHITECTURE_ESSENTIALS.md "Known assumptions" for which of those
 // shapes are still assumed contracts.
+import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
   Appointment,
   AuditEvent,
@@ -29,9 +30,11 @@ import type {
   HealthEntry,
   IntakeForm,
   DoctorMessageThread,
+  NotificationPreferences,
   PatientOrder,
   PaymentIntent,
   QualifiedOrderFacility,
+  Role,
   RunningDelay,
   SpecialtyClaim,
   User,
@@ -117,6 +120,7 @@ export interface MockDb {
   specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
   closures: Closure[];
+  notificationPreferences: Record<Role, NotificationPreferences>;
 }
 
 /** A doctor's verification application (issue #64's assumed queue/detail
@@ -224,6 +228,7 @@ export function createSeedDb(): MockDb {
           description: 'Demo fixture appointment with Dr. Ficticia Example.',
           status: 'completed',
           timestamp: '2026-10-01T09:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
         {
           id: 'st-demo-2',
@@ -267,6 +272,7 @@ export function createSeedDb(): MockDb {
           description: 'Demo fixture vaccination visit.',
           status: 'completed',
           timestamp: '2026-08-10T11:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
       ],
     },
@@ -1492,6 +1498,13 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const notificationPreferences: Record<Role, NotificationPreferences> = {
+    patient: defaultPreferencesForRole('patient'),
+    doctor: defaultPreferencesForRole('doctor'),
+    facility: defaultPreferencesForRole('facility'),
+    admin: defaultPreferencesForRole('admin'),
+  };
+
   return {
     dependents,
     healthEntries,
@@ -1524,5 +1537,6 @@ export function createSeedDb(): MockDb {
     specialtyClaims,
     auditEvents,
     closures,
+    notificationPreferences,
   };
 }
