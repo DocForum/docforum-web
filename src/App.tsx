@@ -16,6 +16,14 @@ import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ConsultationNote } from './features/consultation/components/ConsultationNote';
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';
+import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
+import { FacilityTeamPage } from './pages/FacilityTeamPage';
+import { AdminAuditPage } from './pages/AdminAuditPage';
+import { AdminReferralsPage } from './pages/AdminReferralsPage';
+import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { OrderVerifyPage } from './pages/OrderVerifyPage';
+import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 
 export default function App() {
   return (
@@ -63,6 +71,11 @@ export default function App() {
             <DoctorDashboardPage />
           </RequireAuth>
         } />
+        <Route path="doctor/insights" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorPracticeInsightsPage />
+          </RequireAuth>
+        } />
         <Route path="doctor/consultation/:appointmentId" element={
           <RequireAuth allowedRoles={['doctor']}>
             <ConsultationNote />
@@ -74,10 +87,66 @@ export default function App() {
           </RequireAuth>
         } />
         <Route
+          path="facility/verify"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <OrderVerifyPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/payments"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityPaymentsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/team"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="facility/*"
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityDashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/audit"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/referrals"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminReferralsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/system"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminSystemPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/flags"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminFlagsPage />
             </RequireAuth>
           }
         />
