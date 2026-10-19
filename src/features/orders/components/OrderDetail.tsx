@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
@@ -20,19 +20,61 @@ const STATUS_META: Record<
   cancelled:  { label: 'Cancelled',  variant: 'danger'  },
 };
 
-/** Statuses where the QR code must not be shown (per issue #25). */
-const INVALID_QR_STATUSES = new Set<OrderStatus>(['superseded', 'expired', 'cancelled']);
+/** Statuses where the QR code must not be shown (per issue #25).
+ * fulfilled is included: a completed order must never render a
+ * scannable QR even when the server sends a non-null token. */
+const INVALID_QR_STATUSES = new Set<OrderStatus>([
+  'superseded',
+  'expired',
+  'cancelled',
+  'fulfilled',
+]);
 
 interface OrderDetailProps {
   orderId: string;
 }
 
 /** Full order detail card — QR code, status, items, print affordance.
- * Handles superseded/expired states by hiding the QR and showing a clear
- * message instead. */
+ * Handles superseded/expired/fulfilled/cancelled states by hiding the
+ * QR and showing a clear message instead. */
 export function OrderDetail({ orderId }: OrderDetailProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const orderQuery = useOrder(orderId);
+
+  /** Ref to the element that opened the overlay — focus is restored here on close. */
+  const fullscreenTriggerRef = useRef<HTMLElement | null>(null);
+  /** Ref to the close button inside the overlay — receives focus on open. */
+  const fullscreenCloseRef = useRef<HTMLButtonElement>(null);
+
+  // Move focus into the overlay when it opens, and restore it when it closes.
+  useEffect(() => {
+    if (fullscreen) {
+      fullscreenCloseRef.current?.focus();
+    } else {
+      // Only try to restore if the element still exists in the DOM.
+      if (fullscreenTriggerRef.current instanceof HTMLElement) {
+        fullscreenTriggerRef.current.focus();
+      }
+    }
+  }, [fullscreen]);
+
+  function openFullscreen() {
+    // Capture the trigger element before the overlay replaces it in the DOM.
+    fullscreenTriggerRef.current = document.activeElement as HTMLElement;
+    setFullscreen(true);
+  }
+
+  // Close the overlay on Escape.
+  useEffect(() => {
+    if (!fullscreen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setFullscreen(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreen]);
 
   if (orderQuery.isLoading) {
     return (
@@ -56,6 +98,9 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
   const meta = STATUS_META[order.status];
   const qrInvalid = INVALID_QR_STATUSES.has(order.status) || !order.token;
 
+  /** True only when the order is active but the token hasn't arrived yet. */
+  const tokenPending = order.status === 'active' && !order.token;
+
   const formattedDate = new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -71,8 +116,14 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
     <>
       {/* Full-screen QR overlay (screen only) */}
       {fullscreen && order.token && (
-        <div className={styles.fullscreenOverlay} role="dialog" aria-label="Full-screen QR code">
+        <div
+          className={styles.fullscreenOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Full-screen QR code"
+        >
           <button
+            ref={fullscreenCloseRef}
             type="button"
             className={styles.fullscreenClose}
             onClick={() => setFullscreen(false)}
@@ -107,7 +158,12 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
 
         {/* QR section */}
         <section className={styles.qrSection} aria-label="QR code section">
-          {qrInvalid ? (
+          {tokenPending ? (
+            <div className={styles.qrInvalid} role="status" data-testid="qr-pending-banner">
+              <strong>Code not available yet.</strong>
+              <p>This order's code isn't available yet. Check back shortly or contact your doctor.</p>
+            </div>
+          ) : qrInvalid ? (
             <div className={styles.qrInvalid} role="alert" data-testid="qr-invalid-banner">
               {order.status === 'superseded' && (
                 <>
@@ -144,7 +200,7 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
               <Button
                 variant="secondary"
                 className={`${styles.fullscreenBtn} no-print`}
-                onClick={() => setFullscreen(true)}
+                onClick={openFullscreen}
                 aria-label="Open full-screen QR"
               >
                 Full-screen QR

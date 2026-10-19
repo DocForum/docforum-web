@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '../../../test/render';
+import userEvent from '@testing-library/user-event';
 import { OrderDetail } from './OrderDetail';
 import { useAuthStore } from '../../../store/auth-store';
 import * as ordersService from '../../../services/orders-service';
@@ -95,6 +96,46 @@ describe('OrderDetail', () => {
     expect(banner).toHaveTextContent(/cancelled/i);
   });
 
+  // --- Step 2a: fulfilled + non-null token must never render QR ---
+  it('hides QR for a fulfilled order even when the server sends a non-null token', async () => {
+    // Arrange: fulfilled order with a non-null token (server bug scenario)
+    vi.mocked(ordersService.getOrder).mockResolvedValue(
+      makeOrder({ status: 'fulfilled', token: 'tok_should_not_be_shown' }),
+    );
+    render(<OrderDetail orderId="ord-abc12345" />);
+
+    // Assert: invalid banner shown, QR not rendered
+    const banner = await screen.findByTestId('qr-invalid-banner');
+    expect(banner).toHaveTextContent(/already been fulfilled/i);
+    expect(screen.queryByRole('img', { name: /qr code/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /full-screen qr/i })).not.toBeInTheDocument();
+  });
+
+  it('hides QR for a fulfilled order with null token', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(
+      makeOrder({ status: 'fulfilled', token: null }),
+    );
+    render(<OrderDetail orderId="ord-abc12345" />);
+    const banner = await screen.findByTestId('qr-invalid-banner');
+    expect(banner).toHaveTextContent(/already been fulfilled/i);
+    expect(screen.queryByRole('img', { name: /qr code/i })).not.toBeInTheDocument();
+  });
+
+  // --- Step 2b: active order with null token shows pending fallback ---
+  it('shows a "code not available yet" fallback for an active order with no token', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(
+      makeOrder({ status: 'active', token: null }),
+    );
+    render(<OrderDetail orderId="ord-abc12345" />);
+
+    const pending = await screen.findByTestId('qr-pending-banner');
+    expect(pending).toHaveTextContent(/isn't available yet/i);
+    // Must not show the invalid-order banner or the QR
+    expect(screen.queryByTestId('qr-invalid-banner')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /qr code/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /full-screen qr/i })).not.toBeInTheDocument();
+  });
+
   it('shows an error message when the API call fails', async () => {
     vi.mocked(ordersService.getOrder).mockRejectedValue(
       Object.assign(new Error('Order not found'), { name: 'ApiError', status: 404 }),
@@ -143,5 +184,53 @@ describe('OrderDetail', () => {
     vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
     render(<OrderDetail orderId="ord-abc12345" />);
     expect(await screen.findByRole('button', { name: /print/i })).toBeInTheDocument();
+  });
+
+  // --- Step 2c: full-screen overlay — Escape, focus management, aria-modal ---
+  it('full-screen overlay has aria-modal="true"', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
+    render(<OrderDetail orderId="ord-abc12345" />);
+    const openBtn = await screen.findByRole('button', { name: /open full-screen qr/i });
+    await userEvent.click(openBtn);
+    const dialog = screen.getByRole('dialog', { name: /full-screen qr code/i });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
+
+  it('moves focus to the close button when the overlay opens', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
+    render(<OrderDetail orderId="ord-abc12345" />);
+    const openBtn = await screen.findByRole('button', { name: /open full-screen qr/i });
+    await userEvent.click(openBtn);
+    const closeBtn = screen.getByRole('button', { name: /close full-screen qr/i });
+    expect(closeBtn).toHaveFocus();
+  });
+
+  it('closes the overlay and restores focus on Escape', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
+    render(<OrderDetail orderId="ord-abc12345" />);
+    const openBtn = await screen.findByRole('button', { name: /open full-screen qr/i });
+    await userEvent.click(openBtn);
+    // Overlay is open
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Press Escape
+    await userEvent.keyboard('{Escape}');
+
+    // Overlay gone
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Focus returned to trigger
+    expect(screen.getByRole('button', { name: /open full-screen qr/i })).toHaveFocus();
+  });
+
+  it('closes the overlay via the close button and restores focus', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
+    render(<OrderDetail orderId="ord-abc12345" />);
+    const openBtn = await screen.findByRole('button', { name: /open full-screen qr/i });
+    await userEvent.click(openBtn);
+    const closeBtn = screen.getByRole('button', { name: /close full-screen qr/i });
+    await userEvent.click(closeBtn);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open full-screen qr/i })).toHaveFocus();
   });
 });
