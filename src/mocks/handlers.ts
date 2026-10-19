@@ -12,6 +12,7 @@ import { insightsHandlers } from './handlers/insights';
 import { messagingHandlers } from './handlers/messaging';
 import { paymentsHandlers } from './handlers/payments';
 import { queueHandlers } from './handlers/queue';
+import { adminClosuresHandlers } from './handlers/admin-closures';
 
 export const handlers = [
   ...authHandlers,
@@ -26,4 +27,5 @@ export const handlers = [
   ...facilityHandlers,
   ...facilityTeamHandlers,
   ...paymentsHandlers,
+  ...adminClosuresHandlers,
 ];
