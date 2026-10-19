@@ -85,6 +85,12 @@ real API" (no refresh-on-reload flow).
   self-serve (PRD OQ-2, same as facility) — this page is real once such
   a session exists, same caveat as the facility dashboard already had.
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
+## Phase W6: Admin console
+
+| Item | Status |
+| ---- | ------ |
+| Admin user management: search, filter, deactivate/reactivate with reason, admin invites (#70) | ✅ Done |
+
 
 ## Phase W6 — Admin console
 Admin-only screens beyond payments. Everything goes through `docforum-core`'s admin API; admin accounts stay seeded/invited (PRD OQ-2).

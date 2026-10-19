@@ -83,6 +83,13 @@ the cookie to be sent/received at all). One gap remains:
 
 ## Known assumptions
 
+- **Admin user management (W6, assumed shapes pending docforum-core#39):**
+  - `GET /admin/users?search&role&status&page&pageSize` returns `{ items, total, page, pageSize }`.
+  - `GET /admin/users/:id` returns the user plus `sessionsCount`, `deactivatedAt`, `deactivationReason`.
+  - `POST /admin/users/:id/deactivate` and `/reactivate` take `{ reason }`.
+  - `GET /admin/invites`, `POST /admin/invites { email }`, `DELETE /admin/invites/:id`.
+  - Deactivating the last admin is refused with HTTP 409 and code `LAST_ADMIN`; the UI also treats a 409 whose message contains "last admin" as this error.
+  
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
 ### Phase W2 — Patient core flow (dependents, health profile, acting-for)
