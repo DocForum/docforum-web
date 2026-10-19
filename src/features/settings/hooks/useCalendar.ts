@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as calendarService from '../../../services/calendar-service';
 import { useAuthStore } from '../../../store/auth-store';
-import type { CalendarFeedResponse, RotateTokenResponse } from '../../../types/models';
+import type { CalendarFeedResponse } from '../../../types/models';
 
 const CALENDAR_FEED_KEY = ['doctor', 'calendar', 'feed'] as const;
 
@@ -24,7 +24,7 @@ export function useRotateCalendarToken() {
       // Update the feed data with new URL
       queryClient.setQueryData<CalendarFeedResponse>(
         CALENDAR_FEED_KEY,
-        (old) => old ? { ...old, icsUrl: data.icsUrl } : null
+        (old) => (old ? { ...old, icsUrl: data.icsUrl } : undefined)
       );
     },
   });

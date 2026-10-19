@@ -94,6 +94,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           <span className={styles.deadline}>
             Auto sign-off: {formatDateTime(note.autoSignOffAt)}
           </span>
+        )}
         {appointmentQuery.data?.patientProfileId && (
           <Button
             variant="secondary"
@@ -101,7 +102,6 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           >
             View patient chart
           </Button>
-        )}
         )}
       </header>
 

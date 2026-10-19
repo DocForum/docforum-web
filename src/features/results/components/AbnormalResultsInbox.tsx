@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePendingAbnormalResults, useAcknowledgeAbnormalResult } from '../hooks/useResults';
 import { Button } from '../../../components/Button';
-import { format, subDays } from 'date-fns';
+import type { AbnormalResult } from '../../../types/models';
 import styles from './AbnormalResultsInbox.module.css';
 
 export function AbnormalResultsInbox() {
@@ -57,13 +57,13 @@ export function AbnormalResultsInbox() {
             <textarea
               value={acknowledgeNote}
               onChange={(e) => setAcknowledgeNote(e.target.value)}
-              placeholder="Optional note (e.g., \"Called patient, will follow up tomorrow\")"
+              placeholder={'Optional note (e.g., "Called patient, will follow up tomorrow")'}
               className={styles.acknowledgeNote}
             />
             <div className={styles.acknowledgeActions}>
               <Button variant="secondary" onClick={handleAcknowledgeCancel}>
                 Cancel
-              </button>
+              </Button>
               <Button
                 onClick={handleAcknowledgeSubmit}
                 loading={acknowledgeMutation.isPending}

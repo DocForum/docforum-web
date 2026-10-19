@@ -54,14 +54,6 @@ export default function App() {
             <DoctorDashboardPage />
           </RequireAuth>
         } />
-        <Route>
-          path="doctor/patient-chart/:patientProfileId"
-          element={
-            <RequireAuth allowedRoles={["doctor"]}>
-              <PatientChartPage />
-            </RequireAuth>
-          }
-        />
         <Route path="doctor/insights" element={
           <RequireAuth allowedRoles={['doctor']}>
             <DoctorPracticeInsightsPage />
@@ -77,7 +69,7 @@ export default function App() {
             <DoctorInbox />
           </RequireAuth>
         } />
-        <Route>
+        <Route
           path="doctor/patient-chart/:patientProfileId"
           element={
             <RequireAuth allowedRoles={["doctor"]}>
@@ -86,14 +78,6 @@ export default function App() {
           }
         />
         <Route
-        <Route>
-          path="doctor/patient-chart/:patientProfileId"
-          element={
-            <RequireAuth allowedRoles={["doctor"]}>
-              <PatientChartPage />
-            </RequireAuth>
-          }
-        />
           path="facility/verify"
           element={
             <RequireAuth allowedRoles={['facility']}>

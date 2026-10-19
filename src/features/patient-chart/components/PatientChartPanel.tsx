@@ -1,8 +1,14 @@
-import { useState } from 'react';
 import { usePatientChart } from '../hooks/usePatientChart';
-import { Button } from '../../../components/Button';
-import { format } from 'date-fns';
 import styles from './PatientChartPanel.module.css';
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 export function PatientChartPanel({ patientProfileId }: { patientProfileId?: string }) {
   const {
@@ -21,11 +27,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
   // Extract prior consultations from care thread steps
   const priorConsultations = careThread?.steps
-    ?.filter((step) => step.type === 'appointment' || step.type === 'consultation')
-    .map((step) => ({
-      ...step,
-      date: step.createdAt, // approximate
-    }))
+    ?.filter((step) => step.stepType === 'appointment' || step.stepType === 'consultation')
     ?? [];
 
   return (
@@ -44,7 +46,8 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
               <ul>
                 {allergies.map((a) => (
                   <li key={a.id}>
-                    {a.value} {a.recordedAt ? ` (as of ${format(new Date(a.recordedAt), 'PPP'))}` : ''}
+                    {a.name}{a.details ? ` (${a.details})` : ''}{' '}
+                    {a.updatedAt ? ` (as of ${formatDate(a.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -58,7 +61,8 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
               <ul>
                 {conditions.map((c) => (
                   <li key={c.id}>
-                    {c.value} {c.recordedAt ? ` (as of ${format(new Date(c.recordedAt), 'PPP'))}` : ''}
+                    {c.name}{c.details ? ` (${c.details})` : ''}{' '}
+                    {c.updatedAt ? ` (as of ${formatDate(c.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -72,7 +76,8 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
               <ul>
                 {medications.map((m) => (
                   <li key={m.id}>
-                    {m.value} {m.recordedAt ? ` (as of ${format(new Date(m.recordedAt), 'PPP'))}` : ''}
+                    {m.name}{m.details ? ` (${m.details})` : ''}{' '}
+                    {m.updatedAt ? ` (as of ${formatDate(m.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -91,13 +96,13 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
             {priorConsultations.map((c) => (
               <li key={c.id} className={styles.consultItem}>
                 <span className={styles.consultDate}>
-                  {format(new Date(c.createdAt), 'PPP')}
+                  {formatDate(c.timestamp)}
                 </span>
                 <span className={styles.consultType}>
-                  {c.type === 'appointment' ? 'Appointment' : 'Consultation'}
+                  {c.stepType === 'appointment' ? 'Appointment' : 'Consultation'}
                 </span>
-                {c.reason && (
-                  <span className={styles.consultReason}> – {c.reason}</span>
+                {c.description && (
+                  <span className={styles.consultReason}> – {c.description}</span>
                 )}
               </li>
             ))}
@@ -127,8 +132,8 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                   <td>{o.orderType === 'prescription' ? 'Prescription' : 'Lab order'}</td>
                   <td>{o.medicationOrTest}</td>
                   <td>{o.instructions ?? ''}</td>
-                  <td>{format(new Date(o.issuedAt), 'PPP')}</td>
-                  <td>{format(new Date(o.expiresAt), 'PPP')}</td>
+                  <td>{formatDate(o.issuedAt)}</td>
+                  <td>{formatDate(o.expiresAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -165,7 +170,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                       {r.isCritical ? 'Critical' : r.isAbnormal ? 'Abnormal' : 'Normal'}
                     </span>
                   </td>
-                  <td>{format(new Date(r.issuedAt), 'PPP')}</td>
+                  <td>{formatDate(r.issuedAt)}</td>
                 </tr>
               ))}
             </tbody>
