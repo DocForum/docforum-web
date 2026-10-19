@@ -22,6 +22,7 @@ import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { PatientChartPage } from "./pages/PatientChartPage";
 
 export default function App() {
   return (
@@ -53,6 +54,14 @@ export default function App() {
             <DoctorDashboardPage />
           </RequireAuth>
         } />
+        <Route>
+          path="doctor/patient-chart/:patientProfileId"
+          element={
+            <RequireAuth allowedRoles={["doctor"]}>
+              <PatientChartPage />
+            </RequireAuth>
+          }
+        />
         <Route path="doctor/insights" element={
           <RequireAuth allowedRoles={['doctor']}>
             <DoctorPracticeInsightsPage />
@@ -68,7 +77,23 @@ export default function App() {
             <DoctorInbox />
           </RequireAuth>
         } />
+        <Route>
+          path="doctor/patient-chart/:patientProfileId"
+          element={
+            <RequireAuth allowedRoles={["doctor"]}>
+              <PatientChartPage />
+            </RequireAuth>
+          }
+        />
         <Route
+        <Route>
+          path="doctor/patient-chart/:patientProfileId"
+          element={
+            <RequireAuth allowedRoles={["doctor"]}>
+              <PatientChartPage />
+            </RequireAuth>
+          }
+        />
           path="facility/verify"
           element={
             <RequireAuth allowedRoles={['facility']}>

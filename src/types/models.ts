@@ -731,3 +731,49 @@ export interface UpdateFeatureFlagInput {
    * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
 }
+
+export interface AbnormalResult {
+  id: string;
+  patientProfileId: string;
+  patientName: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isCritical: boolean;
+  isAbnormal: boolean;
+  issuedAt: string;
+}
+
+export interface AcknowledgeResultInput {
+  note?: string;
+}
+
+export interface CalendarFeedResponse {
+  icsUrl: string;
+  // Token is part of the URL; we don't expose it separately
+}
+
+export interface RotateTokenResponse {
+  icsUrl: string;
+}
+
+export interface Order {
+  id: string;
+  orderType: 'prescription' | 'lab_order';
+  patientName: string;
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+}
+
+export interface LabResult {
+  id: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isAbnormal: boolean;
+  isCritical: boolean;
+  issuedAt: string;
+}
