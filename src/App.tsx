@@ -20,6 +20,8 @@ import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { AdminDisputesPage } from './pages/AdminDisputesPage';
+import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 
@@ -105,6 +107,22 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/disputes"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminDisputesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/disputes/:disputeId"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminDisputeDetailPage />
             </RequireAuth>
           }
         />
