@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatSlotDate, formatSlotTime, isOnSlotDay, isUpcoming, shouldPollQueue } from './slot';
-import type { Appointment } from '../../types/models';
+import type { PatientAppointment } from '../../types/models';
 
 /** Local-time builders, so nothing in these assertions depends on the TZ the
  * suite happens to run in. */
@@ -13,7 +13,7 @@ function local(dayOffset: number, hour: number, minute = 0): string {
 
 const TODAY = new Date(2026, 9, 16, 12, 0, 0);
 
-function appointment(overrides: Partial<Appointment> = {}): Appointment {
+function appointment(overrides: Partial<PatientAppointment> = {}): PatientAppointment {
   return {
     id: 'apt-1',
     patientProfileId: 'pp-1',
@@ -36,7 +36,7 @@ function appointment(overrides: Partial<Appointment> = {}): Appointment {
   };
 }
 
-function withSlot(overrides: Partial<Appointment['availabilitySlot']>): Appointment {
+function withSlot(overrides: Partial<PatientAppointment['availabilitySlot']>): PatientAppointment {
   const base = appointment();
   return { ...base, availabilitySlot: { ...base.availabilitySlot, ...overrides } };
 }

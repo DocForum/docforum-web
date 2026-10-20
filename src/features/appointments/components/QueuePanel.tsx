@@ -6,11 +6,11 @@ import { ApiError } from '../../../services/api-client';
 import { useAppointmentQueue, useCheckIn, useQueueNotification } from '../hooks/useAppointmentQueue';
 import { canCheckIn } from '../queue';
 import { formatSlotTime, shouldPollQueue } from '../slot';
-import type { Appointment, AppointmentQueue } from '../../../types/models';
+import type { PatientAppointment, AppointmentQueue } from '../../../types/models';
 import styles from './QueuePanel.module.css';
 
 interface Props {
-  appointment: Appointment;
+  appointment: PatientAppointment;
   now: Date;
 }
 

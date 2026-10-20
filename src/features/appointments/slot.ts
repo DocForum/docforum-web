@@ -1,8 +1,8 @@
-import type { Appointment } from '../../types/models';
+import type { PatientAppointment } from '../../types/models';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function slotStart(appointment: Appointment): number {
+function slotStart(appointment: PatientAppointment): number {
   return new Date(appointment.availabilitySlot.startTime).getTime();
 }
 
@@ -18,7 +18,7 @@ function isSameLocalDay(a: number, b: number): boolean {
   );
 }
 
-export function isOnSlotDay(appointment: Appointment, now: Date): boolean {
+export function isOnSlotDay(appointment: PatientAppointment, now: Date): boolean {
   const start = slotStart(appointment);
   return !Number.isNaN(start) && isSameLocalDay(start, now.getTime());
 }
@@ -26,13 +26,13 @@ export function isOnSlotDay(appointment: Appointment, now: Date): boolean {
 /** Live updates only make sense for a visit that is happening today and has
  * not already been settled — a past or cancelled appointment must not keep
  * a poll running. */
-export function shouldPollQueue(appointment: Appointment, now: Date): boolean {
+export function shouldPollQueue(appointment: PatientAppointment, now: Date): boolean {
   return appointment.status === 'scheduled' && isOnSlotDay(appointment, now);
 }
 
 /** The hub shows a visit while it is still ahead of you (or happening today);
  * anything older drops out on its own without a server-side filter. */
-export function isUpcoming(appointment: Appointment, now: Date): boolean {
+export function isUpcoming(appointment: PatientAppointment, now: Date): boolean {
   const start = slotStart(appointment);
   if (Number.isNaN(start)) return false;
   return appointment.status === 'scheduled' && (start >= now.getTime() || isSameLocalDay(start, now.getTime()));

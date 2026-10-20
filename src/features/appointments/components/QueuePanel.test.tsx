@@ -5,7 +5,7 @@ import { QueuePanel } from './QueuePanel';
 import * as appointmentsService from '../../../services/appointments-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
-import type { Appointment, AppointmentQueue } from '../../../types/models';
+import type { PatientAppointment, AppointmentQueue } from '../../../types/models';
 
 vi.mock('../../../services/appointments-service');
 
@@ -42,7 +42,7 @@ function queue(overrides: Partial<AppointmentQueue> = {}): AppointmentQueue {
   };
 }
 
-const APPOINTMENT: Appointment = {
+const APPOINTMENT: PatientAppointment = {
   id: 'apt-1',
   patientProfileId: 'pp-1',
   doctorProfileId: 'dp-1',

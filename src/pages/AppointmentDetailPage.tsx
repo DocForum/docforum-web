@@ -9,6 +9,8 @@ import styles from './AppointmentDetailPage.module.css';
 
 const STATUS_COPY: Record<AppointmentStatus, string> = {
   scheduled: 'Booked',
+  checked_in: 'Checked in',
+  in_progress: 'Being seen',
   completed: 'Completed',
   cancelled: 'Cancelled',
   no_show: 'Marked as a no-show',
@@ -16,11 +18,18 @@ const STATUS_COPY: Record<AppointmentStatus, string> = {
 
 /** Settled visits have no queue to join, and saying why is kinder than
  * silently omitting the panel. */
-const CLOSED_COPY: Record<Exclude<AppointmentStatus, 'scheduled'>, string> = {
+const CLOSED_COPY: Record<'completed' | 'cancelled' | 'no_show', string> = {
   completed: 'This visit is already closed, so there is nothing to check in to.',
   cancelled: 'This appointment was cancelled, so there is nothing to check in to.',
   no_show: 'This appointment was recorded as a no-show, so there is nothing to check in to.',
 };
+
+/** `checked_in` and `in_progress` came from the doctor-side statuses the W3
+ * flow added: a patient already in the queue must still see the live panel,
+ * not a "nothing to check in to" message. */
+function isClosedVisit(status: AppointmentStatus): status is 'completed' | 'cancelled' | 'no_show' {
+  return status === 'completed' || status === 'cancelled' || status === 'no_show';
+}
 
 export function AppointmentDetailPage() {
   const { appointmentId } = useParams();
@@ -94,16 +103,14 @@ export function AppointmentDetailPage() {
             : 'You booked this visit yourself.'}
         </p>
 
-        {appointment.status === 'scheduled' ? (
-          isOnSlotDay(appointment, now) ? (
-            <QueuePanel appointment={appointment} now={now} />
-          ) : (
-            <p className={styles.notice}>
-              Check-in opens on the day of your visit ({formatSlotDate(slot.startTime, now)}).
-            </p>
-          )
-        ) : (
+        {isClosedVisit(appointment.status) ? (
           <p className={styles.notice}>{CLOSED_COPY[appointment.status]}</p>
+        ) : appointment.status === 'scheduled' && !isOnSlotDay(appointment, now) ? (
+          <p className={styles.notice}>
+            Check-in opens on the day of your visit ({formatSlotDate(slot.startTime, now)}).
+          </p>
+        ) : (
+          <QueuePanel appointment={appointment} now={now} />
         )}
 
         <p className={styles.back}>

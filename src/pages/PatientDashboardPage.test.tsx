@@ -3,7 +3,7 @@ import { render, screen, within } from '../test/render';
 import { PatientDashboardPage } from './PatientDashboardPage';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
-import type { Appointment, Dependent, HealthEntry, HealthSectionKey } from '../types/models';
+import type { PatientAppointment, Dependent, HealthEntry, HealthSectionKey } from '../types/models';
 import * as dependentsService from '../services/dependents-service';
 import * as healthService from '../services/health-profile-service';
 import * as appointmentsService from '../services/appointments-service';
@@ -58,7 +58,7 @@ function laterToday(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 50, 0);
 }
 
-function appointment(start: Date, status: Appointment['status'] = 'scheduled'): Appointment {
+function appointment(start: Date, status: PatientAppointment['status'] = 'scheduled'): PatientAppointment {
   return {
     id: 'apt-1',
     patientProfileId: 'pp-1',

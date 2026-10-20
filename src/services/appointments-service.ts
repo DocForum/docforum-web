@@ -10,10 +10,10 @@
 // endpoints in #32/#34/#37 are all built as `me`-scoped calls (the frontend
 // has no way to learn that id — documented gap).
 import { apiFetch } from './api-client';
-import type { Appointment, AppointmentQueue } from '../types/models';
+import type { PatientAppointment, AppointmentQueue } from '../types/models';
 
-export function listMyAppointments(accessToken: string): Promise<Appointment[]> {
-  return apiFetch<Appointment[]>('/appointments/mine', { accessToken });
+export function listMyAppointments(accessToken: string): Promise<PatientAppointment[]> {
+  return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken });
 }
 
 /** assumed (core#129) */
