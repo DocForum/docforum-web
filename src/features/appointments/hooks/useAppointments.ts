@@ -10,7 +10,7 @@ export function useMyAppointments() {
 
   return useQuery({
     queryKey: APPOINTMENTS_KEY,
-    queryFn: () => appointmentsService.listMyAppointments(accessToken!),
+    queryFn: ({ signal }) => appointmentsService.listMyAppointments(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }

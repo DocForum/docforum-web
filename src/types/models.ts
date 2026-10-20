@@ -147,6 +147,10 @@ export interface WalletLink {
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
 export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
 
+// `PatientOrder` (= Prescription | LabOrder) is defined with the orders
+// work (Phase W2, issue #5) — the order detail page (issue #61) reuses
+// that shape as-is.
+
 export interface PaymentIntent {
   id: string;
   orderType: OrderTypeForPayment;
@@ -349,7 +353,7 @@ export interface UpdateRunningDelayInput {
   manualOverrideMin: number | null;
 }
 
-export interface MessageThread {
+export interface DoctorMessageThread {
   id: string;
   patientProfileId: string;
   patientName: string;
@@ -857,6 +861,56 @@ export interface OutboxSummary {
 
 export type FeatureFlagKind = 'boolean' | 'percentage';
 
+// --- Closure calendar management (this PR) -------------------------------
+export type ClosureStatus = 'active' | 'inactive';
+
+export interface Closure {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide, otherwise scoped to facility
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClosureInput {
+  name: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide
+}
+
+export interface UpdateClosureInput {
+  id: string;
+  name?: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay?: boolean;
+  start?: string;
+  end?: string;
+  facilityId?: string | null;
+}
+
+// --- Affected appointments preview ---------------------------------------
+
+export interface AffectedAppointment {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  patientName: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  reason?: string | null;
+}
+
 export interface FeatureFlagTargeting {
   /** Empty means every role is eligible. */
   roles: Role[];
@@ -1124,6 +1178,61 @@ export interface ResolveDisputeInput {
 /** One-time, short-lived URL for an attachment. Never rendered before the
  * admin asks for it, and never cached in the query client. */
 export interface DisputeAttachmentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Messaging & message attachments (Phase W2 — assumed, docforum-core
+// #61 (thread) and #62 (attachments) not landed yet). See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions". Attachments are stored
+// behind the thread's access rules; downloads always go through a
+// short-lived signed URL minted per click, never a permanent link.
+
+export type MessageThreadStatus = 'open' | 'closed';
+
+export interface MessageThread {
+  id: string;
+  appointmentId: string;
+  status: MessageThreadStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageAttachmentKind = 'image' | 'pdf';
+
+export interface MessageAttachment {
+  id: string;
+  messageId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: MessageAttachmentKind;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  threadId: string;
+  senderProfileId: string;
+  body: string;
+  attachments: MessageAttachment[];
+  createdAt: string;
+}
+
+/** One page of a cursor-paginated thread. `nextCursor` is null at the
+ * start of the thread (older history exhausted). */
+export interface MessagePage {
+  messages: Message[];
+  nextCursor: string | null;
+}
+
+export interface SendMessageInput {
+  body: string;
+  attachmentIds?: string[];
+}
+
+/** Short-lived signed download URL — minted per request, never persisted. */
+export interface SignedDownloadUrl {
   url: string;
   expiresAt: string;
 }

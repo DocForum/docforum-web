@@ -10,7 +10,7 @@ export function usePendingAbnormalResults() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: PENDING_ABNORMAL_RESULTS_KEY,
-    queryFn: () => resultsService.listPendingAbnormalResults(accessToken!),
+    queryFn: ({ signal }) => resultsService.listPendingAbnormalResults(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: 30000,
   });

@@ -4,6 +4,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import type { PatientOrder, SelectOrderFacilityInput } from '../../../types/models';
 
 const ORDERS_KEY = ['patient', 'orders'] as const;
+const ORDER_KEY = (orderId: string) => ['patient', 'orders', orderId] as const;
 const FACILITIES_KEY = (orderId: string) => ['patient', 'orders', orderId, 'facilities'] as const;
 
 export function useMyOrders() {
@@ -11,8 +12,20 @@ export function useMyOrders() {
 
   return useQuery({
     queryKey: ORDERS_KEY,
-    queryFn: () => ordersService.listMyOrders(accessToken!),
+    queryFn: ({ signal }) => ordersService.listMyOrders(accessToken!, signal),
     enabled: Boolean(accessToken),
+  });
+}
+
+/** One order for the patient order detail page (issue #61). */
+export function useOrder(orderId: string | undefined) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useQuery({
+    queryKey: ORDER_KEY(orderId ?? ''),
+    queryFn: () => ordersService.getPatientOrder(orderId!, accessToken!),
+    enabled: Boolean(orderId && accessToken),
+    retry: false,
   });
 }
 
@@ -21,7 +34,8 @@ export function useQualifiedFacilities(orderId: string | null) {
 
   return useQuery({
     queryKey: FACILITIES_KEY(orderId ?? ''),
-    queryFn: () => ordersService.listQualifiedFacilities(orderId!, accessToken!),
+    queryFn: ({ signal }) =>
+      ordersService.listQualifiedFacilities(orderId!, accessToken!, signal),
     enabled: Boolean(accessToken && orderId),
   });
 }

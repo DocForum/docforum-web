@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { ApiError } from '../../../services/api-client';
 import type { PatientOrder, QualifiedOrderFacility } from '../../../types/models';
@@ -212,6 +213,10 @@ export function OrdersList() {
                     <p className={styles.muted}>No facility selection is needed for this order.</p>
                   )}
                 </div>
+
+                <p className={styles.detailLink}>
+                  <Link to={`/patient/orders/${order.id}`}>Details & payment status</Link>
+                </p>
               </li>
             );
           })}

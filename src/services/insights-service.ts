@@ -10,6 +10,7 @@ export interface GetInsightsParams {
 export function getDoctorPracticeInsights(
   accessToken: string,
   params?: GetInsightsParams,
+  signal?: AbortSignal,
 ): Promise<DoctorPracticeInsights> {
   const query = new URLSearchParams();
   if (params?.preset) query.set('preset', params.preset);
@@ -18,5 +19,5 @@ export function getDoctorPracticeInsights(
 
   const qs = query.toString();
   const endpoint = `/doctor/insights${qs ? `?${qs}` : ''}`;
-  return apiFetch<DoctorPracticeInsights>(endpoint, { accessToken });
+  return apiFetch<DoctorPracticeInsights>(endpoint, { accessToken, signal });
 }

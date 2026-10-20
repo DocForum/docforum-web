@@ -10,7 +10,7 @@ export function useCalendarFeed() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: CALENDAR_FEED_KEY,
-    queryFn: () => calendarService.getCalendarFeed(accessToken!),
+    queryFn: ({ signal }) => calendarService.getCalendarFeed(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }

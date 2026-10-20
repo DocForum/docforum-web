@@ -8,6 +8,7 @@
 import type {
   Appointment,
   CareThread,
+  Closure,
   ConsultationAddendum,
   ConsultationIssuedOrder,
   ConsultationNote,
@@ -23,7 +24,7 @@ import type {
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
-  MessageThread,
+  DoctorMessageThread,
   PatientOrder,
   PaymentIntent,
   QualifiedOrderFacility,
@@ -84,7 +85,7 @@ export interface MockDb {
   appointments: Appointment[];
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
-  messageThreads: MessageThread[];
+  messageThreads: DoctorMessageThread[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
@@ -100,6 +101,7 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  closures: Closure[];
 }
 
 export function createSeedDb(): MockDb {
@@ -341,7 +343,7 @@ export function createSeedDb(): MockDb {
     effectiveDelayMin: 12,
   };
 
-  const messageThreads: MessageThread[] = [
+  const messageThreads: DoctorMessageThread[] = [
     {
       id: 'mth-demo-1',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -701,6 +703,52 @@ export function createSeedDb(): MockDb {
       quantity: '30 tablets',
       instructions: null,
     },
+    {
+      // Cancelled — backs the refunded payment intent below (issue #61):
+      // the order fell through and the escrow came back to the patient.
+      id: 'ord-demo-rx-103',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'cancelled',
+      issuedAt: '2026-10-14T11:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: false,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Insulin pen (fake)',
+      dose: 'One injection nightly',
+      quantity: '1 pen',
+      instructions: null,
+    },
+    {
+      // Active — its payment failed, so the panel shows "contact support"
+      // (issue #61).
+      id: 'ord-demo-rx-104',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-17T15:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo blood thinners (fake)',
+      dose: 'One tablet in the morning',
+      quantity: '28 tablets',
+      instructions: null,
+    },
   ];
 
   const orderFacilities: Record<string, QualifiedOrderFacility[]> = {
@@ -778,9 +826,10 @@ export function createSeedDb(): MockDb {
 
   const paymentIntents: PaymentIntent[] = [
     {
+      // Held in escrow — backs ord-demo-rx-102.
       id: 'pin-demo-1',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-1',
+      orderId: 'ord-demo-rx-102',
       status: 'escrowed',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -792,9 +841,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-17T10:05:00.000Z',
     },
     {
+      // Never funded — backs ord-demo-lab-101.
       id: 'pin-demo-2',
       orderType: 'lab_order',
-      orderId: 'ord-demo-lab-1',
+      orderId: 'ord-demo-lab-101',
       status: 'created',
       patientProfileId: 'prf-patient-2',
       facilityId: FACILITY_ID,
@@ -806,9 +856,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-18T08:10:00.000Z',
     },
     {
+      // Released — backs the completed ord-demo-rx-100.
       id: 'pin-demo-3',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-2',
+      orderId: 'ord-demo-rx-100',
       status: 'released',
       patientProfileId: 'prf-patient-3',
       facilityId: FACILITY_ID,
@@ -818,6 +869,38 @@ export function createSeedDb(): MockDb {
       sorobanContractId: 'CD demo contract (fake)',
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-16T09:00:00.000Z',
+    },
+    {
+      // Refunded — backs the cancelled ord-demo-rx-103 (issue #61).
+      id: 'pin-demo-4',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-103',
+      status: 'refunded',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '40000000',
+      escrowId: 'esc-demo-4 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000004',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-14T11:05:00.000Z',
+      updatedAt: '2026-10-15T16:00:00.000Z',
+    },
+    {
+      // Failed — backs ord-demo-rx-104 (issue #61); the panel says to
+      // contact support. ord-demo-rx-101 (superseded) deliberately has no
+      // intent at all, so the panel hides there.
+      id: 'pin-demo-5',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-104',
+      status: 'failed',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '1250000000',
+      escrowId: null,
+      stellarTxHash: null,
+      sorobanContractId: null,
+      createdAt: '2026-10-17T15:05:00.000Z',
+      updatedAt: '2026-10-17T15:06:00.000Z',
     },
     // Escrow held for the seeded fulfilment disputes below.
     {
@@ -1061,6 +1144,33 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const closures: Closure[] = [
+    {
+      id: 'clo-holiday-new-year',
+      name: 'New Year Holiday',
+      description: 'Year-end holiday closure (fake)',
+      status: 'active',
+      allDay: true,
+      start: '2026-12-24T00:00:00.000Z',
+      end: '2026-12-26T23:59:59.999Z',
+      facilityId: null, // platform-wide
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      id: 'clo-maintenance-pharmacy',
+      name: 'Pharmacy Maintenance',
+      description: 'Quarterly equipment maintenance (fake)',
+      status: 'active',
+      allDay: false,
+      start: '2026-11-01T09:00:00.000Z',
+      end: '2026-11-01T17:00:00.000Z',
+      facilityId: FACILITY_ID, // scoped to the demo pharmacy
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -1085,5 +1195,6 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    closures,
   };
 }

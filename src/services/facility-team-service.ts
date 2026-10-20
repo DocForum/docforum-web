@@ -7,12 +7,12 @@ import type {
   FulfillmentQueueItem,
 } from '../types/models';
 
-export function listFacilityMembers(facilityId: string, accessToken: string): Promise<FacilityMember[]> {
-  return apiFetch<FacilityMember[]>(`/facilities/${facilityId}/members`, { accessToken });
+export function listFacilityMembers(facilityId: string, accessToken: string, signal?: AbortSignal): Promise<FacilityMember[]> {
+  return apiFetch<FacilityMember[]>(`/facilities/${facilityId}/members`, { accessToken, signal });
 }
 
-export function listFacilityInvites(facilityId: string, accessToken: string): Promise<FacilityInvite[]> {
-  return apiFetch<FacilityInvite[]>(`/facilities/${facilityId}/invites`, { accessToken });
+export function listFacilityInvites(facilityId: string, accessToken: string, signal?: AbortSignal): Promise<FacilityInvite[]> {
+  return apiFetch<FacilityInvite[]>(`/facilities/${facilityId}/invites`, { accessToken, signal });
 }
 
 export function inviteFacilityMember(
@@ -63,9 +63,11 @@ export function removeFacilityMember(
 export function getFulfillmentQueue(
   facilityId: string,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<FulfillmentQueueItem[]> {
   return apiFetch<FulfillmentQueueItem[]>(`/facilities/${facilityId}/fulfillment-queue`, {
     accessToken,
+    signal,
   });
 }
 
