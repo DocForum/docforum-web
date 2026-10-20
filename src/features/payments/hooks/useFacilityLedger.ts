@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import { getFacilityPayoutLedger } from '../../../services/payments-service';
 import { ApiTimeoutError, isAbortError } from '../../../services/api-client';
+import { paymentKeys } from '../../../query-keys';
 import type { FacilityLedgerPage } from '../../../types/models';
 
 export const DEFAULT_MOCK_LEDGER_PAGE: FacilityLedgerPage = {
@@ -150,7 +151,7 @@ export function useFacilityLedger(facilityId: string, filters: UseFacilityLedger
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery<FacilityLedgerPage, Error>({
-    queryKey: ['facility-payout-ledger', facilityId, filters],
+    queryKey: paymentKeys.ledger(facilityId, filters),
     queryFn: async ({ signal }) => {
       if (!accessToken) throw new Error('Not authenticated');
       try {

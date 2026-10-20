@@ -2,15 +2,14 @@ import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as messagingService from '../../../services/messaging-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { messageKeys } from '../../../query-keys';
 import type { ListThreadsInput } from '../../../services/messaging-service';
 import type { MessageThread } from '../../../types/models';
-
-const THREADS_KEY = ['doctor', 'messages', 'threads'] as const;
 
 export function useMessageThreads(input: ListThreadsInput) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
-  const queryKey = [...THREADS_KEY, input.filter, input.cursor, input.limit];
+  const queryKey = messageKeys.threads(input.filter, input.cursor, input.limit);
 
   const query = useQuery({
     queryKey,

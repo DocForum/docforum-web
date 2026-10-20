@@ -3,14 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { useBrowserNotification } from '../../../hooks/useBrowserNotification';
+import { appointmentKeys } from '../../../query-keys';
 import { notificationBody, queueSignature, shouldNotify } from '../queue';
 import type { AppointmentQueue } from '../../../types/models';
 
 export const QUEUE_POLL_INTERVAL_MS = 15_000;
 
-function queueKey(appointmentId: string) {
-  return ['appointments', appointmentId, 'queue'] as const;
-}
+const queueKey = appointmentKeys.queue;
 
 export function useAppointmentQueue(appointmentId: string | undefined, poll: boolean, intervalMs = QUEUE_POLL_INTERVAL_MS) {
   const accessToken = useAuthStore((state) => state.accessToken);

@@ -1,13 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as consultationService from '../../../services/consultation-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { consultationKeys } from '../../../query-keys';
 import type { ConsultationNote } from '../../../types/models';
 
-const NOTE_KEY = (appointmentId: string) => [
-  'consultation',
-  'note',
-  appointmentId,
-] as const;
+const NOTE_KEY = consultationKeys.note;
 
 export function useConsultationNote(appointmentId: string | null) {
   const accessToken = useAuthStore((state) => state.accessToken);

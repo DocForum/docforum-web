@@ -95,9 +95,11 @@ interface InflightEntry {
  * and timeout. Mutations never reach this map (see `apiFetch`). */
 const inflight = new Map<string, InflightEntry>();
 
-function buildHeaders(options: RequestOptions, parse: ParseMode): Record<string, string> {
+function buildHeaders(options: RequestOptions, parse: ParseMode, hasForm = false): Record<string, string> {
   const headers: Record<string, string> = parse === 'json' ? { Accept: 'application/json' } : {};
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  // A multipart body must keep the browser-generated boundary, so it never
+  // sets Content-Type here.
+  if (!hasForm && options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
   return headers;
 }
@@ -178,7 +180,12 @@ function linkSignal(signal: AbortSignal | undefined, controller: AbortController
 }
 
 /** Non-de-duplicated request: mutations and anything not safe to share. */
-async function executeOnce<T>(path: string, options: RequestOptions, parse: ParseMode): Promise<T> {
+async function executeOnce<T>(
+  path: string,
+  options: RequestOptions,
+  parse: ParseMode,
+  formData?: FormData,
+): Promise<T> {
   const { method = 'GET', body, signal } = options;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   if (signal?.aborted) throw signal.reason;
@@ -188,9 +195,9 @@ async function executeOnce<T>(path: string, options: RequestOptions, parse: Pars
   try {
     const init: RequestInit = {
       method,
-      headers: buildHeaders(options, parse),
+      headers: buildHeaders(options, parse, formData !== undefined),
       credentials: 'include',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
     };
     return await runFetch<T>(`${API_BASE_URL}${path}`, init, path, timeoutMs, controller, parse);
   } finally {
@@ -267,6 +274,25 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return method === 'GET'
     ? executeDeduped<T>(path, options, 'json')
     : executeOnce<T>(path, options, 'json');
+}
+
+export interface FormRequestOptions {
+  method?: 'POST' | 'PATCH';
+  accessToken?: string | null;
+  signal?: AbortSignal;
+  /** Same budget rules as `RequestOptions.timeoutMs`. */
+  timeoutMs?: number;
+}
+
+/** Multipart upload. Always a mutation, so it is never de-duplicated, and
+ * it rides the same timeout/abort plumbing as every other request. */
+export async function apiFetchForm<T>(
+  path: string,
+  formData: FormData,
+  options: FormRequestOptions = {},
+): Promise<T> {
+  const request: RequestOptions = { ...options, method: options.method ?? 'POST' };
+  return executeOnce<T>(path, request, 'json', formData);
 }
 
 export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {

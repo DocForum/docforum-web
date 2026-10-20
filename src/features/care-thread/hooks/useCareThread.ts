@@ -3,6 +3,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import { getCareThreadById, getCareThreads } from '../../../services/care-thread-service';
 import { isAbortError } from '../../../services/api-client';
+import { careThreadKeys } from '../../../query-keys';
 import type { CareThread } from '../../../types/models';
 
 export function useCareThreads() {
@@ -10,7 +11,7 @@ export function useCareThreads() {
   const selectedProfileId = useProfileStore((s) => s.selectedProfileId);
 
   return useQuery<CareThread[]>({
-    queryKey: ['care-threads', selectedProfileId],
+    queryKey: careThreadKeys.list(selectedProfileId ?? ''),
     queryFn: async ({ signal }) => {
       if (!selectedProfileId || !accessToken) return [];
       try {
@@ -31,7 +32,7 @@ export function useCareThread(threadId?: string) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery<CareThread | null>({
-    queryKey: ['care-thread', threadId],
+    queryKey: careThreadKeys.detail(threadId ?? ''),
     queryFn: async ({ signal }) => {
       if (!threadId || !accessToken) return null;
       try {
