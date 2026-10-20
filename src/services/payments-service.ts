@@ -14,8 +14,8 @@ export function linkWallet(stellarPublicKey: string, accessToken: string): Promi
   });
 }
 
-export function getOwnWalletLink(accessToken: string): Promise<WalletLink> {
-  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken });
+export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<WalletLink> {
+  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken, signal });
 }
 
 export interface CreatePaymentIntentInput {
@@ -30,8 +30,8 @@ export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken
   return apiFetch<PaymentIntent>('/payments/intents', { method: 'POST', body: input, accessToken });
 }
 
-export function getPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken });
+export function getPaymentIntent(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentIntent> {
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken, signal });
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
@@ -76,13 +76,14 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
 export function getFacilityPayoutLedger(
   facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string }
+  params?: { cursor?: string; status?: string; asset?: string },
+  signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set('cursor', params.cursor);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
   if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken });
+  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
 

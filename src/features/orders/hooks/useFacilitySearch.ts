@@ -8,6 +8,6 @@ export function useFacilitySearch(params: FacilitySearchParams) {
 
   return useQuery<FacilityWithDistance[]>({
     queryKey: ['facilities', params.type, params.lat, params.lng, params.query],
-    queryFn: () => getFacilities(params, accessToken),
+    queryFn: ({ signal }) => getFacilities(params, accessToken, signal),
   });
 }

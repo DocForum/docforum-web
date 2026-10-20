@@ -59,6 +59,40 @@ those first if you're new to the org, not just this file.
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
 
+## API client behaviour (issue #123)
+`src/services/api-client.ts` is the only place HTTP lives, and it now owns
+the full request lifecycle — services pass options through, never wire
+`fetch` themselves:
+
+- **Timeouts.** Every request has a budget: `DEFAULT_TIMEOUT_MS` (60 s,
+  deliberately longer than docforum-core's ~1 minute cold start so the
+  `useSlowRequestHint` message at 4 s explains a wait that then *succeeds*
+  instead of being killed mid-cold-start), or `SLOW_REQUEST_TIMEOUT_MS`
+  (120 s) for the genuinely slow endpoints (`POST /account/data-export`,
+  its download, `POST /admin/jobs/:name/run`). Expiry rejects with a
+  typed `ApiTimeoutError` — never silently, and never disguised as an
+  `ApiError` (which always means "a response arrived").
+- **Cancellation.** Every query-serving service function takes an optional
+  trailing `AbortSignal`, and every `queryFn` passes React Query's signal
+  (`queryFn: ({ signal }) => …`) — so a navigation/unmount stops the
+  network call. A caller-initiated abort rejects with its abort reason;
+  `isAbortError(error)` distinguishes it from real failures. The retry
+  policy in `query-client.ts` never retries an abort, and any
+  catch-all `catch` in a `queryFn` that degrades to placeholder data
+  **must rethrow aborts/timeouts** first (`useCareThreads`,
+  `useFacilityLedger` do) — resolving a cancelled query with fallback data
+  caches data nobody asked for.
+- **GET de-duplication.** Identical concurrent GETs (same URL, bearer
+  token, timeout and parse mode) share one request and one parsed result.
+  Cancellation is per caller: aborting one participant rejects only that
+  participant; the shared request is aborted once its *last* caller
+  leaves. **Mutations are never de-duplicated** — a POST must never be
+  replayed as if the second caller's write had happened.
+- **Retry policy.** `query-client.ts` retries transient failures once
+  (`retry: 1` semantics kept) and never retries an abort. Per-hook
+  `retry` overrides (e.g. no retry on a 404 "no wallet linked") still
+  apply on top.
+
 ## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
 `docforum-core` now has a real, tested API — see its `docs/api/README.md`.
 The original W1 assumptions here turned out correct (`POST /auth/signup`/

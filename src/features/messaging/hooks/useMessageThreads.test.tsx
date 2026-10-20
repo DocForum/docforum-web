@@ -61,6 +61,7 @@ describe('useMessageThreads', () => {
     expect(vi.mocked(messagingService.listThreads)).toHaveBeenCalledWith(
       { filter: 'all', cursor: null, limit: 10 },
       'test-token',
+      expect.any(AbortSignal),
     );
   });
 

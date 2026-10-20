@@ -14,7 +14,7 @@ export function useHealthEntries(section: HealthSectionKey) {
 
   return useQuery({
     queryKey: healthKey(profileId!, section),
-    queryFn: () => healthService.listHealthEntries(profileId!, section, accessToken!),
+    queryFn: ({ signal }) => healthService.listHealthEntries(profileId!, section, accessToken!, signal),
     enabled: Boolean(accessToken && profileId),
   });
 }

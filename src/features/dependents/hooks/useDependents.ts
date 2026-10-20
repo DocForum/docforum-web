@@ -10,7 +10,7 @@ export function useDependents() {
 
   return useQuery({
     queryKey: DEPENDENTS_KEY,
-    queryFn: () => dependentsService.listDependents(accessToken!),
+    queryFn: ({ signal }) => dependentsService.listDependents(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }

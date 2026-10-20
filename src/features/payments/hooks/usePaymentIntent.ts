@@ -12,7 +12,7 @@ export function usePaymentIntent(id: string | null) {
 
   return useQuery({
     queryKey: intentQueryKey(id ?? ''),
-    queryFn: () => paymentsService.getPaymentIntent(id!, accessToken!),
+    queryFn: ({ signal }) => paymentsService.getPaymentIntent(id!, accessToken!, signal),
     enabled: Boolean(accessToken && id),
   });
 }

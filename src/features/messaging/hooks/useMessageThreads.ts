@@ -14,7 +14,7 @@ export function useMessageThreads(input: ListThreadsInput) {
 
   const query = useQuery({
     queryKey,
-    queryFn: () => messagingService.listThreads(input, accessToken!),
+    queryFn: ({ signal }) => messagingService.listThreads(input, accessToken!, signal),
     enabled: Boolean(accessToken),
     placeholderData: (previous) => previous,
   });

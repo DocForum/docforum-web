@@ -184,6 +184,7 @@ describe('FacilityPayoutLedger & formatStroops', () => {
         'fac-1',
         'facility-access-token',
         expect.objectContaining({ status: 'held' }),
+        expect.any(AbortSignal),
       );
     });
   });

@@ -15,7 +15,7 @@ export function useAppointments() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: APPOINTMENTS_KEY,
-    queryFn: () => queueService.listTodayAppointments(accessToken!),
+    queryFn: ({ signal }) => queueService.listTodayAppointments(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }
@@ -25,7 +25,7 @@ export function useQueue() {
   // Refetch periodically so newly checked-in patients appear live.
   return useQuery({
     queryKey: QUEUE_KEY,
-    queryFn: () => queueService.listQueue(accessToken!),
+    queryFn: ({ signal }) => queueService.listQueue(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: 30000,
   });
@@ -35,7 +35,7 @@ export function useRunningDelay() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: RUNNING_DELAY_KEY,
-    queryFn: () => queueService.getRunningDelay(accessToken!),
+    queryFn: ({ signal }) => queueService.getRunningDelay(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: 30000,
   });
