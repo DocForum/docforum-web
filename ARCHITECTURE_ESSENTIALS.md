@@ -264,6 +264,50 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+### Content Security Policy, SRI and security headers (issue #101)
+
+- **Enforcement point:** GitHub Pages cannot set HTTP response headers, so the
+  policy is delivered via a `<meta http-equiv="Content-Security-Policy">` tag
+  in `index.html`. When the app moves to a host that supports response headers,
+  the same policy should be sent as the `Content-Security-Policy` header
+  instead of (or in addition to) the meta tag — the HTTP header takes
+  precedence and covers directives the meta tag ignores (notably
+  `frame-ancestors`).
+- **Policy (production, strict):** `script-src 'self'` with no inline scripts;
+  `style-src 'self'` with no inline styles; `font-src 'self'`; `connect-src`
+  limited to same-origin plus the docforum-core API origin
+  (`https://docforum-core-api.onrender.com`, set via `VITE_API_BASE_URL`);
+  `img-src 'self' data:`; `base-uri 'self'`; `form-action 'self'`;
+  `frame-ancestors 'none'`; `require-trusted-types-for 'script'`. The inline
+  theme script and loading-shell styles that used to live in `index.html`
+  were removed: theme is applied by React after mount, and the loading shell
+  is styled by the external same-origin sheet `public/loading-shell.css`.
+- **Dev policy (relaxed):** `vite` dev mode injects a separate, relaxed policy
+  (`script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+  `style-src 'self' 'unsafe-inline'`, `connect-src` including
+  `ws://localhost:5173`) so Vite HMR and React Fast Refresh keep working. It
+  is never emitted to production bundles.
+- **Trusted Types:** `require-trusted-types-for 'script'` is enabled in
+  production (Chrome/Edge). The app has no DOM XSS sinks
+  (`innerHTML`, `dangerouslySetInnerHTML`, `document.write`), so there are no
+  violations; the directive is a defensive baseline.
+- **Subresource Integrity:** fonts are self-hosted under `public/fonts/`
+  (Fraunces + IBM Plex Sans, downloaded from Google Fonts) instead of loading
+  from Google Fonts. The `<link rel="stylesheet" href="/fonts/fonts.css">`
+  carries an `integrity` SHA-256 hash; the font binaries themselves are
+  same-origin. Google Fonts is no longer an external origin, so
+  `fonts.googleapis.com`/`fonts.gstatic.com` are not in the policy.
+- **Security headers to set on a host that supports them** (not settable on
+  GitHub Pages; document for a future migration):
+  - `Content-Security-Policy` — the production policy above (HTTP header).
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains` (HSTS).
+  - `X-Content-Type-Options: nosniff`.
+  - `Referrer-Policy: no-referrer` (the app holds access tokens in memory and
+    renders user-generated text, so referrer URLs must not leak to external
+    origins).
+  - `X-Frame-Options: DENY` (defence in depth alongside `frame-ancestors
+    'none'`).
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
