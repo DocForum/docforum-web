@@ -124,6 +124,12 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [x] **PR conflict notifier** — `.github/workflows/pr-conflict-notifier.yml` + `.github/scripts/pr-conflict-notifier.cjs`. On every push to `main` (and every 3h) it labels open PRs that conflict with `main` as `needs-rebase` and @mentions the author once per push with rebase steps; the label clears itself when the conflict is resolved. Runs from `main` only and never checks out PR code.
 
 ## Changelog
+
+> New entries go in `changelog.d/`, one file per PR — see
+> `changelog.d/README.md`. Maintainers fold them in here with
+> `node scripts/fold-changelog.mjs`. Please don't append to this section
+> directly.
+
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
   of the 3-repo org split.
 - 2026-09-14 — Phase W1 implemented: Vite/React Router/React Query/Zustand
