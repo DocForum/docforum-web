@@ -777,3 +777,93 @@ export interface LabResult {
   isCritical: boolean;
   issuedAt: string;
 }
+
+// --- Patient-side appointment view (issues #32/#33/#34/#37) ------------------
+// `Appointment` above is the doctor-facing row the W3 queue screens use. The
+// patient screens in this feature set read docforum-core's real
+// `GET /appointments/mine`, which `include`s the availability slot and returns
+// the origin and audit timestamps, so it is a different shape and gets its own
+// name rather than a second declaration of `Appointment`. Dates are ISO strings
+// because that is what JSON carries.
+
+export type SlotStatus = 'open' | 'held' | 'booked';
+export type AppointmentOrigin = 'direct_booking' | 'referral';
+
+export interface AvailabilitySlot {
+  id: string;
+  doctorProfileId: string;
+  status: SlotStatus;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientAppointment {
+  id: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  availabilitySlotId: string;
+  status: AppointmentStatus;
+  origin: AppointmentOrigin;
+  availabilitySlot: AvailabilitySlot;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Live visit queue (#32) --------------------------------------------------
+// assumed — docforum-core has no queue endpoint yet; the shape is the smallest
+// one that can distinguish "no queue published" from "you are first".
+
+export type QueuePhase = 'not_open' | 'waiting' | 'being_seen' | 'completed';
+
+export interface AppointmentQueue {
+  appointmentId: string;
+  phase: QueuePhase;
+  /** Patients still ahead. null means no queue is published yet — which is
+   * not the same as being first. */
+  peopleAhead: number | null;
+  /** Minutes. Always rendered as an estimate. */
+  estimatedWaitMinutes: number | null;
+  /** null = this backend has no check-in window, so the UI says "check in on
+   * the day" instead of inventing an opening time. */
+  checkInOpensAt: string | null;
+  checkedInAt: string | null;
+}
+
+// --- PHI access log (#34) ----------------------------------------------------
+// assumed — docforum-core#40 (audit log read API) is not landed; these mirror
+// the event its write-side middleware already records.
+
+export type AccessActorRole = 'doctor' | 'facility' | 'patient' | 'admin';
+export type AccessRecordType = 'health_profile' | 'appointment' | 'referral' | 'order' | 'dependent';
+export type AccessReason = 'consultation' | 'order_fulfillment' | 'result_delivery' | 'handover_claim' | 'support';
+
+export interface AccessLogEvent {
+  id: string;
+  occurredAt: string;
+  actorRole: AccessActorRole;
+  actorName: string;
+  recordType: AccessRecordType;
+  reason: AccessReason;
+}
+
+export interface AccessLogPage {
+  events: AccessLogEvent[];
+  nextCursor: string | null;
+}
+
+// --- Payment history and receipts (#37) --------------------------------------
+
+export interface PaymentHistoryEntry extends PaymentIntent {
+  /** assumed — the real row has no refund deadline column. */
+  refundDeadlineAt?: string | null;
+  /** assumed — the real response carries only `facilityId`, an internal id
+   * the patient-facing UI must not render. */
+  facilityName?: string;
+}
+
+export interface PaymentHistoryPage {
+  intents: PaymentHistoryEntry[];
+  nextCursor: string | null;
+}
