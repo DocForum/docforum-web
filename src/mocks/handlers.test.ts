@@ -22,6 +22,7 @@ import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
 import * as paymentsService from '../services/payments-service';
+import * as disputesService from '../services/admin-disputes-service';
 import * as queueService from '../services/queue-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
@@ -377,6 +378,121 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('admin disputes', () => {
+  it('lists only open disputes, oldest first, with queue fields', async () => {
+    const page = await disputesService.listOpenDisputes(null, MOCK_ACCESS_TOKEN);
+
+    expect(page.items.map((dispute) => dispute.id)).toEqual(['dsp-demo-1', 'dsp-demo-2']);
+    expect(page.items[0]).toMatchObject({
+      orderId: 'ord-demo-rx-1',
+      orderType: 'prescription',
+      facilityName: 'Central Pharmacy & Diagnostic Center (demo)',
+      amountStroops: '500000000',
+      asset: 'XLM',
+      attachmentCount: 2,
+      status: 'open',
+    });
+    // The queue row never carries the full report, evidence or timeline.
+    expect(page.items[0]).not.toHaveProperty('patientReport');
+    expect(page.items[0]).not.toHaveProperty('attachments');
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('returns a resolved dispute by id and keeps it out of the open queue', async () => {
+    const detail = await disputesService.getDispute('dsp-demo-3', MOCK_ACCESS_TOKEN);
+
+    expect(detail.status).toBe('resolved_facility');
+    expect(detail.resolution).toBe('facility');
+    expect(detail.resolutionNote).toContain('manufacturer');
+    expect(detail.resolvedBy).toBe('Al Admin (demo)');
+    expect(detail.timeline.at(-1)?.kind).toBe('resolved');
+
+    const page = await disputesService.listOpenDisputes(null, MOCK_ACCESS_TOKEN);
+    expect(page.items.map((dispute) => dispute.id)).not.toContain('dsp-demo-3');
+  });
+
+  it('mints a fresh signed URL for each attachment open', async () => {
+    const first = await disputesService.createAttachmentUrl('dsp-demo-1', 'att-demo-1', MOCK_ACCESS_TOKEN);
+    const second = await disputesService.createAttachmentUrl('dsp-demo-1', 'att-demo-1', MOCK_ACCESS_TOKEN);
+
+    expect(first.url).toMatch(/^https:\/\/files\.example\.test\/disputes\/dsp-demo-1\/att-demo-1/);
+    expect(first.url).not.toBe(second.url);
+    expect(new Date(first.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    await expect(
+      disputesService.createAttachmentUrl('dsp-demo-1', 'att-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('resolves for the facility, releases escrow once and is final', async () => {
+    const input = {
+      resolution: 'facility' as const,
+      note: 'Dispensing log and label photo match the prescription.',
+      expectedUpdatedAt: '2026-10-16T11:30:00.000Z',
+    };
+
+    const detail = await disputesService.resolveDispute('dsp-demo-1', input, MOCK_ACCESS_TOKEN);
+    expect(detail.status).toBe('resolved_facility');
+    expect(detail.resolutionNote).toBe(input.note);
+    expect(detail.timeline.at(-1)).toMatchObject({
+      kind: 'resolved',
+      actorRole: 'admin',
+      summary: expect.stringContaining('released'),
+    });
+
+    const intent = await paymentsService.getPaymentIntent('pin-demo-1', MOCK_ACCESS_TOKEN);
+    expect(intent.status).toBe('released');
+
+    await expect(
+      disputesService.resolveDispute('dsp-demo-1', input, MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('refunds the patient when resolved for the patient', async () => {
+    const detail = await disputesService.resolveDispute(
+      'dsp-demo-2',
+      {
+        resolution: 'patient',
+        note: 'No result was delivered before the appointment.',
+        expectedUpdatedAt: '2026-10-18T09:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+
+    expect(detail.status).toBe('resolved_patient');
+    expect(detail.timeline.at(-1)?.summary).toContain('refunded');
+    const intent = await paymentsService.getPaymentIntent('pin-demo-4', MOCK_ACCESS_TOKEN);
+    expect(intent.status).toBe('refunded');
+  });
+
+  it('rejects a stale version, an unknown resolution and a short note', async () => {
+    const base = {
+      resolution: 'facility' as const,
+      note: 'Checked the evidence carefully.',
+      expectedUpdatedAt: '2026-10-16T11:30:00.000Z',
+    };
+
+    await expect(
+      disputesService.resolveDispute(
+        'dsp-demo-1',
+        { ...base, expectedUpdatedAt: '2026-01-01T00:00:00.000Z' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+
+    await expect(
+      disputesService.resolveDispute(
+        'dsp-demo-1',
+        { ...base, resolution: 'nobody' as 'facility' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      disputesService.resolveDispute('dsp-demo-1', { ...base, note: 'too short' }, MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 

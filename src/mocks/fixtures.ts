@@ -16,6 +16,7 @@ import type {
   FacilityInvite,
   FacilityMember,
   FacilityWithDistance,
+  FulfillmentDisputeDetail,
   FulfillmentQueueItem,
   HealthEntry,
   MessageThread,
@@ -85,6 +86,7 @@ export interface MockDb {
   fulfillmentQueue: FulfillmentQueueItem[];
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
+  disputes: FulfillmentDisputeDetail[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
 }
 
@@ -642,6 +644,215 @@ export function createSeedDb(): MockDb {
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-16T09:00:00.000Z',
     },
+    {
+      id: 'pin-demo-4',
+      orderType: 'lab_order',
+      orderId: 'ord-demo-lab-2',
+      status: 'escrowed',
+      patientProfileId: 'prf-patient-2',
+      facilityId: FACILITY_ID,
+      amountStroops: '250000000',
+      escrowId: 'esc-demo-4 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000004',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-17T08:00:00.000Z',
+      updatedAt: '2026-10-17T08:05:00.000Z',
+    },
+  ];
+
+  // Open disputes block a payment release; two are open here so the queue
+  // exercises its oldest-first ordering, and one is already resolved so the
+  // detail screen's final state is reachable in `dev:mock`. Attachment
+  // fixtures deliberately carry no URL — handlers mint signed URLs.
+  const disputes: FulfillmentDisputeDetail[] = [
+    {
+      id: 'dsp-demo-1',
+      orderId: 'ord-demo-rx-1',
+      orderType: 'prescription',
+      orderItemName: 'Amoxicillin 500 mg capsules (30) (demo)',
+      patientName: 'Pat Placeholder (demo)',
+      facilityId: FACILITY_ID,
+      facilityName: 'Central Pharmacy & Diagnostic Center (demo)',
+      amountStroops: '500000000',
+      asset: 'XLM',
+      status: 'open',
+      openedAt: '2026-10-11T09:15:00.000Z',
+      updatedAt: '2026-10-16T11:30:00.000Z',
+      reportExcerpt:
+        'The label says 250 mg but my prescription is for 500 mg. I noticed after taking one dose and want the correct medication or a refund.',
+      patientReport:
+        "I collected this on 10 October. The printed label says 250 mg three times a day, but my prescription (and the copy in my care timeline) says 500 mg. I took one dose before noticing and I'm worried. I'd like the correct medication or a refund. (demo report)",
+      attachmentCount: 2,
+      facilityProof:
+        'Our dispensing log shows batch B-9912 was labelled at 500 mg. The attached photo was taken at the counter before handover. We are checking whether a second label was printed by mistake. (demo proof)',
+      attachments: [
+        {
+          id: 'att-demo-1',
+          fileName: 'dispensing-log-demo.txt',
+          contentType: 'text/plain',
+          sizeBytes: 2048,
+          uploadedAt: '2026-10-12T10:05:00.000Z',
+          uploadedBy: 'facility',
+        },
+        {
+          id: 'att-demo-2',
+          fileName: 'label-photo-demo.png',
+          contentType: 'image/png',
+          sizeBytes: 184320,
+          uploadedAt: '2026-10-12T10:06:00.000Z',
+          uploadedBy: 'facility',
+        },
+      ],
+      timeline: [
+        {
+          id: 'dtl-demo-1-1',
+          kind: 'opened',
+          at: '2026-10-11T09:15:00.000Z',
+          actor: 'Pat Placeholder (demo)',
+          actorRole: 'patient',
+          summary: 'Reported a dose mismatch on the dispensed prescription.',
+        },
+        {
+          id: 'dtl-demo-1-2',
+          kind: 'facility_evidence',
+          at: '2026-10-12T10:06:00.000Z',
+          actor: 'Frank Facility (demo)',
+          actorRole: 'facility',
+          summary: 'Uploaded the dispensing log and a photo of the label.',
+        },
+        {
+          id: 'dtl-demo-1-3',
+          kind: 'admin_note',
+          at: '2026-10-16T11:30:00.000Z',
+          actor: 'Al Admin (demo)',
+          actorRole: 'admin',
+          summary: 'Asked the facility to confirm the batch number and whether the label was reprinted.',
+        },
+      ],
+      paymentIntentId: 'pin-demo-1',
+      escrowId: 'esc-demo-1 (fake)',
+      resolution: null,
+      resolutionNote: null,
+      resolvedAt: null,
+      resolvedBy: null,
+    },
+    {
+      id: 'dsp-demo-2',
+      orderId: 'ord-demo-lab-2',
+      orderType: 'lab',
+      orderItemName: 'Fasting lipid panel (demo)',
+      patientName: 'Sam Example (demo)',
+      facilityId: FACILITY_ID,
+      facilityName: 'Central Pharmacy & Diagnostic Center (demo)',
+      amountStroops: '250000000',
+      asset: 'XLM',
+      status: 'open',
+      openedAt: '2026-10-17T08:40:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+      reportExcerpt:
+        'The sample was taken but no results have appeared. I was told they would be ready in two days and I need them for an appointment.',
+      patientReport:
+        'The sample was taken on 16 October and I was told results would be ready in two days. Nothing has appeared in my care timeline and my appointment is tomorrow. Please either send the result or refund me. (demo report)',
+      attachmentCount: 1,
+      facilityProof: null,
+      attachments: [
+        {
+          id: 'att-demo-3',
+          fileName: 'sample-collection-log-demo.csv',
+          contentType: 'text/csv',
+          sizeBytes: 4096,
+          uploadedAt: '2026-10-18T09:00:00.000Z',
+          uploadedBy: 'facility',
+        },
+      ],
+      timeline: [
+        {
+          id: 'dtl-demo-2-1',
+          kind: 'opened',
+          at: '2026-10-17T08:40:00.000Z',
+          actor: 'Sam Example (demo)',
+          actorRole: 'patient',
+          summary: 'Reported that no lab result had been delivered.',
+        },
+        {
+          id: 'dtl-demo-2-2',
+          kind: 'facility_evidence',
+          at: '2026-10-18T09:00:00.000Z',
+          actor: 'Frank Facility (demo)',
+          actorRole: 'facility',
+          summary: 'Uploaded the sample collection log.',
+        },
+      ],
+      paymentIntentId: 'pin-demo-4',
+      escrowId: 'esc-demo-4 (fake)',
+      resolution: null,
+      resolutionNote: null,
+      resolvedAt: null,
+      resolvedBy: null,
+    },
+    {
+      id: 'dsp-demo-3',
+      orderId: 'ord-demo-rx-2',
+      orderType: 'prescription',
+      orderItemName: 'Metformin 850 mg tablets (60) (demo)',
+      patientName: 'Quinn Example (demo)',
+      facilityId: FACILITY_ID,
+      facilityName: 'Central Pharmacy & Diagnostic Center (demo)',
+      amountStroops: '750000000',
+      asset: 'XLM',
+      status: 'resolved_facility',
+      openedAt: '2026-10-05T10:00:00.000Z',
+      updatedAt: '2026-10-08T14:20:00.000Z',
+      reportExcerpt: 'The tablets were a different shape from last month and I was worried they were wrong.',
+      patientReport:
+        'The tablets were a different shape from last month and I was worried they were wrong. The pharmacy said the manufacturer changed. (demo report)',
+      attachmentCount: 1,
+      facilityProof:
+        'The manufacturer changed the tablet shape in September; the batch and dose are identical to the prescription. The wholesaler letter is attached. (demo proof)',
+      attachments: [
+        {
+          id: 'att-demo-4',
+          fileName: 'manufacturer-letter-demo.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 51200,
+          uploadedAt: '2026-10-06T11:00:00.000Z',
+          uploadedBy: 'facility',
+        },
+      ],
+      timeline: [
+        {
+          id: 'dtl-demo-3-1',
+          kind: 'opened',
+          at: '2026-10-05T10:00:00.000Z',
+          actor: 'Quinn Example (demo)',
+          actorRole: 'patient',
+          summary: 'Reported that the dispensed tablets looked different.',
+        },
+        {
+          id: 'dtl-demo-3-2',
+          kind: 'facility_evidence',
+          at: '2026-10-06T11:00:00.000Z',
+          actor: 'Frank Facility (demo)',
+          actorRole: 'facility',
+          summary: 'Uploaded the manufacturer’s batch-change letter.',
+        },
+        {
+          id: 'dtl-demo-3-3',
+          kind: 'resolved',
+          at: '2026-10-08T14:20:00.000Z',
+          actor: 'Al Admin (demo)',
+          actorRole: 'admin',
+          summary: 'Resolved for the facility — the batch and dose matched the prescription.',
+        },
+      ],
+      paymentIntentId: 'pin-demo-3',
+      escrowId: 'esc-demo-3 (fake)',
+      resolution: 'facility',
+      resolutionNote:
+        'Batch and dose matched the prescription; the manufacturer’s letter confirms the shape change. Escrow released to the facility. (demo note)',
+      resolvedAt: '2026-10-08T14:20:00.000Z',
+      resolvedBy: 'Al Admin (demo)',
+    },
   ];
 
   return {
@@ -660,6 +871,7 @@ export function createSeedDb(): MockDb {
     fulfillmentQueue,
     walletLink,
     paymentIntents,
+    disputes,
     consultationAddenda,
   };
 }

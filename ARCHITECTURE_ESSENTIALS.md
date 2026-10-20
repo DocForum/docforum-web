@@ -183,6 +183,29 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
 - `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
 
+### Phase W6 — Fulfilment disputes (assumed)
+
+docforum-core has no dispute model or endpoints yet (it depends on
+docforum-core#76, which is still open). A patient report against a fulfilled
+order blocks the escrowed payment until an admin resolves it; the
+shapes below are the smallest contract `src/features/admin-disputes/` needs
+and are mirrored by `src/mocks/handlers/disputes.ts`. Reconcile this section
+when the real contract lands.
+
+- `GET /admin/disputes?status=open&cursor=` → `{items: FulfillmentDisputeSummary[], nextCursor: string | null}`, oldest first by `openedAt`. The console also sorts every loaded page, so "oldest first" holds across pagination.
+- `GET /admin/disputes/:id` → `FulfillmentDisputeDetail`: the queue fields plus `patientReport`, `facilityProof`, `attachments`, `timeline`, `paymentIntentId`, `escrowId`, `resolution`, `resolutionNote`, `resolvedAt` and `resolvedBy`.
+- `POST /admin/disputes/:id/attachments/:attachmentId/signed-url` → `{url, expiresAt}`. The attachment metadata in the detail response never contains a URL; the UI mints one short-lived URL per open and keeps it only in the click handler, never in state, storage or the DOM.
+- `POST /admin/disputes/:id/resolve` (body: `{resolution: 'facility' | 'patient', note, expectedUpdatedAt}`) → the resolved `FulfillmentDisputeDetail`. `400`/`422` for an invalid resolution or a note outside 10–1000 characters; `409` when the dispute is already resolved or `expectedUpdatedAt` is stale; `404` when it no longer exists.
+- `FulfillmentDisputeSummary` = `{id, orderId, orderType, orderItemName, patientName, facilityId, facilityName, amountStroops, asset, status: 'open'|'resolved_facility'|'resolved_patient', openedAt, updatedAt, reportExcerpt, attachmentCount}`. `DisputeAttachment` = `{id, fileName, contentType, sizeBytes, uploadedAt, uploadedBy}`; `DisputeTimelineEntry` = `{id, kind: 'opened'|'facility_evidence'|'admin_note'|'resolved', at, actor, actorRole, summary}`.
+
+**Finality and money:** a resolution is one-way — there is no reopen or
+appeal transition. Resolving for the facility releases the escrowed amount to
+the facility; resolving for the patient refunds it to the patient. docforum-core
+performs the release/refund server-side as part of the resolve call; this repo
+never calls Stellar or docforum-escrow (hard rule 1). Both choices show that
+consequence before the admin confirms, require a written note, and require an
+explicit acknowledgement that the action cannot be undone.
+
 ### Phase W6 — Admin audit & access log viewer (issue #71)
 
 #### State-change events — real, docforum-core#43 (see its `docs/api/README.md` "Audit trail")

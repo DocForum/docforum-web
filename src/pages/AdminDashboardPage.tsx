@@ -28,6 +28,10 @@ export function AdminDashboardPage() {
           on Stellar testnet, entirely through docforum-core's API.
         </p>
         <p>
+          <Link to="/admin/disputes">Resolve fulfilment disputes</Link> to release or refund escrow held by a
+          patient&apos;s report against a fulfilled order.
+        </p>
+        <p>
           <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
           pending too long.
         </p>
