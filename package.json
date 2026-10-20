@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "build:pages": "tsc -b && GITHUB_PAGES=true vite build",
     "check:dist": "node scripts/check-dist-no-mocks.mjs",
+    "check:stellar-boundary": "node scripts/check-stellar-boundary.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run"
