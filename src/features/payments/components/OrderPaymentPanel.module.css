@@ -60,6 +60,14 @@
   color: var(--color-text);
 }
 
+.supportNote {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--leading-normal);
+  color: var(--color-danger);
+}
+
 .facts {
   display: flex;
   flex-wrap: wrap;

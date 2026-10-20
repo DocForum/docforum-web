@@ -1,23 +1,15 @@
-// Stellar testnet explorer links (issue #10). #10 is still open — this
-// helper is its "helper", introduced here because issue #61 requires
-// explorer links through it; the payout ledger was refactored onto the
-// same function so every link in the app is built in one place.
-//
-// Testnet only: custodial v1 runs on Stellar testnet (docforum-core's
-// docs/adr/0004-custodial-payments-v1.md). This repo never touches
-// Stellar itself (hard rule 1) — these are plain links to a public
-// explorer, not SDK calls.
+// Stellar testnet explorer links — the single place the explorer base URL
+// lives, so mainnet later is a one-line change (or a build-time env). This
+// is a display-only helper: nothing here queries Stellar (hard rule 1); it
+// only turns a hash/contract id core already returned into a link.
 
-const TESTNET_BASE = 'https://stellar.expert/explorer/testnet';
+const EXPLORER_BASE_URL = import.meta.env.VITE_STELLAR_EXPLORER_BASE_URL ?? 'https://testnet.stellar.expert/explorer/public';
 
-/** Explorer URL for a transaction hash, or null when there's no hash. */
-export function txExplorerUrl(txHash: string | null | undefined): string | null {
-  const hash = txHash?.trim();
-  return hash ? `${TESTNET_BASE}/tx/${hash}` : null;
+/** A hash core hasn't produced yet (null before funding) gets no link. */
+export function transactionUrl(txHash: string | null | undefined): string | null {
+  return txHash ? `${EXPLORER_BASE_URL}/transaction/${encodeURIComponent(txHash)}` : null;
 }
 
-/** Explorer URL for a Stellar account (e.g. a facility's linked wallet). */
-export function accountExplorerUrl(publicKey: string | null | undefined): string | null {
-  const key = publicKey?.trim();
-  return key ? `${TESTNET_BASE}/account/${key}` : null;
+export function contractUrl(contractId: string | null | undefined): string | null {
+  return contractId ? `${EXPLORER_BASE_URL}/contract/${encodeURIComponent(contractId)}` : null;
 }

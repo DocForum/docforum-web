@@ -1,6 +1,8 @@
 // Issue #61: every payment status must have plain-language copy and a
-// timeline, the explorer link comes from #10's helper, amounts stay
-// bigint-safe, and admin/console-only fields are never rendered.
+// timeline, the explorer link comes from #10's shared helper, amounts
+// stay bigint-safe, and admin/console-only fields are never rendered.
+// Labels and copy come from features/payments/status.ts — the same
+// wording the payment history screens show.
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '../../../test/render';
 import { OrderPaymentPanel } from './OrderPaymentPanel';
@@ -25,11 +27,12 @@ function makeIntent(overrides: Partial<PaymentIntent> = {}): PaymentIntent {
 }
 
 describe('OrderPaymentPanel', () => {
-  it('shows a plain-language explanation for a created (pending) intent', () => {
+  it('shows a plain-language explanation for a created (not funded) intent', () => {
     render(<OrderPaymentPanel intent={makeIntent({ status: 'created' })} />);
 
-    expect(screen.getByText('Pending')).toBeInTheDocument();
-    expect(screen.getByText(/nothing has been charged/i)).toBeInTheDocument();
+    expect(screen.getByText('Not funded')).toBeInTheDocument();
+    expect(screen.getByText(/set up but never funded/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing has left you/i)).toBeInTheDocument();
     // Future steps are marked as not yet reached.
     expect(screen.getAllByText('Not yet').length).toBeGreaterThan(0);
   });
@@ -43,24 +46,23 @@ describe('OrderPaymentPanel', () => {
 
     // The label appears both as the status pill and as a timeline step.
     expect(screen.getAllByText('Held in escrow')).toHaveLength(2);
-    expect(screen.getByText(/only paid when the order completes/i)).toBeInTheDocument();
+    expect(screen.getByText(/protection escrow exists for/i)).toBeInTheDocument();
     expect(screen.getByText('Current')).toBeInTheDocument();
   });
 
   it('explains a released intent as complete', () => {
     render(<OrderPaymentPanel intent={makeIntent({ status: 'released' })} />);
 
-    // The label appears both as the status pill and as a timeline step.
-    expect(screen.getAllByText('Released to the facility')).toHaveLength(2);
-    expect(screen.getByText(/has been released to the facility/i)).toBeInTheDocument();
+    expect(screen.getByText('Released')).toBeInTheDocument();
+    expect(screen.getByText('Released to the facility')).toBeInTheDocument();
     expect(screen.getByText(/This payment is complete/i)).toBeInTheDocument();
   });
 
-  it('explains a refunded intent as money coming back to the patient', () => {
+  it('explains a refunded intent as money coming back out of escrow', () => {
     render(<OrderPaymentPanel intent={makeIntent({ status: 'refunded' })} />);
 
     expect(screen.getByText('Refunded')).toBeInTheDocument();
-    expect(screen.getByText(/went back to you/i)).toBeInTheDocument();
+    expect(screen.getByText(/came back out of escrow/i)).toBeInTheDocument();
     expect(screen.getByText('Refunded to you')).toBeInTheDocument();
   });
 
@@ -70,6 +72,7 @@ describe('OrderPaymentPanel', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument();
     expect(screen.getByText(/contact DocForum support/i)).toBeInTheDocument();
     expect(screen.getByText(/Nothing was released to the facility/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing was moved on-chain/i)).toBeInTheDocument();
   });
 
   it('renders a timeline step for every status without inventing times', () => {
@@ -88,7 +91,9 @@ describe('OrderPaymentPanel', () => {
       <OrderPaymentPanel intent={makeIntent({ amountStroops: '123456789012345678' })} />,
     );
 
-    expect(screen.getByTestId('payment-amount')).toHaveTextContent('12345678901.2345678');
+    expect(screen.getByTestId('payment-amount')).toHaveTextContent(
+      '12,345,678,901.2345678 XLM',
+    );
   });
 
   it('links the transaction hash through the shared explorer helper', () => {
@@ -96,10 +101,10 @@ describe('OrderPaymentPanel', () => {
       <OrderPaymentPanel intent={makeIntent({ status: 'released', stellarTxHash: 'deadbeef' })} />,
     );
 
-    const link = screen.getByRole('link', { name: /stellar testnet explorer/i });
+    const link = screen.getByRole('link', { name: /stellar explorer/i });
     expect(link).toHaveAttribute(
       'href',
-      'https://stellar.expert/explorer/testnet/tx/deadbeef',
+      'https://testnet.stellar.expert/explorer/public/transaction/deadbeef',
     );
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -109,7 +114,7 @@ describe('OrderPaymentPanel', () => {
     render(<OrderPaymentPanel intent={makeIntent({ status: 'created' })} />);
 
     expect(
-      screen.queryByRole('link', { name: /stellar testnet explorer/i }),
+      screen.queryByRole('link', { name: /stellar explorer/i }),
     ).not.toBeInTheDocument();
   });
 

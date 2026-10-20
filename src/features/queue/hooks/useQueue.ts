@@ -2,11 +2,13 @@ import { useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as queueService from '../../../services/queue-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { appointmentKeys, queueKeys } from '../../../query-keys';
 import type { QueueEntry } from '../../../types/models';
 
-const APPOINTMENTS_KEY = ['doctor', 'appointments', 'today'] as const;
-const QUEUE_KEY = ['doctor', 'queue', 'today'] as const;
-const RUNNING_DELAY_KEY = ['doctor', 'queue', 'running-delay'] as const;
+const APPOINTMENTS_KEY = appointmentKeys.today();
+const QUEUE_KEY = queueKeys.today();
+const RUNNING_DELAY_KEY = queueKeys.runningDelay();
 
 // How long an action can be undone after it's tapped.
 export const UNDO_WINDOW_MS = 4000;
@@ -48,9 +50,7 @@ export function useUpdateRunningDelay() {
   return useMutation({
     mutationFn: (input: { manualOverrideMin: number | null }) =>
       queueService.updateRunningDelay(input, accessToken!),
-    onSuccess: (delay) => {
-      queryClient.setQueryData(RUNNING_DELAY_KEY, delay);
-    },
+    onSuccess: () => invalidateFor(queryClient, 'queue.running-delay'),
   });
 }
 
@@ -68,9 +68,14 @@ export function useVisitActions() {
 
   const startMutation = useMutation({
     mutationFn: (id: string) => queueService.startVisit(id, accessToken!),
+    // The optimistic row lands instantly; once the server agrees, the
+    // appointment list above the queue (and a non-observed queue copy) must
+    // converge on the same status too.
+    onSuccess: () => invalidateFor(queryClient, 'queue.visit-action'),
   });
   const completeMutation = useMutation({
     mutationFn: (id: string) => queueService.completeVisit(id, accessToken!),
+    onSuccess: () => invalidateFor(queryClient, 'queue.visit-action'),
   });
 
   const pending = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());

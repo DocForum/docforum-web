@@ -42,7 +42,13 @@
   color: var(--color-text);
 }
 
-.statusPill[data-status='fulfilled'] {
+.statusPill[data-status='active'] {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.statusPill[data-status='completed'] {
   background: var(--color-success-surface);
   color: var(--color-success);
   border-color: var(--color-success);
@@ -52,6 +58,12 @@
   background: var(--color-danger-surface);
   color: var(--color-danger);
   border-color: var(--color-danger);
+}
+
+.statusPill[data-status='superseded'] {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
 .facts {
@@ -71,6 +83,13 @@
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+.detail {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .instructions {

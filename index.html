@@ -5,67 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>DocForum</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Self-hosted fonts (issue #101): same origin, covered by font-src 'self';
+         the stylesheet link carries a Subresource Integrity hash. Google Fonts
+         is no longer an external origin. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
+      href="/fonts/fonts.css"
+      integrity="sha256-kN0VAlFkIqKbljQY9Fi1hLjy4D8LL2mpkM+aIHTzIJg="
+      crossorigin
     />
-    <!-- Pre-hydration theme script to prevent white flash -->
-    <script>
-      (function() {
-        try {
-          const storedTheme = localStorage.getItem('docforum-theme');
-          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          const prefersHighContrast = window.matchMedia('(prefers-contrast: high)').matches;
-          
-          let theme = storedTheme || (prefersHighContrast ? 'high-contrast' : (prefersDark ? 'dark' : 'light'));
-          document.documentElement.setAttribute('data-theme', theme);
-        } catch (e) {}
-      })();
-    </script>
-    <style>
-      /* Pre-hydration loading shell — the JS bundle (React + GSAP,
-         ~126KB gzipped) has to download, parse, and run before anything
-         else can paint. Pure CSS/HTML, deliberately independent of the
-         app's own stylesheet load timing: falls back to the real brand
-         colors via var(..., #fallback) rather than assuming
-         src/styles/global.css has applied yet. Removed automatically —
-         React's createRoot(...).render() replaces #root's children, it
-         isn't torn down by any script here. */
-      #app-loading {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        background: var(--color-bg, #faf6f0);
-      }
-      #app-loading svg {
-        animation: app-loading-pulse 1.4s ease-in-out infinite;
-      }
-      #app-loading span {
-        font-family: 'IBM Plex Sans', -apple-system, sans-serif;
-        font-size: 0.8125rem;
-        color: var(--color-text-faint, #8c8271);
-      }
-      @keyframes app-loading-pulse {
-        0%,
-        100% {
-          opacity: 0.45;
-        }
-        50% {
-          opacity: 1;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        #app-loading svg {
-          animation: none;
-          opacity: 0.75;
-        }
-      }
-    </style>
+    <!-- Pre-hydration loading shell, styled by an external same-origin sheet -->
+    <link rel="stylesheet" href="/loading-shell.css" />
+    <!-- Connect to the API origin early in production. -->
+    <link rel="preconnect" href="https://docforum-core-api.onrender.com" crossorigin />
+    <!--
+      Content-Security-Policy meta tag.
+      Vite injects the actual policy via the csp plugin: a relaxed policy for
+      `vite` dev (HMR needs inline scripts) and a strict policy for production
+      builds (script-src 'self', no inline scripts). GitHub Pages cannot set
+      HTTP response headers, so the meta tag is the enforcement point here.
+      See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Content Security Policy".
+    -->
   </head>
   <body>
     <div id="root">

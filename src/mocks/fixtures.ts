@@ -9,7 +9,10 @@ import type {
   Appointment,
   CareThread,
   ConsultationAddendum,
+  ConsultationIssuedOrder,
   ConsultationNote,
+  ConsultationRecord,
+  ConsultationReferral,
   DataExport,
   Dependent,
   DoctorPracticeInsights,
@@ -18,9 +21,11 @@ import type {
   FacilityWithDistance,
   FulfillmentQueueItem,
   HealthEntry,
+  IntakeForm,
   MessageThread,
-  PaymentIntent,
   PatientOrder,
+  PaymentIntent,
+  QualifiedOrderFacility,
   RunningDelay,
   User,
   WalletLink,
@@ -68,89 +73,6 @@ export const DEPENDENT_PROFILE_ID = 'prf-dependent-demo';
 export const DOCTOR_PROFILE_ID = 'prf-doctor-demo';
 export const FACILITY_ID = 'fac-demo-pharmacy';
 
-// --- Patient orders (issue #61, read-only demo data) -------------------------
-// Paired with the seeded payment intents below: rx-1 → escrowed, lab-1 →
-// created, rx-2 → released, rx-4 → refunded, rx-5 → failed, rx-3 → no
-// intent at all (the payment panel hides — issue #61).
-export const PATIENT_ORDERS: PatientOrder[] = [
-  {
-    id: 'ord-demo-rx-1',
-    orderType: 'prescription',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo Metformin 850mg (fake)',
-    instructions: 'Take one tablet twice daily with food.',
-    status: 'issued',
-    issuedAt: '2026-10-16T10:00:00.000Z',
-    expiresAt: '2026-11-16T10:00:00.000Z',
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
-  },
-  {
-    id: 'ord-demo-lab-1',
-    orderType: 'lab',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo blood panel (fake)',
-    instructions: 'Fasting sample required.',
-    status: 'issued',
-    issuedAt: '2026-10-18T08:00:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: { id: 'fac-demo-lab', name: 'Example Lab (fake)' },
-  },
-  {
-    // Paid + released — the facility completed it.
-    id: 'ord-demo-rx-2',
-    orderType: 'prescription',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo Amoxicillin 250mg (fake)',
-    instructions: 'Take one capsule three times daily.',
-    status: 'fulfilled',
-    issuedAt: '2026-10-12T09:00:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
-  },
-  {
-    // No payment intent exists for this order — panel must hide.
-    id: 'ord-demo-rx-3',
-    orderType: 'prescription',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo Vitamin D drops (fake)',
-    instructions: null,
-    status: 'issued',
-    issuedAt: '2026-10-19T07:30:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: null,
-  },
-  {
-    // Refunded — the order fell through and the escrow came back.
-    id: 'ord-demo-rx-4',
-    orderType: 'prescription',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo Insulin pen (fake)',
-    instructions: null,
-    status: 'cancelled',
-    issuedAt: '2026-10-14T11:00:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
-  },
-  {
-    // Failed payment — the panel shows "contact support".
-    id: 'ord-demo-rx-5',
-    orderType: 'prescription',
-    patientProfileId: PATIENT_PROFILE_ID,
-    itemName: 'Demo blood thinners (fake)',
-    instructions: null,
-    status: 'issued',
-    issuedAt: '2026-10-17T15:00:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder (fake)',
-    facility: { id: FACILITY_ID, name: 'Example Pharmacy (fake)' },
-  },
-];
-
 // --- Seed database -----------------------------------------------------------
 
 export interface MockDb {
@@ -159,14 +81,20 @@ export interface MockDb {
   dataExport: DataExport | null;
   careThreads: CareThread[];
   appointments: Appointment[];
+  intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
   messageThreads: MessageThread[];
   consultationNotes: ConsultationNote[];
+  consultationRecords: ConsultationRecord[];
+  consultationReferrals: ConsultationReferral[];
+  consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
+  patientOrders: PatientOrder[];
+  orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
@@ -375,6 +303,33 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+    },
+  ];
+
+  const intakeForms: IntakeForm[] = [
+    {
+      id: 'itk-demo-1',
+      appointmentId: 'apt-demo-3',
+      patientProfileId: 'prf-patient-3',
+      submittedAt: '2026-10-18T09:18:00.000Z',
+      chiefComplaint: 'Demo prescription review (fake)',
+      symptomDuration: '2 days',
+      severity: 4,
+      currentMedications: ['Demo Metformin 850mg (fake)'],
+      allergies: ['None recorded'],
+      notes: 'Demo intake note (fake).',
+    },
+    {
+      id: 'itk-demo-2',
+      appointmentId: 'apt-demo-4',
+      patientProfileId: 'prf-patient-4',
+      submittedAt: '2026-10-18T09:45:00.000Z',
+      chiefComplaint: 'Demo new concern (fake)',
+      symptomDuration: null,
+      severity: null,
+      currentMedications: [],
+      allergies: ['Demo penicillin allergy (fake)'],
+      notes: null,
     },
   ];
 
@@ -675,6 +630,188 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const patientOrders: PatientOrder[] = [
+    {
+      id: 'ord-demo-rx-102',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 2,
+      supersedesId: 'ord-demo-rx-101',
+      status: 'active',
+      issuedAt: '2026-10-18T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 500mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Demo instructions (fake): take with food for ten days.',
+    },
+    {
+      id: 'ord-demo-rx-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'superseded',
+      issuedAt: '2026-10-17T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 250mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Superseded by a corrected dose.',
+    },
+    {
+      id: 'ord-demo-lab-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'lab_order',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-18T09:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      testName: 'Demo full blood count (fake)',
+      fastingRequired: true,
+      instructions: 'Demo instructions (fake): fasting sample required.',
+    },
+    {
+      id: 'ord-demo-rx-100',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'completed',
+      issuedAt: '2026-09-20T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Vitamin D 1000 IU (fake)',
+      dose: 'One tablet daily',
+      quantity: '30 tablets',
+      instructions: null,
+    },
+    {
+      // Cancelled — backs the refunded payment intent below (issue #61):
+      // the order fell through and the escrow came back to the patient.
+      id: 'ord-demo-rx-103',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'cancelled',
+      issuedAt: '2026-10-14T11:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: false,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Insulin pen (fake)',
+      dose: 'One injection nightly',
+      quantity: '1 pen',
+      instructions: null,
+    },
+    {
+      // Active — its payment failed, so the panel shows "contact support"
+      // (issue #61).
+      id: 'ord-demo-rx-104',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-17T15:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo blood thinners (fake)',
+      dose: 'One tablet in the morning',
+      quantity: '28 tablets',
+      instructions: null,
+    },
+  ];
+
+  const orderFacilities: Record<string, QualifiedOrderFacility[]> = {
+    'ord-demo-rx-102': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+      {
+        id: 'fac-demo-pharmacy-2',
+        userId: 'usr-facility-pharmacy-2',
+        name: 'Example Chemist (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '3 Example Street',
+          city: 'Mockford',
+          latitude: 6.6,
+          longitude: 3.45,
+        },
+        isOpen: false,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-rx-101': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-lab-101': [
+      {
+        id: 'fac-demo-lab',
+        userId: 'usr-facility-lab',
+        name: 'Demo Lab (fake)',
+        type: 'lab',
+        location: {
+          address: '2 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5312,
+          longitude: 3.3915,
+        },
+        isOpen: true,
+        capabilities: ['Sample collection', 'Lab result delivery'],
+      },
+    ],
+  };
+
   const walletLink: WalletLink = {
     id: 'wln-demo-1',
     facilityId: FACILITY_ID,
@@ -685,9 +822,10 @@ export function createSeedDb(): MockDb {
 
   const paymentIntents: PaymentIntent[] = [
     {
+      // Held in escrow — backs ord-demo-rx-102.
       id: 'pin-demo-1',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-1',
+      orderId: 'ord-demo-rx-102',
       status: 'escrowed',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -699,9 +837,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-17T10:05:00.000Z',
     },
     {
+      // Never funded — backs ord-demo-lab-101.
       id: 'pin-demo-2',
       orderType: 'lab_order',
-      orderId: 'ord-demo-lab-1',
+      orderId: 'ord-demo-lab-101',
       status: 'created',
       patientProfileId: 'prf-patient-2',
       facilityId: FACILITY_ID,
@@ -713,9 +852,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-18T08:10:00.000Z',
     },
     {
+      // Released — backs the completed ord-demo-rx-100.
       id: 'pin-demo-3',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-2',
+      orderId: 'ord-demo-rx-100',
       status: 'released',
       patientProfileId: 'prf-patient-3',
       facilityId: FACILITY_ID,
@@ -727,10 +867,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-16T09:00:00.000Z',
     },
     {
-      // Refunded — backs ord-demo-rx-4 (issue #61).
+      // Refunded — backs the cancelled ord-demo-rx-103 (issue #61).
       id: 'pin-demo-4',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-4',
+      orderId: 'ord-demo-rx-103',
       status: 'refunded',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -742,10 +882,12 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-15T16:00:00.000Z',
     },
     {
-      // Failed — backs ord-demo-rx-5 (issue #61).
+      // Failed — backs ord-demo-rx-104 (issue #61); the panel says to
+      // contact support. ord-demo-rx-101 (superseded) deliberately has no
+      // intent at all, so the panel hides there.
       id: 'pin-demo-5',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-5',
+      orderId: 'ord-demo-rx-104',
       status: 'failed',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -764,14 +906,20 @@ export function createSeedDb(): MockDb {
     dataExport,
     careThreads,
     appointments,
+    intakeForms,
     runningDelay,
     messageThreads,
     consultationNotes,
+    consultationRecords: [],
+    consultationReferrals: [],
+    consultationOrders: [],
     insights,
     facilities,
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,
+    patientOrders,
+    orderFacilities,
     walletLink,
     paymentIntents,
     consultationAddenda,

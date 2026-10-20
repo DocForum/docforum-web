@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as teamService from '../../../services/facility-team-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { facilityKeys } from '../../../query-keys';
 import type { InviteMemberInput } from '../../../types/models';
 
 export function useFacilityMembers(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: ['facility', facilityId, 'members'],
+    queryKey: facilityKeys.members(facilityId),
     queryFn: () => teamService.listFacilityMembers(facilityId, accessToken!),
     enabled: Boolean(accessToken && facilityId),
   });
@@ -17,7 +19,7 @@ export function useFacilityInvites(facilityId: string, isOwner: boolean) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: ['facility', facilityId, 'invites'],
+    queryKey: facilityKeys.invites(facilityId),
     queryFn: () => teamService.listFacilityInvites(facilityId, accessToken!),
     enabled: Boolean(accessToken && facilityId && isOwner),
   });
@@ -30,9 +32,7 @@ export function useInviteMember(facilityId: string) {
   return useMutation({
     mutationFn: (input: InviteMemberInput) =>
       teamService.inviteFacilityMember(facilityId, input, accessToken!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facility', facilityId, 'invites'] });
-    },
+    onSuccess: () => { void invalidateFor(queryClient, 'facility.invite-write', facilityId); },
   });
 }
 
@@ -43,9 +43,7 @@ export function useResendInvite(facilityId: string) {
   return useMutation({
     mutationFn: (inviteId: string) =>
       teamService.resendFacilityInvite(facilityId, inviteId, accessToken!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facility', facilityId, 'invites'] });
-    },
+    onSuccess: () => { void invalidateFor(queryClient, 'facility.invite-write', facilityId); },
   });
 }
 
@@ -56,9 +54,7 @@ export function useRevokeInvite(facilityId: string) {
   return useMutation({
     mutationFn: (inviteId: string) =>
       teamService.revokeFacilityInvite(facilityId, inviteId, accessToken!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facility', facilityId, 'invites'] });
-    },
+    onSuccess: () => { void invalidateFor(queryClient, 'facility.invite-write', facilityId); },
   });
 }
 
@@ -69,9 +65,7 @@ export function useRemoveMember(facilityId: string) {
   return useMutation({
     mutationFn: (memberId: string) =>
       teamService.removeFacilityMember(facilityId, memberId, accessToken!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facility', facilityId, 'members'] });
-    },
+    onSuccess: () => { void invalidateFor(queryClient, 'facility.member-removed', facilityId); },
   });
 }
 
@@ -79,7 +73,7 @@ export function useFulfillmentQueue(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: ['facility', facilityId, 'queue'],
+    queryKey: facilityKeys.queue(facilityId),
     queryFn: () => teamService.getFulfillmentQueue(facilityId, accessToken!),
     enabled: Boolean(accessToken && facilityId),
   });
@@ -92,8 +86,6 @@ export function useUpdateFulfillmentItem(facilityId: string) {
   return useMutation({
     mutationFn: ({ itemId, action, notes }: { itemId: string; action: 'fulfilled' | 'rejected'; notes?: string }) =>
       teamService.updateFulfillmentItem(facilityId, itemId, action, accessToken!, notes),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facility', facilityId, 'queue'] });
-    },
+    onSuccess: () => { void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId); },
   });
 }

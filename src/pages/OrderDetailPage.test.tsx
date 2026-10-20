@@ -11,23 +11,27 @@ import { useAuthStore } from '../store/auth-store';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import { ApiError } from '../services/api-client';
-import type { PatientOrder, PaymentIntent } from '../types/models';
+import type { PaymentIntent, Prescription } from '../types/models';
 
 vi.mock('../services/orders-service');
 vi.mock('../services/payments-service');
 
-function makeOrder(overrides: Partial<PatientOrder> = {}): PatientOrder {
+function makeOrder(overrides: Partial<Prescription> = {}): Prescription {
   return {
     id: 'ord-rx-1',
     orderType: 'prescription',
     patientProfileId: 'prf-1',
-    itemName: 'Metformin 850mg',
-    instructions: 'Take one tablet twice daily with food.',
-    status: 'issued',
+    version: 1,
+    supersedesId: null,
+    status: 'active',
     issuedAt: '2026-10-16T10:00:00.000Z',
-    expiresAt: null,
-    doctorName: 'Dr. Placeholder',
-    facility: { id: 'fac-1', name: 'Example Pharmacy' },
+    issuedByDoctorName: 'Dr. Placeholder',
+    requiresFacilitySelection: true,
+    selectedFacility: { id: 'fac-1', name: 'Example Pharmacy', type: 'pharmacy', isOpen: true },
+    medication: 'Metformin 850mg',
+    dose: 'One tablet twice daily',
+    quantity: '56 tablets',
+    instructions: 'Take with food.',
     ...overrides,
   };
 }
@@ -58,9 +62,9 @@ function renderPage() {
   // param, and react-router refuses to nest two <Router>s.
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/orders/ord-rx-1']}>
+      <MemoryRouter initialEntries={['/patient/orders/ord-rx-1']}>
         <Routes>
-          <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="/patient/orders/:orderId" element={<OrderDetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -89,7 +93,7 @@ describe('OrderDetailPage payment panel', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Payment' })).toBeInTheDocument();
-    expect(screen.getByText(/held in escrow, a protected holding state/i)).toBeInTheDocument();
+    expect(screen.getByText(/protection escrow exists for/i)).toBeInTheDocument();
   });
 
   it('hides the payment panel entirely when the order has no payment intent', async () => {
@@ -100,6 +104,7 @@ describe('OrderDetailPage payment panel', () => {
 
     // The order itself still renders…
     expect(await screen.findByRole('heading', { name: 'Metformin 850mg' })).toBeInTheDocument();
+    expect(screen.getByText(/In fulfillment/)).toBeInTheDocument();
     // …but no payment panel and no payment error note.
     expect(screen.queryByRole('heading', { name: 'Payment' })).not.toBeInTheDocument();
     expect(

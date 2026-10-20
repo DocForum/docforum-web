@@ -1,39 +1,22 @@
 // Payment status panel on a patient's order (issue #61, custodial v1).
 //
 // Patient-facing by design: plain-language explanation + timeline for
-// every status, bigint-safe amount (formatStroops), and an explorer link
-// built by #10's helper (features/payments/explorer.ts). Internal /
-// console-only fields — facilityId, patientProfileId, escrowId,
-// sorobanContractId — are deliberately never rendered here.
-import { formatStroops } from '../../../services/payments-service';
-import { txExplorerUrl } from '../explorer';
-import type { PaymentIntent, PaymentIntentStatus } from '../../../types/models';
+// every status, BigInt-safe amount (shared stroops helper), and explorer
+// links through #10's shared helper (features/payments/explorer.ts — the
+// same one PaymentDetailPage and the payout ledger use). Status copy and
+// labels come from features/payments/status.ts, so the wording matches
+// the payment history screens — one source of truth for what patients
+// read. Internal/console-only fields — facilityId, patientProfileId,
+// escrowId, sorobanContractId — are deliberately never rendered here.
+import { amountLabel } from '../stroops';
+import { transactionUrl } from '../explorer';
+import { statusCopy, statusLabel } from '../status';
+import type { PaymentIntent } from '../../../types/models';
 import styles from './OrderPaymentPanel.module.css';
 
 export interface OrderPaymentPanelProps {
   intent: PaymentIntent;
 }
-
-const STATUS_LABELS: Record<PaymentIntentStatus, string> = {
-  created: 'Pending',
-  escrowed: 'Held in escrow',
-  released: 'Released to the facility',
-  refunded: 'Refunded',
-  failed: 'Failed',
-};
-
-const STATUS_COPY: Record<PaymentIntentStatus, string> = {
-  created:
-    'Your payment has not been funded into escrow yet — nothing has been charged. It moves to “Held in escrow” once funding confirms.',
-  escrowed:
-    'Your payment is held in escrow, a protected holding state, while the facility fulfils your order. The facility is only paid when the order completes; if it falls through, the money is refunded instead.',
-  released:
-    'Your order was fulfilled, so the escrowed payment has been released to the facility. This payment is complete.',
-  refunded:
-    'This payment was refunded — the escrowed amount went back to you instead of to the facility, because the order did not go through.',
-  failed:
-    'Something went wrong and this payment could not be completed. Nothing was released to the facility. Please contact DocForum support and quote the order reference below.',
-};
 
 interface TimelineEntry {
   key: string;
@@ -115,8 +98,13 @@ function formatDate(iso: string | null): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
+/** A failed payment needs a human to intervene, so the panel says so
+ * explicitly instead of leaving the patient with a bare status word. */
+const FAILED_SUPPORT_NOTE =
+  'Nothing was released to the facility. Please contact DocForum support and quote the order reference below.';
+
 export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
-  const explorerUrl = txExplorerUrl(intent.stellarTxHash);
+  const explorerUrl = transactionUrl(intent.stellarTxHash);
   const timeline = buildTimeline(intent);
 
   return (
@@ -128,16 +116,21 @@ export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
       <div className={styles.header}>
         <h2 id="order-payment-title">Payment</h2>
         <span className={styles.statusPill} data-status={intent.status}>
-          {STATUS_LABELS[intent.status]}
+          {statusLabel(intent.status)}
         </span>
       </div>
 
-      <p className={styles.explanation}>{STATUS_COPY[intent.status]}</p>
+      <p className={styles.explanation}>{statusCopy(intent.status)}</p>
+      {intent.status === 'failed' && (
+        <p className={styles.supportNote} role="status">
+          {FAILED_SUPPORT_NOTE}
+        </p>
+      )}
 
       <dl className={styles.facts}>
         <div className={styles.fact}>
           <dt>Amount</dt>
-          <dd data-testid="payment-amount">{formatStroops(intent.amountStroops)}</dd>
+          <dd data-testid="payment-amount">{amountLabel(intent.amountStroops)}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Started</dt>
@@ -171,7 +164,7 @@ export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
       {explorerUrl && (
         <p className={styles.explorer}>
           <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
-            View the latest transaction on the Stellar testnet explorer ↗
+            View the latest transaction on the Stellar explorer ↗
           </a>
         </p>
       )}

@@ -1,27 +1,40 @@
 // Patient order detail (issue #61): the order itself plus its payment
 // status panel — the escrow's protection, made visible to the person it
-// protects. The panel hides entirely when the order has no payment
-// intent; a failed payment load shows a quiet note instead of breaking
-// the page.
+// protects. Fields follow `PatientOrder` (= Prescription | LabOrder,
+// issue #5's contract); status wording matches the orders list so the
+// two screens read the same. The panel hides entirely when the order
+// has no payment intent; a failed payment load shows a quiet note
+// instead of breaking the page.
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
 import { Spinner } from '../components/Spinner';
-import { useOrder } from '../features/orders/hooks/useOrder';
+import { useOrder } from '../features/orders/hooks/useOrders';
 import { useOrderPaymentIntent } from '../features/payments/hooks/useOrderPaymentIntent';
 import { OrderPaymentPanel } from '../features/payments/components/OrderPaymentPanel';
+import { formatDay } from '../features/payments/status';
+import type { PatientOrder } from '../types/models';
 import styles from './OrderDetailPage.module.css';
 
-const ORDER_TYPE_LABELS = { prescription: 'Prescription', lab: 'Lab test' } as const;
-const ORDER_STATUS_LABELS = {
-  issued: 'Issued',
-  ready: 'Ready',
-  fulfilled: 'Fulfilled',
-  cancelled: 'Cancelled',
-} as const;
+/** Same wording as the orders list (OrdersList.statusLabel), so the two
+ * screens never disagree about what an order's state is called. */
+function lifecycleLabel(order: PatientOrder): string {
+  if (order.status === 'active') {
+    return order.selectedFacility ? 'In fulfillment' : 'Needs a facility';
+  }
+  if (order.status === 'completed') return 'Completed';
+  if (order.status === 'cancelled') return 'Cancelled';
+  return 'Superseded';
+}
 
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString();
+function orderTitle(order: PatientOrder): string {
+  return order.orderType === 'prescription' ? order.medication : order.testName;
+}
+
+function orderDetail(order: PatientOrder): string {
+  if (order.orderType === 'prescription') {
+    return [order.dose, order.quantity].filter(Boolean).join(' · ');
+  }
+  return order.fastingRequired ? 'Fasting required' : 'No fasting required';
 }
 
 export function OrderDetailPage() {
@@ -52,7 +65,7 @@ export function OrderDetailPage() {
               : 'Something went wrong loading this order. Please try again.'}
           </p>
           <p>
-            <Link to="/">Back to home</Link>
+            <Link to="/patient/orders">Back to your orders</Link>
           </p>
         </div>
       </div>
@@ -65,15 +78,17 @@ export function OrderDetailPage() {
   return (
     <div className="container">
       <p className={styles.back}>
-        <Link to="/">← Back</Link>
+        <Link to="/patient/orders">← Your orders</Link>
       </p>
       <div className="card">
         <div className={styles.header}>
-          <h1>{order.itemName}</h1>
+          <h1>{orderTitle(order)}</h1>
           <div className={styles.pills}>
-            <span className={styles.typePill}>{ORDER_TYPE_LABELS[order.orderType]}</span>
+            <span className={styles.typePill}>
+              {order.orderType === 'prescription' ? 'Prescription' : 'Lab order'}
+            </span>
             <span className={styles.statusPill} data-status={order.status}>
-              {ORDER_STATUS_LABELS[order.status]}
+              {lifecycleLabel(order)}
             </span>
           </div>
         </div>
@@ -81,24 +96,27 @@ export function OrderDetailPage() {
         <dl className={styles.facts}>
           <div>
             <dt>Issued</dt>
-            <dd>{formatDate(order.issuedAt)}</dd>
+            <dd>{formatDay(order.issuedAt)}</dd>
           </div>
-          <div>
-            <dt>Prescribed by</dt>
-            <dd>{order.doctorName}</dd>
-          </div>
-          <div>
-            <dt>Facility</dt>
-            <dd>{order.facility ? order.facility.name : 'Not assigned yet'}</dd>
-          </div>
-          {order.expiresAt && (
+          {order.issuedByDoctorName && (
             <div>
-              <dt>Expires</dt>
-              <dd>{formatDate(order.expiresAt)}</dd>
+              <dt>Prescribed by</dt>
+              <dd>{order.issuedByDoctorName}</dd>
             </div>
           )}
+          <div>
+            <dt>Facility</dt>
+            <dd>
+              {order.selectedFacility ? order.selectedFacility.name : 'Not assigned yet'}
+            </dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd>v{order.version}</dd>
+          </div>
         </dl>
 
+        <p className={styles.detail}>{orderDetail(order)}</p>
         {order.instructions && (
           <p className={styles.instructions}>
             <strong>Instructions:</strong> {order.instructions}

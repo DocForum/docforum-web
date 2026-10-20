@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
-import { txExplorerUrl } from '../explorer';
+import { transactionUrl } from '../explorer';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
@@ -226,7 +226,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <a
-                            href={txExplorerUrl(entry.fundTxHash) ?? undefined}
+                            href={transactionUrl(entry.fundTxHash) ?? undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.explorerLink}
@@ -236,7 +236,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           </a>
                           {entry.releaseTxHash && (
                             <a
-                              href={txExplorerUrl(entry.releaseTxHash) ?? undefined}
+                              href={transactionUrl(entry.releaseTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}
@@ -247,7 +247,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           )}
                           {entry.refundTxHash && (
                             <a
-                              href={txExplorerUrl(entry.refundTxHash) ?? undefined}
+                              href={transactionUrl(entry.refundTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}

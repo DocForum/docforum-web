@@ -1,29 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { accountExplorerUrl, txExplorerUrl } from './explorer';
+import { contractUrl, transactionUrl } from './explorer';
 
-describe('txExplorerUrl', () => {
-  it('builds a testnet transaction link', () => {
-    expect(txExplorerUrl('abc123')).toBe(
-      'https://stellar.expert/explorer/testnet/tx/abc123',
+describe('explorer links', () => {
+  it('links a hash core returned', () => {
+    expect(transactionUrl('5c2f4bHash')).toBe(
+      'https://testnet.stellar.expert/explorer/public/transaction/5c2f4bHash',
     );
+    expect(contractUrl('CONTRACTID')).toBe('https://testnet.stellar.expert/explorer/public/contract/CONTRACTID');
   });
 
-  it('returns null when there is no hash to link', () => {
-    expect(txExplorerUrl(null)).toBeNull();
-    expect(txExplorerUrl(undefined)).toBeNull();
-    expect(txExplorerUrl('   ')).toBeNull();
-  });
-});
-
-describe('accountExplorerUrl', () => {
-  it('builds a testnet account link', () => {
-    expect(accountExplorerUrl('GDEMOKEY')).toBe(
-      'https://stellar.expert/explorer/testnet/account/GDEMOKEY',
-    );
-  });
-
-  it('returns null when there is no key to link', () => {
-    expect(accountExplorerUrl(null)).toBeNull();
-    expect(accountExplorerUrl('')).toBeNull();
+  // A payment that has not been funded has no hash yet — linking to
+  // `/transaction/null` would look like a real, broken transaction.
+  it('produces no link for a null hash', () => {
+    expect(transactionUrl(null)).toBeNull();
+    expect(transactionUrl(undefined)).toBeNull();
+    expect(contractUrl(null)).toBeNull();
   });
 });

@@ -120,27 +120,9 @@ export interface WalletLink {
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
 export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
 
-// --- Patient orders (Phase W5, issue #61) — ASSUMED -------------------------
-// docforum-core has no Order model yet (its docforum-core#9 / #85 are
-// open), so the shape below is the smallest reasonable guess for an order
-// detail view. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Patient
-// order detail & payment panel".
-
-export type PatientOrderStatus = 'issued' | 'ready' | 'fulfilled' | 'cancelled';
-
-export interface PatientOrder {
-  id: string;
-  orderType: 'prescription' | 'lab';
-  patientProfileId: string;
-  itemName: string;
-  instructions?: string | null;
-  status: PatientOrderStatus;
-  issuedAt: string;
-  expiresAt?: string | null;
-  doctorName: string;
-  /** Assigned facility; null until the patient picks one. */
-  facility: { id: string; name: string } | null;
-}
+// `PatientOrder` (= Prescription | LabOrder) is defined with the orders
+// work (Phase W2, issue #5) — the order detail page (issue #61) reuses
+// that shape as-is.
 
 export interface PaymentIntent {
   id: string;
@@ -232,6 +214,57 @@ export interface FacilityWithDistance extends FacilityProfile {
   rating?: number;
 }
 
+// --- Patient orders and facility selection (Phase W2, issue #5) -------------
+
+export type OrderLifecycleStatus = 'active' | 'completed' | 'cancelled' | 'superseded';
+
+export interface OrderFacilitySummary {
+  id: string;
+  name: string;
+  type: FacilityType;
+  isOpen?: boolean;
+}
+
+interface OrderVersionBase {
+  id: string;
+  patientProfileId: string;
+  version: number;
+  supersedesId: string | null;
+  status: OrderLifecycleStatus;
+  issuedAt: string;
+  issuedByDoctorName?: string | null;
+  requiresFacilitySelection: boolean;
+  selectedFacility?: OrderFacilitySummary | null;
+}
+
+export interface Prescription extends OrderVersionBase {
+  orderType: 'prescription';
+  medication: string;
+  dose: string;
+  quantity?: string | null;
+  instructions?: string | null;
+}
+
+export interface LabOrder extends OrderVersionBase {
+  orderType: 'lab_order';
+  testName: string;
+  fastingRequired?: boolean | null;
+  instructions?: string | null;
+}
+
+export type PatientOrder = Prescription | LabOrder;
+
+export interface QualifiedOrderFacility extends FacilityProfile {
+  location?: FacilityLocation;
+  isOpen: boolean;
+  capabilities: string[];
+}
+
+export interface SelectOrderFacilityInput {
+  facilityId: string;
+  expectedVersion: number;
+}
+
 // --- Phase W3 — Doctor core flow (assumed, docforum-core issues #61/#129 not
 // landed yet) ---------------------------------------------------------------
 // These shapes mirror the smallest contract needed to build the doctor's
@@ -259,6 +292,19 @@ export interface Appointment {
   checkInAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
+}
+
+export interface IntakeForm {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  submittedAt: string;
+  chiefComplaint: string;
+  symptomDuration?: string | null;
+  severity?: number | null;
+  currentMedications: string[];
+  allergies: string[];
+  notes?: string | null;
 }
 
 export interface QueueEntry {
@@ -312,6 +358,61 @@ export interface ConsultationAddendum {
 
 export interface AddAddendumInput {
   content: string;
+}
+
+export type ConsultationOutcome = 'resolved' | 'referred' | 'follow_up_needed';
+
+export interface ConsultationRecord {
+  id: string;
+  appointmentId: string;
+  notes: string;
+  outcome: ConsultationOutcome;
+  followUpAfterDays?: number | null;
+  recordedAt: string;
+}
+
+export interface RecordConsultationInput {
+  notes: string;
+  outcome: ConsultationOutcome;
+  followUpAfterDays?: number | null;
+}
+
+export interface ConsultationReferral {
+  id: string;
+  consultationId: string;
+  targetSpecialty: string;
+  reason: string;
+  status: ReferralStatus;
+  createdAt: string;
+}
+
+export interface CreateConsultationReferralInput {
+  targetSpecialty: string;
+  reason: string;
+}
+
+export interface ConsultationPrescriptionInput {
+  orderType: 'prescription';
+  medication: string;
+  dose: string;
+  instructions?: string | null;
+}
+
+export interface ConsultationLabOrderInput {
+  orderType: 'lab_order';
+  testName: string;
+  instructions?: string | null;
+}
+
+export type ConsultationOrderInput = ConsultationPrescriptionInput | ConsultationLabOrderInput;
+
+export interface ConsultationIssuedOrder {
+  id: string;
+  consultationId: string;
+  orderType: ConsultationOrderInput['orderType'];
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
 }
 
 // --- Phase W3 — Doctor Practice Insights (issue #50, depends on docforum-core#124) ---
@@ -436,6 +537,16 @@ export interface FulfillmentActionAttribution {
   notes?: string | null;
 }
 
+export interface FulfillmentLabResult {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedByUserId: string;
+  storageKey?: string | null;
+  downloadUrl?: string | null;
+}
+
 export interface FulfillmentQueueItem {
   id: string;
   facilityId: string;
@@ -448,7 +559,10 @@ export interface FulfillmentQueueItem {
   status: FulfillmentItemStatus;
   receivedAt: string;
   attribution?: FulfillmentActionAttribution | null;
+  labResult?: FulfillmentLabResult | null;
 }
+
+export type FulfillmentStatusUpdate = 'in_progress' | 'fulfilled' | 'rejected';
 
 // --- Phase W4 — Scan-to-verify orders (issue #52, docforum-core#71) ---
 
@@ -752,4 +866,140 @@ export interface UpdateFeatureFlagInput {
   /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
    * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
+}
+
+export interface AbnormalResult {
+  id: string;
+  patientProfileId: string;
+  patientName: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isCritical: boolean;
+  isAbnormal: boolean;
+  issuedAt: string;
+}
+
+export interface AcknowledgeResultInput {
+  note?: string;
+}
+
+export interface CalendarFeedResponse {
+  icsUrl: string;
+  // Token is part of the URL; we don't expose it separately
+}
+
+export interface RotateTokenResponse {
+  icsUrl: string;
+}
+
+export interface Order {
+  id: string;
+  orderType: 'prescription' | 'lab_order';
+  patientName: string;
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+}
+
+export interface LabResult {
+  id: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isAbnormal: boolean;
+  isCritical: boolean;
+  issuedAt: string;
+}
+
+// --- Patient-side appointment view (issues #32/#33/#34/#37) ------------------
+// `Appointment` above is the doctor-facing row the W3 queue screens use. The
+// patient screens in this feature set read docforum-core's real
+// `GET /appointments/mine`, which `include`s the availability slot and returns
+// the origin and audit timestamps, so it is a different shape and gets its own
+// name rather than a second declaration of `Appointment`. Dates are ISO strings
+// because that is what JSON carries.
+
+export type SlotStatus = 'open' | 'held' | 'booked';
+export type AppointmentOrigin = 'direct_booking' | 'referral';
+
+export interface AvailabilitySlot {
+  id: string;
+  doctorProfileId: string;
+  status: SlotStatus;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientAppointment {
+  id: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  availabilitySlotId: string;
+  status: AppointmentStatus;
+  origin: AppointmentOrigin;
+  availabilitySlot: AvailabilitySlot;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Live visit queue (#32) --------------------------------------------------
+// assumed — docforum-core has no queue endpoint yet; the shape is the smallest
+// one that can distinguish "no queue published" from "you are first".
+
+export type QueuePhase = 'not_open' | 'waiting' | 'being_seen' | 'completed';
+
+export interface AppointmentQueue {
+  appointmentId: string;
+  phase: QueuePhase;
+  /** Patients still ahead. null means no queue is published yet — which is
+   * not the same as being first. */
+  peopleAhead: number | null;
+  /** Minutes. Always rendered as an estimate. */
+  estimatedWaitMinutes: number | null;
+  /** null = this backend has no check-in window, so the UI says "check in on
+   * the day" instead of inventing an opening time. */
+  checkInOpensAt: string | null;
+  checkedInAt: string | null;
+}
+
+// --- PHI access log (#34) ----------------------------------------------------
+// assumed — docforum-core#40 (audit log read API) is not landed; these mirror
+// the event its write-side middleware already records.
+
+export type AccessActorRole = 'doctor' | 'facility' | 'patient' | 'admin';
+export type AccessRecordType = 'health_profile' | 'appointment' | 'referral' | 'order' | 'dependent';
+export type AccessReason = 'consultation' | 'order_fulfillment' | 'result_delivery' | 'handover_claim' | 'support';
+
+export interface AccessLogEvent {
+  id: string;
+  occurredAt: string;
+  actorRole: AccessActorRole;
+  actorName: string;
+  recordType: AccessRecordType;
+  reason: AccessReason;
+}
+
+export interface AccessLogPage {
+  events: AccessLogEvent[];
+  nextCursor: string | null;
+}
+
+// --- Payment history and receipts (#37) --------------------------------------
+
+export interface PaymentHistoryEntry extends PaymentIntent {
+  /** assumed — the real row has no refund deadline column. */
+  refundDeadlineAt?: string | null;
+  /** assumed — the real response carries only `facilityId`, an internal id
+   * the patient-facing UI must not render. */
+  facilityName?: string;
+}
+
+export interface PaymentHistoryPage {
+  intents: PaymentHistoryEntry[];
+  nextCursor: string | null;
 }

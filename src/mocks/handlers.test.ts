@@ -16,11 +16,14 @@ import * as accountService from '../services/account-service';
 import * as careThreadService from '../services/care-thread-service';
 import * as consultationService from '../services/consultation-service';
 import * as dependentsService from '../services/dependents-service';
+import * as doctorTodayService from '../services/doctor-today-service';
 import * as facilityService from '../services/facility-service';
 import * as facilityTeamService from '../services/facility-team-service';
+import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
+import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
@@ -209,6 +212,72 @@ describe('consultation notes', () => {
       consultationService.signOffNote('not-demo-signed', MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  it('records an outcome, referral, and issued order', async () => {
+    const record = await consultationService.recordConsultation(
+      'apt-demo-2',
+      { notes: 'Demo outcome notes (fake).', outcome: 'referred' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(record.outcome).toBe('referred');
+
+    const referral = await consultationService.createConsultationReferral(
+      record.id,
+      { targetSpecialty: 'Cardiology', reason: 'Demo referral reason (fake).' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(referral.status).toBe('pending');
+
+    const order = await consultationService.issueConsultationOrder(
+      record.id,
+      { orderType: 'lab_order', testName: 'Demo blood panel (fake)' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(order.medicationOrTest).toBe('Demo blood panel (fake)');
+  });
+});
+
+describe('patient orders', () => {
+  it('lists every version and selects a qualified facility for the current order', async () => {
+    const orders = await ordersService.listMyOrders(MOCK_ACCESS_TOKEN);
+    expect(orders.length).toBeGreaterThan(1);
+    expect(orders.some((order) => order.id === 'ord-demo-rx-101')).toBe(true);
+
+    const facilities = await ordersService.listQualifiedFacilities(
+      'ord-demo-rx-102',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(facilities.map((facility) => facility.id)).toEqual([
+      FACILITY_ID,
+      'fac-demo-pharmacy-2',
+    ]);
+
+    const selected = await ordersService.selectFulfillingFacility(
+      'ord-demo-rx-102',
+      { facilityId: FACILITY_ID, expectedVersion: 2 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(selected.selectedFacility?.id).toBe(FACILITY_ID);
+
+    await expect(
+      ordersService.selectFulfillingFacility(
+        'ord-demo-rx-102',
+        { facilityId: FACILITY_ID, expectedVersion: 1 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('doctor today', () => {
+  it('returns a structured intake for an appointment and 404s when missing', async () => {
+    const intake = await doctorTodayService.getAppointmentIntake('apt-demo-3', MOCK_ACCESS_TOKEN);
+    expect(intake?.chiefComplaint).toContain('Demo');
+
+    await expect(
+      doctorTodayService.getAppointmentIntake('apt-demo-2', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
 });
 
 describe('doctor queue', () => {
@@ -344,6 +413,49 @@ describe('facility team', () => {
     expect(updated.status).toBe('fulfilled');
     expect(updated.attribution?.performedByRole).toBe('owner');
     expect(updated.attribution?.action).toBe('dispensed');
+  });
+});
+
+describe('facility fulfillment queue', () => {
+  it('moves items in progress, refuses closed items, and attaches lab results', async () => {
+    const moved = await fulfillmentService.updateFulfillmentStatus(
+      FACILITY_ID,
+      'fuq-demo-1',
+      'in_progress',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(moved.status).toBe('in_progress');
+    expect(moved.attribution?.action).toBe('verified');
+
+    await expect(
+      fulfillmentService.updateFulfillmentStatus(
+        FACILITY_ID,
+        'fuq-demo-3',
+        'rejected',
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+
+    const file = new File(['demo lab result'], 'demo-result.pdf', {
+      type: 'application/pdf',
+    });
+    const uploaded = await fulfillmentService.uploadFulfillmentLabResult(
+      FACILITY_ID,
+      'fuq-demo-2',
+      file,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(uploaded.labResult?.fileName).toBe('demo-result.pdf');
+    expect(uploaded.labResult?.sizeBytes).toBe(file.size);
+
+    await expect(
+      fulfillmentService.uploadFulfillmentLabResult(
+        FACILITY_ID,
+        'fuq-demo-1',
+        file,
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
   });
 });
 
