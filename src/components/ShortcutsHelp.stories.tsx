@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { ShortcutsHelp } from './ShortcutsHelp';
 
 const meta = {
@@ -14,7 +14,8 @@ type Story = StoryObj<typeof meta>;
 export const Open: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+    const dialog = canvas.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    await waitFor(() => expect(dialog).toBeVisible());
     await userEvent.click(canvas.getByRole('button', { name: 'Close' }));
     await expect(args.onClose).toHaveBeenCalledOnce();
   },
