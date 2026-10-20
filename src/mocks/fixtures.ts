@@ -15,6 +15,7 @@ import type {
   ConsultationReferral,
   DataExport,
   Dependent,
+  DoctorOnboardingStatus,
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
@@ -25,6 +26,7 @@ import type {
   MessageThread,
   PatientOrder,
   PaymentIntent,
+  PatientOnboardingStatus,
   QualifiedOrderFacility,
   RunningDelay,
   User,
@@ -96,6 +98,10 @@ export interface MockDb {
   patientOrders: PatientOrder[];
   orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
+  onboarding: {
+    patient: PatientOnboardingStatus;
+    doctor: DoctorOnboardingStatus;
+  };
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
 }
@@ -840,6 +846,20 @@ export function createSeedDb(): MockDb {
     patientOrders,
     orderFacilities,
     walletLink,
+    onboarding: {
+      // Server-computed in the real API; the demo personas have already
+      // finished two of three steps so the partial state is visible.
+      patient: {
+        profileComplete: true,
+        healthProfileComplete: true,
+        firstSearchComplete: false,
+      },
+      doctor: {
+        documentsComplete: true,
+        specialtiesComplete: true,
+        availabilityComplete: false,
+      },
+    },
     paymentIntents,
     consultationAddenda,
   };

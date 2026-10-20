@@ -371,6 +371,38 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
 - **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
 
+### First-run onboarding (issue #121)
+
+docforum-core has no onboarding endpoint yet, so both summaries below are
+assumed and mirrored in `models.ts` under "First-run onboarding (#121)".
+The important property is that **completion is computed by the server from
+real records**, so the checklist is identical on a new device; this repo
+stores no completion flag in `localStorage`/`sessionStorage` and keeps no
+"dismissed onboarding" state.
+
+- `GET /patients/me/onboarding` → `PatientOnboardingStatus` =
+  `{profileComplete, healthProfileComplete, firstSearchComplete}`. Assumed
+  server-side meaning: profile fields (name, date of birth, contact) are
+  present; at least one health entry exists across any section; at least one
+  facility/symptom search has been recorded for the account.
+- `GET /doctors/me/onboarding` → `DoctorOnboardingStatus` =
+  `{documentsComplete, specialtiesComplete, availabilityComplete}`. Assumed
+  server-side meaning: verification documents have been submitted (not
+  necessarily approved); at least one specialty is registered; at least one
+  open availability slot exists.
+- Both are **session-scoped**: the summary describes the signed-in account
+  owner's own setup, deliberately not the acting-for dependent selected in
+  `useProfileStore` (dependents do not have their own first-run checklist).
+  Query keys are `onboardingKeys.patient()` / `onboardingKeys.doctor()`.
+- The dashboard hides the checklist once every step is complete, and renders
+  the optional tour only while setup is unfinished. The tour is an inline,
+  labelled region (no `dialog`, no focus trap, no backdrop), dismissible
+  with its Skip/Done buttons or Escape; it never blocks the page.
+- Doctor documents/specialties/availability have **no self-serve screen in
+  this repo yet**, so those items are tracked and explained but not linked.
+  When those screens land, add `to` to `doctorOnboardingSteps` in
+  `features/onboarding/steps.ts`.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved

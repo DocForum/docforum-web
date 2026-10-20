@@ -10,6 +10,7 @@ import { TodayAppointments } from '../features/doctor-today/components/TodayAppo
 import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
+import { DoctorOnboarding } from '../features/onboarding/components/DoctorOnboarding';
 import styles from './DoctorDashboardPage.module.css';
 
 export function DoctorDashboardPage() {
@@ -106,6 +107,8 @@ export function DoctorDashboardPage() {
           </Button>
         </div>
       </header>
+
+      <DoctorOnboarding />
 
       <QueuePanel />
       <TodayAppointments />

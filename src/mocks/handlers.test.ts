@@ -23,6 +23,7 @@ import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
+import * as onboardingService from '../services/onboarding-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
@@ -489,6 +490,21 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('first-run onboarding', () => {
+  it('serves the server-computed setup summary for each role', async () => {
+    await expect(onboardingService.getPatientOnboarding(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      profileComplete: true,
+      healthProfileComplete: true,
+      firstSearchComplete: false,
+    });
+    await expect(onboardingService.getDoctorOnboarding(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      documentsComplete: true,
+      specialtiesComplete: true,
+      availabilityComplete: false,
+    });
   });
 });
 
