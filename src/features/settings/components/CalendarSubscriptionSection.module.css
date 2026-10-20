@@ -1,0 +1,73 @@
+.section {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.section h2 {
+  margin-top: 0;
+}
+
+.urlContainer {
+  margin: 16px 0;
+}
+
+.urlContainer label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.urlInputWrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.urlInput {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.875rem;
+  background: #fafafa;
+}
+
+.instructions {
+  margin: 20px 0;
+}
+
+.instructions h3 {
+  margin-top: 0;
+}
+
+.instructions ul {
+  padding-left: 20px;
+}
+
+.confirmModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmContent {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  padding: 24px;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
