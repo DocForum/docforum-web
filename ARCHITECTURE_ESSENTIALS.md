@@ -290,6 +290,16 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   `{ details: [{ field: string, message: string }] }` or a bare array of
   `{ field, message }`.
 
+### Responsive navigation and layout (issue #103)
+
+- **Layout:** `src/components/Layout.tsx` provides the app shell: skip-to-content link, header (logo, role-aware nav, user chip, logout), mobile drawer, main content area, and footer. Landmark regions (`role="banner"`, `role="navigation"`, `role="main"`, `role="contentinfo"`) are used throughout.
+- **Role-aware navigation:** `roleNavItems()` returns nav entries gated by user role (patient, doctor, facility, admin). Unauthenticated users see Log in / Sign up. Items for unbuilt or role-inappropriate screens never appear.
+- **Desktop:** horizontal header nav with active-state highlighting via `NavLink`.
+- **Mobile:** hamburger toggle opens a side drawer with focus trapping (Tab cycles within the drawer, Escape-like close via close button or overlay click). Drawer links are hidden from the accessibility tree (`aria-hidden`) when closed.
+- **Skip to content:** visually hidden link at the top of the page, focuses on `#main-content` when activated.
+- **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
+- **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
