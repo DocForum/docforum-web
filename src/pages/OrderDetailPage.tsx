@@ -142,7 +142,7 @@ export function OrderDetailPage() {
         {paymentQuery.data != null && <OrderPaymentPanel intent={paymentQuery.data} />}
         {paymentQuery.isError && (
           <p className={styles.paymentUnavailable} role="status">
-            Payment status isn't available right now — everything else about this order is shown
+            Payment status isn’t available right now — everything else about this order is shown
             above.
           </p>
         )}
