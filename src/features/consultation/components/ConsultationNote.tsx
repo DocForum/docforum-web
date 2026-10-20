@@ -4,6 +4,7 @@ import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/us
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
 
 function formatDateTime(iso: string | null | undefined) {
@@ -193,6 +194,10 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           </ul>
         </>
       )}
+
+      {appointmentId ? (
+        <ConsultationOutcomePanel appointmentId={appointmentId} notes={draft} />
+      ) : null}
     </section>
   );
 }
