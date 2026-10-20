@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { gsap } from 'gsap';
 import { useAuthStore } from '../store/auth-store';
 import styles from './HomePage.module.css';
 
@@ -35,17 +34,26 @@ export function HomePage() {
     const hero = heroRef.current;
     if (!hero) return;
 
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const targets = hero.querySelectorAll('[data-reveal]');
-        gsap.set(targets, { opacity: 0, y: 14 });
-        gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
-      });
-      return () => mm.revert();
-    }, hero);
+    let active = true;
+    let revert: (() => void) | undefined;
+    void import('gsap').then(({ gsap }) => {
+      if (!active) return;
+      const ctx = gsap.context(() => {
+        const mm = gsap.matchMedia();
+        mm.add('(prefers-reduced-motion: no-preference)', () => {
+          const targets = hero.querySelectorAll('[data-reveal]');
+          gsap.set(targets, { opacity: 0, y: 14 });
+          gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
+        });
+        return () => mm.revert();
+      }, hero);
+      revert = () => ctx.revert();
+    });
 
-    return () => ctx.revert();
+    return () => {
+      active = false;
+      revert?.();
+    };
   }, []);
 
   // Thread: each connector line draws itself in, left to right, and the
@@ -60,44 +68,53 @@ export function HomePage() {
     const section = threadSectionRef.current;
     if (!section) return;
 
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
-        const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    let active = true;
+    let revert: (() => void) | undefined;
+    void import('gsap').then(({ gsap }) => {
+      if (!active) return;
+      const ctx = gsap.context(() => {
+        const mm = gsap.matchMedia();
+        mm.add('(prefers-reduced-motion: no-preference)', () => {
+          const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+          const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
 
-        gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
-        lines.forEach((line) => {
-          const length = line.getTotalLength();
-          gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+          gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+          lines.forEach((line) => {
+            const length = line.getTotalLength();
+            gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+          });
+
+          const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
+          tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+          lines.forEach((line, i) => {
+            tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
+            tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
+          });
+          tl.to({}, { duration: 1.4 });
+
+          const observer = new IntersectionObserver(
+            (entries) => {
+              if (entries[0]?.isIntersecting) tl.play();
+              else tl.pause();
+            },
+            { threshold: 0.3 },
+          );
+          observer.observe(section);
+
+          return () => {
+            observer.disconnect();
+            tl.kill();
+          };
         });
+        return () => mm.revert();
+      }, section);
+      revert = () => ctx.revert();
+    });
 
-        const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
-        tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
-        lines.forEach((line, i) => {
-          tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
-          tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
-        });
-        tl.to({}, { duration: 1.4 }); // hold fully-drawn before undrawing
-
-        const observer = new IntersectionObserver(
-          (entries) => {
-            if (entries[0]?.isIntersecting) tl.play();
-            else tl.pause();
-          },
-          { threshold: 0.3 },
-        );
-        observer.observe(section);
-
-        return () => {
-          observer.disconnect();
-          tl.kill();
-        };
-      });
-      return () => mm.revert();
-    }, section);
-
-    return () => ctx.revert();
+    return () => {
+      active = false;
+      revert?.();
+    };
   }, []);
 
   if (user) {

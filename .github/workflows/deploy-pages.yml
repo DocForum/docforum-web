@@ -37,6 +37,9 @@ jobs:
       - run: npm run build:pages
         env:
           VITE_API_BASE_URL: https://docforum-core-api.onrender.com
+      - run: npm run build-storybook
+        env:
+          STORYBOOK_BASE: /docforum-web/storybook/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

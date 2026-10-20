@@ -1,9 +1,11 @@
+import { Suspense } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
+import { Spinner } from './Spinner';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import styles from './Layout.module.css';
 
@@ -101,7 +103,9 @@ export function Layout() {
         </nav>
       </header>
       <main className={styles.main}>
-        <Outlet />
+        <Suspense fallback={<div className={styles.routeLoading} role="status" aria-label="Loading page"><Spinner size={24} /></div>}>
+          <Outlet />
+        </Suspense>
       </main>
       <footer className={styles.footer}>
         <span>DocForum — care continuity, escrow-secured fulfillment.</span>

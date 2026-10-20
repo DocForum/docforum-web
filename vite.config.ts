@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
 // domain root — base must match or every asset URL 404s. Only applied for
@@ -54,7 +55,13 @@ export default defineConfig(({ command }) => {
   const isProd = command === 'build';
   return {
     base: process.env.GITHUB_PAGES ? '/docforum-web/' : '/',
-    plugins: [react(), cspPlugin(isProd)],
+    plugins: [
+      react(),
+      cspPlugin(isProd),
+      ...(process.env.ANALYZE === 'true'
+        ? [visualizer({ filename: 'dist/bundle-analysis.html', open: false, gzipSize: true, brotliSize: true })]
+        : []),
+    ],
     test: {
       environment: 'happy-dom',
       globals: true,

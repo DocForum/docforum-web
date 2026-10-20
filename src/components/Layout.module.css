@@ -96,6 +96,12 @@
   width: 100%;
 }
 
+.routeLoading {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+}
+
 .footer {
   padding: var(--space-6);
   text-align: center;
