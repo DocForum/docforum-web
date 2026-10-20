@@ -1,0 +1,17 @@
+.title {
+  text-wrap: balance;
+}
+
+.intro {
+  margin-top: 0;
+}
+
+.loading {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  margin: var(--space-3) 0;
+}
+
+.older {
+  margin-top: var(--space-4);
+}

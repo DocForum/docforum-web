@@ -9,6 +9,9 @@ import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { AccessLogPage } from './pages/AccessLogPage';
+import { PaymentDetailPage } from './pages/PaymentDetailPage';
+import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -32,6 +35,34 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
+            at the literal path the issues name, guarded to patients, rather
+            than being folded under /patient where the hub's nested routes
+            live. #32's detail page has no path of its own, so it nests. */}
+        <Route
+          path="account/access-log"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <AccessLogPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="payments"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PaymentHistoryPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="payments/:intentId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PaymentDetailPage />
+            </RequireAuth>
+          }
+        />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
           path="care/*"

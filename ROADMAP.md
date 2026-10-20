@@ -33,7 +33,7 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#5, #18–#21, #26–#29.**
+**Fully scoped into issues #1–#5, #18–#21, #26–#29, plus the follow-on patient issues #32–#34 and #37.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
@@ -49,6 +49,15 @@ real API" (no refresh-on-reload flow).
 - [x] Facility finder with a map and distance-sorted results. Tracked as [issue #29](https://github.com/DocForum/docforum-web/issues/29) (High, 200 pts) — assumed contract against `docforum-core` issue #74.
 
 
+- [x] Patient home as a care hub: action-first dashboard ranking what needs
+  attention now. Tracked as [issue #33](https://github.com/DocForum/docforum-web/issues/33) (High, 200 pts) — no new backend contract; aggregates the
+  dependents and health-profile endpoints above. Its "Coming up" section is fed
+  by the appointment cards below, which read `docforum-core`'s real
+  `GET /appointments/mine`; a dedicated appointments list screen
+  ([issue #3](https://github.com/DocForum/docforum-web/issues/3)) is still open.
+- [x] Check-in and live queue position on appointment day. Tracked as [issue #32](https://github.com/DocForum/docforum-web/issues/32) (High, 200 pts) — the visit itself comes from `docforum-core`'s real `GET /appointments/mine`; the queue, check-in and its window are an assumed contract against `docforum-core` issue #129, which has not landed.
+- [x] 'Who viewed my records' access log. Tracked as [issue #34](https://github.com/DocForum/docforum-web/issues/34) (High, 200 pts) — assumed contract against `docforum-core` issue #45 (PHI read-access log), which has not landed.
+- [x] Payment history and receipts for patients. Tracked as [issue #37](https://github.com/DocForum/docforum-web/issues/37) (High, 200 pts) — `PaymentIntent` mirrors `docforum-core`'s real Phase 5.5 shape (`amountStroops`/`escrowId` arrive as strings and are formatted with BigInt, never through `Number`); the patient list/detail routes and the `refundDeadlineAt`/`facilityName` display fields are an assumed contract against `docforum-core` issue #90, which has not landed.
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7, with #45–#49 added as doctor core-flow features.**
 - [x] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts) — foundation laid via the doctor dashboard's live queue (`src/features/queue/`).
@@ -84,7 +93,7 @@ real API" (no refresh-on-reload flow).
   transaction underneath. Admin accounts are seeded/invited, not
   self-serve (PRD OQ-2, same as facility) — this page is real once such
   a session exists, same caveat as the facility dashboard already had.
-- [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
+- [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts). The helper this needs now exists — `src/features/payments/explorer.ts`, used by the patient receipt built for [issue #37](https://github.com/DocForum/docforum-web/issues/37) under Phase W2 — but the admin console does not link out yet, so this stays open.
 
 ## Phase W6 — Admin console
 Admin-only screens beyond payments. Everything goes through `docforum-core`'s admin API; admin accounts stay seeded/invited (PRD OQ-2).
@@ -356,6 +365,78 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   `/patient/facilities`). Strict privacy enforcement: transient in-memory
   location only (never persisted to storage or URLs). 15 test files and
   62/62 tests passing.
+- 2026-10-16 — Rebuilt `PatientDashboardPage` from a placeholder into the
+  patient care hub ([issue #33](https://github.com/DocForum/docforum-web/issues/33)): `src/features/care-hub/` holds a pure
+  ranking module (`ranking.ts`) plus `useCareHub`, which fans out to the
+  existing dependents and health-profile queries in parallel and turns
+  their results into cards ranked `blocked now → needs you → good to know`,
+  with a 30-day "Recent" window. One failing source degrades its own
+  section instead of blanking the page, and a health section that *errored*
+  is never reported to the patient as an empty profile. Sections for
+  unbuilt features are hidden, not stubbed — "Coming up" only appears once
+  a card source for it lands, which [issue #32](https://github.com/DocForum/docforum-web/issues/32)
+  supplies from `docforum-core`'s real `GET /appointments/mine`. Adds
+  `src/features/care-hub/ranking.test.ts` and
+  `src/pages/PatientDashboardPage.test.tsx`; 57 tests pass (was 44 on
+  `main`), typecheck and build green.
+- 2026-10-16 — Checked the three other assigned W2 issues against the
+  current code and backend: #32 (check-in + live queue position), #34
+  ("who viewed my records" access log) and #37 (payment history and
+  receipts) each need a `docforum-core` endpoint that does not exist yet —
+  no check-in/queue route, no access-log route, and
+  `src/services/payments-service.ts` can create/read/fund a single
+  `PaymentIntent` by id but has no list-the-patient's-payments route.
+  Concluded they "stay unimplemented rather than built on a fabricated
+  contract", which was the wrong call and is corrected by the entries
+  below: hard rule 1 forbids calling Stellar/escrow directly, not building
+  a patient screen against a *documented* assumed shape — and #18, #19 and
+  #21 all did exactly that, recorded in "Known assumptions". What the check
+  did establish and what still gates these screens is the missing backend
+  work (`docforum-core` #129, #45 and #90).
+- 2026-10-16 — Built #32: check-in and live queue position on appointment
+  day. `src/services/appointments-service.ts` calls `docforum-core`'s real
+  `GET /appointments/mine` (a bare array, newest-first, `availabilitySlot`
+  included) and the assumed queue/check-in routes. `src/features/appointments/`
+  holds the pure parts (`slot.ts` — local-calendar-day maths, so "today"
+  means the patient's day not UTC's; `queue.ts` — notification threshold and
+  a signature so a patient is told about a *change*, not every poll), the
+  `useAppointmentQueue` hook (polls only while the visit is on screen and
+  `status === 'scheduled'`, `gcTime: 0` so leaving the page stops the
+  requests) and `QueuePanel`. `AppointmentDetailPage` at
+  `/patient/appointments/:appointmentId` is reachable from the care hub's
+  "Coming up"/"Action needed" cards; check-in UI only appears on the day of
+  the visit. Estimates are always labelled as estimates, `peopleAhead: null`
+  renders as "not published" rather than "zero people ahead", and a 404 from
+  the unlanded queue route reads "check-in is not available for this visit
+  yet" instead of an empty queue. `src/hooks/useBrowserNotification.ts` asks
+  for permission only on a click and never re-asks after a refusal.
+- 2026-10-16 — Built #34: 'who viewed my records' access log at
+  `/account/access-log`. `src/services/access-log-service.ts` reads the
+  assumed `GET /patients/me/access-log` (cursor-paginated, `from`/`to`/
+  `recordType` filters) through `useInfiniteQuery`, so "show older entries"
+  asks for the next cursor only when the patient asks for it.
+  `src/features/account/` renders who (name + role), what and why, and
+  never an internal id; the "why" copy explains the treating-clinician and
+  fulfilling-facility cases rather than dumping a reason code. The
+  report-a-concern link is only rendered when `VITE_SUPPORT_EMAIL` is set —
+  an invented mailto would send a patient's privacy complaint nowhere.
+- 2026-10-16 — Built #37: payment history and printable receipts at
+  `/payments` and `/payments/:intentId`. `src/features/payments/stroops.ts`
+  converts `amountStroops` with BigInt only, so an amount above 2^53 prints
+  exactly (`900,719,925.4740993 XLM`) instead of silently rounding the
+  patient's own money; `explorer.ts` is the single source of testnet
+  explorer links (all calls still go through `docforum-core` — hard rule 1
+  — this only turns a hash core already returned into a URL); `status.ts`
+  labels and explains every `PaymentIntentStatus` in the patient's terms.
+  `PaymentReceipt` keeps the transaction hash and escrow contract id as
+  readable text so a printed copy is still verifiable, hides the page
+  chrome at print time, and omits `orderId`, which a patient cannot act on.
+  The assumed `refundDeadlineAt` renders nothing when absent rather than a
+  guessed window.
+- 2026-10-16 — #32/#34/#37 together: 156 tests pass across 25 files (57 on
+  this branch before, 44 on `main`), `npm run typecheck` clean, `npm run
+  build` clean. Types for every assumed shape are annotated as assumed in
+  `src/types/models.ts` and recorded in `ARCHITECTURE_ESSENTIALS.md`.
 - 2026-10-17 — Built Phase W3 doctor core flow (#45–#49): live queue with
   start/complete visits, running delay + manual override and 4s undo window
   (#49); doctor messages inbox with unread badge, truncated PHI previews,
