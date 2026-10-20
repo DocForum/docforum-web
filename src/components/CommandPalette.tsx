@@ -98,6 +98,7 @@ export function CommandPalette({ actions, open, onClose }: CommandPaletteProps) 
           id="command-palette-input"
           role="combobox"
           aria-label="Search actions"
+          aria-expanded="true"
           aria-controls="command-palette-listbox"
           aria-activedescendant={focusedIndex >= 0 ? `command-palette-option-${focusedIndex}` : undefined}
           autoComplete="off"
