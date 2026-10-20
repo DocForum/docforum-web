@@ -15,7 +15,7 @@ export function useDoctorInsights(params: UseDoctorInsightsParams) {
 
   return useQuery<DoctorPracticeInsights>({
     queryKey: insightKeys.params(params),
-    queryFn: () => insightsService.getDoctorPracticeInsights(accessToken!, params),
+    queryFn: ({ signal }) => insightsService.getDoctorPracticeInsights(accessToken!, params, signal),
     enabled: Boolean(accessToken),
   });
 }

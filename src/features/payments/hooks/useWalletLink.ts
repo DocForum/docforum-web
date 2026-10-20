@@ -12,7 +12,7 @@ export function useOwnWalletLink() {
 
   return useQuery({
     queryKey: WALLET_LINK_QUERY_KEY,
-    queryFn: () => paymentsService.getOwnWalletLink(accessToken!),
+    queryFn: ({ signal }) => paymentsService.getOwnWalletLink(accessToken!, signal),
     enabled: Boolean(accessToken),
     // No wallet linked yet is an expected, non-error state, not a fetch
     // failure — the endpoint 404s in that case (see docforum-core

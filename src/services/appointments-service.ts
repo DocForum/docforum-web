@@ -12,13 +12,13 @@
 import { apiFetch } from './api-client';
 import type { PatientAppointment, AppointmentQueue } from '../types/models';
 
-export function listMyAppointments(accessToken: string): Promise<PatientAppointment[]> {
-  return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken });
+export function listMyAppointments(accessToken: string, signal?: AbortSignal): Promise<PatientAppointment[]> {
+  return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken, signal });
 }
 
 /** assumed (core#129) */
-export function getAppointmentQueue(appointmentId: string, accessToken: string): Promise<AppointmentQueue> {
-  return apiFetch<AppointmentQueue>(`/appointments/${appointmentId}/queue`, { accessToken });
+export function getAppointmentQueue(appointmentId: string, accessToken: string, signal?: AbortSignal): Promise<AppointmentQueue> {
+  return apiFetch<AppointmentQueue>(`/appointments/${appointmentId}/queue`, { accessToken, signal });
 }
 
 /** assumed (core#129) */

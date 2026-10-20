@@ -111,6 +111,40 @@ land and consume `appointmentKeys.list(profileId)`.
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
 
+## API client behaviour (issue #123)
+`src/services/api-client.ts` is the only place HTTP lives, and it now owns
+the full request lifecycle — services pass options through, never wire
+`fetch` themselves:
+
+- **Timeouts.** Every request has a budget: `DEFAULT_TIMEOUT_MS` (60 s,
+  deliberately longer than docforum-core's ~1 minute cold start so the
+  `useSlowRequestHint` message at 4 s explains a wait that then *succeeds*
+  instead of being killed mid-cold-start), or `SLOW_REQUEST_TIMEOUT_MS`
+  (120 s) for the genuinely slow endpoints (`POST /account/data-export`,
+  its download, `POST /admin/jobs/:name/run`). Expiry rejects with a
+  typed `ApiTimeoutError` — never silently, and never disguised as an
+  `ApiError` (which always means "a response arrived").
+- **Cancellation.** Every query-serving service function takes an optional
+  trailing `AbortSignal`, and every `queryFn` passes React Query's signal
+  (`queryFn: ({ signal }) => …`) — so a navigation/unmount stops the
+  network call. A caller-initiated abort rejects with its abort reason;
+  `isAbortError(error)` distinguishes it from real failures. The retry
+  policy in `query-client.ts` never retries an abort, and any
+  catch-all `catch` in a `queryFn` that degrades to placeholder data
+  **must rethrow aborts/timeouts** first (`useCareThreads`,
+  `useFacilityLedger` do) — resolving a cancelled query with fallback data
+  caches data nobody asked for.
+- **GET de-duplication.** Identical concurrent GETs (same URL, bearer
+  token, timeout and parse mode) share one request and one parsed result.
+  Cancellation is per caller: aborting one participant rejects only that
+  participant; the shared request is aborted once its *last* caller
+  leaves. **Mutations are never de-duplicated** — a POST must never be
+  replayed as if the second caller's write had happened.
+- **Retry policy.** `query-client.ts` retries transient failures once
+  (`retry: 1` semantics kept) and never retries an abort. Per-hook
+  `retry` overrides (e.g. no retry on a 404 "no wallet linked") still
+  apply on top.
+
 ## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
 `docforum-core` now has a real, tested API — see its `docs/api/README.md`.
 The original W1 assumptions here turned out correct (`POST /auth/signup`/
@@ -189,6 +223,13 @@ store). Every patient API call and React Query key includes the selected
 - Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
+
+#### Closure calendar management (this PR)
+- Admins can create and edit closures with a preview of affected booked appointments before saving.
+- After saving, an affected-appointments report shows links to contact patients inside the closure period.
+- All-day closures respect the correct time zone.
+- Deleting a closure doesn't recreate removed slots — a notice explains this to the admin.
+- Closures can be platform-wide or scoped to a specific facility.
 
 #### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
@@ -388,6 +429,22 @@ call still goes through docforum-core (hard rule 1).
 - **Skip to content:** visually hidden link at the top of the page, focuses on `#main-content` when activated.
 - **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
 - **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
+
+### Phase W5 — Patient order detail & payment panel (issue #61, depends on docforum-core#85)
+
+Custodial payment *mechanics* are real (docforum-core Phase 5.5, its
+`docs/adr/0004-custodial-payments-v1.md`), and the order shape this page
+renders is issue #5's `PatientOrder` (= `Prescription | LabOrder`, see
+"Orders list and facility selection" above — nothing new is invented
+here). What's still assumed is *attaching a payment intent to an order*:
+docforum-core's `PaymentIntent.orderId` is opaque (#85 — real FKs — is
+open). Both endpoints below are assumed and were reconciled with #5's
+`/orders/...` route family.
+
+- `GET /orders/:orderId` → `PatientOrder` — single-order detail for the patient order page, alongside #5's `GET /orders/mine`. Same assumed `404` (not found / not yours) as `GET /orders/:orderId/qualified-facilities`; the UI shows "Order not found", never a permission-error debug path.
+- `GET /payments/intents?orderId=<id>` → `PaymentIntent` — the order→intent lookup behind the panel. `404` means "this order has no payment intent" and is mapped to `null` by `payments-service.getPaymentIntentForOrder`; the panel then hides entirely (no empty state, no error). Assumes docforum-core will validate/accept an `orderId` query filter once #85 makes `orderId` a real FK.
+- **Timeline times are an assumption:** docforum-core's `PaymentIntent` has only `createdAt`/`updatedAt`, no per-event history. The panel therefore shows `createdAt` for "Payment initiated", `updatedAt` for the current/last step, and no time (`—`) for intermediate steps of a finished payment. If docforum-core ever adds a status-change history, `buildTimeline` in `OrderPaymentPanel.tsx` is the one place to change.
+- **Patient-facing by design:** the panel never renders `facilityId`, `patientProfileId`, `escrowId`, or `sorobanContractId` (console-only fields) — covered by tests. Status wording, amount formatting and explorer links all come from the shared patient-payment helpers (`status.ts`, `stroops.ts`, `explorer.ts` — the last being issue #10's helper, same one `PaymentDetailPage` uses), so this screen never drifts from the payment history screens; a `failed` intent additionally tells the patient to contact support and quote the order reference.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

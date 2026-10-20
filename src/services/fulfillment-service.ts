@@ -7,9 +7,11 @@ import type {
 export function listFulfillmentQueue(
   facilityId: string,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<FulfillmentQueueItem[]> {
   return apiFetch<FulfillmentQueueItem[]>(`/facilities/${facilityId}/fulfillment-queue`, {
     accessToken,
+    signal,
   });
 }
 

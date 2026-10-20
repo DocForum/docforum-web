@@ -8,7 +8,7 @@ export function useTodayAppointments() {
 
   return useQuery({
     queryKey: ['doctor', 'appointments', 'today'],
-    queryFn: () => queueService.listTodayAppointments(accessToken!),
+    queryFn: ({ signal }) => queueService.listTodayAppointments(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }
@@ -18,7 +18,7 @@ export function useAppointmentIntake(appointmentId: string, enabled: boolean) {
 
   return useQuery({
     queryKey: ['doctor', 'appointments', appointmentId, 'intake'],
-    queryFn: () => doctorTodayService.getAppointmentIntake(appointmentId, accessToken!),
+    queryFn: ({ signal }) => doctorTodayService.getAppointmentIntake(appointmentId, accessToken!, signal),
     enabled: Boolean(accessToken && appointmentId && enabled),
   });
 }

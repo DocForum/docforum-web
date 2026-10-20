@@ -88,6 +88,7 @@ describe('DoctorInbox', () => {
       expect(messagingService.listThreads).toHaveBeenCalledWith(
         { filter: 'unread', cursor: null, limit: 10 },
         'test-token',
+        expect.any(AbortSignal),
       );
     });
   });

@@ -12,7 +12,8 @@ export function useFacilityQueue(facilityId: string) {
 
   return useQuery({
     queryKey: queueKey(facilityId),
-    queryFn: () => fulfillmentService.listFulfillmentQueue(facilityId, accessToken!),
+    queryFn: ({ signal }) =>
+      fulfillmentService.listFulfillmentQueue(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }
