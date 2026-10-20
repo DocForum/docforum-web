@@ -8,6 +8,7 @@ import { HashRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { useAuthStore } from './store/auth-store';
+import { useSessionSync } from './hooks/useSessionSync';
 import App from './App';
 import './styles/global.css';
 
@@ -43,9 +44,15 @@ if (previewRole && (previewRole === 'doctor' || previewRole === 'facility' || pr
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root element not found');
 
+function SessionSyncBridge() {
+  useSessionSync();
+  return null;
+}
+
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <SessionSyncBridge />
       <HashRouter>
         <App />
       </HashRouter>

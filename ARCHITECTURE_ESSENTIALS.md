@@ -83,6 +83,8 @@ the cookie to be sent/received at all). One gap remains:
 
 ## Known assumptions
 
+- **Multi-tab session sync (issue #124)**: `BroadcastChannel` carries logout and acting-for profile changes only; it never carries access tokens or user data. Browsers without `BroadcastChannel` retain normal single-tab behavior. Refresh signaling/single-flight is deferred until issue #9 implements `POST /auth/refresh`.
+
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
 ### Phase W2 — Patient core flow (dependents, health profile, acting-for)
