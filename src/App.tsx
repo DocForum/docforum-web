@@ -28,6 +28,7 @@ import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { PUBLIC_CONTENT_ROUTES } from './pages/public-page-map';
 
 export default function App() {
   return (

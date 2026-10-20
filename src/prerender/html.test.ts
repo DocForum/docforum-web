@@ -32,9 +32,10 @@ describe('applyHeadMeta', () => {
     expect(head).toContain('<meta property="og:site_name" content="DocForum" />');
   });
 
-  it('keeps the template head intact (theme script, fonts, assets)', () => {
-    expect(html).toContain("localStorage.getItem('docforum-theme')");
-    expect(html).toContain('fonts.googleapis.com/css2');
+  it('keeps the template head intact (self-hosted fonts, assets)', () => {
+    expect(html).toContain('href="/fonts/fonts.css"');
+    expect(html).toContain('href="/loading-shell.css"');
+    expect(html).not.toContain('fonts.googleapis.com');
     expect(html).toContain('rel="stylesheet"');
     expect(html).toContain('type="module"');
   });
