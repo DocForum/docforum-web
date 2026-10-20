@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/useConsultationNote';
+import { useAppointment } from "../../appointment/hooks/useAppointment";
+import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
 import styles from './ConsultationNote.module.css';
 
@@ -25,6 +27,8 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const query = useConsultationNote(appointmentId ?? null);
   const signOff = useSignOffNote();
   const addAddendum = useAddAddendum();
+  const appointmentQuery = useAppointment(appointmentId ?? "");
+  const navigate = useNavigate();
 
   const [draft, setDraft] = useState(query.data?.content ?? '');
   const [addendumContent, setAddendumContent] = useState('');
@@ -90,6 +94,14 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           <span className={styles.deadline}>
             Auto sign-off: {formatDateTime(note.autoSignOffAt)}
           </span>
+        )}
+        {appointmentQuery.data?.patientProfileId && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/doctor/patient-chart/${appointmentQuery.data.patientProfileId}`)}
+          >
+            View patient chart
+          </Button>
         )}
       </header>
 
