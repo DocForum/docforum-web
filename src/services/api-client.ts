@@ -63,6 +63,41 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return payload as T;
 }
 
+export interface FormRequestOptions {
+  method?: 'POST' | 'PATCH';
+  accessToken?: string | null;
+  signal?: AbortSignal;
+}
+
+export async function apiFetchForm<T>(
+  path: string,
+  formData: FormData,
+  options: FormRequestOptions = {},
+): Promise<T> {
+  const { method = 'POST', accessToken, signal } = options;
+
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers,
+    credentials: 'include',
+    body: formData,
+    signal,
+  });
+
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const payload = isJson ? await response.json().catch(() => undefined) : undefined;
+
+  if (!response.ok) {
+    const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
+    throw new ApiError(message, response.status, payload);
+  }
+
+  return payload as T;
+}
+
 export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { method = 'GET', body, accessToken, signal } = options;
 

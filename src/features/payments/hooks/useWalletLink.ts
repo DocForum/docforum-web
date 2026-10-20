@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as paymentsService from '../../../services/payments-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { ApiError } from '../../../services/api-client';
+import { invalidateFor } from '../../../invalidations';
+import { paymentKeys } from '../../../query-keys';
 
-const WALLET_LINK_QUERY_KEY = ['payments', 'wallet-link'] as const;
+const WALLET_LINK_QUERY_KEY = paymentKeys.walletLink();
 
 export function useOwnWalletLink() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -25,6 +27,6 @@ export function useLinkWallet() {
 
   return useMutation({
     mutationFn: (stellarPublicKey: string) => paymentsService.linkWallet(stellarPublicKey, accessToken!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: WALLET_LINK_QUERY_KEY }),
+    onSuccess: () => invalidateFor(queryClient, 'payments.wallet-link'),
   });
 }

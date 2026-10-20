@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import * as insightsService from '../../../services/insights-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { insightKeys } from '../../../query-keys';
 import type { DateRangePreset, DoctorPracticeInsights } from '../../../types/models';
 
 export interface UseDoctorInsightsParams {
@@ -13,7 +14,7 @@ export function useDoctorInsights(params: UseDoctorInsightsParams) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery<DoctorPracticeInsights>({
-    queryKey: ['doctor', 'insights', params],
+    queryKey: insightKeys.params(params),
     queryFn: () => insightsService.getDoctorPracticeInsights(accessToken!, params),
     enabled: Boolean(accessToken),
   });
