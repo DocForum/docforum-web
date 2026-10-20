@@ -264,6 +264,21 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+### Phase W5 — Patient order detail & payment panel (issue #61, depends on docforum-core#85)
+
+Custodial payment *mechanics* are real (docforum-core Phase 5.5, its
+`docs/adr/0004-custodial-payments-v1.md`), but attaching an order to its
+payment intent isn't: docforum-core has no `Order`/`Prescription`/
+`LabOrder` model yet (its #9 and #85 — real FKs from `PaymentIntent` to
+the order — are open). Everything below is assumed and mirrored in
+`models.ts` under "Patient orders (Phase W5, issue #61)".
+
+- `GET /patients/me/orders/:orderId` → `PatientOrder` = `{id, orderType: 'prescription'|'lab', patientProfileId, itemName, instructions?, status: 'issued'|'ready'|'fulfilled'|'cancelled', issuedAt, expiresAt?, doctorName, facility: {id, name} | null}`. Scoped to the signed-in patient; `404` for an order that isn't theirs is treated as "not found", not a permission error to debug. `orderType: 'lab'` (not `lab_order`) follows the fulfillment side's `FulfillmentOrderType`; reconcile when docforum-core#85 lands.
+- `GET /payments/intents?orderId=<id>` → `PaymentIntent` — the order→intent lookup behind the panel. `404` means "this order has no payment intent" and is mapped to `null` by `payments-service.getPaymentIntentForOrder`; the panel then hides entirely (no empty state, no error). Assumes docforum-core will validate/accept an `orderId` query filter once #85 makes `orderId` a real FK.
+- **Timeline times are an assumption:** docforum-core's `PaymentIntent` has only `createdAt`/`updatedAt`, no per-event history. The panel therefore shows `createdAt` for "Payment initiated", `updatedAt` for the current/last step, and no time (`—`) for intermediate steps of a finished payment. If docforum-core ever adds a status-change history, `buildTimeline` in `OrderPaymentPanel.tsx` is the one place to change.
+- **Patient-facing by design:** the panel never renders `facilityId`, `patientProfileId`, `escrowId`, or `sorobanContractId` (console-only fields) — covered by tests.
+- **Explorer links (issue #10's helper):** `src/features/payments/explorer.ts` builds all Stellar Expert testnet URLs (`txExplorerUrl`, `accountExplorerUrl`); #10 stays open until the admin console and wallet-link form are wired onto it too.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
