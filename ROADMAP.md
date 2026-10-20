@@ -33,7 +33,7 @@ real API" (no refresh-on-reload flow).
   this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
-**Fully scoped into issues #1–#5, #18–#21, #26–#29.**
+**Fully scoped into issues #1–#5, #18–#21, #26–#29, plus the follow-on patient issues #32–#34 and #37.**
 - [ ] Doctor search (specialty + availability filter). Tracked as [issue #1](https://github.com/DocForum/docforum-web/issues/1) (Medium, 150 pts) — built against a documented assumed API shape, since `docforum-core` has no doctor-list endpoint yet.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
@@ -49,6 +49,15 @@ real API" (no refresh-on-reload flow).
 - [x] Facility finder with a map and distance-sorted results. Tracked as [issue #29](https://github.com/DocForum/docforum-web/issues/29) (High, 200 pts) — assumed contract against `docforum-core` issue #74.
 
 
+- [x] Patient home as a care hub: action-first dashboard ranking what needs
+  attention now. Tracked as [issue #33](https://github.com/DocForum/docforum-web/issues/33) (High, 200 pts) — no new backend contract; aggregates the
+  dependents and health-profile endpoints above. Its "Coming up" section is fed
+  by the appointment cards below, which read `docforum-core`'s real
+  `GET /appointments/mine`; a dedicated appointments list screen
+  ([issue #3](https://github.com/DocForum/docforum-web/issues/3)) is still open.
+- [x] Check-in and live queue position on appointment day. Tracked as [issue #32](https://github.com/DocForum/docforum-web/issues/32) (High, 200 pts) — the visit itself comes from `docforum-core`'s real `GET /appointments/mine`; the queue, check-in and its window are an assumed contract against `docforum-core` issue #129, which has not landed.
+- [x] 'Who viewed my records' access log. Tracked as [issue #34](https://github.com/DocForum/docforum-web/issues/34) (High, 200 pts) — assumed contract against `docforum-core` issue #45 (PHI read-access log), which has not landed.
+- [x] Payment history and receipts for patients. Tracked as [issue #37](https://github.com/DocForum/docforum-web/issues/37) (High, 200 pts) — `PaymentIntent` mirrors `docforum-core`'s real Phase 5.5 shape (`amountStroops`/`escrowId` arrive as strings and are formatted with BigInt, never through `Number`); the patient list/detail routes and the `refundDeadlineAt`/`facilityName` display fields are an assumed contract against `docforum-core` issue #90, which has not landed.
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7, with #45–#49 added as doctor core-flow features.**
 - [x] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts) — foundation laid via the doctor dashboard's live queue (`src/features/queue/`).
@@ -73,6 +82,13 @@ real API" (no refresh-on-reload flow).
   here). `src/features/payments/components/WalletLinkForm.tsx`, wired
   into `FacilityDashboardPage` — a facility links the Stellar address
   `docforum-core` pays out to.
+- [ ] Patient wallet connection with SEP-10 verification and privacy notice.
+  Tracked as [issue #58](https://github.com/DocForum/docforum-web/issues/58),
+  blocked until `docforum-core` delivers the SEP-10 and verified wallet-link
+  contracts in [#77](https://github.com/DocForum/docforum-core/issues/77) and
+  [#78](https://github.com/DocForum/docforum-core/issues/78). No frontend
+  endpoint or wallet-verification shape is assumed before those dependencies
+  are implemented.
 - [x] Payment/escrow status display — not literally "on orders" (Phase
   4's `Prescription`/`LabOrder` don't exist yet, same reason
   `docforum-core`'s `PaymentIntent.orderId` stays opaque), but a real,
@@ -84,7 +100,7 @@ real API" (no refresh-on-reload flow).
   transaction underneath. Admin accounts are seeded/invited, not
   self-serve (PRD OQ-2, same as facility) — this page is real once such
   a session exists, same caveat as the facility dashboard already had.
-- [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
+- [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts). The helper this needs now exists — `src/features/payments/explorer.ts`, used by the patient receipt built for [issue #37](https://github.com/DocForum/docforum-web/issues/37) under Phase W2 — but the admin console does not link out yet, so this stays open.
 
 ## Phase W6 — Admin console
 Admin-only screens beyond payments. Everything goes through `docforum-core`'s admin API; admin accounts stay seeded/invited (PRD OQ-2).
@@ -93,11 +109,13 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [x] System health page: readiness, background jobs and recent failures. Tracked as [issue #73](https://github.com/DocForum/docforum-web/issues/73) (High, 200 pts): `src/features/admin-system/`, `AdminSystemPage` at `/admin/system`. Overview tiles answer "is it broken?" at a glance (API readiness, background jobs, outbox dead letters), backed by a readiness-check list (required vs optional, so a Stellar RPC outage shows as degraded, not down), one card per job with last success, last failure, next run and an overdue flag for stalled jobs, and a recent-failures list with error messages. "Run now" asks for confirmation (Cancel focused) and shows docforum-core's result in the dialog: finished with item count, failed with the error, still running, already running elsewhere (`409`), or unconfirmed after a network failure. Everything refreshes every 30 s while the tab is visible and catches up when it's shown again; each source fails on its own, a failed poll never leaves a stale "Ready" on screen, and slow readiness answers are flagged as likely cold starts. **Built against assumed shapes:** docforum-core#104 (readiness), #100 (job runner) and #94 (outbox) haven't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 - [x] Feature flags console. Tracked as [issue #74](https://github.com/DocForum/docforum-web/issues/74) (High, 200 pts): `src/features/admin-flags/`, `AdminFlagsPage` at `/admin/flags`. Lists every flag with its state (on, rolling out, off), type, rollout percentage, role targeting and allowlist size, a plain-language "who it reaches" line, and who changed it last and when, taken from the audit trail. Search (key and description), state and type filters live in the URL. The switch and the edit dialog both go through a review step that shows each changed field before and after, the audience before and after, and the last change; turning a flag off is called out. Percentages must be whole numbers from 0 to 100, and allowlist entries must be user ids. Saves are optimistic. A failed save rolls back only that flag, never another save in flight, and the list refetches. `expectedUpdatedAt` turns concurrent edits into conflicts, and the dialog notices when the flag changes under it. **Built against assumed shapes:** docforum-core#132 hasn't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 ## Phase W7 — Platform quality: reliability, accessibility, performance, testing
+- [x] **PR malware scan** — `.github/workflows/pr-malware-scan.yml` + `.github/scripts/pr-malware-scan.cjs`, on every PR push. Flags editor/devcontainer autorun tasks, npm install hooks, typosquatted packages and Actions, non-registry dependency sources, payloads disguised as fonts/images, base64/whitespace obfuscation, exfiltration endpoints, reverse shells and miners. HIGH findings fail the `Malware scan` check, label the PR `security-review` and @mention the author; one comment per PR, updated in place. Reads the PR as data only (never checks out or runs it). Added 2026-10-20 after a VS Code autorun payload (escrow #163) and a typosquatted action (escrow #176). Manual backfill (Actions → PR malware scan → Run workflow, `prs: all`) scans PRs opened before the scanner and records a `Malware scan` commit status, which satisfies the required check.
 - [x] Mock API for local development (MSW). Tracked as [issue #95](https://github.com/DocForum/docforum-web/issues/95) (High, 200 pts) — `npm run dev:mock` serves every endpoint the app uses through the normal service layer via `src/mocks/`: seeded obviously-fake fixtures, a dev-panel role switcher (patient/doctor/facility/admin), scenario toggles (empty states, forced errors), a latency slider, and a fixture reset. 26 handler tests drive the real `src/services/` layer against MSW; CI fails if mock code ever enters a production bundle (`npm run check:dist`). Documented in `CONTRIBUTING.md`.
 - [ ] Generate MSW handlers and fixtures from the backend OpenAPI spec. Tracked as [issue #96](https://github.com/DocForum/docforum-web/issues/96) (High, 200 pts) — **blocked**: depends on [docforum-core#112](https://github.com/DocForum/docforum-core/issues/112) (OpenAPI 3.1 spec generated from the Zod schemas), which is still open — there is no authoritative `openapi.json` to generate from yet. Do not fabricate one; see that issue.
 - [ ] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts).
 - [ ] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts).
-- [x] API client: request cancellation, de-duplication, timeouts and retry policy. Tracked as [issue #123](https://github.com/DocForum/docforum-web/issues/123) (High, 200 pts) — `src/services/api-client.ts` now owns the whole HTTP lifecycle: every request has a timeout (`DEFAULT_TIMEOUT_MS` 60 s, deliberately longer than a cold start so the `useSlowRequestHint` explanation isn't turned into a fake failure; slow endpoints — data-export create/download, admin job run — pass `SLOW_REQUEST_TIMEOUT_MS` 120 s) failing with a typed `ApiTimeoutError` that is distinct from `ApiError` and from an abort; identical concurrent GETs share one network request and one parsed result (keyed by URL, bearer token and timeout), with **independent cancellation per caller** — one caller walking away never fails the others, and the shared request is aborted only when its last caller does; mutations are never de-duplicated. Every service function used by a query takes an optional `AbortSignal` and every `queryFn` passes React Query's signal through, so navigating away actually stops the request; catch-all fallbacks rethrow aborts/timeouts instead of caching placeholder data (`useCareThreads`, `useFacilityLedger`). The shared `QueryClient`'s retry policy retries transient failures once and never retries a cancellation (`isAbortError`).
+- [x] Shared form system: react-hook-form with schema validation. Tracked as [issue #102](https://github.com/DocForum/docforum-web/issues/102) (High, 200 pts) — `react-hook-form` + `zod` schema validation layer (`src/components/form/FormField.tsx`, `src/hooks/useZodForm.ts`, `src/utils/form.ts`) with consistent, accessible errors (`aria-describedby`/`aria-invalid`), focus-to-first-error on submit, and server-side validation-error mapping onto fields. Migrated login, signup, wallet link and create payment intent forms. Documented in `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Shared form system".
+- [x] **PR conflict notifier** — `.github/workflows/pr-conflict-notifier.yml` + `.github/scripts/pr-conflict-notifier.cjs`. On every push to `main` (and every 3h) it labels open PRs that conflict with `main` as `needs-rebase` and @mentions the author once per push with rebase steps; the label clears itself when the conflict is resolved. Runs from `main` only and never checks out PR code.
 
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
@@ -356,6 +374,78 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   `/patient/facilities`). Strict privacy enforcement: transient in-memory
   location only (never persisted to storage or URLs). 15 test files and
   62/62 tests passing.
+- 2026-10-16 — Rebuilt `PatientDashboardPage` from a placeholder into the
+  patient care hub ([issue #33](https://github.com/DocForum/docforum-web/issues/33)): `src/features/care-hub/` holds a pure
+  ranking module (`ranking.ts`) plus `useCareHub`, which fans out to the
+  existing dependents and health-profile queries in parallel and turns
+  their results into cards ranked `blocked now → needs you → good to know`,
+  with a 30-day "Recent" window. One failing source degrades its own
+  section instead of blanking the page, and a health section that *errored*
+  is never reported to the patient as an empty profile. Sections for
+  unbuilt features are hidden, not stubbed — "Coming up" only appears once
+  a card source for it lands, which [issue #32](https://github.com/DocForum/docforum-web/issues/32)
+  supplies from `docforum-core`'s real `GET /appointments/mine`. Adds
+  `src/features/care-hub/ranking.test.ts` and
+  `src/pages/PatientDashboardPage.test.tsx`; 57 tests pass (was 44 on
+  `main`), typecheck and build green.
+- 2026-10-16 — Checked the three other assigned W2 issues against the
+  current code and backend: #32 (check-in + live queue position), #34
+  ("who viewed my records" access log) and #37 (payment history and
+  receipts) each need a `docforum-core` endpoint that does not exist yet —
+  no check-in/queue route, no access-log route, and
+  `src/services/payments-service.ts` can create/read/fund a single
+  `PaymentIntent` by id but has no list-the-patient's-payments route.
+  Concluded they "stay unimplemented rather than built on a fabricated
+  contract", which was the wrong call and is corrected by the entries
+  below: hard rule 1 forbids calling Stellar/escrow directly, not building
+  a patient screen against a *documented* assumed shape — and #18, #19 and
+  #21 all did exactly that, recorded in "Known assumptions". What the check
+  did establish and what still gates these screens is the missing backend
+  work (`docforum-core` #129, #45 and #90).
+- 2026-10-16 — Built #32: check-in and live queue position on appointment
+  day. `src/services/appointments-service.ts` calls `docforum-core`'s real
+  `GET /appointments/mine` (a bare array, newest-first, `availabilitySlot`
+  included) and the assumed queue/check-in routes. `src/features/appointments/`
+  holds the pure parts (`slot.ts` — local-calendar-day maths, so "today"
+  means the patient's day not UTC's; `queue.ts` — notification threshold and
+  a signature so a patient is told about a *change*, not every poll), the
+  `useAppointmentQueue` hook (polls only while the visit is on screen and
+  `status === 'scheduled'`, `gcTime: 0` so leaving the page stops the
+  requests) and `QueuePanel`. `AppointmentDetailPage` at
+  `/patient/appointments/:appointmentId` is reachable from the care hub's
+  "Coming up"/"Action needed" cards; check-in UI only appears on the day of
+  the visit. Estimates are always labelled as estimates, `peopleAhead: null`
+  renders as "not published" rather than "zero people ahead", and a 404 from
+  the unlanded queue route reads "check-in is not available for this visit
+  yet" instead of an empty queue. `src/hooks/useBrowserNotification.ts` asks
+  for permission only on a click and never re-asks after a refusal.
+- 2026-10-16 — Built #34: 'who viewed my records' access log at
+  `/account/access-log`. `src/services/access-log-service.ts` reads the
+  assumed `GET /patients/me/access-log` (cursor-paginated, `from`/`to`/
+  `recordType` filters) through `useInfiniteQuery`, so "show older entries"
+  asks for the next cursor only when the patient asks for it.
+  `src/features/account/` renders who (name + role), what and why, and
+  never an internal id; the "why" copy explains the treating-clinician and
+  fulfilling-facility cases rather than dumping a reason code. The
+  report-a-concern link is only rendered when `VITE_SUPPORT_EMAIL` is set —
+  an invented mailto would send a patient's privacy complaint nowhere.
+- 2026-10-16 — Built #37: payment history and printable receipts at
+  `/payments` and `/payments/:intentId`. `src/features/payments/stroops.ts`
+  converts `amountStroops` with BigInt only, so an amount above 2^53 prints
+  exactly (`900,719,925.4740993 XLM`) instead of silently rounding the
+  patient's own money; `explorer.ts` is the single source of testnet
+  explorer links (all calls still go through `docforum-core` — hard rule 1
+  — this only turns a hash core already returned into a URL); `status.ts`
+  labels and explains every `PaymentIntentStatus` in the patient's terms.
+  `PaymentReceipt` keeps the transaction hash and escrow contract id as
+  readable text so a printed copy is still verifiable, hides the page
+  chrome at print time, and omits `orderId`, which a patient cannot act on.
+  The assumed `refundDeadlineAt` renders nothing when absent rather than a
+  guessed window.
+- 2026-10-16 — #32/#34/#37 together: 156 tests pass across 25 files (57 on
+  this branch before, 44 on `main`), `npm run typecheck` clean, `npm run
+  build` clean. Types for every assumed shape are annotated as assumed in
+  `src/types/models.ts` and recorded in `ARCHITECTURE_ESSENTIALS.md`.
 - 2026-10-17 — Built Phase W3 doctor core flow (#45–#49): live queue with
   start/complete visits, running delay + manual override and 4s undo window
   (#49); doctor messages inbox with unread badge, truncated PHI previews,
@@ -379,7 +469,6 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   - `#52 Scan-to-verify orders with device camera`: dedicated verification page (`/facility/verify`) enabling facility staff to scan order QR codes via device camera or enter tokens manually. Uses native `BarcodeDetector` API with fallback; guarantees complete media stream track teardown on screen unmount/exit. Dispatches to `POST /facilities/me/verify-order` and cleanly displays all 5 result states (`valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`) alongside minimal clinical order summaries. Valid results feature an immediate CTA to jump into fulfillment (`/facility?orderId=...`). Surfaces HTTP 429 rate-limit protection against enumeration.
   - `#53 Facility payout ledger with escrow terms`: dedicated payments page (`/facility/payments`) displaying held, released, and refunded totals for both XLM and USDC. Uses BigInt-safe math (`formatStroops`) for Stellar 7-decimal stroop precision. Renders cursor-paginated escrow ledger with plain-language terms (releaser rules and refund deadline countdowns) adhering to threat model T8. Prominently flags approaching refund deadlines (< 48h) on unfulfilled orders. Integrates direct deep links to Stellar Expert testnet explorer for funding, release, and refund transactions.
   - Updated `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" and `ROADMAP.md`. 26 test files and 124/124 tests passing; typecheck and build green. Captured desktop and mobile screenshots into `screenshots/`.
-- 2026-10-20 — Hardened the API client (#123): every request now has a timeout — `DEFAULT_TIMEOUT_MS` (60 s, deliberately longer than docforum-core's ~1 minute cold start so the 4 s slow-request hint describes a wait that then succeeds) and `SLOW_REQUEST_TIMEOUT_MS` (120 s) for data-export create/download and admin job runs — failing with a typed `ApiTimeoutError` distinct from `ApiError` and from an abort. Identical concurrent GETs share one network request and one parsed result (keyed by URL, bearer token and timeout) with independent per-caller cancellation; mutations are never de-duplicated. Every query-serving service function takes an optional `AbortSignal` and every `queryFn` passes React Query's signal through, so navigating away stops the request; catch-all fallbacks rethrow aborts/timeouts so a cancelled query never caches placeholder data (`useCareThreads`, `useFacilityLedger`). The shared `QueryClient` retries transient failures once and never a cancellation (`isAbortError`). Documented in `ARCHITECTURE_ESSENTIALS.md` "API client behaviour". 42 test files and 395/395 tests passing (22 new: timeout, abort, de-dup, mutation-non-sharing, service signal wiring, slow-endpoint budget); typecheck, build and `check:dist` green.
-
-
-
+- 2026-10-19 — Added Phase W3 doctor core flow components (`AbnormalResultsInbox`, `CalendarSubscriptionSection`, `PatientChartPanel` + `/doctor/patient-chart/:patientProfileId`) and resolved TypeScript typecheck/JSX errors across `App.tsx`, `ConsultationNote.tsx`, `PatientChartPanel.tsx`, `usePatientChart.ts`, `AbnormalResultsInbox.tsx`, and `useCalendar.ts`.
+- 2026-10-20 — Shared form system: react-hook-form with schema validation (issue #102): `react-hook-form` + `zod` layer (`src/components/form/FormField.tsx`, `src/hooks/useZodForm.ts`, `src/utils/form.ts`) with accessible errors, focus-to-first-error, and server validation-error mapping onto fields. Migrated login, signup, wallet link and create payment intent forms; added LoginForm, CreatePaymentIntentForm tests and extended SignupForm/WalletLinkForm tests with server-error mapping. 42 test files and 380 tests passing; typecheck, build and check:dist green.
+- 2026-10-20 — Added the PR conflict notifier workflow (see the CI item above): maintainers no longer need to manually ask authors to rebase after each merge.
