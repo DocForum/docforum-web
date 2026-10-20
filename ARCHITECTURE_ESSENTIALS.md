@@ -446,6 +446,40 @@ open). Both endpoints below are assumed and were reconciled with #5's
 - **Timeline times are an assumption:** docforum-core's `PaymentIntent` has only `createdAt`/`updatedAt`, no per-event history. The panel therefore shows `createdAt` for "Payment initiated", `updatedAt` for the current/last step, and no time (`—`) for intermediate steps of a finished payment. If docforum-core ever adds a status-change history, `buildTimeline` in `OrderPaymentPanel.tsx` is the one place to change.
 - **Patient-facing by design:** the panel never renders `facilityId`, `patientProfileId`, `escrowId`, or `sorobanContractId` (console-only fields) — covered by tests. Status wording, amount formatting and explorer links all come from the shared patient-payment helpers (`status.ts`, `stroops.ts`, `explorer.ts` — the last being issue #10's helper, same one `PaymentDetailPage` uses), so this screen never drifts from the payment history screens; a `failed` intent additionally tells the patient to contact support and quote the order reference.
 
+### Messaging & attachments (web #22/#23 — assumed, docforum-core #61/#62 not landed yet)
+Endpoints used by `src/services/messaging-service.ts`. Everything goes
+through `api-client` (hard rule 1); multipart upload is the one exception
+to the fetch-only client because `fetch` can't report upload progress —
+`apiUpload` in `api-client.ts` uses `XMLHttpRequest`, still confined there.
+
+- `GET /threads/:threadId` → `MessageThread`
+- `GET /threads/:threadId/messages?cursor=` → `{ messages: Message[],
+  nextCursor: string | null }` (cursor paginated, newest page first)
+- `POST /threads/:threadId/messages` (body: `{ body, attachmentIds? }`) → `Message`
+- `POST /threads/:threadId/attachments` (multipart, field `file`) →
+  `MessageAttachment`
+- `GET /threads/:threadId/attachments/:attachmentId/download-url` →
+  `{ url, expiresAt }` — a **short-lived signed URL, minted per request**
+- `MessageThread` shape: `{ id, appointmentId, status: 'open'|'closed',
+  createdAt, updatedAt }`
+- `Message` shape: `{ id, threadId, senderProfileId, body,
+  attachments: MessageAttachment[], createdAt }`
+- `MessageAttachment` shape: `{ id, messageId, fileName, contentType,
+  sizeBytes, kind: 'image'|'pdf', createdAt }`
+
+The doctor inbox's per-thread summary is a separate type,
+`DoctorMessageThread` (`{ id, patientProfileId, patientName, lastMessageAt,
+unreadCount, lastPreview?, waitingMinutes?, closingSoon? }`).
+
+Constraints held in the frontend: signed URLs are **never cached** — the
+inline preview holds its URL only in component state, and every click /
+download mints a fresh one; message bodies are rendered as text only (PHI,
+no HTML); drafts and staged uploads are in-memory only (no
+localStorage/sessionStorage); EXIF is never read or displayed here (the
+server strips it). The full thread UX (optimistic send, live updates,
+per-side layout) is #22's scope — `MessageThread` here is a minimal shared
+shell so the attachment composer/preview have a real home.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
