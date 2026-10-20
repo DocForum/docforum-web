@@ -40,6 +40,55 @@ those first if you're new to the org, not just this file.
   localStorage/sessionStorage above; it applies to auth tokens too, not
   just business data.
 
+## Query keys & cache invalidation (issue #122)
+React Query caches everything this app fetches. Two files own the key
+space, and no hook may invent its own string array:
+- `src/query-keys.ts` — one typed factory per resource (`appointmentKeys`,
+  `queueKeys`, `healthKeys`, `facilityKeys`, …). `<resource>.all` is that
+  resource's invalidation root; every other key nests under it (enforced by
+  `src/query-keys.test.ts`).
+- `src/invalidations.ts` — the mutation → keys map. A mutation declares its
+  blast radius once, as a `'<domain>.<action>'` entry built from those
+  factories, and refreshes it with `invalidateFor(queryClient, '…', …vars)`.
+  Hooks do not hand-write `queryClient.invalidateQueries({ queryKey })`
+  arrays anymore.
+
+Rules:
+- **Profile scoping.** Any list the API scopes to a patient profile carries
+  the acting profile id — `healthKeys.section(profileId, section)`,
+  `careThreadKeys.list(profileId)`, `appointmentKeys.list(profileId)` — so
+  switching profile in the acting-for switcher can never surface another
+  profile's cache. `dependentKeys.all` is deliberately *not* profile-scoped:
+  that list comes from `/patients/me`, keyed to the session, not a profile.
+- **Narrowest key that is true.** A health write invalidates one profile's
+  one section; an invite write invalidates a facility's invites, never its
+  members or fulfillment queue. Widen a key only when the write provably
+  moves the wider data — payment actions also invalidate
+  `paymentKeys.ledgers()` because funding/releasing/refunding moves
+  held/released totals that cannot be attributed to one facility from the
+  intent alone.
+- **Sibling flag keys (the documented exception).** `flagKeys.list()` and
+  `flagKeys.history()` stay siblings: invalidating the list must not
+  refetch the audit lookup, and vice versa. Only the write path uses
+  `flagKeys.all`, which covers both.
+- **No silent writes.** If a mutation moves data a screen reads, it has a
+  map entry — including the optimistic paths (visit actions, intent
+  actions) that previously left the visible list stale until a 30 s poll.
+- `setQueryData` patches (optimistic rows, server responses written
+  straight through) stay in the hook; the map governs *invalidation*.
+  Whether `onSuccess` awaits the refetch is kept per-hook as it was before
+  this issue — a "Saving…" state that used to release early still does.
+
+No API shape is assumed by either file: they only name keys. Tests:
+`src/query-keys.test.ts` (nesting, profile scoping, sibling/narrow keys)
+and `src/invalidations.test.ts` (a seeded `QueryClient` per case asserting
+exactly the targeted keys are invalidated and unrelated ones are not), plus
+a hook-level case in `useQueue.test.tsx` — a confirmed start/complete marks
+the dashboard appointment list and the queue for refresh, the analogue of
+this issue's review check ("a booking mutation refreshes the dashboard and
+appointment list") until booking (#2) and the patient appointment list (#3)
+land and consume `appointmentKeys.list(profileId)`.
+
 ## Deployment
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
