@@ -101,6 +101,43 @@ while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
+### Active sessions and devices (issue #79, docforum-core#38 not landed)
+
+Session listing/revocation is built against an assumed contract; reconcile
+when docforum-core#38 lands.
+
+- `GET /auth/sessions` → `ActiveSession[]`
+- `DELETE /auth/sessions/:sessionId` → `void` (`404` when it is already gone)
+- `DELETE /auth/sessions/others` → `{ revokedCount: number }` — revokes every
+  session except the current one
+- `ActiveSession` shape: `{id, device, approximateLocation: string | null,
+  lastActiveAt, createdAt, isCurrent}`, mirrored in `models.ts`. `device` and
+  `approximateLocation` are the coarse labels the API provides; a full IP
+  address is never requested, shown or stored.
+- Revoking the current session is treated as a sign-out: the React Query
+  cache, Zustand session and in-memory token are all cleared, then the user
+  is sent to `/login`. A `404` on revoke means someone else already removed
+  that session — the row is dropped and the list refetched, not shown as an
+  error.
+
+### Rate limiting and lockout (issue #80, docforum-core#35)
+
+- `api-client.ts` turns a `429` into a typed `RateLimitError` with
+  `retryAfterSeconds`, parsed from `Retry-After` as delta-seconds or an HTTP
+  date. A missing/unusable header falls back to
+  `DEFAULT_RETRY_AFTER_SECONDS` (60); nothing retries sooner than the header
+  allows.
+- Login and signup show an account-agnostic "Too many attempts" countdown and
+  disable submit until it ends, so the message cannot reveal whether an email
+  exists. The visible number is not a live region; a hidden polite region
+  re-announces at intervals (immediately, then 60/30/10/5…1).
+- `query-client.ts`'s `retryDelay` uses `Retry-After` as a floor (and
+  exponential backoff otherwise). Queries retry once; mutations — login,
+  signup, revokes — are never retried automatically.
+- Every `429` also raises one global, non-blocking notice
+  (`src/components/RateLimitNotice.tsx`) that clears itself when the wait is
+  over. It never blocks the page or replaces the caller's inline message.
+
 ### Phase W2 — Patient core flow (dependents, health profile, acting-for)
 
 These API shapes are assumed and not yet implemented in `docforum-core`.

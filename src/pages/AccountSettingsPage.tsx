@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { DataExportSection } from '../features/account/components/DataExportSection';
 import { DeleteAccountSection } from '../features/account/components/DeleteAccountSection';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { SessionsSection } from '../features/account/components/SessionsSection';
 import { CalendarSubscriptionSection } from '../features/settings/components/CalendarSubscriptionSection';
 
 export function AccountSettingsPage() {
@@ -26,6 +27,8 @@ export function AccountSettingsPage() {
       <div ref={exportSectionRef}>
         <DataExportSection />
       </div>
+
+      <SessionsSection />
 
       <CalendarSubscriptionSection />
 

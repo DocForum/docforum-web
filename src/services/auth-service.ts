@@ -4,7 +4,12 @@
 // implemented routes yet (its backend/src/modules/auth/* is a placeholder).
 // Reconcile against the real contract once docforum-core's Phase 1 lands.
 import { apiFetch } from './api-client';
-import type { SelfServeRole, User } from '../types/models';
+import type {
+  ActiveSession,
+  RevokeOtherSessionsResult,
+  SelfServeRole,
+  User,
+} from '../types/models';
 
 export interface AuthSession {
   user: User;
@@ -33,4 +38,26 @@ export function login(input: LoginInput): Promise<AuthSession> {
 
 export function logout(accessToken: string): Promise<void> {
   return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
+}
+
+// Active sessions and devices (issue #79). ASSUMED contract —
+// docforum-core#38 has not landed; see ARCHITECTURE_ESSENTIALS.md "Known
+// assumptions". Coarse device/location only, never a full IP address.
+
+export function listSessions(accessToken: string): Promise<ActiveSession[]> {
+  return apiFetch<ActiveSession[]>('/auth/sessions', { accessToken });
+}
+
+export function revokeSession(sessionId: string, accessToken: string): Promise<void> {
+  return apiFetch<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    accessToken,
+  });
+}
+
+export function revokeOtherSessions(accessToken: string): Promise<RevokeOtherSessionsResult> {
+  return apiFetch<RevokeOtherSessionsResult>('/auth/sessions/others', {
+    method: 'DELETE',
+    accessToken,
+  });
 }

@@ -12,7 +12,12 @@
 // GitHub Pages and Render are different domains), which `fetch` only
 // sends/stores with this flag.
 
+import { notifyRateLimit } from '../store/rate-limit-store';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+
+/** Fallback when a 429 arrives without a usable `Retry-After` header. */
+export const DEFAULT_RETRY_AFTER_SECONDS = 60;
 
 export class ApiError extends Error {
   constructor(
@@ -23,6 +28,55 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/**
+ * A `429 Too Many Requests` from docforum-core, carrying the wait the server
+ * asked for. Every surface derives its countdown from `retryAfterSeconds` so
+ * nothing retries sooner than `Retry-After` allows.
+ */
+export class RateLimitError extends ApiError {
+  constructor(
+    message: string,
+    public readonly retryAfterSeconds: number,
+    body?: unknown,
+  ) {
+    super(message, 429, body);
+    this.name = 'RateLimitError';
+  }
+
+  get retryAfterMs(): number {
+    return this.retryAfterSeconds * 1000;
+  }
+}
+
+/**
+ * Parse a `Retry-After` header (delta-seconds or an HTTP date) into whole
+ * seconds. Returns `null` when the header is absent or unusable, so callers
+ * can fall back to `DEFAULT_RETRY_AFTER_SECONDS`.
+ */
+export function parseRetryAfter(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const value = header.trim();
+  if (value === '') return null;
+
+  if (/^\d+$/.test(value)) {
+    const seconds = Number(value);
+    return Number.isSafeInteger(seconds) ? seconds : null;
+  }
+
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return null;
+  return Math.max(0, Math.ceil((date - now) / 1000));
+}
+
+function rateLimitError(response: Response, payload: unknown): RateLimitError {
+  const seconds = parseRetryAfter(response.headers.get('Retry-After')) ?? DEFAULT_RETRY_AFTER_SECONDS;
+  const message =
+    (payload as ErrorEnvelope | undefined)?.message ?? 'Too many requests. Please try again shortly.';
+  // One global, non-blocking notice regardless of which caller hit the limit.
+  notifyRateLimit(seconds);
+  return new RateLimitError(message, seconds, payload);
 }
 
 export interface RequestOptions {
@@ -56,6 +110,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const payload = isJson ? await response.json().catch(() => undefined) : undefined;
 
   if (!response.ok) {
+    if (response.status === 429) throw rateLimitError(response, payload);
     const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
     throw new ApiError(message, response.status, payload);
   }
@@ -81,6 +136,7 @@ export async function apiFetchBlob(path: string, options: RequestOptions = {}): 
   if (!response.ok) {
     const isJson = response.headers.get('content-type')?.includes('application/json');
     const payload = isJson ? await response.json().catch(() => undefined) : undefined;
+    if (response.status === 429) throw rateLimitError(response, payload);
     const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
     throw new ApiError(message, response.status, payload);
   }

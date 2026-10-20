@@ -23,6 +23,21 @@ real API" (no refresh-on-reload flow).
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Active sessions and devices management. Tracked as
+  [issue #79](https://github.com/DocForum/docforum-web/issues/79) (High,
+  200 pts) — `SessionsSection` in account settings lists each session with
+  coarse device/location and last active, marks the current device, revokes
+  one or all others behind a confirmation, treats an already-revoked session
+  as gone (not an error), and clears all client state when the current
+  session is revoked. Built against an assumed contract: docforum-core#38
+  has not landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
+- [x] Rate-limit and lockout UX: Retry-After handling across the app.
+  Tracked as [issue #80](https://github.com/DocForum/docforum-web/issues/80)
+  (High, 200 pts) — `RateLimitError` with `Retry-After` parsing in
+  `api-client.ts`, an accessible countdown that disables login/signup until
+  the lockout ends, a React Query `retryDelay` that never retries sooner than
+  the header allows, and one global non-blocking notice. Depends on
+  docforum-core#35.
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
@@ -472,3 +487,4 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - 2026-10-19 — Added Phase W3 doctor core flow components (`AbnormalResultsInbox`, `CalendarSubscriptionSection`, `PatientChartPanel` + `/doctor/patient-chart/:patientProfileId`) and resolved TypeScript typecheck/JSX errors across `App.tsx`, `ConsultationNote.tsx`, `PatientChartPanel.tsx`, `usePatientChart.ts`, `AbnormalResultsInbox.tsx`, and `useCalendar.ts`.
 - 2026-10-20 — Shared form system: react-hook-form with schema validation (issue #102): `react-hook-form` + `zod` layer (`src/components/form/FormField.tsx`, `src/hooks/useZodForm.ts`, `src/utils/form.ts`) with accessible errors, focus-to-first-error, and server validation-error mapping onto fields. Migrated login, signup, wallet link and create payment intent forms; added LoginForm, CreatePaymentIntentForm tests and extended SignupForm/WalletLinkForm tests with server-error mapping. 42 test files and 380 tests passing; typecheck, build and check:dist green.
 - 2026-10-20 — Added the PR conflict notifier workflow (see the CI item above): maintainers no longer need to manually ask authors to rebase after each merge.
+- 2026-10-20 — Built W1 active sessions and devices (#79) and rate-limit/lockout UX (#80). Sessions section lists coarse device/location, marks the current device, revokes one/all others after confirmation, handles already-revoked sessions, and clears cache + auth state when the current session is revoked. 429s become typed `RateLimitError`s (delta-seconds or HTTP-date `Retry-After`, 60s fallback), login/signup show an account-agnostic countdown with screen-reader interval announcements and disabled submit, React Query uses `Retry-After` as its retry floor, and a global non-blocking notice covers every caller. Sessions API shapes are assumed pending docforum-core#38/#35; documented in `ARCHITECTURE_ESSENTIALS.md`.
