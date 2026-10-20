@@ -1,7 +1,7 @@
 // Payments endpoints: wallet link and the payment-intent lifecycle.
 // Everything goes through docforum-core's API shape — no Stellar calls
 // here (hard rule 1). Amounts stay BigInt-as-string.
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_ID } from '../fixtures';
@@ -58,6 +58,26 @@ export const paymentsHandlers = [
       };
       db.paymentIntents.unshift(intent);
       return intent;
+    }),
+  ),
+
+  // Order → intent lookup for the patient payment panel (issue #61).
+  // No intent for the order is a 404 — the panel hides (service maps it
+  // to null). ASSUMED: docforum-core#85 (real FKs) hasn't landed.
+  http.get(
+    '*/payments/intents',
+    respond('nullable', ({ request }) => {
+      const orderId = new URL(request.url).searchParams.get('orderId');
+      if (!orderId) {
+        return HttpResponse.json(
+          { message: 'Mock API: orderId query parameter is required' },
+          { status: 400 },
+        );
+      }
+      return (
+        db.paymentIntents.find((i) => i.orderId === orderId) ??
+        notFound('payment intent for this order')
+      );
     }),
   ),
 

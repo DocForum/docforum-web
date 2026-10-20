@@ -144,6 +144,8 @@ export const paymentKeys = {
   /** The patient's payment history (infinite list + one entry). */
   history: () => ['payments', 'mine'] as const,
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
+  /** The intent attached to an order — `null` when the order has none (issue #61). */
+  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
 };
 
 /** Doctor's abnormal-results inbox (polls every 30 s, acked rows drop off). */

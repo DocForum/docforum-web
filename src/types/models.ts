@@ -120,6 +120,10 @@ export interface WalletLink {
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
 export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
 
+// `PatientOrder` (= Prescription | LabOrder) is defined with the orders
+// work (Phase W2, issue #5) — the order detail page (issue #61) reuses
+// that shape as-is.
+
 export interface PaymentIntent {
   id: string;
   orderType: OrderTypeForPayment;
@@ -829,6 +833,56 @@ export interface OutboxSummary {
 // as an audit event. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
 
 export type FeatureFlagKind = 'boolean' | 'percentage';
+
+// --- Closure calendar management (this PR) -------------------------------
+export type ClosureStatus = 'active' | 'inactive';
+
+export interface Closure {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide, otherwise scoped to facility
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClosureInput {
+  name: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide
+}
+
+export interface UpdateClosureInput {
+  id: string;
+  name?: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay?: boolean;
+  start?: string;
+  end?: string;
+  facilityId?: string | null;
+}
+
+// --- Affected appointments preview ---------------------------------------
+
+export interface AffectedAppointment {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  patientName: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  reason?: string | null;
+}
 
 export interface FeatureFlagTargeting {
   /** Empty means every role is eligible. */

@@ -5,8 +5,9 @@ export function listHealthEntries(
   patientProfileId: string,
   section: HealthSectionKey,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<HealthEntry[]> {
-  return apiFetch<HealthEntry[]>(`/patients/${patientProfileId}/health/${section}`, { accessToken });
+  return apiFetch<HealthEntry[]>(`/patients/${patientProfileId}/health/${section}`, { accessToken, signal });
 }
 
 export function addHealthEntry(
