@@ -11,7 +11,7 @@ export function useMyOrders() {
 
   return useQuery({
     queryKey: ORDERS_KEY,
-    queryFn: () => ordersService.listMyOrders(accessToken!),
+    queryFn: ({ signal }) => ordersService.listMyOrders(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
 }
@@ -21,7 +21,8 @@ export function useQualifiedFacilities(orderId: string | null) {
 
   return useQuery({
     queryKey: FACILITIES_KEY(orderId ?? ''),
-    queryFn: () => ordersService.listQualifiedFacilities(orderId!, accessToken!),
+    queryFn: ({ signal }) =>
+      ordersService.listQualifiedFacilities(orderId!, accessToken!, signal),
     enabled: Boolean(accessToken && orderId),
   });
 }

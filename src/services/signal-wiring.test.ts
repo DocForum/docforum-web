@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listTodayAppointments, listQueue } from './queue-service';
 import { listHealthEntries } from './health-profile-service';
 import { requestDataExport } from './account-service';
+import { listMyOrders } from './orders-service';
+import { listFulfillmentQueue } from './fulfillment-service';
 import { ApiTimeoutError } from './api-client';
 
 function hungFetch() {
@@ -60,6 +62,31 @@ describe('service signal wiring', () => {
 
     await expect(listTodayAppointments('token', controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // Services that landed on `main` after this branch was cut still have to
+  // join the same wiring, or navigating away from their screens leaks the
+  // request.
+  it('listMyOrders forwards the signal', async () => {
+    const fetchSpy = hungFetch();
+    const controller = new AbortController();
+
+    const attempt = listMyOrders('token', controller.signal);
+    const assertion = expect(attempt).rejects.toMatchObject({ name: 'AbortError' });
+    controller.abort();
+    await assertion;
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('listFulfillmentQueue forwards the signal', async () => {
+    const fetchSpy = hungFetch();
+    const controller = new AbortController();
+
+    const attempt = listFulfillmentQueue('facility-1', 'token', controller.signal);
+    const assertion = expect(attempt).rejects.toMatchObject({ name: 'AbortError' });
+    controller.abort();
+    await assertion;
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -81,7 +81,11 @@ describe('TodayAppointments', () => {
     expect(screen.getByText('Demo inhaler (fake)')).toBeInTheDocument();
     expect(screen.getByText('Demo intake note (fake).')).toBeInTheDocument();
     await waitFor(() => {
-      expect(doctorTodayService.getAppointmentIntake).toHaveBeenCalledWith('apt-1', 'test-token');
+      expect(doctorTodayService.getAppointmentIntake).toHaveBeenCalledWith(
+        'apt-1',
+        'test-token',
+        expect.any(AbortSignal),
+      );
     });
   });
 

@@ -92,7 +92,11 @@ describe('OrdersList', () => {
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Demo Lab (fake)')).toBeInTheDocument();
-    expect(ordersService.listQualifiedFacilities).toHaveBeenCalledWith('lab-1', 'test-token');
+    expect(ordersService.listQualifiedFacilities).toHaveBeenCalledWith(
+        'lab-1',
+        'test-token',
+        expect.any(AbortSignal),
+      );
 
     await user.click(screen.getByRole('button', { name: /^select$/i }));
 

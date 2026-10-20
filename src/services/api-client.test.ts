@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   apiFetch,
   apiFetchBlob,
+  apiFetchForm,
   ApiError,
   ApiTimeoutError,
   DEFAULT_TIMEOUT_MS,
@@ -26,6 +27,27 @@ function deferredResponse(): { promise: Promise<Response>; settle: (response: Re
 
 function hungFetch() {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>(() => {}));
+}
+
+/** Like `hungFetch`, but abort-aware the way a real `fetch` is: it settles
+ * shortly *after* the signal aborts, never synchronously — real fetch
+ * rejects from a queued task, which is exactly what lets a timeout beat an
+ * abort to the race in `runFetch`. */
+function abortableHungFetch() {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(
+    (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        if (signal.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          setTimeout(() => reject(signal.reason), 0);
+        });
+      }),
+  );
 }
 
 afterEach(() => {
@@ -241,5 +263,58 @@ describe('error mapping (regression)', () => {
 
     const blob = await apiFetchBlob('/file', { accessToken: 'token' });
     expect(await blob.text()).toBe('file-bytes');
+  });
+});
+
+describe('multipart uploads (apiFetchForm)', () => {
+  it('sends the FormData without a Content-Type header so the boundary stays intact', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(200, { id: '1' }));
+
+    const form = new FormData();
+    form.append('file', new Blob(['bytes']), 'result.pdf');
+    await expect(apiFetchForm('/upload', form, { accessToken: 'token' })).resolves.toEqual({ id: '1' });
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(form);
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBeUndefined();
+    expect(headers.Authorization).toBe('Bearer token');
+  });
+
+  it('applies the timeout to uploads too', async () => {
+    vi.useFakeTimers();
+    hungFetch();
+
+    const attempt = apiFetchForm('/upload', new FormData(), { timeoutMs: 750 });
+    const assertion = expect(attempt).rejects.toBeInstanceOf(ApiTimeoutError);
+    await vi.advanceTimersByTimeAsync(751);
+    await assertion;
+  });
+
+  it('never de-duplicates concurrent uploads', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const first = deferredResponse();
+    const second = deferredResponse();
+    fetchSpy.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+    const a = apiFetchForm('/upload', new FormData(), { accessToken: 'token' });
+    const b = apiFetchForm('/upload', new FormData(), { accessToken: 'token' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    first.settle(jsonResponse(200, { id: 'a' }));
+    second.settle(jsonResponse(200, { id: 'b' }));
+    await expect(a).resolves.toEqual({ id: 'a' });
+    await expect(b).resolves.toEqual({ id: 'b' });
+  });
+
+  it('cancels an upload when the caller signal aborts', async () => {
+    abortableHungFetch();
+    const controller = new AbortController();
+
+    const attempt = apiFetchForm('/upload', new FormData(), { signal: controller.signal });
+    const assertion = expect(attempt).rejects.toSatisfy(isAbortError);
+    controller.abort();
+    await assertion;
   });
 });
