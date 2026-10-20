@@ -221,10 +221,11 @@ export function Layout() {
         ref={drawerRef}
         id="mobile-drawer"
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
-        role="navigation"
+        role="dialog"
         aria-label="Mobile navigation"
         aria-modal={drawerOpen}
         aria-hidden={!drawerOpen}
+        inert={!drawerOpen}
       >
         <div className={styles.drawerHeader}>
           <Logo size={24} />
