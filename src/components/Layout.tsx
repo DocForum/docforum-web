@@ -5,6 +5,7 @@ import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitch
 import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -19,6 +20,7 @@ export function Layout() {
           <span>DocForum</span>
         </Link>
         <nav className={styles.nav}>
+          <RecordSearch />
           {user ? (
             <>
               {user.role === 'patient' && (
