@@ -13,6 +13,7 @@ import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError } from '../services/api-client';
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
+import * as adminClosuresService from '../services/admin-closures-service';
 import * as careThreadService from '../services/care-thread-service';
 import * as consultationService from '../services/consultation-service';
 import * as disputesService from '../services/disputes-service';
@@ -490,6 +491,91 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('admin closures', () => {
+  it('lists, creates, updates and deletes closures', async () => {
+    const seeded = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(seeded).toHaveLength(2);
+    expect(seeded[0].facilityId).toBeNull(); // platform-wide
+
+    const created = await adminClosuresService.createClosure(
+      {
+        name: 'Demo bank holiday (fake)',
+        allDay: true,
+        start: '2026-11-15T00:00:00.000Z',
+        end: '2026-11-16T00:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.status).toBe('active');
+    expect(created.facilityId).toBeNull();
+
+    const afterCreate = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(afterCreate).toHaveLength(3);
+
+    const updated = await adminClosuresService.updateClosure(
+      created.id,
+      { id: created.id, name: 'Renamed closure (fake)', status: 'inactive' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.name).toBe('Renamed closure (fake)');
+    expect(updated.status).toBe('inactive');
+    expect(updated.allDay).toBe(true); // untouched fields survive a partial update
+
+    await adminClosuresService.deleteClosure(created.id, MOCK_ACCESS_TOKEN);
+    const afterDelete = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(afterDelete).toHaveLength(2);
+
+    await expect(
+      adminClosuresService.updateClosure('clo-does-not-exist', { id: 'clo-does-not-exist', name: 'x' }, MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('scopes the list to a facility when facilityId is given', async () => {
+    // The closures hook appends ?facilityId= to the same path the service
+    // uses — exercise that query filter exactly as the UI does.
+    const res = await fetch(
+      `http://localhost:4000/admin/closures?facilityId=${FACILITY_ID}`,
+      { headers: { Authorization: `Bearer ${MOCK_ACCESS_TOKEN}` } },
+    );
+    const scoped = (await res.json()) as { id: string; facilityId: string | null }[];
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0].facilityId).toBe(FACILITY_ID);
+
+    const all = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(all).toHaveLength(2);
+  });
+
+  it('reports booked appointments inside a closure window', async () => {
+    const seeded = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    // Seeded closures sit in Nov/Dec, fixture appointments on 2026-10-18.
+    await expect(
+      adminClosuresService.listAffectedAppointments(seeded[0].id, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
+
+    const demoDay = await adminClosuresService.createClosure(
+      {
+        name: 'Demo clinic day closure (fake)',
+        allDay: true,
+        start: '2026-10-18T00:00:00.000Z',
+        end: '2026-10-19T00:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    const affected = await adminClosuresService.listAffectedAppointments(
+      demoDay.id,
+      MOCK_ACCESS_TOKEN,
+    );
+    // Fixture appointments on 2026-10-18: completed/in_progress/no_show are
+    // left alone — only scheduled/checked_in bookings are "affected".
+    expect(affected.map((a) => a.appointmentId).sort()).toEqual(['apt-demo-3', 'apt-demo-4']);
+    expect(affected.every((a) => a.patientName.length > 0)).toBe(true);
+
+    await expect(
+      adminClosuresService.listAffectedAppointments('clo-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 

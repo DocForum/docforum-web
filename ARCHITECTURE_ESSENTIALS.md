@@ -190,6 +190,13 @@ store). Every patient API call and React Query key includes the selected
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
+#### Closure calendar management (this PR)
+- Admins can create and edit closures with a preview of affected booked appointments before saving.
+- After saving, an affected-appointments report shows links to contact patients inside the closure period.
+- All-day closures respect the correct time zone.
+- Deleting a closure doesn't recreate removed slots — a notice explains this to the admin.
+- Closures can be platform-wide or scoped to a specific facility.
+
 #### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
 - `GET /care-threads/:id` → `CareThread`
