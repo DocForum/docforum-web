@@ -9,7 +9,10 @@ import type {
   Appointment,
   CareThread,
   ConsultationAddendum,
+  ConsultationIssuedOrder,
   ConsultationNote,
+  ConsultationRecord,
+  ConsultationReferral,
   DataExport,
   Dependent,
   DoctorPracticeInsights,
@@ -18,8 +21,11 @@ import type {
   FacilityWithDistance,
   FulfillmentQueueItem,
   HealthEntry,
+  IntakeForm,
   MessageThread,
+  PatientOrder,
   PaymentIntent,
+  QualifiedOrderFacility,
   RunningDelay,
   User,
   WalletLink,
@@ -75,14 +81,20 @@ export interface MockDb {
   dataExport: DataExport | null;
   careThreads: CareThread[];
   appointments: Appointment[];
+  intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
   messageThreads: MessageThread[];
   consultationNotes: ConsultationNote[];
+  consultationRecords: ConsultationRecord[];
+  consultationReferrals: ConsultationReferral[];
+  consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
+  patientOrders: PatientOrder[];
+  orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
@@ -291,6 +303,33 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+    },
+  ];
+
+  const intakeForms: IntakeForm[] = [
+    {
+      id: 'itk-demo-1',
+      appointmentId: 'apt-demo-3',
+      patientProfileId: 'prf-patient-3',
+      submittedAt: '2026-10-18T09:18:00.000Z',
+      chiefComplaint: 'Demo prescription review (fake)',
+      symptomDuration: '2 days',
+      severity: 4,
+      currentMedications: ['Demo Metformin 850mg (fake)'],
+      allergies: ['None recorded'],
+      notes: 'Demo intake note (fake).',
+    },
+    {
+      id: 'itk-demo-2',
+      appointmentId: 'apt-demo-4',
+      patientProfileId: 'prf-patient-4',
+      submittedAt: '2026-10-18T09:45:00.000Z',
+      chiefComplaint: 'Demo new concern (fake)',
+      symptomDuration: null,
+      severity: null,
+      currentMedications: [],
+      allergies: ['Demo penicillin allergy (fake)'],
+      notes: null,
     },
   ];
 
@@ -591,6 +630,142 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const patientOrders: PatientOrder[] = [
+    {
+      id: 'ord-demo-rx-102',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 2,
+      supersedesId: 'ord-demo-rx-101',
+      status: 'active',
+      issuedAt: '2026-10-18T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 500mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Demo instructions (fake): take with food for ten days.',
+    },
+    {
+      id: 'ord-demo-rx-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'superseded',
+      issuedAt: '2026-10-17T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 250mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Superseded by a corrected dose.',
+    },
+    {
+      id: 'ord-demo-lab-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'lab_order',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-18T09:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      testName: 'Demo full blood count (fake)',
+      fastingRequired: true,
+      instructions: 'Demo instructions (fake): fasting sample required.',
+    },
+    {
+      id: 'ord-demo-rx-100',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'completed',
+      issuedAt: '2026-09-20T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Vitamin D 1000 IU (fake)',
+      dose: 'One tablet daily',
+      quantity: '30 tablets',
+      instructions: null,
+    },
+  ];
+
+  const orderFacilities: Record<string, QualifiedOrderFacility[]> = {
+    'ord-demo-rx-102': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+      {
+        id: 'fac-demo-pharmacy-2',
+        userId: 'usr-facility-pharmacy-2',
+        name: 'Example Chemist (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '3 Example Street',
+          city: 'Mockford',
+          latitude: 6.6,
+          longitude: 3.45,
+        },
+        isOpen: false,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-rx-101': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-lab-101': [
+      {
+        id: 'fac-demo-lab',
+        userId: 'usr-facility-lab',
+        name: 'Demo Lab (fake)',
+        type: 'lab',
+        location: {
+          address: '2 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5312,
+          longitude: 3.3915,
+        },
+        isOpen: true,
+        capabilities: ['Sample collection', 'Lab result delivery'],
+      },
+    ],
+  };
+
   const walletLink: WalletLink = {
     id: 'wln-demo-1',
     facilityId: FACILITY_ID,
@@ -650,14 +825,20 @@ export function createSeedDb(): MockDb {
     dataExport,
     careThreads,
     appointments,
+    intakeForms,
     runningDelay,
     messageThreads,
     consultationNotes,
+    consultationRecords: [],
+    consultationReferrals: [],
+    consultationOrders: [],
     insights,
     facilities,
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,
+    patientOrders,
+    orderFacilities,
     walletLink,
     paymentIntents,
     consultationAddenda,
