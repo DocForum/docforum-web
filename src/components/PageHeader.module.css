@@ -1,0 +1,127 @@
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-raised);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.crumbList {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crumbItem {
+  display: inline-flex;
+  align-items: center;
+}
+
+.crumbLink {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.crumbLink:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.crumbCurrent {
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.crumbSeparator {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  margin: 0 var(--space-1);
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-2xl);
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.loading {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  font-style: italic;
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .pageHeader {
+    padding: var(--space-3) var(--space-4);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .titleArea {
+    order: 2;
+  }
+  .actions {
+    order: 3;
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .breadcrumbs {
+    order: 1;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .crumbList {
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .crumbSeparator {
+    margin: 0 var(--space-1);
+  }
+}

@@ -12,12 +12,15 @@ those first if you're new to the org, not just this file.
 React Query rather than hand-rolling persistence.
 
 ## Hard rules
-1. **This repo never calls `docforum-escrow` or Stellar directly.** Wallet
-   linking, payment status, escrow state -- all of it comes from
-   `docforum-core`'s API. If a screen needs Stellar-related data, that's a
-   `docforum-core` API gap to file, not a reason to add a Stellar SDK
-   dependency here.
-2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` --
+1. **This repo never calls Stellar RPC, Horizon, `docforum-escrow` or any
+   contract directly.** The one exception is asking the user's wallet to
+   sign a transaction XDR that `docforum-core` prepared, and returning the
+   signed XDR to `docforum-core`. The frontend never builds, simulates or
+   submits transactions, and never holds a private key. Wallet linking,
+   payment status and escrow state otherwise come from `docforum-core`'s
+   API. If a screen needs Stellar-related data, that is a `docforum-core`
+   API gap to file, not a reason to add a Stellar SDK dependency here.
+2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
    -- keep this shape.
@@ -82,6 +85,19 @@ the cookie to be sent/received at all). One gap remains:
   `docs/api/README.md`.
 
 ## Known assumptions
+
+### Patient wallet linking (issue #58)
+
+The patient-wallet flow is intentionally not implemented against an assumed
+API. The required `docforum-core` SEP-10 challenge/verify contract and
+patient-scoped verified wallet-link contract are tracked in
+[`docforum-core#77`](https://github.com/DocForum/docforum-core/issues/77) and
+[`docforum-core#78`](https://github.com/DocForum/docforum-core/issues/78),
+respectively. Until those contracts land, this repository must not invent
+endpoint paths, request/response shapes, a privacy-notice source, or wallet
+verification semantics. The boundary check in
+`scripts/check-stellar-boundary.mjs` guards the direct-network prohibition
+while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
@@ -263,6 +279,26 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   - Escrow terms in plain language (releaser condition, refund deadline countdown).
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
+
+### Error monitoring (issue #100)
+
+- **SDK:** `@sentry/react` (browser SDK), initialized in `src/main.tsx:48`.
+- **Default off:** initialization is guarded by `if (import.meta.env.VITE_SENTRY_DSN)`; without a DSN the SDK is never loaded and no events are captured. The Pages preview ships without `VITE_SENTRY_DSN`, so monitoring is off by default there (and in local dev unless explicitly configured).
+- **Session replay:** deliberately never integrated — the Replay integration is not imported or initialized.
+- **Scrubber:** `src/utils/phi-scrubber.ts` runs as Sentry's `beforeSend` and `beforeBreadcrumb`. It is a pure function, unit-tested in `src/utils/phi-scrubber.test.ts` against a sample event containing intake text and other PHI patterns.
+- **What is NOT sent:** request or response bodies, headers, cookies, or query strings; form values; the user's email, IP address, or username; PHI-pattern values anywhere in the event (email addresses, phone numbers, SSNs, bearer tokens); breadcrumb request bodies or URLs containing ids/tokens.
+- **What is sent (scrubbed):** the error message and exception type, the HTTP method, a sanitized URL (host + route shape only; query string dropped, id-like path segments replaced with `[id-redacted]`), and an opaque user id only. Benign extra/contexts/tags pass through with sensitive keys redacted.
+- **CSP:** Sentry is bundled via npm — there is no external `<script>` to whitelist. The only network target is `*.sentry.io`, and only when a DSN is configured; if a CSP is adopted, add `connect-src https://*.sentry.io`.
+
+### Responsive navigation and layout (issue #103)
+
+- **Layout:** `src/components/Layout.tsx` provides the app shell: skip-to-content link, header (logo, role-aware nav, user chip, logout), mobile drawer, main content area, and footer. Landmark regions (`role="banner"`, `role="navigation"`, `role="main"`, `role="contentinfo"`) are used throughout.
+- **Role-aware navigation:** `roleNavItems()` returns nav entries gated by user role (patient, doctor, facility, admin). Unauthenticated users see Log in / Sign up. Items for unbuilt or role-inappropriate screens never appear.
+- **Desktop:** horizontal header nav with active-state highlighting via `NavLink`.
+- **Mobile:** hamburger toggle opens a side drawer with focus trapping (Tab cycles within the drawer, Escape-like close via close button or overlay click). Drawer links are hidden from the accessibility tree (`aria-hidden`) when closed.
+- **Skip to content:** visually hidden link at the top of the page, focuses on `#main-content` when activated.
+- **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
+- **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
 
 ## Roadmap / status
 See `ROADPAP.md` in this repo, and Phase 7 in `docforum-core`'s
