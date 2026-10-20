@@ -24,8 +24,16 @@ import type { HealthSectionKey } from './types/models';
 export const appointmentKeys = {
   all: ['appointments'] as const,
   today: () => ['appointments', 'today'] as const,
+  /** The patient's own list: real `GET /appointments/mine`, scoped by the
+   *  server from the session — deliberately not profile-scoped here, because
+   *  this frontend has no patientProfileId to scope by (documented gap in
+   *  `services/appointments-service.ts`). */
+  mine: () => ['appointments', 'mine'] as const,
+  /** Profile-scoped list, for when a list query takes a profile id (#2/#3). */
   list: (profileId: string) => ['appointments', 'list', profileId] as const,
   detail: (appointmentId: string) => ['appointments', 'detail', appointmentId] as const,
+  /** The check-in queue view shown on an appointment page (assumed core#129). */
+  queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
 };
 
 /** The doctor's queue panel: the live list plus the running-delay knob. */
@@ -119,6 +127,8 @@ export const flagKeys = {
 export const accountKeys = {
   all: ['account'] as const,
   dataExport: () => ['account', 'data-export'] as const,
+  /** "Who viewed my records" — account-scoped, cursor-paginated. */
+  accessLog: (filters: unknown) => ['account', 'access-log', filters] as const,
 };
 
 /** Escrow intents, the facility payout ledger, and wallet linking. */
@@ -131,6 +141,35 @@ export const paymentKeys = {
   ledgers: () => ['payments', 'ledger'] as const,
   ledger: (facilityId: string, filters: unknown) =>
     ['payments', 'ledger', facilityId, filters] as const,
+  /** The patient's payment history (infinite list + one entry). */
+  history: () => ['payments', 'mine'] as const,
+  historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
+};
+
+/** Doctor's abnormal-results inbox (polls every 30 s, acked rows drop off). */
+export const resultKeys = {
+  all: ['doctor', 'results'] as const,
+  pendingAbnormal: () => ['doctor', 'results', 'pending-abnormal'] as const,
+};
+
+/** The doctor's subscribable ICS feed (token rotation writes through). */
+export const calendarKeys = {
+  all: ['doctor', 'calendar'] as const,
+  feed: () => ['doctor', 'calendar', 'feed'] as const,
+};
+
+/** A patient's chart as the doctor sees it — every sub-resource is keyed by
+ *  the charted patient id, so charts never bleed between patients. */
+export const patientChartKeys = {
+  all: (patientProfileId: string) => ['patient', patientProfileId] as const,
+  health: (patientProfileId: string, section: HealthSectionKey) =>
+    ['patient', patientProfileId, 'health', section] as const,
+  careThread: (patientProfileId: string) =>
+    ['patient', patientProfileId, 'care-thread'] as const,
+  activeOrders: (patientProfileId: string) =>
+    ['patient', patientProfileId, 'active-orders'] as const,
+  recentResults: (patientProfileId: string) =>
+    ['patient', patientProfileId, 'recent-results'] as const,
 };
 
 export const consultationKeys = {

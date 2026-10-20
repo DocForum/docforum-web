@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   accountKeys,
   appointmentKeys,
+  calendarKeys,
   careThreadKeys,
   dependentKeys,
   facilityKeys,
@@ -9,9 +10,11 @@ import {
   flagKeys,
   healthKeys,
   messageKeys,
+  patientChartKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
+  resultKeys,
   systemKeys,
   auditKeys,
   consultationKeys,
@@ -54,6 +57,17 @@ describe('query key factories', () => {
       [consultationKeys.note('appt-1'), consultationKeys.all],
       [insightKeys.params({ preset: '7d' }), insightKeys.all],
       [messageKeys.threads('unread', null, 20), messageKeys.all],
+      [appointmentKeys.mine(), appointmentKeys.all],
+      [appointmentKeys.queue('appt-1'), appointmentKeys.all],
+      [accountKeys.accessLog({ entityType: 'Appointment' }), accountKeys.all],
+      [paymentKeys.history(), paymentKeys.all],
+      [paymentKeys.historyEntry('ph-1'), paymentKeys.history()],
+      [resultKeys.pendingAbnormal(), resultKeys.all],
+      [calendarKeys.feed(), calendarKeys.all],
+      [patientChartKeys.health('pp-1', 'allergies'), patientChartKeys.all('pp-1')],
+      [patientChartKeys.careThread('pp-1'), patientChartKeys.all('pp-1')],
+      [patientChartKeys.activeOrders('pp-1'), patientChartKeys.all('pp-1')],
+      [patientChartKeys.recentResults('pp-1'), patientChartKeys.all('pp-1')],
     ];
 
     for (const [key, root] of roots) {
@@ -68,6 +82,13 @@ describe('query key factories', () => {
       healthKeys.section('pp-1', 'conditions'),
     );
     expect(appointmentKeys.list('pp-1')).not.toEqual(appointmentKeys.list('pp-2'));
+    // A chart never shows another patient's sub-resources.
+    expect(patientChartKeys.activeOrders('pp-1')).not.toEqual(
+      patientChartKeys.activeOrders('pp-2'),
+    );
+    expect(patientChartKeys.health('pp-1', 'allergies')).not.toEqual(
+      patientChartKeys.health('pp-2', 'allergies'),
+    );
     // Dependents come from /patients/me — deliberately NOT profile-scoped.
     expect(dependentKeys.all).toEqual(['dependents']);
   });
