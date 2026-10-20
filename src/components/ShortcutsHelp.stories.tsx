@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { ShortcutsHelp } from './ShortcutsHelp';
 
 const meta = {
   title: 'Components/ShortcutsHelp',
   component: ShortcutsHelp,
-  args: { open: true, onClose: () => {}, bindings: {} },
+  args: { open: true, onClose: fn(), bindings: {} },
 } satisfies Meta<typeof ShortcutsHelp>;
 
 export default meta;
