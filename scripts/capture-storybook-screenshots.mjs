@@ -42,10 +42,10 @@ try {
     await page.goto(`http://127.0.0.1:${address.port}/docforum-web/storybook/?path=/story/components-button--primary`);
     const preview = page.frameLocator('#storybook-preview-iframe');
     await preview.getByRole('button', { name: 'Continue' }).waitFor();
-    await page.locator('#storybook-preview-iframe').screenshot({ path: resolve(screenshotDirectory, 'button-desktop.png') });
+    await page.screenshot({ path: resolve(screenshotDirectory, 'storybook-desktop.png'), fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('#storybook-preview-iframe').screenshot({ path: resolve(screenshotDirectory, 'button-mobile.png') });
+    await page.screenshot({ path: resolve(screenshotDirectory, 'storybook-mobile.png'), fullPage: true });
   } finally {
     await browser.close();
   }
