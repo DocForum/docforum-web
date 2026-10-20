@@ -7,7 +7,7 @@ export function usePaymentHistory() {
 
   return useInfiniteQuery({
     queryKey: ['payments', 'mine'],
-    queryFn: ({ pageParam }) => paymentHistoryService.listPaymentHistory(pageParam, accessToken!),
+    queryFn: ({ pageParam, signal }) => paymentHistoryService.listPaymentHistory(pageParam, accessToken!, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: Boolean(accessToken),
@@ -19,7 +19,7 @@ export function usePaymentHistoryEntry(id: string | undefined) {
 
   return useQuery({
     queryKey: ['payments', 'mine', id ?? ''],
-    queryFn: () => paymentHistoryService.getPaymentHistoryEntry(id!, accessToken!),
+    queryFn: ({ signal }) => paymentHistoryService.getPaymentHistoryEntry(id!, accessToken!, signal),
     enabled: Boolean(accessToken && id),
   });
 }

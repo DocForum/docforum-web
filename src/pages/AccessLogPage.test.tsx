@@ -66,6 +66,7 @@ describe('AccessLogPage', () => {
     expect(accessLogService.listAccessLog).toHaveBeenLastCalledWith(
       expect.objectContaining({ cursor: 'cursor-2' }),
       'test-token',
+      expect.any(AbortSignal),
     );
     expect(screen.queryByRole('button', { name: /show older entries/i })).not.toBeInTheDocument();
   });
@@ -87,6 +88,7 @@ describe('AccessLogPage', () => {
       expect(accessLogService.listAccessLog).toHaveBeenLastCalledWith(
         expect.objectContaining({ from: '2026-10-01', to: '2026-10-15', recordType: 'referral' }),
         'test-token',
+        expect.any(AbortSignal),
       ),
     );
   });

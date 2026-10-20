@@ -7,7 +7,7 @@ export function useAppointment(appointmentId: string) {
   const accessToken = useAuthStore((s) => s.accessToken);
   return useQuery<Appointment>({
     queryKey: ['appointment', appointmentId],
-    queryFn: () => appointmentService.getAppointmentById(appointmentId, accessToken!),
+    queryFn: ({ signal }) => appointmentService.getAppointmentById(appointmentId, accessToken!, signal),
     enabled: Boolean(accessToken && appointmentId),
   });
 }

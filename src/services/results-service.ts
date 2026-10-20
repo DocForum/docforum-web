@@ -1,8 +1,8 @@
 import { apiFetch } from './api-client';
 import type { AbnormalResult, AcknowledgeResultInput } from '../types/models';
 
-export function listPendingAbnormalResults(accessToken: string): Promise<AbnormalResult[]> {
-  return apiFetch<AbnormalResult[]>('/doctor/results/pending-abnormal', { accessToken });
+export function listPendingAbnormalResults(accessToken: string, signal?: AbortSignal): Promise<AbnormalResult[]> {
+  return apiFetch<AbnormalResult[]>('/doctor/results/pending-abnormal', { accessToken, signal });
 }
 
 export function acknowledgeAbnormalResult(

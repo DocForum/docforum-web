@@ -20,20 +20,20 @@ export function usePatientChart(patientProfileId?: string) {
     queries: [
       {
         queryKey: ['patient', targetId, 'health', 'allergies'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'allergies', accessToken!),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'allergies', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
       {
         queryKey: ['patient', targetId, 'health', 'conditions'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'conditions', accessToken!),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'conditions', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
       {
         queryKey: ['patient', targetId, 'health', 'medications'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'medications', accessToken!),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'medications', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
     ],
@@ -41,22 +41,22 @@ export function usePatientChart(patientProfileId?: string) {
 
   const careThreadQuery = useQuery<CareThread | null>({
     queryKey: ['patient', targetId, 'care-thread'],
-    queryFn: () =>
-      patientChartService.getCareThreadById(targetId!, accessToken!),
+    queryFn: ({ signal }) =>
+      patientChartService.getCareThreadById(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 
   const activeOrdersQuery = useQuery<Order[]>({
     queryKey: ['patient', targetId, 'active-orders'],
-    queryFn: () =>
-      patientChartService.listActiveOrders(targetId!, accessToken!),
+    queryFn: ({ signal }) =>
+      patientChartService.listActiveOrders(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 
   const recentResultsQuery = useQuery<LabResult[]>({
     queryKey: ['patient', targetId, 'recent-results'],
-    queryFn: () =>
-      patientChartService.listRecentResults(targetId!, accessToken!),
+    queryFn: ({ signal }) =>
+      patientChartService.listRecentResults(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 
