@@ -11,7 +11,7 @@ import { useAuthStore } from '../store/auth-store';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import { ApiError } from '../services/api-client';
-import type { PaymentIntent, Prescription } from '../types/models';
+import type { Order, PaymentIntent, Prescription } from '../types/models';
 
 vi.mock('../services/orders-service');
 vi.mock('../services/payments-service');
@@ -32,6 +32,25 @@ function makeOrder(overrides: Partial<Prescription> = {}): Prescription {
     dose: 'One tablet twice daily',
     quantity: '56 tablets',
     instructions: 'Take with food.',
+    ...overrides,
+  };
+}
+
+/** Fixture for the richer Order shape used by <OrderDetail> (getOrder). */
+function makeRichOrder(overrides: Partial<Order> = {}): Order {
+  return {
+    id: 'ord-rx-1',
+    type: 'prescription',
+    status: 'active',
+    token: 'signed-token-abc',
+    items: [{ name: 'Metformin 850mg', note: 'One tablet twice daily' }],
+    issuedAt: '2026-10-16T10:00:00.000Z',
+    expiresAt: null,
+    doctorName: 'Dr. Placeholder',
+    facilityName: 'Example Pharmacy',
+    patientProfileId: 'prf-1',
+    createdAt: '2026-10-16T10:00:00.000Z',
+    updatedAt: '2026-10-16T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -88,6 +107,7 @@ describe('OrderDetailPage payment panel', () => {
 
   it('shows the payment panel when the order has a payment intent', async () => {
     vi.mocked(ordersService.getPatientOrder).mockResolvedValue(makeOrder());
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeRichOrder());
     vi.mocked(paymentsService.getPaymentIntentForOrder).mockResolvedValue(makeIntent());
 
     renderPage();
@@ -98,31 +118,33 @@ describe('OrderDetailPage payment panel', () => {
 
   it('hides the payment panel entirely when the order has no payment intent', async () => {
     vi.mocked(ordersService.getPatientOrder).mockResolvedValue(makeOrder());
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeRichOrder());
     vi.mocked(paymentsService.getPaymentIntentForOrder).mockResolvedValue(null);
 
     renderPage();
 
-    // The order itself still renders…
-    expect(await screen.findByRole('heading', { name: 'Metformin 850mg' })).toBeInTheDocument();
-    expect(screen.getByText(/In fulfillment/)).toBeInTheDocument();
+    // The order detail card still renders…
+    expect(await screen.findByTestId('order-detail')).toBeInTheDocument();
     // …but no payment panel and no payment error note.
     expect(screen.queryByRole('heading', { name: 'Payment' })).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/payment status isn’t available/i),
+      screen.queryByText(/payment status isn't available/i),
     ).not.toBeInTheDocument();
   });
 
   it('degrades to a quiet note when the payment lookup fails for another reason', async () => {
     vi.mocked(ordersService.getPatientOrder).mockResolvedValue(makeOrder());
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeRichOrder());
     vi.mocked(paymentsService.getPaymentIntentForOrder).mockRejectedValue(
       new ApiError('boom', 500),
     );
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Metformin 850mg' })).toBeInTheDocument();
+    // The order detail card still renders…
+    expect(await screen.findByTestId('order-detail')).toBeInTheDocument();
     expect(
-      await screen.findByText(/payment status isn’t available right now/i),
+      await screen.findByText(/payment status isn't available right now/i),
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Payment' })).not.toBeInTheDocument();
   });
