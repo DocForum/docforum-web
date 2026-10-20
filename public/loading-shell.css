@@ -1,0 +1,42 @@
+/* Pre-hydration loading shell (issue #101 — strict CSP).
+ *
+ * Externalised from index.html so the page satisfies `style-src 'self'`
+ * with no inline styles. Linked in <head> before the app script so the
+ * shell is painted as soon as the CSS loads. React replaces #root's
+ * children on mount, so this shell is temporary.
+ *
+ * Colour variables fall back to hard-coded values because this sheet may
+ * paint before src/styles/global.css has loaded. */
+
+#app-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--color-bg, #faf6f0);
+}
+#app-loading svg {
+  animation: app-loading-pulse 1.4s ease-in-out infinite;
+}
+#app-loading span {
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+  font-size: 0.8125rem;
+  color: var(--color-text-faint, #8c8271);
+}
+@keyframes app-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-loading svg {
+    animation: none;
+    opacity: 0.75;
+  }
+}
