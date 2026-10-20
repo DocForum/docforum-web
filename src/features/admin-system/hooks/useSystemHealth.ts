@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as systemService from '../../../services/system-health-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { systemKeys } from '../../../query-keys';
 import { REFRESH_INTERVAL_MS } from '../status';
 import type { ReadinessReport } from '../../../types/models';
-
-const SYSTEM_KEY = ['admin', 'system'] as const;
 
 // React Query only fires `refetchInterval` while the document is visible
 // (`refetchIntervalInBackground` defaults to false) and refetches on focus,
@@ -31,7 +31,7 @@ export function useReadiness() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: [...SYSTEM_KEY, 'readiness'],
+    queryKey: systemKeys.readiness(),
     queryFn: async ({ signal }): Promise<TimedReadiness> => {
       const started = performance.now();
       const report = await systemService.getReadiness(accessToken!, signal);
@@ -47,7 +47,7 @@ export function useJobs() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: [...SYSTEM_KEY, 'jobs'],
+    queryKey: systemKeys.jobs(),
     queryFn: ({ signal }) => systemService.listJobs(accessToken!, signal),
     enabled: Boolean(accessToken),
     retry: shouldRetry,
@@ -59,7 +59,7 @@ export function useOutboxSummary() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: [...SYSTEM_KEY, 'outbox'],
+    queryKey: systemKeys.outbox(),
     queryFn: ({ signal }) => systemService.getOutboxSummary(accessToken!, signal),
     enabled: Boolean(accessToken),
     retry: shouldRetry,
@@ -76,6 +76,6 @@ export function useRunJob() {
     // Every outcome is worth a fresh look: a run, a 409 (someone else's run
     // is in progress), even a timeout — the list shows whether it started.
     // The outbox dispatcher is a job too, so its counts may have moved.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: SYSTEM_KEY }),
+    onSettled: () => invalidateFor(queryClient, 'admin.run-job'),
   });
 }

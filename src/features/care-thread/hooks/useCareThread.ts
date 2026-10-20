@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import { getCareThreadById, getCareThreads } from '../../../services/care-thread-service';
+import { careThreadKeys } from '../../../query-keys';
 import type { CareThread } from '../../../types/models';
 
 export function useCareThreads() {
@@ -9,7 +10,7 @@ export function useCareThreads() {
   const selectedProfileId = useProfileStore((s) => s.selectedProfileId);
 
   return useQuery<CareThread[]>({
-    queryKey: ['care-threads', selectedProfileId],
+    queryKey: careThreadKeys.list(selectedProfileId ?? ''),
     queryFn: async () => {
       if (!selectedProfileId || !accessToken) return [];
       try {
@@ -27,7 +28,7 @@ export function useCareThread(threadId?: string) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery<CareThread | null>({
-    queryKey: ['care-thread', threadId],
+    queryKey: careThreadKeys.detail(threadId ?? ''),
     queryFn: async () => {
       if (!threadId || !accessToken) return null;
       try {

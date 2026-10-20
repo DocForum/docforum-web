@@ -2,12 +2,13 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import * as accessLogService from '../../../services/access-log-service';
 import type { AccessLogFilters } from '../../../services/access-log-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { accountKeys } from '../../../query-keys';
 
 export function useAccessLog(filters: AccessLogFilters) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useInfiniteQuery({
-    queryKey: ['access-log', filters],
+    queryKey: accountKeys.accessLog(filters),
     queryFn: ({ pageParam }) =>
       accessLogService.listAccessLog({ ...filters, cursor: pageParam }, accessToken!),
     initialPageParam: undefined as string | undefined,
