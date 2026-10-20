@@ -264,6 +264,32 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+### Shared form system (issue #102)
+
+- **Layer:** `react-hook-form` + `zod` schema validation, providing consistent,
+  accessible errors across forms and less hand-rolled state per form.
+- **Primitives:** `src/components/form/FormField.tsx` wraps `TextField` and
+  wires it to react-hook-form via `useController`. Field errors (zod-produced
+  or server-mapped) are associated through `aria-describedby`/`aria-invalid`
+  and rendered by `TextField`'s existing error paragraph. `useFormContext` /
+  `FormProvider` scope each form.
+- **Schema validation:** `src/hooks/useZodForm.ts` wraps `useForm` with a
+  `zodResolver`. Schemas live alongside their forms (login, signup, wallet
+  link, create payment intent) and use descriptive messages matching the
+  previous hand-rolled validators.
+- **Migrated forms:** login (`src/features/auth/components/LoginForm.tsx`),
+  signup (`src/features/auth/components/SignupForm.tsx`), wallet link
+  (`src/features/payments/components/WalletLinkForm.tsx`), and create payment
+  intent (`src/features/payments/components/CreatePaymentIntentForm.tsx`).
+- **Focus to first error:** react-hook-form's `handleSubmit` focuses the
+  first invalid field on a failed submit.
+- **Server error mapping:** `src/utils/form.ts` `mapServerErrors` maps a
+  docforum-core `VALIDATION_FAILED` body onto `field -> message` records,
+  applied via `form.setError(field, { message })`. Assumed server shape
+  (to be reconciled against the real API contract):
+  `{ details: [{ field: string, message: string }] }` or a bare array of
+  `{ field, message }`.
+
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
