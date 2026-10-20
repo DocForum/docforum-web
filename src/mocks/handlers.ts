@@ -4,6 +4,7 @@ import { accountHandlers } from './handlers/account';
 import { authHandlers } from './handlers/auth';
 import { careThreadHandlers } from './handlers/care-thread';
 import { consultationHandlers } from './handlers/consultation';
+import { disputesHandlers } from './handlers/disputes';
 import { dependentHandlers } from './handlers/dependents';
 import { doctorTodayHandlers } from './handlers/doctor-today';
 import { facilityTeamHandlers } from './handlers/facility-team';
@@ -30,4 +31,5 @@ export const handlers = [
   ...facilityTeamHandlers,
   ...orderHandlers,
   ...paymentsHandlers,
+  ...disputesHandlers,
 ];
