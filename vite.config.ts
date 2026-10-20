@@ -9,6 +9,18 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'happy-dom',
+    // Tests parse the real index.html template, which references Google
+    // Fonts — happy-dom must not fetch external stylesheets during a run
+    // (network noise, and a hidden CI dependency). The link then reports
+    // a normal 'load' instead of erroring on every parse.
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          handleDisabledFileLoadingAsSuccess: true,
+        },
+      },
+    },
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
   },

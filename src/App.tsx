@@ -22,12 +22,19 @@ import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { PUBLIC_CONTENT_ROUTES } from './pages/public-page-map';
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
+        {/* Public information pages (issue #120) — no auth guard, and each
+            one is prerendered to static HTML at build time; see
+            `src/pages/public-routes.ts` and `scripts/prerender.mjs`. */}
+        {PUBLIC_CONTENT_ROUTES.map(({ path, Component }) => (
+          <Route key={path} path={path} element={<Component />} />
+        ))}
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />

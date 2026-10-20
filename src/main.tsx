@@ -8,6 +8,7 @@ import { HashRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { useAuthStore } from './store/auth-store';
+import { restorePublicPathIntoHash } from './pages/public-routes';
 import App from './App';
 import './styles/global.css';
 
@@ -42,6 +43,19 @@ if (previewRole && (previewRole === 'doctor' || previewRole === 'facility' || pr
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root element not found');
+
+// Public information pages are prerendered at real, path-based URLs so
+// crawlers see them (issue #120), but the app itself still routes on the
+// hash (see the HashRouter comment above). If the browser landed on one of
+// those prerendered paths with no hash yet, move it to the equivalent hash
+// route before React Router reads the location — same page, no reload, no
+// flash of unrelated content (the prerendered markup is the page React is
+// about to render).
+restorePublicPathIntoHash(
+  window.location,
+  (url) => window.history.replaceState(null, '', url),
+  import.meta.env.BASE_URL,
+);
 
 createRoot(rootElement).render(
   <StrictMode>
