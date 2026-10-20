@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { CommandPalette } from './CommandPalette';
 
 const meta = {
@@ -22,7 +22,7 @@ export const Open: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const dialog = canvas.getByRole('dialog', { name: 'Command palette' });
-    await expect(dialog).toBeVisible();
+    await waitFor(() => expect(dialog).toBeVisible());
     await userEvent.type(canvas.getByRole('combobox'), 'chart');
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await expect(args.actions[1].run).toHaveBeenCalledOnce();
