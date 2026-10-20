@@ -8,6 +8,7 @@
 import type {
   Appointment,
   CareThread,
+  Closure,
   ConsultationAddendum,
   ConsultationNote,
   DataExport,
@@ -86,6 +87,7 @@ export interface MockDb {
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  closures: Closure[];
 }
 
 export function createSeedDb(): MockDb {
@@ -644,6 +646,33 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const closures: Closure[] = [
+    {
+      id: 'clo-holiday-new-year',
+      name: 'New Year Holiday',
+      description: 'Year-end holiday closure (fake)',
+      status: 'active',
+      allDay: true,
+      start: '2026-12-24T00:00:00.000Z',
+      end: '2026-12-26T23:59:59.999Z',
+      facilityId: null, // platform-wide
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      id: 'clo-maintenance-pharmacy',
+      name: 'Pharmacy Maintenance',
+      description: 'Quarterly equipment maintenance (fake)',
+      status: 'active',
+      allDay: false,
+      start: '2026-11-01T09:00:00.000Z',
+      end: '2026-11-01T17:00:00.000Z',
+      facilityId: FACILITY_ID, // scoped to the demo pharmacy
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -661,5 +690,6 @@ export function createSeedDb(): MockDb {
     walletLink,
     paymentIntents,
     consultationAddenda,
+    closures,
   };
 }

@@ -1,142 +1,116 @@
-// Admin closures mock handlers (issue #__)
+// Admin closures mock handlers (closure calendar management — the admin
+// `/admin/closures` screen). List/create/update/delete plus the
+// affected-appointments preview the admin UI shows before/after saving.
+import { http, HttpResponse } from 'msw';
+import { db } from '../db';
+import { conflict, notFound, paramId, respond } from '../helpers';
+import type {
+  AffectedAppointment,
+  Closure,
+  CreateClosureInput,
+  UpdateClosureInput,
+} from '../../types/models';
 
-import type { Closure, CreateClosureInput, UpdateClosureInput, AffectedAppointment } from '../../types/models';
+/** Statuses that still represent a booked visit a closure would move. */
+const BOOKED_STATUSES = new Set(['scheduled', 'checked_in']);
 
-// --- Closure fixtures --------------------------------------------------------
-
-export const MOCK_CLOSURES: Closure[] = [
-  {
-    id: 'clo-holiday-new-year',
-    name: 'New Year Holiday',
-    description: 'Year-end holiday closure',
-    status: 'active',
-    allDay: true,
-    start: '2026-12-24T00:00:00.000Z',
-    end: '2026-12-26T23:59:59.999Z',
-    facilityId: null, // platform-wide
-    createdAt: '2026-10-18T09:00:00.000Z',
-    updatedAt: '2026-10-18T09:00:00.000Z',
-  },
-  {
-    id: 'clo-maintenance-pharmacy',
-    name: 'Pharmacy Maintenance',
-    description: 'Quarterly equipment maintenance',
-    status: 'active',
-    allDay: false,
-    start: '2026-11-01T09:00:00.000Z',
-    end: '2026-11-01T17:00:00.000Z',
-    facilityId: 'fac-demo-pharmacy', // scoped to pharmacy
-    createdAt: '2026-10-18T09:00:00.000Z',
-    updatedAt: '2026-10-18T09:00:00.000Z',
-  },
-];
-
-// --- Mock DB integration -----------------------------------------------------
-
-export function createMockClosuresDb(db: any) {
-  db.closures = MOCK_CLOSURES;
+/**
+ * Booked appointments overlapping a closure's window. Fixture appointments
+ * carry no facilityId, so facility-scoped closures can't be narrowed further
+ * here — a real docforum-core would filter by facility.
+ */
+function affectedAppointments(closure: Closure): AffectedAppointment[] {
+  const from = Date.parse(closure.start);
+  const to = Date.parse(closure.end);
+  return db.appointments
+    .filter((a) => BOOKED_STATUSES.has(a.status))
+    .filter((a) => Date.parse(a.startsAt) < to && Date.parse(a.endsAt) > from)
+    .map((a) => ({
+      id: `aff-${a.id}`,
+      appointmentId: a.id,
+      patientProfileId: a.patientProfileId,
+      patientName: a.patientName,
+      startsAt: a.startsAt,
+      endsAt: a.endsAt,
+      status: a.status,
+      reason: a.reason ?? null,
+    }));
 }
 
-// --- Handler definitions -----------------------------------------------------
-
 export const adminClosuresHandlers = [
-  // GET /admin/closures - list closures
-  {
-    method: 'GET',
-    path: '/admin/closures',
-    handler: async (req: { method: string; path: string }, res: { json: (body: any) => void; status: (code: number) => void }, ctx: { mock: any }) => {
-      const closures = ctx.mock?.closures ?? MOCK_CLOSURES;
-      return res.json(closures);
-    },
-  },
+  // GET /admin/closures — list, optionally scoped to one facility.
+  http.get(
+    '*/admin/closures',
+    respond('list', ({ request }) => {
+      const facilityId = new URL(request.url).searchParams.get('facilityId');
+      if (!facilityId) return db.closures;
+      return db.closures.filter((c) => (c.facilityId ?? null) === facilityId);
+    }),
+  ),
 
-  // POST /admin/closures - create closure
-  {
-    method: 'POST',
-    path: '/admin/closures',
-    handler: async (req: { method: string; body: any }, res: { json: (body: any) => void }, ctx: { mock: any }) => {
-      const body = req.body as CreateClosureInput;
+  // POST /admin/closures — create.
+  http.post(
+    '*/admin/closures',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as CreateClosureInput;
+      if (!body.name?.trim()) return conflict('name is required');
+      if (!body.start || !body.end) return conflict('start and end are required');
+      const now = new Date().toISOString();
       const closure: Closure = {
-        id: `clo-${Date.now().toString(36)}`,
-        name: body.name,
+        id: `clo-mock-${Date.now().toString(36)}`,
+        name: body.name.trim(),
         description: body.description ?? null,
         status: body.status ?? 'active',
-        allDay: body.allDay,
+        allDay: body.allDay ?? false,
         start: body.start,
         end: body.end,
         facilityId: body.facilityId ?? null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
-      // In a real setup, we'd add to the mock DB. For now, just return it.
-      return res.json(closure);
-    },
-  },
+      db.closures.push(closure);
+      return closure;
+    }),
+  ),
 
-  // PATCH /admin/closures/:id - update closure
-  {
-    method: 'PATCH',
-    path: '/admin/closures/:id',
-    handler: async (req: { method: string; body: any }, res: { json: (body: any) => void }, ctx: { mock: any }) => {
-      const id = req.params?.id;
-      const body = req.body as UpdateClosureInput;
-      const closure: Closure = {
-        id,
-        name: body.name,
-        description: body.description ?? null,
-        status: body.status,
-        allDay: body.allDay ?? true,
-        start: body.start ?? '',
-        end: body.end ?? '',
-        facilityId: body.facilityId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      return res.json(closure);
-    },
-  },
+  // PATCH /admin/closures/:id — partial update.
+  http.patch(
+    '*/admin/closures/:id',
+    respond('json', async ({ params, request }) => {
+      const closure = db.closures.find((c) => c.id === paramId(params));
+      if (!closure) return notFound('closure');
+      const body = (await request.json().catch(() => ({}))) as UpdateClosureInput;
+      if (body.name !== undefined) closure.name = body.name;
+      if (body.description !== undefined) closure.description = body.description;
+      if (body.status !== undefined) closure.status = body.status;
+      if (body.allDay !== undefined) closure.allDay = body.allDay;
+      if (body.start !== undefined) closure.start = body.start;
+      if (body.end !== undefined) closure.end = body.end;
+      if (body.facilityId !== undefined) closure.facilityId = body.facilityId;
+      closure.updatedAt = new Date().toISOString();
+      return closure;
+    }),
+  ),
 
-  // DELETE /admin/closures/:id - delete closure
-  {
-    method: 'DELETE',
-    path: '/admin/closures/:id',
-    handler: async (req: { method: string }, res: { status: (code: number) => void }, ctx: { mock: any }) => {
-      return res.status(204);
-    },
-  },
+  // DELETE /admin/closures/:id — remove.
+  http.delete(
+    '*/admin/closures/:id',
+    respond('void', ({ params }) => {
+      const id = paramId(params);
+      if (!db.closures.some((c) => c.id === id)) return notFound('closure');
+      db.closures = db.closures.filter((c) => c.id !== id);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  ),
 
-  // GET /admin/closures/:id/affected-appointments - list affected appointments
-  {
-    method: 'GET',
-    path: '/admin/closures/:id/affected-appointments',
-    handler: async (req: { method: string; params: { id: string } }, res: { json: (body: any) => void }, ctx: { mock: any }) => {
-      const id = req.params.id;
-      // Return mock affected appointments based on closure id
-      const mockAppointments: AffectedAppointment[] = [
-        {
-          id: `apt-affected-1`,
-          appointmentId: 'apt-demo-1',
-          patientProfileId: 'prf-patient-demo',
-          patientName: 'Pat Placeholder',
-          startsAt: '2026-12-25T08:00:00.000Z',
-          endsAt: '2026-12-25T08:30:00.000Z',
-          status: 'scheduled',
-          reason: 'Demo follow-up',
-        },
-        {
-          id: `apt-affected-2`,
-          appointmentId: 'apt-demo-2',
-          patientProfileId: 'prf-patient-2',
-          patientName: 'Sam Example',
-          startsAt: '2026-12-25T09:00:00.000Z',
-          endsAt: '2026-12-25T09:30:00.000Z',
-          status: 'scheduled',
-          reason: 'Demo chest pain assessment',
-        },
-      ];
-      // If closure is facility-scoped, only return appointments at that facility
-      // For now, return all mock appointments
-      return res.json(mockAppointments);
-    },
-  },
+  // GET /admin/closures/:id/affected-appointments — preview of booked
+  // appointments inside the closure window (before/after saving).
+  http.get(
+    '*/admin/closures/:id/affected-appointments',
+    respond('list', ({ params }) => {
+      const closure = db.closures.find((c) => c.id === paramId(params));
+      if (!closure) return notFound('closure');
+      return affectedAppointments(closure);
+    }),
+  ),
 ];

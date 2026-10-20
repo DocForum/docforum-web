@@ -473,3 +473,22 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - 2026-10-19 — Added Phase W3 doctor core flow components (`AbnormalResultsInbox`, `CalendarSubscriptionSection`, `PatientChartPanel` + `/doctor/patient-chart/:patientProfileId`) and resolved TypeScript typecheck/JSX errors across `App.tsx`, `ConsultationNote.tsx`, `PatientChartPanel.tsx`, `usePatientChart.ts`, `AbnormalResultsInbox.tsx`, and `useCalendar.ts`.
 - 2026-10-20 — Shared form system: react-hook-form with schema validation (issue #102): `react-hook-form` + `zod` layer (`src/components/form/FormField.tsx`, `src/hooks/useZodForm.ts`, `src/utils/form.ts`) with accessible errors, focus-to-first-error, and server validation-error mapping onto fields. Migrated login, signup, wallet link and create payment intent forms; added LoginForm, CreatePaymentIntentForm tests and extended SignupForm/WalletLinkForm tests with server-error mapping. 42 test files and 380 tests passing; typecheck, build and check:dist green.
 - 2026-10-20 — Added the PR conflict notifier workflow (see the CI item above): maintainers no longer need to manually ask authors to rebase after each merge.
+- 2026-10-20 — Fixed the failing `CI / Frontend (typecheck + test + build)`
+  check on the closure-calendar branch: the new
+  `src/mocks/handlers/admin-closures.ts` was written in a made-up handler
+  shape instead of this repo's MSW convention, so `setupWorker(...)` /
+  `setupServer(...)` in `browser.ts` and `handlers.test.ts` failed
+  typecheck (12 errors, CI step 1). Rewrote the five `/admin/closures`
+  endpoints as `http.*` + `respond(...)` handlers, seeded `closures` into
+  the mock `MockDb` (`src/mocks/fixtures.ts`) so create/update/delete
+  persist across requests for the dev-server lifetime, and made the
+  affected-appointments preview compute real overlap with `db.appointments`
+  (scheduled/checked_in bookings only, 404 for an unknown closure) instead
+  of returning a hard-coded list. Added 3 handler tests driving
+  `admin-closures-service` through MSW per this repo's convention. Also
+  restored `@sentry/react` as a **declared** `package.json` dependency:
+  #171 imports it from `src/main.tsx` and `src/utils/phi-scrubber.ts` and
+  put it in the lockfile, but never in `package.json`, so `npm ci` pruned
+  it and typecheck failed on every branch after that merge. Verified on
+  the merged tree: 59 test files and 522/522 tests, typecheck, build and
+  `check:dist` all green.
