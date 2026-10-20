@@ -224,6 +224,13 @@ store). Every patient API call and React Query key includes the selected
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
+#### Closure calendar management (this PR)
+- Admins can create and edit closures with a preview of affected booked appointments before saving.
+- After saving, an affected-appointments report shows links to contact patients inside the closure period.
+- All-day closures respect the correct time zone.
+- Deleting a closure doesn't recreate removed slots — a notice explains this to the admin.
+- Closures can be platform-wide or scoped to a specific facility.
+
 #### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
 - `GET /care-threads/:id` → `CareThread`
@@ -368,6 +375,24 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
 - **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
 - An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+### Phase W6 — Fulfilment disputes (issue #76, depends on docforum-core#76)
+
+docforum-core#76 (facility-side fulfilment proof and patient receipt
+confirmation) has not landed, so every shape below is assumed and mirrored in
+`models.ts` under "Phase W6 — Fulfilment disputes". The endpoints live under
+`/admin/disputes` and are gated to the `admin` role by the route guard; every
+call still goes through docforum-core (hard rule 1).
+
+- `GET /admin/disputes?status=open&cursor=` → `{items: FulfillmentDisputeSummary[], nextCursor}`; the console only ever asks for `status=open`. The server should send oldest first, and the console re-sorts every loaded page by `openedAt` so "by age" holds across cursor pages too. `FulfillmentDisputeSummary` = `{id, status, orderId, orderType, itemName, patientName, facility: {id, name}, amountStroops, asset, reason, openedAt, updatedAt}`. No patient email or profile id is sent.
+- `GET /admin/disputes/:id` → `FulfillmentDispute` = the summary plus `patientReport`, `facilityProof: DisputeFacilityProof | null`, `payment: {intentId, status, escrowId}`, `timeline: DisputeTimelineEvent[]`, and `{resolvedAt, resolution, resolutionNotes, resolvedBy}`. A `404` means the dispute is gone (or the backend doesn't serve it yet), not an empty queue.
+- `DisputePatientReport` = `{reason: 'not_received'|'wrong_item'|'incomplete'|'damaged'|'other', description, submittedAt, submittedBy}`. `DisputeFacilityProof` = `{reference, note, submittedAt, submittedBy, attachments: DisputeAttachment[]}`; a `null` proof is normal and the detail warns that resolving for the facility would move money on the patient's word alone. `DisputeAttachment` carries metadata only — `{id, filename, contentType, sizeBytes, kind: 'dispensing_record'|'specimen_id'|'photo'|'other', uploadedAt, uploadedBy}` — never a durable URL.
+- **Attachments are opened only through fresh signed URLs:** `POST /admin/disputes/:id/attachments/:attachmentId/signed-url` → `{url, expiresAt}`. The console mints one per click, renders the returned URL in a `target="_blank" rel="noopener noreferrer"` link, and keeps it only in component state. It is never put in React Query's cache, never stored in `FulfillmentDispute`, and re-requesting replaces it, so a copied or expired link is not reused. `404` means the attachment is gone and asks the facility to resubmit.
+- `POST /admin/disputes/:id/resolve` (body: `{resolution: 'facility'|'patient', notes, expectedUpdatedAt}`) → the updated `FulfillmentDispute`. Resolution is **final**: docforum-core releases the held escrow to the facility or refunds the patient and no endpoint reverses it. `expectedUpdatedAt` is the `updatedAt` the admin saw, so a concurrent resolution comes back as `409` (or `404` if it vanished); those close the dialog and refetch rather than resubmitting. `400`/`422` keep the dialog open with the server's message. A network failure is reported as *unconfirmed* — the dialog stops offering the confirmation, because retrying a final action could double-apply it, and asks the admin to reload first.
+- **The consequence is shown before confirming:** the dialog derives it from `payment.status` and the disputed amount. `escrowed` → "Release {amount} from escrow to {facility}" or "Refund {amount} from escrow to {patient}"; any other status (already released/refunded/created/failed) → "No money moves…" rather than promising a second transfer. The admin must also tick an explicit "this is final and cannot be undone" box, and notes are required (10–500 characters, whitespace collapsed) for the audit trail.
+- `DisputeTimelineEvent` = `{id, at, actorRole: Role|'system', actorName, kind: 'opened'|'proof_submitted'|'patient_message'|'payment'|'resolved', summary}`, oldest first as sent. It is display-only; the console never invents events.
+- Queue badges escalate at 24 h and 72 h open (tighter than the referral queue's thresholds, because each open dispute is blocked escrow). A queue/detail `403` says the admin session lost access; queue errors offer a retry and keep already-loaded pages visible.
+- Mock fixtures (`dsp-demo-1…3`) cover proof-with-attachments, no-proof, and a multi-page queue (mock page size 2); `npm run dev:mock` serves the resolve and signed-URL endpoints from `src/mocks/handlers/disputes.ts`.
+
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`
   - Token verification endpoint returning 5 explicit states: `valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`.
@@ -404,6 +429,22 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Skip to content:** visually hidden link at the top of the page, focuses on `#main-content` when activated.
 - **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
 - **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
+
+### Phase W5 — Patient order detail & payment panel (issue #61, depends on docforum-core#85)
+
+Custodial payment *mechanics* are real (docforum-core Phase 5.5, its
+`docs/adr/0004-custodial-payments-v1.md`), and the order shape this page
+renders is issue #5's `PatientOrder` (= `Prescription | LabOrder`, see
+"Orders list and facility selection" above — nothing new is invented
+here). What's still assumed is *attaching a payment intent to an order*:
+docforum-core's `PaymentIntent.orderId` is opaque (#85 — real FKs — is
+open). Both endpoints below are assumed and were reconciled with #5's
+`/orders/...` route family.
+
+- `GET /orders/:orderId` → `PatientOrder` — single-order detail for the patient order page, alongside #5's `GET /orders/mine`. Same assumed `404` (not found / not yours) as `GET /orders/:orderId/qualified-facilities`; the UI shows "Order not found", never a permission-error debug path.
+- `GET /payments/intents?orderId=<id>` → `PaymentIntent` — the order→intent lookup behind the panel. `404` means "this order has no payment intent" and is mapped to `null` by `payments-service.getPaymentIntentForOrder`; the panel then hides entirely (no empty state, no error). Assumes docforum-core will validate/accept an `orderId` query filter once #85 makes `orderId` a real FK.
+- **Timeline times are an assumption:** docforum-core's `PaymentIntent` has only `createdAt`/`updatedAt`, no per-event history. The panel therefore shows `createdAt` for "Payment initiated", `updatedAt` for the current/last step, and no time (`—`) for intermediate steps of a finished payment. If docforum-core ever adds a status-change history, `buildTimeline` in `OrderPaymentPanel.tsx` is the one place to change.
+- **Patient-facing by design:** the panel never renders `facilityId`, `patientProfileId`, `escrowId`, or `sorobanContractId` (console-only fields) — covered by tests. Status wording, amount formatting and explorer links all come from the shared patient-payment helpers (`status.ts`, `stroops.ts`, `explorer.ts` — the last being issue #10's helper, same one `PaymentDetailPage` uses), so this screen never drifts from the payment history screens; a `failed` intent additionally tells the patient to contact support and quote the order reference.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

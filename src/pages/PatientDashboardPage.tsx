@@ -10,6 +10,7 @@ import { AccountSettingsPage } from './AccountSettingsPage';
 import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
 import { OrdersPage } from './OrdersPage';
+import { OrderDetailPage } from './OrderDetailPage';
 import styles from './PatientDashboardPage.module.css';
 
 function PatientHome() {
@@ -88,6 +89,7 @@ export function PatientDashboardPage() {
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />
       <Route path="orders" element={<OrdersPage />} />
+      <Route path="orders/:orderId" element={<OrderDetailPage />} />
       <Route path="settings" element={<AccountSettingsPage />} />
       <Route path="care/*" element={<CareThreadPage />} />
       <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />

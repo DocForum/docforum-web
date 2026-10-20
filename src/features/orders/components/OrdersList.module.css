@@ -144,6 +144,16 @@
   color: var(--color-text);
 }
 
+.detailLink {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+.detailLink a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 .error {
   margin: 0;
   color: #b3261e;

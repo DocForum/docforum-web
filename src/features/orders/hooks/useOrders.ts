@@ -4,6 +4,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import type { PatientOrder, SelectOrderFacilityInput } from '../../../types/models';
 
 const ORDERS_KEY = ['patient', 'orders'] as const;
+const ORDER_KEY = (orderId: string) => ['patient', 'orders', orderId] as const;
 const FACILITIES_KEY = (orderId: string) => ['patient', 'orders', orderId, 'facilities'] as const;
 
 export function useMyOrders() {
@@ -13,6 +14,18 @@ export function useMyOrders() {
     queryKey: ORDERS_KEY,
     queryFn: ({ signal }) => ordersService.listMyOrders(accessToken!, signal),
     enabled: Boolean(accessToken),
+  });
+}
+
+/** One order for the patient order detail page (issue #61). */
+export function useOrder(orderId: string | undefined) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useQuery({
+    queryKey: ORDER_KEY(orderId ?? ''),
+    queryFn: () => ordersService.getPatientOrder(orderId!, accessToken!),
+    enabled: Boolean(orderId && accessToken),
+    retry: false,
   });
 }
 

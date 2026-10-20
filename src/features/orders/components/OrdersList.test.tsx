@@ -73,6 +73,18 @@ beforeEach(() => {
 });
 
 describe('OrdersList', () => {
+  it('links each current order to its detail page (issue #61)', async () => {
+    render(<OrdersList />);
+
+    expect(await screen.findByRole('heading', { name: 'Your orders' })).toBeInTheDocument();
+    // Only current versions are listed, so the superseded rx-v1 has no link.
+    const links = screen.getAllByRole('link', { name: /details & payment status/i });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(
+      expect.arrayContaining(['/patient/orders/rx-v2', '/patient/orders/lab-1']),
+    );
+    expect(links).toHaveLength(2);
+  });
+
   it('shows only the current version of a superseded order', async () => {
     render(<OrdersList />);
 
