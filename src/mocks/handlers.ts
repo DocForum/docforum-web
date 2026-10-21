@@ -16,8 +16,10 @@ import { orderHandlers } from './handlers/orders';
 import { paymentsHandlers } from './handlers/payments';
 import { queueHandlers } from './handlers/queue';
 import { adminClosuresHandlers } from './handlers/admin-closures';
+import { patientCoreHandlers } from './handlers/patient-core';
 
 export const handlers = [
+  ...patientCoreHandlers,
   ...authHandlers,
   ...accountHandlers,
   ...dependentHandlers,

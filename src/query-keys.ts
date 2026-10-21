@@ -32,6 +32,7 @@ export const appointmentKeys = {
   /** Profile-scoped list, for when a list query takes a profile id (#2/#3). */
   list: (profileId: string) => ['appointments', 'list', profileId] as const,
   detail: (appointmentId: string) => ['appointments', 'detail', appointmentId] as const,
+  doctorSlots: (doctorId: string) => ['appointments', 'slots', doctorId] as const,
   /** The check-in queue view shown on an appointment page (assumed core#129). */
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
 };
@@ -188,4 +189,13 @@ export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+};
+
+export const pendingReferralKeys = {
+  all: ['referrals', 'pending'] as const,
+};
+
+export const followUpKeys = {
+  all: ['follow-ups'] as const,
+  mine: () => ['follow-ups', 'mine'] as const,
 };

@@ -995,6 +995,66 @@ export interface PatientAppointment {
   availabilitySlot: AvailabilitySlot;
   createdAt: string;
   updatedAt: string;
+  doctorName?: string;
+  doctorSpecialty?: string;
+}
+
+// --- Booking & Intake (Phase W2, issue #2 — assumed) ------------------------
+
+export interface IntakeFormInput {
+  chiefComplaint: string;
+  symptomDuration: string;
+  severity?: number | null; // 0-10
+  currentMedications: string[];
+  allergies: string[];
+  notes?: string | null;
+}
+
+export interface CreateBookingInput {
+  slotId: string;
+  intake: IntakeFormInput;
+  patientProfileId?: string;
+}
+
+// --- Pending Referrals Accept/Decline (Phase W2, issue #4 — assumed) --------
+
+export interface PendingReferral {
+  id: string;
+  sourceConsultationId: string;
+  referringDoctorName: string;
+  targetSpecialty: string;
+  reason: string;
+  status: ReferralStatus;
+  createdAt: string;
+  expiresAt?: string | null;
+}
+
+export interface AcceptReferralResponse {
+  referralId: string;
+  createdAppointment: PatientAppointment;
+}
+
+// --- Follow-up Requests (Phase W2, issue #31 — assumed) --------------------
+
+export type FollowUpStatus = 'open' | 'booked' | 'expired';
+
+export interface FollowUpRequest {
+  id: string;
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  note: string;
+  suggestedWindowStart: string;
+  suggestedWindowEnd: string;
+  status: FollowUpStatus;
+  sourceConsultationId: string;
+  carriedOverIntake?: IntakeFormInput | null;
+  createdAt: string;
+}
+
+export interface BookFollowUpInput {
+  followUpRequestId: string;
+  slotId: string;
 }
 
 // --- Live visit queue (#32) --------------------------------------------------

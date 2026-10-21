@@ -4,6 +4,10 @@ import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
+import { AppointmentsPage } from './AppointmentsPage';
+import { BookingPage } from './BookingPage';
+import { ReferralsPage } from './ReferralsPage';
+import { FollowUpsPage } from './FollowUpsPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -67,6 +71,10 @@ function PatientHome() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
+          <Link to="appointments">My appointments</Link>
+          <Link to="follow-ups">Follow-up requests</Link>
+          <Link to="referrals">Pending referrals</Link>
+          <Link to="booking">Book consultation</Link>
           <Link to="dependents">Manage dependents</Link>
           <Link to="health">Health profile</Link>
           <Link to="/care">Care journey timeline</Link>
@@ -91,6 +99,10 @@ export function PatientDashboardPage() {
       <Route path="orders" element={<OrdersPage />} />
       <Route path="orders/:orderId" element={<OrderDetailPage />} />
       <Route path="settings" element={<AccountSettingsPage />} />
+      <Route path="appointments" element={<AppointmentsPage />} />
+      <Route path="booking" element={<BookingPage />} />
+      <Route path="referrals" element={<ReferralsPage />} />
+      <Route path="follow-ups" element={<FollowUpsPage />} />
       <Route path="care/*" element={<CareThreadPage />} />
       <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
     </Routes>

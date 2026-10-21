@@ -242,6 +242,23 @@ store). Every patient API call and React Query key includes the selected
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
 
+#### Booking + Intake Form (issue #2)
+- `POST /appointments` (body: `{ slotId, intake: IntakeFormInput, patientProfileId? }`) → `PatientAppointment`.
+- Returns `409 Conflict` if the slot has already been claimed by another user concurrent request.
+- `IntakeFormInput` shape: `{ chiefComplaint: string, symptomDuration: string, severity?: number (0-10), currentMedications: string[], allergies: string[], notes?: string }`.
+
+#### Referral Accept / Decline Screen (issue #4)
+- `GET /referrals/pending` → `PendingReferral[]`.
+- `POST /referrals/:id/accept` → `AcceptReferralResponse` (`{ referralId, createdAppointment }`). Automatically creates an appointment without requiring new intake entry.
+- `POST /referrals/:id/decline` → `{ success: boolean, referralId }`.
+- `PendingReferral` shape: `{ id, sourceConsultationId, referringDoctorName, targetSpecialty, reason, status: 'pending', createdAt, expiresAt? }`.
+
+#### Follow-up Requests (issue #31)
+- `GET /follow-up-requests/mine` → `FollowUpRequest[]`.
+- `POST /follow-up-requests/:id/book` (body: `{ slotId }`) → `PatientAppointment`.
+- Automatically carries over intake from previous consultation without asking patient to re-enter intake. Handles `409 Conflict` if the slot is taken.
+- `FollowUpRequest` shape: `{ id, doctorId, doctorName, doctorSpecialty, note, suggestedWindowStart, suggestedWindowEnd, status: 'open' | 'booked' | 'expired', sourceConsultationId, carriedOverIntake?, createdAt }`.
+
 #### Orders list and facility selection (docforum-core#11/#14, issue #5)
 - `GET /orders/mine` → `PatientOrder[]` — every version of the patient's prescriptions and lab orders, not only the current one. `PatientOrder` is a discriminated union on `orderType`:
   - prescription: `{id, patientProfileId, orderType: 'prescription', version, supersedesId, status, issuedAt, issuedByDoctorName?, requiresFacilitySelection, selectedFacility?, medication, dose, quantity?, instructions?}`

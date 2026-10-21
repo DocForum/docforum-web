@@ -25,9 +25,13 @@ import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
+import * as appointmentsService from '../services/appointments-service';
+import * as bookingService from '../services/booking-service';
+import * as followupService from '../services/followup-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as referralService from '../services/referral-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -458,6 +462,72 @@ describe('facility fulfillment queue', () => {
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('patient core flow', () => {
+  it('lists patient appointments', async () => {
+    const list = await appointmentsService.listMyAppointments(MOCK_ACCESS_TOKEN);
+    expect(list).toHaveLength(1);
+    expect(list[0].doctorName).toBe('Dr. Ficticia Example');
+  });
+
+  it('lists slots and creates booking, handling 409 double-booking', async () => {
+    const slots = await bookingService.listDoctorSlots('prf-doctor-demo', MOCK_ACCESS_TOKEN);
+    expect(slots.length).toBeGreaterThan(0);
+
+    const booking = await bookingService.createBooking(
+      {
+        slotId: 'slt-demo-1',
+        intake: {
+          chiefComplaint: 'Chest pain',
+          symptomDuration: '3 days',
+          severity: 5,
+          currentMedications: [],
+          allergies: [],
+        },
+      },
+      MOCK_ACCESS_TOKEN
+    );
+    expect(booking.id).toBeTruthy();
+
+    await expect(
+      bookingService.createBooking(
+        {
+          slotId: 'slt-demo-409',
+          intake: {
+            chiefComplaint: 'Late booking',
+            symptomDuration: '1 day',
+            currentMedications: [],
+            allergies: [],
+          },
+        },
+        MOCK_ACCESS_TOKEN
+      )
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('lists pending referrals and accepts or declines them', async () => {
+    const pending = await referralService.listPendingReferrals(MOCK_ACCESS_TOKEN);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].targetSpecialty).toBe('Cardiology');
+
+    const accepted = await referralService.acceptReferral('ref-demo-1', MOCK_ACCESS_TOKEN);
+    expect(accepted.createdAppointment.status).toBe('scheduled');
+
+    const remaining = await referralService.listPendingReferrals(MOCK_ACCESS_TOKEN);
+    expect(remaining).toHaveLength(0);
+  });
+
+  it('lists follow-up requests and books one', async () => {
+    const followups = await followupService.listMyFollowUpRequests(MOCK_ACCESS_TOKEN);
+    expect(followups).toHaveLength(2);
+
+    const booked = await followupService.bookFollowUp(
+      { followUpRequestId: 'fur-demo-1', slotId: 'slt-demo-2' },
+      MOCK_ACCESS_TOKEN
+    );
+    expect(booked.status).toBe('scheduled');
   });
 });
 

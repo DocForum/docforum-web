@@ -7,6 +7,7 @@
 // shapes are still assumed contracts.
 import type {
   Appointment,
+  AvailabilitySlot,
   CareThread,
   Closure,
   ConsultationAddendum,
@@ -20,13 +21,16 @@ import type {
   FacilityInvite,
   FacilityMember,
   FacilityWithDistance,
+  FollowUpRequest,
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
   MessageThread,
+  PatientAppointment,
   PatientOrder,
   PaymentIntent,
+  PendingReferral,
   QualifiedOrderFacility,
   RunningDelay,
   User,
@@ -102,6 +106,10 @@ export interface MockDb {
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
   closures: Closure[];
+  pendingReferrals: PendingReferral[];
+  followUpRequests: FollowUpRequest[];
+  availabilitySlots: AvailabilitySlot[];
+  patientAppointments: PatientAppointment[];
 }
 
 export function createSeedDb(): MockDb {
@@ -1171,6 +1179,109 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const pendingReferrals: PendingReferral[] = [
+    {
+      id: 'ref-demo-1',
+      sourceConsultationId: 'cst-demo-100',
+      referringDoctorName: 'Dr. Sarah Connor',
+      targetSpecialty: 'Cardiology',
+      reason: 'Elevated blood pressure and chest tightness during exercise',
+      status: 'pending',
+      createdAt: '2026-10-15T09:00:00.000Z',
+      expiresAt: '2026-11-15T09:00:00.000Z',
+    },
+  ];
+
+  const followUpRequests: FollowUpRequest[] = [
+    {
+      id: 'fur-demo-1',
+      doctorId: DOCTOR_PROFILE_ID,
+      doctorName: 'Dr. Ficticia Example',
+      doctorSpecialty: 'General Practice',
+      note: 'Re-evaluate blood pressure after two weeks of new medication',
+      suggestedWindowStart: '2026-10-20T00:00:00.000Z',
+      suggestedWindowEnd: '2026-11-05T00:00:00.000Z',
+      status: 'open',
+      sourceConsultationId: 'cst-demo-101',
+      carriedOverIntake: {
+        chiefComplaint: 'Follow-up for BP check',
+        symptomDuration: '2 weeks',
+        severity: 3,
+        currentMedications: ['Demo Vitamin D 1000 IU'],
+        allergies: ['Peanuts (fake)'],
+        notes: 'Carried over from consultation cst-demo-101',
+      },
+      createdAt: '2026-10-10T10:00:00.000Z',
+    },
+    {
+      id: 'fur-demo-2',
+      doctorId: DOCTOR_PROFILE_ID,
+      doctorName: 'Dr. Ficticia Example',
+      doctorSpecialty: 'General Practice',
+      note: 'Check rash recovery after topical treatment',
+      suggestedWindowStart: '2026-09-01T00:00:00.000Z',
+      suggestedWindowEnd: '2026-09-15T00:00:00.000Z',
+      status: 'expired',
+      sourceConsultationId: 'cst-demo-090',
+      createdAt: '2026-08-15T10:00:00.000Z',
+    },
+  ];
+
+  const availabilitySlots: AvailabilitySlot[] = [
+    {
+      id: 'slt-demo-1',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      status: 'open',
+      startTime: '2026-10-25T10:00:00.000Z',
+      endTime: '2026-10-25T10:30:00.000Z',
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-10T00:00:00.000Z',
+    },
+    {
+      id: 'slt-demo-2',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      status: 'open',
+      startTime: '2026-10-25T11:00:00.000Z',
+      endTime: '2026-10-25T11:30:00.000Z',
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-10T00:00:00.000Z',
+    },
+    {
+      // Reserved slot id to simulate 409 double-booking
+      id: 'slt-demo-409',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      status: 'held',
+      startTime: '2026-10-25T14:00:00.000Z',
+      endTime: '2026-10-25T14:30:00.000Z',
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-10T00:00:00.000Z',
+    },
+  ];
+
+  const patientAppointments: PatientAppointment[] = [
+    {
+      id: 'papt-demo-1',
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      doctorName: 'Dr. Ficticia Example',
+      doctorSpecialty: 'General Practice',
+      availabilitySlotId: 'slt-demo-prev-1',
+      status: 'scheduled',
+      origin: 'direct_booking',
+      availabilitySlot: {
+        id: 'slt-demo-prev-1',
+        doctorProfileId: DOCTOR_PROFILE_ID,
+        status: 'booked',
+        startTime: '2026-10-28T09:00:00.000Z',
+        endTime: '2026-10-28T09:30:00.000Z',
+        createdAt: '2026-10-10T00:00:00.000Z',
+        updatedAt: '2026-10-10T00:00:00.000Z',
+      },
+      createdAt: '2026-10-12T09:00:00.000Z',
+      updatedAt: '2026-10-12T09:00:00.000Z',
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -1196,5 +1307,9 @@ export function createSeedDb(): MockDb {
     disputes,
     consultationAddenda,
     closures,
+    pendingReferrals,
+    followUpRequests,
+    availabilitySlots,
+    patientAppointments,
   };
 }
