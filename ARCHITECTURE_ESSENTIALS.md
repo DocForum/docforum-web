@@ -308,6 +308,13 @@ store). Every patient API call and React Query key includes the selected
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
+#### Intake draft autosave (issue #36)
+- Drafts are kept in a Zustand store (`src/store/intake-draft-store.ts`), keyed by availability slot ID.
+- Drafts survive route changes and failed submits within the session but are never persisted to localStorage/sessionStorage/IndexedDB (enforced by tests).
+- A `useUnsavedChangesWarning` hook warns before leaving the page with unsaved changes using the browser's beforeunload event.
+- Drafts are cleared on successful submit, logout, and profile switch (acting-for change).
+- This infrastructure is designed to integrate with the booking flow (issue #2) once that feature is implemented.
+
 #### Confirm receipt or report problem (issue #35)
 - Fulfilled orders include a `confirmationWindow` field with `deadlineAt` and `inactionConsequence`.
 - `POST /orders/confirm-receipt` (body: `{orderId, expectedUpdatedAt}`) → `ConfirmReceiptResponse`
