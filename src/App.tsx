@@ -28,6 +28,7 @@ import { AdminDisputesPage } from './pages/AdminDisputesPage';
 import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilitySettingsPage } from './pages/FacilitySettingsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
 
@@ -146,6 +147,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/settings"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilitySettingsPage />
             </RequireAuth>
           }
         />

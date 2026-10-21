@@ -9,6 +9,7 @@ import { dependentHandlers } from './handlers/dependents';
 import { doctorTodayHandlers } from './handlers/doctor-today';
 import { facilityTeamHandlers } from './handlers/facility-team';
 import { facilityHandlers } from './handlers/facility';
+import { facilitySettingsHandlers } from './handlers/facility-settings';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { messagingHandlers } from './handlers/messaging';
@@ -29,6 +30,7 @@ export const handlers = [
   ...messagingHandlers,
   ...insightsHandlers,
   ...facilityHandlers,
+  ...facilitySettingsHandlers,
   ...facilityTeamHandlers,
   ...orderHandlers,
   ...paymentsHandlers,

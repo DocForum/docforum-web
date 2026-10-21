@@ -7,6 +7,7 @@
 // shapes are still assumed contracts.
 import type {
   Appointment,
+  CatalogItem,
   CareThread,
   Closure,
   ConsultationAddendum,
@@ -19,6 +20,9 @@ import type {
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
+  FacilityOpeningHours,
+  FacilityPrice,
+  FacilitySettings,
   FacilityWithDistance,
   FulfillmentDispute,
   FulfillmentQueueItem,
@@ -92,6 +96,9 @@ export interface MockDb {
   consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
   facilities: FacilityWithDistance[];
+  facilitySettings: FacilitySettings[];
+  catalogItems: CatalogItem[];
+  facilityPrices: FacilityPrice[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
@@ -547,6 +554,131 @@ export function createSeedDb(): MockDb {
       rating: 3.9,
     },
   ];
+
+  const openingHours: FacilityOpeningHours[] = [
+    { day: 'monday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'tuesday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'wednesday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'thursday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'friday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'saturday', closed: false, opensAt: '10:00', closesAt: '16:00' },
+    { day: 'sunday', closed: true, opensAt: null, closesAt: null },
+  ];
+
+  const facilitySettings: FacilitySettings[] = [
+    {
+      facilityId: FACILITY_ID,
+      name: 'Demo Pharmacy (fake)',
+      type: 'pharmacy',
+      address: '1 Fixture Lane',
+      city: 'Sampleton',
+      latitude: 6.5244,
+      longitude: 3.3792,
+      phone: '+000 000 0001',
+      email: 'demo.pharmacy@example.test',
+      openingHours,
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      facilityId: 'fac-main',
+      name: 'Central Pharmacy & Diagnostic Center (fake)',
+      type: 'pharmacy',
+      address: '12 Fixture High Street',
+      city: 'Sampleton',
+      latitude: 6.5244,
+      longitude: 3.3792,
+      phone: '+000 000 0012',
+      email: 'central.pharmacy@example.test',
+      openingHours,
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+  ];
+
+  const catalogItems: CatalogItem[] = [
+    {
+      code: 'MED-AMOX-500',
+      name: 'Amoxicillin 500mg (30 capsules) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'MED-METF-850',
+      name: 'Metformin 850mg (60 tablets) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'MED-VITD-1000',
+      name: 'Vitamin D 1000 IU (30 tablets) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'LAB-FBC',
+      name: 'Full blood count (fake)',
+      type: 'lab',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'LAB-LIPID',
+      name: 'Fasting lipid panel (fake)',
+      type: 'lab',
+      description: 'Demo catalog fixture',
+    },
+  ];
+
+  const priceSeeds: Array<{
+    code: string;
+    name: string;
+    asset: FacilityPrice['asset'];
+    versions: Array<{ amountStroops: string; effectiveFrom: string }>;
+  }> = [
+    {
+      code: 'MED-AMOX-500',
+      name: 'Amoxicillin 500mg (30 capsules) (fake)',
+      asset: 'XLM',
+      versions: [
+        { amountStroops: '250000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
+        { amountStroops: '275000000', effectiveFrom: '2026-10-15T00:00:00.000Z' },
+      ],
+    },
+    {
+      code: 'MED-METF-850',
+      name: 'Metformin 850mg (60 tablets) (fake)',
+      asset: 'XLM',
+      versions: [
+        { amountStroops: '180000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
+        { amountStroops: '190000000', effectiveFrom: '2026-11-01T00:00:00.000Z' },
+      ],
+    },
+    {
+      code: 'LAB-FBC',
+      name: 'Full blood count (fake)',
+      asset: 'XLM',
+      versions: [{ amountStroops: '120000000', effectiveFrom: '2026-09-15T00:00:00.000Z' }],
+    },
+    {
+      code: 'LAB-LIPID',
+      name: 'Fasting lipid panel (fake)',
+      asset: 'USDC',
+      versions: [{ amountStroops: '20000000', effectiveFrom: '2026-09-15T00:00:00.000Z' }],
+    },
+  ];
+
+  const facilityPrices: FacilityPrice[] = [FACILITY_ID, 'fac-main'].flatMap((facilityId) =>
+    priceSeeds.flatMap((seed) =>
+      seed.versions.map((version, index) => ({
+        id: `prc-${facilityId}-${seed.code}-${index}`,
+        facilityId,
+        catalogItemCode: seed.code,
+        catalogItemName: seed.name,
+        asset: seed.asset,
+        amountStroops: version.amountStroops,
+        effectiveFrom: version.effectiveFrom,
+        createdAt: version.effectiveFrom,
+      })),
+    ),
+  );
 
   const facilityMembers: FacilityMember[] = [
     {
@@ -1186,6 +1318,9 @@ export function createSeedDb(): MockDb {
     consultationOrders: [],
     insights,
     facilities,
+    facilitySettings,
+    catalogItems,
+    facilityPrices,
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,

@@ -20,6 +20,7 @@ import * as disputesService from '../services/disputes-service';
 import * as dependentsService from '../services/dependents-service';
 import * as doctorTodayService from '../services/doctor-today-service';
 import * as facilityService from '../services/facility-service';
+import * as facilitySettingsService from '../services/facility-settings-service';
 import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
