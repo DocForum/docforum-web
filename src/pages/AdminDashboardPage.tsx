@@ -32,6 +32,10 @@ export function AdminDashboardPage() {
           for credential review — unverified doctors never appear in search.
         </p>
         <p>
+          <Link to="/admin/verification">Review specialty claims</Link> to approve or reject each doctor's claimed
+          specialties one at a time, with the supporting credential beside each claim.
+        </p>
+        <p>
           <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
           pending too long.
         </p>
