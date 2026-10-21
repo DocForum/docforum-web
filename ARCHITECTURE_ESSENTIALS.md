@@ -12,11 +12,14 @@ those first if you're new to the org, not just this file.
   React Query rather than hand-rolling persistence.
 
 ## Hard rules
-1. **This repo never calls `docforum-escrow` or Stellar directly.** Wallet
-   linking, payment status, escrow state — all of it comes from
-   `docforum-core`'s API. If a screen needs Stellar-related data, that's a
-   `docforum-core` API gap to file, not a reason to add a Stellar SDK
-   dependency here.
+1. **This repo never calls Stellar RPC, Horizon, `docforum-escrow` or any
+   contract directly.** The one exception is asking the user's wallet to
+   sign a transaction XDR that `docforum-core` prepared, and returning the
+   signed XDR to `docforum-core`. The frontend never builds, simulates or
+   submits transactions, and never holds a private key. Wallet linking,
+   payment status and escrow state otherwise come from `docforum-core`'s
+   API. If a screen needs Stellar-related data, that is a `docforum-core`
+   API gap to file, not a reason to add a Stellar SDK dependency here.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
@@ -40,6 +43,55 @@ those first if you're new to the org, not just this file.
   localStorage/sessionStorage above; it applies to auth tokens too, not
   just business data.
 
+## Query keys & cache invalidation (issue #122)
+React Query caches everything this app fetches. Two files own the key
+space, and no hook may invent its own string array:
+- `src/query-keys.ts` — one typed factory per resource (`appointmentKeys`,
+  `queueKeys`, `healthKeys`, `facilityKeys`, …). `<resource>.all` is that
+  resource's invalidation root; every other key nests under it (enforced by
+  `src/query-keys.test.ts`).
+- `src/invalidations.ts` — the mutation → keys map. A mutation declares its
+  blast radius once, as a `'<domain>.<action>'` entry built from those
+  factories, and refreshes it with `invalidateFor(queryClient, '…', …vars)`.
+  Hooks do not hand-write `queryClient.invalidateQueries({ queryKey })`
+  arrays anymore.
+
+Rules:
+- **Profile scoping.** Any list the API scopes to a patient profile carries
+  the acting profile id — `healthKeys.section(profileId, section)`,
+  `careThreadKeys.list(profileId)`, `appointmentKeys.list(profileId)` — so
+  switching profile in the acting-for switcher can never surface another
+  profile's cache. `dependentKeys.all` is deliberately *not* profile-scoped:
+  that list comes from `/patients/me`, keyed to the session, not a profile.
+- **Narrowest key that is true.** A health write invalidates one profile's
+  one section; an invite write invalidates a facility's invites, never its
+  members or fulfillment queue. Widen a key only when the write provably
+  moves the wider data — payment actions also invalidate
+  `paymentKeys.ledgers()` because funding/releasing/refunding moves
+  held/released totals that cannot be attributed to one facility from the
+  intent alone.
+- **Sibling flag keys (the documented exception).** `flagKeys.list()` and
+  `flagKeys.history()` stay siblings: invalidating the list must not
+  refetch the audit lookup, and vice versa. Only the write path uses
+  `flagKeys.all`, which covers both.
+- **No silent writes.** If a mutation moves data a screen reads, it has a
+  map entry — including the optimistic paths (visit actions, intent
+  actions) that previously left the visible list stale until a 30 s poll.
+- `setQueryData` patches (optimistic rows, server responses written
+  straight through) stay in the hook; the map governs *invalidation*.
+  Whether `onSuccess` awaits the refetch is kept per-hook as it was before
+  this issue — a "Saving…" state that used to release early still does.
+
+No API shape is assumed by either file: they only name keys. Tests:
+`src/query-keys.test.ts` (nesting, profile scoping, sibling/narrow keys)
+and `src/invalidations.test.ts` (a seeded `QueryClient` per case asserting
+exactly the targeted keys are invalidated and unrelated ones are not), plus
+a hook-level case in `useQueue.test.tsx` — a confirmed start/complete marks
+the dashboard appointment list and the queue for refresh, the analogue of
+this issue's review check ("a booking mutation refreshes the dashboard and
+appointment list") until booking (#2) and the patient appointment list (#3)
+land and consume `appointmentKeys.list(profileId)`.
+
 ## Deployment
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
@@ -58,6 +110,40 @@ those first if you're new to the org, not just this file.
   (e.g. behind `docforum-core` itself, or Vercel/Netlify).
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
+
+## API client behaviour (issue #123)
+`src/services/api-client.ts` is the only place HTTP lives, and it now owns
+the full request lifecycle — services pass options through, never wire
+`fetch` themselves:
+
+- **Timeouts.** Every request has a budget: `DEFAULT_TIMEOUT_MS` (60 s,
+  deliberately longer than docforum-core's ~1 minute cold start so the
+  `useSlowRequestHint` message at 4 s explains a wait that then *succeeds*
+  instead of being killed mid-cold-start), or `SLOW_REQUEST_TIMEOUT_MS`
+  (120 s) for the genuinely slow endpoints (`POST /account/data-export`,
+  its download, `POST /admin/jobs/:name/run`). Expiry rejects with a
+  typed `ApiTimeoutError` — never silently, and never disguised as an
+  `ApiError` (which always means "a response arrived").
+- **Cancellation.** Every query-serving service function takes an optional
+  trailing `AbortSignal`, and every `queryFn` passes React Query's signal
+  (`queryFn: ({ signal }) => …`) — so a navigation/unmount stops the
+  network call. A caller-initiated abort rejects with its abort reason;
+  `isAbortError(error)` distinguishes it from real failures. The retry
+  policy in `query-client.ts` never retries an abort, and any
+  catch-all `catch` in a `queryFn` that degrades to placeholder data
+  **must rethrow aborts/timeouts** first (`useCareThreads`,
+  `useFacilityLedger` do) — resolving a cancelled query with fallback data
+  caches data nobody asked for.
+- **GET de-duplication.** Identical concurrent GETs (same URL, bearer
+  token, timeout and parse mode) share one request and one parsed result.
+  Cancellation is per caller: aborting one participant rejects only that
+  participant; the shared request is aborted once its *last* caller
+  leaves. **Mutations are never de-duplicated** — a POST must never be
+  replayed as if the second caller's write had happened.
+- **Retry policy.** `query-client.ts` retries transient failures once
+  (`retry: 1` semantics kept) and never retries an abort. Per-hook
+  `retry` overrides (e.g. no retry on a 404 "no wallet linked") still
+  apply on top.
 
 ## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
 `docforum-core` now has a real, tested API — see its `docs/api/README.md`.
@@ -82,6 +168,19 @@ the cookie to be sent/received at all). One gap remains:
   `docs/api/README.md`.
 
 ## Known assumptions
+
+### Patient wallet linking (issue #58)
+
+The patient-wallet flow is intentionally not implemented against an assumed
+API. The required `docforum-core` SEP-10 challenge/verify contract and
+patient-scoped verified wallet-link contract are tracked in
+[`docforum-core#77`](https://github.com/DocForum/docforum-core/issues/77) and
+[`docforum-core#78`](https://github.com/DocForum/docforum-core/issues/78),
+respectively. Until those contracts land, this repository must not invent
+endpoint paths, request/response shapes, a privacy-notice source, or wallet
+verification semantics. The boundary check in
+`scripts/check-stellar-boundary.mjs` guards the direct-network prohibition
+while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
@@ -163,6 +262,13 @@ store). Every patient API call and React Query key includes the selected
 - Deletion is blocked if there are active orders or unreleased funded escrows.
 - Client clears all QueryClient cache and Zustand session/profile state.
 
+#### Closure calendar management (this PR)
+- Admins can create and edit closures with a preview of affected booked appointments before saving.
+- After saving, an affected-appointments report shows links to contact patients inside the closure period.
+- All-day closures respect the correct time zone.
+- Deleting a closure doesn't recreate removed slots — a notice explains this to the admin.
+- Closures can be platform-wide or scoped to a specific facility.
+
 #### Care thread timeline (issue #28)
 - `GET /patients/:patientProfileId/care-threads` → `CareThread[]`
 - `GET /care-threads/:id` → `CareThread`
@@ -174,16 +280,27 @@ store). Every patient API call and React Query key includes the selected
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
 
+#### Orders list and facility selection (docforum-core#11/#14, issue #5)
+- `GET /orders/mine` → `PatientOrder[]` — every version of the patient's prescriptions and lab orders, not only the current one. `PatientOrder` is a discriminated union on `orderType`:
+  - prescription: `{id, patientProfileId, orderType: 'prescription', version, supersedesId, status, issuedAt, issuedByDoctorName?, requiresFacilitySelection, selectedFacility?, medication, dose, quantity?, instructions?}`
+  - lab order: `{id, patientProfileId, orderType: 'lab_order', version, supersedesId, status, issuedAt, issuedByDoctorName?, requiresFacilitySelection, selectedFacility?, testName, fastingRequired?, instructions?}`
+  - `status` is `active | completed | cancelled | superseded`; `selectedFacility` is `{id, name, type, isOpen?}`.
+- The current version is derived client-side from the supersedes chain (`features/orders/current-orders.ts`), never from array order: the terminal record (no other record supersedes it) with the highest `version` wins, and earlier versions remain visible as history. This deliberately works even if the API returns versions out of order.
+- `GET /orders/:orderId/qualified-facilities` → `QualifiedOrderFacility[]` = `{id, userId, name, type, isOpen, capabilities, location?}`. The backend's capability matching (docforum-core#14) is the only source of this list; the UI never infers eligibility from facility type.
+- `POST /orders/:orderId/fulfillment-facility` (body: `{facilityId, expectedVersion}`) → the updated `PatientOrder`. `expectedVersion` lets docforum-core answer `409` if the order changed while the patient was choosing; the UI then asks the patient to reload rather than silently overwriting a correction.
+
 ### Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
 
-These shapes back issues #45–#49. docforum-core issues #61 (message thread),
-#129 (in-person check-in / live queue position) and the today's-appointments
-consultation contracts are not landed yet, so the endpoints below are the
-smallest reasonable assumption and must be reconciled once the real API
-exists.
+These shapes back issues #6, #7 and #45–#49. docforum-core issues #61 (message
+thread), #129 (in-person check-in / live queue position) and the
+today's-appointments/consultation contracts are not landed yet, so the
+endpoints below are the smallest reasonable assumption and must be reconciled
+once the real API exists.
 
-#### Today's appointments & live queue (issue #49, depends on #6)
+#### Today's appointments & live queue (issues #6 and #49)
 - `GET /doctor/appointments/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
+- `GET /appointments/:id/intake` → `IntakeForm | null` — the structured intake the patient submitted for that appointment. `404` means no intake was submitted; the UI shows that as an empty state, not an error. The endpoint is doctor-scoped: it must only return intake for appointments assigned to the signed-in doctor.
+- `IntakeForm` shape: `{id, appointmentId, patientProfileId, submittedAt, chiefComplaint, symptomDuration?, severity?: number|null (0–10), currentMedications: string[], allergies: string[], notes?}`.
 - `GET /doctor/queue/today` → `QueueEntry[]` — checked-in patients in queue order (computed server-side from `checkInAt`).
 - `POST /appointments/:id/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`). Idempotent if already started.
 - `POST /appointments/:id/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`).
@@ -203,6 +320,13 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `POST /consultation-notes/:id/addenda` (body: `{content}`) → `ConsultationAddendum` — append-only; no edit/delete UI for addenda.
 - Auto sign-off deadline, if present, is exposed as `autoSignOffAt` on the note.
 
+#### Consultation outcome, referral & order issuance (issue #7)
+- `POST /appointments/:appointmentId/consultation` (body: `{notes, outcome: 'resolved'|'referred'|'follow_up_needed', followUpAfterDays?}`) → `ConsultationRecord`. The consultation record is the doctor's outcome decision and is distinct from the sign-off note above. `followUpAfterDays` is required for `follow_up_needed` (whole number, 1–90) and must be `null` otherwise.
+- `POST /consultations/:id/referrals` (body: `{targetSpecialty, reason}`) → `ConsultationReferral` — created only when the outcome is `referred`; specialty and reason are required. `status` reuses `ReferralStatus` and starts as `pending`.
+- `POST /consultations/:id/orders` (body: `{orderType: 'prescription', medication, dose, instructions?}` or `{orderType: 'lab_order', testName, instructions?}`) → `ConsultationIssuedOrder` — optional single order issued with the consultation.
+- Submission is sequential: record the consultation first, then create the referral/order using the returned consultation id. If a follow-up call fails, the UI keeps the recorded consultation, shows a partial-success error, and never silently retries the record (avoiding duplicates).
+- The outcome panel reuses the note editor's current draft as `notes`, so the doctor writes the consultation note once. All three endpoints are assumed until docforum-core lands the consultation contract.
+
 #### Doctor practice insights (issue #50, depends on docforum-core#124)
 - `GET /doctor/insights?preset=&startDate=&endDate=` → `DoctorPracticeInsights`
 - Scoped strictly to the authenticated doctor's own practice data; peer-comparison suppression guarantees no benchmarking against other named doctors.
@@ -219,7 +343,11 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `DELETE /facilities/:facilityId/members/:memberId` → `RemoveMemberResponse` — remove member and immediately invalidate/revoke their active backend sessions (owner-only; cannot remove the last owner of a facility).
 - Non-owner staff users see the team page in read-only mode (invite, revoke, and remove actions are hidden and rejected if forced).
 - `GET /facilities/:facilityId/fulfillment-queue` → `FulfillmentQueueItem[]` — queue items with action attribution (`attribution: { action, performedByUserId, performedByName, performedByRole, timestamp, notes }`).
-- `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail.
+- `POST /facilities/:facilityId/fulfillment-queue/:itemId/action` (body: `{action: 'in_progress' | 'fulfilled' | 'rejected', notes?}`) → `FulfillmentQueueItem` — records the acting staff user's identity and role for PRD §7 audit trail. Closed items (`fulfilled`/`rejected`) reject further transitions with `409`; `in_progress` maps to attribution action `verified`.
+- `POST /facilities/:facilityId/fulfillment-queue/:itemId/lab-result` (multipart form, field `file`) → `FulfillmentQueueItem` — real file upload for lab orders, not a URL field. Client accepts PDF/JPEG/PNG up to 10 MB; the server stores the object and returns an opaque `labResult` descriptor (`fileName`, `mimeType`, `sizeBytes`, `uploadedAt`, `uploadedByUserId`, optional `storageKey`/`downloadUrl`). The UI renders a server-signed `downloadUrl` when present and never constructs a provider URL itself. The object-storage provider and the exact upload contract are still undecided in docforum-core#16, so only the multipart transport is assumed here; do not add S3/GCS-specific request fields until #16 lands.
+- **`FulfillmentRecord` caveat:** docforum-core#13's ADR has not decided between a single `FulfillmentRecord` table and split order/fulfillment tables. `FulfillmentQueueItem` is a UI projection, not that backend model, and may need remapping once the ADR lands. `FulfillmentLabResult` is likewise provisional and should be revisited with the same ADR.
+- **Facility identity:** the auth payload does not expose a facility id yet (docforum-core#14), so the dashboard still uses an interim `fac-main` constant. Replace it with the facility context returned by the backend when account provisioning lands.
+- No hardcoded queue fallback: loading, empty, and error states are distinct, and mutation failures surface in a banner rather than mutating local demo data.
 
 ### Phase W6 — Admin audit & access log viewer (issue #71)
 
@@ -285,6 +413,24 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
 - **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
 - An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+### Phase W6 — Fulfilment disputes (issue #76, depends on docforum-core#76)
+
+docforum-core#76 (facility-side fulfilment proof and patient receipt
+confirmation) has not landed, so every shape below is assumed and mirrored in
+`models.ts` under "Phase W6 — Fulfilment disputes". The endpoints live under
+`/admin/disputes` and are gated to the `admin` role by the route guard; every
+call still goes through docforum-core (hard rule 1).
+
+- `GET /admin/disputes?status=open&cursor=` → `{items: FulfillmentDisputeSummary[], nextCursor}`; the console only ever asks for `status=open`. The server should send oldest first, and the console re-sorts every loaded page by `openedAt` so "by age" holds across cursor pages too. `FulfillmentDisputeSummary` = `{id, status, orderId, orderType, itemName, patientName, facility: {id, name}, amountStroops, asset, reason, openedAt, updatedAt}`. No patient email or profile id is sent.
+- `GET /admin/disputes/:id` → `FulfillmentDispute` = the summary plus `patientReport`, `facilityProof: DisputeFacilityProof | null`, `payment: {intentId, status, escrowId}`, `timeline: DisputeTimelineEvent[]`, and `{resolvedAt, resolution, resolutionNotes, resolvedBy}`. A `404` means the dispute is gone (or the backend doesn't serve it yet), not an empty queue.
+- `DisputePatientReport` = `{reason: 'not_received'|'wrong_item'|'incomplete'|'damaged'|'other', description, submittedAt, submittedBy}`. `DisputeFacilityProof` = `{reference, note, submittedAt, submittedBy, attachments: DisputeAttachment[]}`; a `null` proof is normal and the detail warns that resolving for the facility would move money on the patient's word alone. `DisputeAttachment` carries metadata only — `{id, filename, contentType, sizeBytes, kind: 'dispensing_record'|'specimen_id'|'photo'|'other', uploadedAt, uploadedBy}` — never a durable URL.
+- **Attachments are opened only through fresh signed URLs:** `POST /admin/disputes/:id/attachments/:attachmentId/signed-url` → `{url, expiresAt}`. The console mints one per click, renders the returned URL in a `target="_blank" rel="noopener noreferrer"` link, and keeps it only in component state. It is never put in React Query's cache, never stored in `FulfillmentDispute`, and re-requesting replaces it, so a copied or expired link is not reused. `404` means the attachment is gone and asks the facility to resubmit.
+- `POST /admin/disputes/:id/resolve` (body: `{resolution: 'facility'|'patient', notes, expectedUpdatedAt}`) → the updated `FulfillmentDispute`. Resolution is **final**: docforum-core releases the held escrow to the facility or refunds the patient and no endpoint reverses it. `expectedUpdatedAt` is the `updatedAt` the admin saw, so a concurrent resolution comes back as `409` (or `404` if it vanished); those close the dialog and refetch rather than resubmitting. `400`/`422` keep the dialog open with the server's message. A network failure is reported as *unconfirmed* — the dialog stops offering the confirmation, because retrying a final action could double-apply it, and asks the admin to reload first.
+- **The consequence is shown before confirming:** the dialog derives it from `payment.status` and the disputed amount. `escrowed` → "Release {amount} from escrow to {facility}" or "Refund {amount} from escrow to {patient}"; any other status (already released/refunded/created/failed) → "No money moves…" rather than promising a second transfer. The admin must also tick an explicit "this is final and cannot be undone" box, and notes are required (10–500 characters, whitespace collapsed) for the audit trail.
+- `DisputeTimelineEvent` = `{id, at, actorRole: Role|'system', actorName, kind: 'opened'|'proof_submitted'|'patient_message'|'payment'|'resolved', summary}`, oldest first as sent. It is display-only; the console never invents events.
+- Queue badges escalate at 24 h and 72 h open (tighter than the referral queue's thresholds, because each open dispute is blocked escrow). A queue/detail `403` says the admin session lost access; queue errors offer a retry and keep already-loaded pages visible.
+- Mock fixtures (`dsp-demo-1…3`) cover proof-with-attachments, no-proof, and a multi-page queue (mock page size 2); `npm run dev:mock` serves the resolve and signed-URL endpoints from `src/mocks/handlers/disputes.ts`.
+
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`
   - Token verification endpoint returning 5 explicit states: `valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`.
@@ -301,6 +447,76 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
   - Escrow terms in plain language (releaser condition, refund deadline countdown).
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
+
+### Error monitoring (issue #100)
+
+- **SDK:** `@sentry/react` (browser SDK), initialized in `src/main.tsx:48`.
+- **Default off:** initialization is guarded by `if (import.meta.env.VITE_SENTRY_DSN)`; without a DSN the SDK is never loaded and no events are captured. The Pages preview ships without `VITE_SENTRY_DSN`, so monitoring is off by default there (and in local dev unless explicitly configured).
+- **Session replay:** deliberately never integrated — the Replay integration is not imported or initialized.
+- **Scrubber:** `src/utils/phi-scrubber.ts` runs as Sentry's `beforeSend` and `beforeBreadcrumb`. It is a pure function, unit-tested in `src/utils/phi-scrubber.test.ts` against a sample event containing intake text and other PHI patterns.
+- **What is NOT sent:** request or response bodies, headers, cookies, or query strings; form values; the user's email, IP address, or username; PHI-pattern values anywhere in the event (email addresses, phone numbers, SSNs, bearer tokens); breadcrumb request bodies or URLs containing ids/tokens.
+- **What is sent (scrubbed):** the error message and exception type, the HTTP method, a sanitized URL (host + route shape only; query string dropped, id-like path segments replaced with `[id-redacted]`), and an opaque user id only. Benign extra/contexts/tags pass through with sensitive keys redacted.
+- **CSP:** Sentry is bundled via npm — there is no external `<script>` to whitelist. The only network target is `*.sentry.io`, and only when a DSN is configured; if a CSP is adopted, add `connect-src https://*.sentry.io`.
+
+### Responsive navigation and layout (issue #103)
+
+- **Layout:** `src/components/Layout.tsx` provides the app shell: skip-to-content link, header (logo, role-aware nav, user chip, logout), mobile drawer, main content area, and footer. Landmark regions (`role="banner"`, `role="navigation"`, `role="main"`, `role="contentinfo"`) are used throughout.
+- **Role-aware navigation:** `roleNavItems()` returns nav entries gated by user role (patient, doctor, facility, admin). Unauthenticated users see Log in / Sign up. Items for unbuilt or role-inappropriate screens never appear.
+- **Desktop:** horizontal header nav with active-state highlighting via `NavLink`.
+- **Mobile:** hamburger toggle opens a side drawer with focus trapping (Tab cycles within the drawer, Escape-like close via close button or overlay click). Drawer links are hidden from the accessibility tree (`aria-hidden`) when closed.
+- **Skip to content:** visually hidden link at the top of the page, focuses on `#main-content` when activated.
+- **Page header:** `src/components/PageHeader.tsx` renders a consistent page header with title (`<h1>`), breadcrumb trail (auto-derived from route or explicitly supplied), and optional actions. Supports `<h2>` override.
+- **Responsive:** layout works at 320px with no horizontal scroll. Stacks vertically on mobile; desktop shows horizontal nav. All public asset URLs are rewritten correctly under the GitHub Pages base path.
+
+### Phase W5 — Patient order detail & payment panel (issue #61, depends on docforum-core#85)
+
+Custodial payment *mechanics* are real (docforum-core Phase 5.5, its
+`docs/adr/0004-custodial-payments-v1.md`), and the order shape this page
+renders is issue #5's `PatientOrder` (= `Prescription | LabOrder`, see
+"Orders list and facility selection" above — nothing new is invented
+here). What's still assumed is *attaching a payment intent to an order*:
+docforum-core's `PaymentIntent.orderId` is opaque (#85 — real FKs — is
+open). Both endpoints below are assumed and were reconciled with #5's
+`/orders/...` route family.
+
+- `GET /orders/:orderId` → `PatientOrder` — single-order detail for the patient order page, alongside #5's `GET /orders/mine`. Same assumed `404` (not found / not yours) as `GET /orders/:orderId/qualified-facilities`; the UI shows "Order not found", never a permission-error debug path.
+- `GET /payments/intents?orderId=<id>` → `PaymentIntent` — the order→intent lookup behind the panel. `404` means "this order has no payment intent" and is mapped to `null` by `payments-service.getPaymentIntentForOrder`; the panel then hides entirely (no empty state, no error). Assumes docforum-core will validate/accept an `orderId` query filter once #85 makes `orderId` a real FK.
+- **Timeline times are an assumption:** docforum-core's `PaymentIntent` has only `createdAt`/`updatedAt`, no per-event history. The panel therefore shows `createdAt` for "Payment initiated", `updatedAt` for the current/last step, and no time (`—`) for intermediate steps of a finished payment. If docforum-core ever adds a status-change history, `buildTimeline` in `OrderPaymentPanel.tsx` is the one place to change.
+- **Patient-facing by design:** the panel never renders `facilityId`, `patientProfileId`, `escrowId`, or `sorobanContractId` (console-only fields) — covered by tests. Status wording, amount formatting and explorer links all come from the shared patient-payment helpers (`status.ts`, `stroops.ts`, `explorer.ts` — the last being issue #10's helper, same one `PaymentDetailPage` uses), so this screen never drifts from the payment history screens; a `failed` intent additionally tells the patient to contact support and quote the order reference.
+
+### Messaging & attachments (web #22/#23 — assumed, docforum-core #61/#62 not landed yet)
+Endpoints used by `src/services/messaging-service.ts`. Everything goes
+through `api-client` (hard rule 1); multipart upload is the one exception
+to the fetch-only client because `fetch` can't report upload progress —
+`apiUpload` in `api-client.ts` uses `XMLHttpRequest`, still confined there.
+
+- `GET /threads/:threadId` → `MessageThread`
+- `GET /threads/:threadId/messages?cursor=` → `{ messages: Message[],
+  nextCursor: string | null }` (cursor paginated, newest page first)
+- `POST /threads/:threadId/messages` (body: `{ body, attachmentIds? }`) → `Message`
+- `POST /threads/:threadId/attachments` (multipart, field `file`) →
+  `MessageAttachment`
+- `GET /threads/:threadId/attachments/:attachmentId/download-url` →
+  `{ url, expiresAt }` — a **short-lived signed URL, minted per request**
+- `MessageThread` shape: `{ id, appointmentId, status: 'open'|'closed',
+  createdAt, updatedAt }`
+- `Message` shape: `{ id, threadId, senderProfileId, body,
+  attachments: MessageAttachment[], createdAt }`
+- `MessageAttachment` shape: `{ id, messageId, fileName, contentType,
+  sizeBytes, kind: 'image'|'pdf', createdAt }`
+
+The doctor inbox's per-thread summary is a separate type,
+`DoctorMessageThread` (`{ id, patientProfileId, patientName, lastMessageAt,
+unreadCount, lastPreview?, waitingMinutes?, closingSoon? }`).
+
+Constraints held in the frontend: signed URLs are **never cached** — the
+inline preview holds its URL only in component state, and every click /
+download mints a fresh one; message bodies are rendered as text only (PHI,
+no HTML); drafts and staged uploads are in-memory only (no
+localStorage/sessionStorage); EXIF is never read or displayed here (the
+server strips it). The full thread UX (optimistic send, live updates,
+per-side layout) is #22's scope — `MessageThread` here is a minimal shared
+shell so the attachment composer/preview have a real home.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

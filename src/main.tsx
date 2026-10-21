@@ -1,5 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { init } from '@sentry/react';
+import { phiScrubber, phiBeforeBreadcrumb } from './utils/phi-scrubber';
 // HashRouter, not BrowserRouter: GitHub Pages has no server-side rewrite
 // for client-side routes, so a deep link like /login would 404 on refresh
 // under history-API routing. Hash-based routing needs no server config.
@@ -38,6 +40,21 @@ if (previewRole && (previewRole === 'doctor' || previewRole === 'facility' || pr
     },
     'preview-token',
   );
+}
+
+// Error monitoring: disabled unless a DSN is configured (VITE_SENTRY_DSN).
+// The Pages preview ships without one, so monitoring is off by default.
+// Session replay is deliberately never integrated. All events pass through
+// phiScrubber before leaving the browser — see src/utils/phi-scrubber.ts.
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+if (sentryDsn) {
+  init({
+    dsn: sentryDsn,
+    beforeSend: phiScrubber,
+    beforeBreadcrumb: phiBeforeBreadcrumb,
+    // Error monitoring only — no performance tracing.
+    tracesSampleRate: 0,
+  });
 }
 
 const rootElement = document.getElementById('root');

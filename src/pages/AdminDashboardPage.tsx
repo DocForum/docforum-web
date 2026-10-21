@@ -32,6 +32,10 @@ export function AdminDashboardPage() {
           pending too long.
         </p>
         <p>
+          <Link to="/admin/disputes">Resolve fulfilment disputes</Link> to release or refund escrow that is blocked
+          while a patient disputes a fulfilled order.
+        </p>
+        <p>
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
         </p>
         <p>

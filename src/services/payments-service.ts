@@ -3,7 +3,7 @@
 // never calls Stellar/docforum-escrow directly (hard rule 1,
 // ARCHITECTURE_ESSENTIALS.md) — everything here goes through
 // docforum-core's API.
-import { apiFetch } from './api-client';
+import { apiFetch, ApiError } from './api-client';
 import type { OrderTypeForPayment, PaymentIntent, WalletLink, PayoutAsset, FacilityLedgerPage } from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<WalletLink> {
@@ -14,8 +14,8 @@ export function linkWallet(stellarPublicKey: string, accessToken: string): Promi
   });
 }
 
-export function getOwnWalletLink(accessToken: string): Promise<WalletLink> {
-  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken });
+export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<WalletLink> {
+  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken, signal });
 }
 
 export interface CreatePaymentIntentInput {
@@ -30,8 +30,31 @@ export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken
   return apiFetch<PaymentIntent>('/payments/intents', { method: 'POST', body: input, accessToken });
 }
 
-export function getPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken });
+export function getPaymentIntent(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentIntent> {
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken, signal });
+}
+
+/**
+ * The payment intent for a patient's order, or `null` when the order has
+ * none (issue #61 — the panel simply hides). ASSUMED lookup: docforum-core
+ * doesn't serve intents by order yet (docforum-core#85, real FKs on
+ * PaymentIntent, is open) — see ARCHITECTURE_ESSENTIALS.md "Known
+ * assumptions — Patient order detail & payment panel". A `404` means
+ * "no intent for this order", not an error the UI should show.
+ */
+export function getPaymentIntentForOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<PaymentIntent | null> {
+  return apiFetch<PaymentIntent>(
+    `/payments/intents?orderId=${encodeURIComponent(orderId)}`,
+    { accessToken },
+  )
+    .then((intent) => intent ?? null)
+    .catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
@@ -76,13 +99,14 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
 export function getFacilityPayoutLedger(
   facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string }
+  params?: { cursor?: string; status?: string; asset?: string },
+  signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set('cursor', params.cursor);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
   if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken });
+  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
 

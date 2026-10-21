@@ -1,0 +1,25 @@
+.title {
+  text-wrap: balance;
+}
+
+.intro {
+  margin-top: 0;
+}
+
+.loading {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  margin: var(--space-3) 0;
+}
+
+.older {
+  margin-top: var(--space-4);
+}
+
+.concern {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+  margin: var(--space-6) 0 0;
+}

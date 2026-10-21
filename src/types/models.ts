@@ -133,6 +133,10 @@ export interface WalletLink {
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
 export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
 
+// `PatientOrder` (= Prescription | LabOrder) is defined with the orders
+// work (Phase W2, issue #5) — the order detail page (issue #61) reuses
+// that shape as-is.
+
 export interface PaymentIntent {
   id: string;
   orderType: OrderTypeForPayment;
@@ -223,6 +227,57 @@ export interface FacilityWithDistance extends FacilityProfile {
   rating?: number;
 }
 
+// --- Patient orders and facility selection (Phase W2, issue #5) -------------
+
+export type OrderLifecycleStatus = 'active' | 'completed' | 'cancelled' | 'superseded';
+
+export interface OrderFacilitySummary {
+  id: string;
+  name: string;
+  type: FacilityType;
+  isOpen?: boolean;
+}
+
+interface OrderVersionBase {
+  id: string;
+  patientProfileId: string;
+  version: number;
+  supersedesId: string | null;
+  status: OrderLifecycleStatus;
+  issuedAt: string;
+  issuedByDoctorName?: string | null;
+  requiresFacilitySelection: boolean;
+  selectedFacility?: OrderFacilitySummary | null;
+}
+
+export interface Prescription extends OrderVersionBase {
+  orderType: 'prescription';
+  medication: string;
+  dose: string;
+  quantity?: string | null;
+  instructions?: string | null;
+}
+
+export interface LabOrder extends OrderVersionBase {
+  orderType: 'lab_order';
+  testName: string;
+  fastingRequired?: boolean | null;
+  instructions?: string | null;
+}
+
+export type PatientOrder = Prescription | LabOrder;
+
+export interface QualifiedOrderFacility extends FacilityProfile {
+  location?: FacilityLocation;
+  isOpen: boolean;
+  capabilities: string[];
+}
+
+export interface SelectOrderFacilityInput {
+  facilityId: string;
+  expectedVersion: number;
+}
+
 // --- Phase W3 — Doctor core flow (assumed, docforum-core issues #61/#129 not
 // landed yet) ---------------------------------------------------------------
 // These shapes mirror the smallest contract needed to build the doctor's
@@ -252,6 +307,19 @@ export interface Appointment {
   completedAt?: string | null;
 }
 
+export interface IntakeForm {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  submittedAt: string;
+  chiefComplaint: string;
+  symptomDuration?: string | null;
+  severity?: number | null;
+  currentMedications: string[];
+  allergies: string[];
+  notes?: string | null;
+}
+
 export interface QueueEntry {
   appointmentId: string;
   patientProfileId: string;
@@ -271,7 +339,7 @@ export interface UpdateRunningDelayInput {
   manualOverrideMin: number | null;
 }
 
-export interface MessageThread {
+export interface DoctorMessageThread {
   id: string;
   patientProfileId: string;
   patientName: string;
@@ -303,6 +371,61 @@ export interface ConsultationAddendum {
 
 export interface AddAddendumInput {
   content: string;
+}
+
+export type ConsultationOutcome = 'resolved' | 'referred' | 'follow_up_needed';
+
+export interface ConsultationRecord {
+  id: string;
+  appointmentId: string;
+  notes: string;
+  outcome: ConsultationOutcome;
+  followUpAfterDays?: number | null;
+  recordedAt: string;
+}
+
+export interface RecordConsultationInput {
+  notes: string;
+  outcome: ConsultationOutcome;
+  followUpAfterDays?: number | null;
+}
+
+export interface ConsultationReferral {
+  id: string;
+  consultationId: string;
+  targetSpecialty: string;
+  reason: string;
+  status: ReferralStatus;
+  createdAt: string;
+}
+
+export interface CreateConsultationReferralInput {
+  targetSpecialty: string;
+  reason: string;
+}
+
+export interface ConsultationPrescriptionInput {
+  orderType: 'prescription';
+  medication: string;
+  dose: string;
+  instructions?: string | null;
+}
+
+export interface ConsultationLabOrderInput {
+  orderType: 'lab_order';
+  testName: string;
+  instructions?: string | null;
+}
+
+export type ConsultationOrderInput = ConsultationPrescriptionInput | ConsultationLabOrderInput;
+
+export interface ConsultationIssuedOrder {
+  id: string;
+  consultationId: string;
+  orderType: ConsultationOrderInput['orderType'];
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
 }
 
 // --- Phase W3 — Doctor Practice Insights (issue #50, depends on docforum-core#124) ---
@@ -427,6 +550,16 @@ export interface FulfillmentActionAttribution {
   notes?: string | null;
 }
 
+export interface FulfillmentLabResult {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedByUserId: string;
+  storageKey?: string | null;
+  downloadUrl?: string | null;
+}
+
 export interface FulfillmentQueueItem {
   id: string;
   facilityId: string;
@@ -439,7 +572,10 @@ export interface FulfillmentQueueItem {
   status: FulfillmentItemStatus;
   receivedAt: string;
   attribution?: FulfillmentActionAttribution | null;
+  labResult?: FulfillmentLabResult | null;
 }
+
+export type FulfillmentStatusUpdate = 'in_progress' | 'fulfilled' | 'rejected';
 
 // --- Phase W4 — Scan-to-verify orders (issue #52, docforum-core#71) ---
 
@@ -711,6 +847,56 @@ export interface OutboxSummary {
 
 export type FeatureFlagKind = 'boolean' | 'percentage';
 
+// --- Closure calendar management (this PR) -------------------------------
+export type ClosureStatus = 'active' | 'inactive';
+
+export interface Closure {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide, otherwise scoped to facility
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClosureInput {
+  name: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay: boolean;
+  start: string; // ISO datetime (timezone-aware)
+  end: string; // ISO datetime (timezone-aware), exclusive end
+  facilityId?: string | null; // null = platform-wide
+}
+
+export interface UpdateClosureInput {
+  id: string;
+  name?: string;
+  description?: string | null;
+  status?: ClosureStatus;
+  allDay?: boolean;
+  start?: string;
+  end?: string;
+  facilityId?: string | null;
+}
+
+// --- Affected appointments preview ---------------------------------------
+
+export interface AffectedAppointment {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  patientName: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  reason?: string | null;
+}
+
 export interface FeatureFlagTargeting {
   /** Empty means every role is eligible. */
   roles: Role[];
@@ -743,4 +929,296 @@ export interface UpdateFeatureFlagInput {
   /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
    * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
+}
+
+export interface AbnormalResult {
+  id: string;
+  patientProfileId: string;
+  patientName: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isCritical: boolean;
+  isAbnormal: boolean;
+  issuedAt: string;
+}
+
+export interface AcknowledgeResultInput {
+  note?: string;
+}
+
+export interface CalendarFeedResponse {
+  icsUrl: string;
+  // Token is part of the URL; we don't expose it separately
+}
+
+export interface RotateTokenResponse {
+  icsUrl: string;
+}
+
+export interface Order {
+  id: string;
+  orderType: 'prescription' | 'lab_order';
+  patientName: string;
+  medicationOrTest: string;
+  instructions?: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+}
+
+export interface LabResult {
+  id: string;
+  testName: string;
+  value: string;
+  referenceRange: string;
+  isAbnormal: boolean;
+  isCritical: boolean;
+  issuedAt: string;
+}
+
+// --- Patient-side appointment view (issues #32/#33/#34/#37) ------------------
+// `Appointment` above is the doctor-facing row the W3 queue screens use. The
+// patient screens in this feature set read docforum-core's real
+// `GET /appointments/mine`, which `include`s the availability slot and returns
+// the origin and audit timestamps, so it is a different shape and gets its own
+// name rather than a second declaration of `Appointment`. Dates are ISO strings
+// because that is what JSON carries.
+
+export type SlotStatus = 'open' | 'held' | 'booked';
+export type AppointmentOrigin = 'direct_booking' | 'referral';
+
+export interface AvailabilitySlot {
+  id: string;
+  doctorProfileId: string;
+  status: SlotStatus;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientAppointment {
+  id: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  availabilitySlotId: string;
+  status: AppointmentStatus;
+  origin: AppointmentOrigin;
+  availabilitySlot: AvailabilitySlot;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Live visit queue (#32) --------------------------------------------------
+// assumed — docforum-core has no queue endpoint yet; the shape is the smallest
+// one that can distinguish "no queue published" from "you are first".
+
+export type QueuePhase = 'not_open' | 'waiting' | 'being_seen' | 'completed';
+
+export interface AppointmentQueue {
+  appointmentId: string;
+  phase: QueuePhase;
+  /** Patients still ahead. null means no queue is published yet — which is
+   * not the same as being first. */
+  peopleAhead: number | null;
+  /** Minutes. Always rendered as an estimate. */
+  estimatedWaitMinutes: number | null;
+  /** null = this backend has no check-in window, so the UI says "check in on
+   * the day" instead of inventing an opening time. */
+  checkInOpensAt: string | null;
+  checkedInAt: string | null;
+}
+
+// --- PHI access log (#34) ----------------------------------------------------
+// assumed — docforum-core#40 (audit log read API) is not landed; these mirror
+// the event its write-side middleware already records.
+
+export type AccessActorRole = 'doctor' | 'facility' | 'patient' | 'admin';
+export type AccessRecordType = 'health_profile' | 'appointment' | 'referral' | 'order' | 'dependent';
+export type AccessReason = 'consultation' | 'order_fulfillment' | 'result_delivery' | 'handover_claim' | 'support';
+
+export interface AccessLogEvent {
+  id: string;
+  occurredAt: string;
+  actorRole: AccessActorRole;
+  actorName: string;
+  recordType: AccessRecordType;
+  reason: AccessReason;
+}
+
+export interface AccessLogPage {
+  events: AccessLogEvent[];
+  nextCursor: string | null;
+}
+
+// --- Payment history and receipts (#37) --------------------------------------
+
+export interface PaymentHistoryEntry extends PaymentIntent {
+  /** assumed — the real row has no refund deadline column. */
+  refundDeadlineAt?: string | null;
+  /** assumed — the real response carries only `facilityId`, an internal id
+   * the patient-facing UI must not render. */
+  facilityName?: string;
+}
+
+export interface PaymentHistoryPage {
+  intents: PaymentHistoryEntry[];
+  nextCursor: string | null;
+}
+
+// --- Phase W6 — Fulfilment disputes (issue #76) -----------------------------
+// Assumed contract: docforum-core#76 (facility fulfilment proof + patient
+// receipt confirmation/dispute) has not landed. Endpoint paths and shapes are
+// recorded in ARCHITECTURE_ESSENTIALS.md "Known assumptions"; reconcile here
+// when that backend issue ships. A dispute is final once resolved: the held
+// escrow is either released to the facility or refunded to the patient.
+
+export type DisputeStatus = 'open' | 'resolved_facility' | 'resolved_patient';
+export type DisputeResolution = 'facility' | 'patient';
+
+/** Why the patient rejected the fulfilment. */
+export type DisputeReason = 'not_received' | 'wrong_item' | 'incomplete' | 'damaged' | 'other';
+
+export type DisputeAttachmentKind = 'dispensing_record' | 'specimen_id' | 'photo' | 'other';
+
+export interface DisputeAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: DisputeAttachmentKind;
+  uploadedAt: string;
+  /** Display name or facility member id — never an email. */
+  uploadedBy: string;
+}
+
+export interface DisputeFacilityProof {
+  /** Dispensing record or specimen id the facility recorded. */
+  reference: string;
+  note: string | null;
+  submittedAt: string;
+  submittedBy: string;
+  attachments: DisputeAttachment[];
+}
+
+export interface DisputePatientReport {
+  reason: DisputeReason;
+  description: string;
+  submittedAt: string;
+  /** Patient display name, never an email or profile id. */
+  submittedBy: string;
+}
+
+export interface DisputePaymentSummary {
+  intentId: string;
+  status: PaymentIntentStatus;
+  escrowId: string | null;
+}
+
+export type DisputeTimelineKind = 'opened' | 'proof_submitted' | 'patient_message' | 'payment' | 'resolved';
+
+export interface DisputeTimelineEvent {
+  id: string;
+  at: string;
+  actorRole: Role | 'system';
+  actorName: string;
+  kind: DisputeTimelineKind;
+  summary: string;
+}
+
+/** Queue row — enough to triage without opening the detail. */
+export interface FulfillmentDisputeSummary {
+  id: string;
+  status: DisputeStatus;
+  orderId: string;
+  orderType: OrderTypeForPayment;
+  itemName: string;
+  patientName: string;
+  facility: { id: string; name: string };
+  amountStroops: string;
+  asset: PayoutAsset;
+  reason: DisputeReason;
+  openedAt: string;
+  updatedAt: string;
+}
+
+export interface FulfillmentDispute extends FulfillmentDisputeSummary {
+  patientReport: DisputePatientReport;
+  facilityProof: DisputeFacilityProof | null;
+  payment: DisputePaymentSummary;
+  timeline: DisputeTimelineEvent[];
+  resolvedAt: string | null;
+  resolution: DisputeResolution | null;
+  resolutionNotes: string | null;
+  resolvedBy: string | null;
+}
+
+export interface ResolveDisputeInput {
+  resolution: DisputeResolution;
+  notes: string;
+  /** The `updatedAt` the admin saw — a 409 means someone else resolved it. */
+  expectedUpdatedAt: string;
+}
+
+/** One-time, short-lived URL for an attachment. Never rendered before the
+ * admin asks for it, and never cached in the query client. */
+export interface DisputeAttachmentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Messaging & message attachments (Phase W2 — assumed, docforum-core
+// #61 (thread) and #62 (attachments) not landed yet). See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions". Attachments are stored
+// behind the thread's access rules; downloads always go through a
+// short-lived signed URL minted per click, never a permanent link.
+
+export type MessageThreadStatus = 'open' | 'closed';
+
+export interface MessageThread {
+  id: string;
+  appointmentId: string;
+  status: MessageThreadStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageAttachmentKind = 'image' | 'pdf';
+
+export interface MessageAttachment {
+  id: string;
+  messageId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: MessageAttachmentKind;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  threadId: string;
+  senderProfileId: string;
+  body: string;
+  attachments: MessageAttachment[];
+  createdAt: string;
+}
+
+/** One page of a cursor-paginated thread. `nextCursor` is null at the
+ * start of the thread (older history exhausted). */
+export interface MessagePage {
+  messages: Message[];
+  nextCursor: string | null;
+}
+
+export interface SendMessageInput {
+  body: string;
+  attachmentIds?: string[];
+}
+
+/** Short-lived signed download URL — minted per request, never persisted. */
+export interface SignedDownloadUrl {
+  url: string;
+  expiresAt: string;
 }

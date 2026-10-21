@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import * as auditService from '../../../services/audit-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
+import { auditKeys } from '../../../query-keys';
 import type { AuditQuery } from '../../../services/audit-service';
 import type { CursorPage } from '../../../types/models';
 import type { AuditTab } from '../filters';
@@ -19,7 +20,7 @@ function useAuditPage<T>(tab: AuditTab, fetchPage: PageFetcher<T>, query: AuditQ
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: ['admin', 'audit', tab, query],
+    queryKey: auditKeys.page(tab, query),
     queryFn: ({ signal }) => fetchPage(query, accessToken!, signal),
     enabled: Boolean(accessToken),
     // Keep the current page on screen while the next one loads, instead of

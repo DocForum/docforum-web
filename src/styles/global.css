@@ -117,3 +117,13 @@
     --color-danger-surface: #2e1c15;
 
     --color-focus-ring: #4a
+
+/* Printing should hand over the document, not the app around it. The patient
+   receipt (#37) is the first thing here worth printing. */
+@media print {
+  header,
+  nav,
+  footer {
+    display: none;
+  }
+}
