@@ -1,0 +1,79 @@
+# PR preview deployments (#104) — cleanup.
+#
+# Runs when a PR closes. `pull_request_target` is required because a
+# `pull_request` workflow from a fork only gets a read-only token, and this job
+# must push to gh-pages. It is safe here precisely because the PR is NEVER
+# checked out and no PR code or artifact is run or read: the only input is the
+# PR number, which is used to delete one directory and edit one comment.
+name: PR preview cleanup
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pages-publish
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Remove preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete pr-preview/pr-<n> from gh-pages
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "No gh-pages branch — nothing to clean up."
+            exit 0
+          fi
+
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages FETCH_HEAD
+
+          if [ ! -d "pr-preview/pr-$PR" ]; then
+            echo "No preview directory for PR #$PR — nothing to clean up."
+            exit 0
+          fi
+
+          rm -rf "pr-preview/pr-$PR"
+          rmdir pr-preview 2>/dev/null || true
+
+          git add -A
+          git commit -m "chore(preview): remove abandoned preview for PR #$PR"
+          git push origin gh-pages
+
+      - name: Update the PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          marker='<!-- docforum-pr-preview -->'
+          body=$(cat <<EOF
+          $marker
+          ### 🔎 Preview deployment removed
+
+          This pull request is closed, so its preview deployment has been deleted.
+          Reopening the PR (or pushing to it) starts a fresh build and a new preview.
+          EOF
+          )
+
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | head -n 1)
+
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -f body="$body" >/dev/null
+          fi

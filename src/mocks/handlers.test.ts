@@ -4,9 +4,12 @@
 // dev panel's scenario/latency switches. Runs in the node environment so
 // MSW's fetch interceptor wraps Node's global fetch.
 // @vitest-environment node
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { setupServer } from 'msw/node';
-import { handlers } from './handlers';
+import { beforeEach, describe, expect, it } from 'vitest';
+// The server is started once for the whole run by src/test/setup.ts (issue
+// #105). This file used to create a second one; two MSW servers in one worker
+// double-intercept every request, so it now shares the single instance and
+// only resets the in-memory database between cases.
+import { server } from '../test/server';
 import { resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
@@ -26,6 +29,7 @@ import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
+import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
@@ -34,12 +38,9 @@ import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
-const server = setupServer(...handlers);
-
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterAll(() => server.close());
 beforeEach(() => {
   resetDb();
+  server.resetHandlers();
   useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient' });
 });
 
@@ -348,6 +349,59 @@ describe('messaging', () => {
     await messagingService.markThreadRead('mth-demo-1', MOCK_ACCESS_TOKEN);
     const after = await messagingService.listThreads({}, MOCK_ACCESS_TOKEN);
     expect(after.threads.find((t) => t.id === 'mth-demo-1')?.unreadCount).toBe(0);
+  });
+});
+
+describe('notifications', () => {
+  it('pages newest first, reports the total unread count, and marks read', async () => {
+    // Ask for the same page size the dev-mock handler defaults to, so the
+    // second request genuinely exercises the cursor.
+    const first = await notificationsService.listNotifications(
+      { limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(first.items).toHaveLength(4);
+    expect(first.nextCursor).toBe('4');
+    expect(first.unreadCount).toBe(4);
+
+    const createdAt = first.items.map((item) => Date.parse(item.createdAt));
+    expect(createdAt).toEqual([...createdAt].sort((a, b) => b - a));
+
+    const second = await notificationsService.listNotifications(
+      { cursor: first.nextCursor, limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(second.items).toHaveLength(2);
+    expect(second.nextCursor).toBeNull();
+
+    const marked = await notificationsService.markNotificationRead(
+      first.items[0].id,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(marked.readAt).toBeTruthy();
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.unreadCount).toBe(3);
+
+    await expect(
+      notificationsService.markNotificationRead('ntf-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('marks everything read in one call', async () => {
+    const result = await notificationsService.markAllNotificationsRead(MOCK_ACCESS_TOKEN);
+    expect(result.unreadCount).toBe(0);
+    expect(result.updated).toBe(4);
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.items.every((item) => item.readAt !== null)).toBe(true);
+  });
+
+  it('issues a single-use stream ticket without exposing the access token', async () => {
+    const ticket = await notificationsService.getNotificationStreamTicket(MOCK_ACCESS_TOKEN);
+    expect(ticket.streamPath).toMatch(/^\/notifications\/stream\?ticket=/);
+    expect(ticket.streamPath).not.toContain(MOCK_ACCESS_TOKEN);
+    expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
   });
 });
 

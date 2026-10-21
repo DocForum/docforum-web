@@ -15,7 +15,14 @@ import { useMockStore } from './mock-store';
  * bounce a deep-linked protected route to #/login before the mocks boot.
  */
 export function startMockApi(): void {
-  worker.start({ onUnhandledRequest: 'bypass' });
+  // `BASE_URL` is `/` in dev and the deployment's public path in a PR preview
+  // (#104, e.g. `/docforum-web/pr-preview/pr-42/`). Registering the worker at
+  // the root path would 404 under a subpath and the page would fall through to
+  // the (deliberately invalid) API URL instead of the mocks.
+  worker.start({
+    onUnhandledRequest: 'bypass',
+    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+  });
 
   // Sign the persona in immediately. Navigate to the role's home screen
   // unless the URL already deep-links a route, which we leave untouched.

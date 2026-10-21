@@ -1,0 +1,76 @@
+# PR preview deployments (#104) — step 1 of 2: build.
+#
+# This workflow runs on `pull_request`, which for a fork PR gets a read-only
+# GITHUB_TOKEN and NO secrets. Nothing in this job needs either: it checks out
+# the PR, runs the tests, and builds the app in mock-API mode.
+#
+# The deploy/comment job lives in pr-preview-deploy.yml and is triggered by
+# `workflow_run`, so it can hold write permissions and a token without ever
+# checking out or executing fork code — it only copies the artifact this job
+# produced. That is the security model the issue asks a reviewer to check:
+#
+#   untrusted code  →  this job (read-only, no secrets)  →  artifact
+#   artifact        →  workflow_run deploy job (write, never runs PR code)
+#
+# The preview is built against the mock API only. VITE_API_BASE_URL points at a
+# reserved-invalid host so that even a request escaping MSW cannot reach a real
+# backend, and `npm run check:preview` fails the build if those guarantees are
+# not present in dist/.
+name: PR preview build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-preview-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build mock-API preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # A preview that ships a failing test suite is worse than no preview.
+      - run: npm run typecheck
+      - run: npm run test
+
+      - name: Build preview
+        run: npm run build:preview
+        env:
+          # Serve this PR from its own subpath of the Pages site.
+          GITHUB_PAGES: 'true'
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.pull_request.number }}/
+          # Pages has no server-side rewrites — HashRouter only (ADR 0001).
+          VITE_USE_HASH_ROUTER: 'true'
+          # Mock API mode in a production build: only this workflow sets it.
+          VITE_PREVIEW_MOCKS: 'true'
+          VITE_ENABLE_MOCKS: 'true'
+          # Reserved-invalid host: must never resolve. A request that somehow
+          # escapes MSW must fail, not reach docforum-core.
+          VITE_API_BASE_URL: https://mock-api.invalid
+          # Monitoring stays off for previews (no DSN, no replay).
+          VITE_SENTRY_DSN: ''
+
+      - name: Prove the preview is mock-only
+        run: npm run check:preview
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-preview-${{ github.event.pull_request.number }}
+          path: dist
+          retention-days: 14

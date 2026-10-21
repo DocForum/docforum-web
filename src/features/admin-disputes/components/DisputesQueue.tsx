@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useOpenDisputes } from '../hooks/useDisputes';
 import { describeDisputeQueueError } from '../errors';
 import { oldestAgeLabel, sortByAge } from '../queue';
@@ -36,25 +38,27 @@ export function DisputesQueue() {
       )}
 
       {query.isPending ? (
-        <p className={styles.status}>
-          <Spinner />
-          Loading open disputes…
-        </p>
+        <Skeleton lines={4} height="2.25rem" label="Loading open disputes" />
       ) : query.isError && loaded.length === 0 ? (
-        <div className={styles.errorBox} role="alert">
-          <p>{describeDisputeQueueError(query.error)}</p>
-          <Button variant="secondary" onClick={() => void query.refetch()}>
-            Try again
-          </Button>
-        </div>
+        <InlineError
+          title="The dispute queue couldn't be loaded"
+          message={describeDisputeQueueError(query.error)}
+          onRetry={() => void query.refetch()}
+        />
       ) : loaded.length === 0 ? (
-        <p className={styles.empty}>No open disputes. Nothing is stuck in escrow right now.</p>
+        <EmptyState
+          title="No open disputes. Nothing is stuck in escrow right now."
+          description="When a patient disputes a fulfilment, the escrow it blocks appears here for resolution."
+          action={{ label: 'Reload the queue', onClick: () => void query.refetch() }}
+        />
       ) : (
         <>
           {query.isError && (
-            <div className={styles.noticeWarning} role="alert">
-              <p>{describeDisputeQueueError(query.error)} Showing the disputes loaded before the error.</p>
-            </div>
+            <InlineError
+              title="Showing the disputes loaded before the error"
+              message={describeDisputeQueueError(query.error)}
+              onRetry={() => void query.refetch()}
+            />
           )}
           <ul className={styles.list}>
             {loaded.map((dispute) => (

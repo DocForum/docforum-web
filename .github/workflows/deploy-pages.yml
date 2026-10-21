@@ -3,10 +3,19 @@
 # docs/adr/0003-render-preview-deployment.md). Still a preview, not
 # production: free-tier backend (cold-starts after 15min idle, Postgres
 # expires 2026-10-14 unless renewed) and free-tier disposable data — see
-# README.md and ARCHITECTURE_ESSENTIALS.md. This workflow is separate from
-# ci.yml (still a Phase 1 placeholder — see ROADMAP.md) because it has a
-# different trigger (push to main, not pull_request) and a different
-# purpose (deploy, not verify).
+# README.md and ARCHITECTURE_ESSENTIALS.md.
+#
+# PR previews (#104) live in the SAME Pages site, under /pr-preview/pr-<n>/,
+# and are published to the `gh-pages` branch by pr-preview-deploy.yml. Whether
+# main can share that branch depends on how the repository's Pages source is
+# configured, so this workflow asks:
+#
+#   build_type = "workflow"  → keep using actions/deploy-pages (default today)
+#   build_type = "legacy"    → publish main to the root of `gh-pages`, keeping
+#                              every pr-preview/ directory intact
+#
+# See CONTRIBUTING.md → "Preview deployments" for the one-time switch that
+# turns per-PR previews on.
 name: Deploy Pages preview
 
 on:
@@ -15,13 +24,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  # Shared with the PR-preview deploy/cleanup jobs: they push to the same
+  # branch, and serialising them is what stops a main deploy from deleting a
+  # preview (or the other way round).
+  group: pages-publish
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -40,12 +52,67 @@ jobs:
           # GitHub Pages has no server-side rewrites; keep HashRouter for this build.
           # BrowserRouter is the default for all other deployments.
           VITE_USE_HASH_ROUTER: "true"
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Detect the Pages source
+        id: pages-mode
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # `build_type` is "legacy" when Pages builds from a branch (gh-pages)
+          # and "workflow" when it uses actions/deploy-pages. Anything else
+          # (including an unconfigured site) keeps the existing behaviour.
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo "workflow")
+          if [ "$build_type" = "legacy" ]; then
+            echo "mode=legacy" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=workflow" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Artifact path for the `workflow` Pages source (current setup).
+      - name: Upload Pages artifact
+        if: steps.pages-mode.outputs.mode != 'legacy'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
+      # Branch path for the `legacy` (gh-pages) Pages source, which is what
+      # makes per-PR previews reachable. Preview directories are preserved.
+      - name: Publish main to the gh-pages root
+        if: steps.pages-mode.outputs.mode == 'legacy'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages --depth=1
+            git checkout -B gh-pages FETCH_HEAD
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . >/dev/null
+          fi
+
+          # Replace the site's files, never the `.git` directory or the
+          # per-PR previews other workflows own.
+          rsync -a --delete --exclude '.git' --exclude 'pr-preview' dist/ ./
+          touch .nojekyll
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Site content unchanged."
+          else
+            git commit -m "deploy: main at ${GITHUB_SHA:0:7}"
+            git push origin gh-pages
+          fi
+    outputs:
+      pages_mode: ${{ steps.pages-mode.outputs.mode }}
+
+  # Only runs for the `workflow` Pages source; the branch path already
+  # published in the build job.
   deploy:
     needs: build
+    if: needs.build.outputs.pages_mode != 'legacy'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

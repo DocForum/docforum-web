@@ -13,6 +13,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
+import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
 import styles from './Layout.module.css';
 
@@ -214,6 +215,9 @@ export function Layout() {
 
         <div className={styles.headerActions}>
           <RecordSearch />
+          {/* In-app inbox (issue #107): unread badge + dropdown, then the
+              full list at /notifications. Hidden while signed out. */}
+          <NotificationBell />
           <ProfileSwitcher />
           <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
             {logoutMutation.isPending ? 'Logging out…' : 'Log out'}

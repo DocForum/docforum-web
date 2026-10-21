@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
 import { ApiError } from '../../../services/api-client';
 import { useAppointmentQueue, useCheckIn, useQueueNotification } from '../hooks/useAppointmentQueue';
@@ -71,18 +74,24 @@ export function QueuePanel({ appointment, now }: Props) {
 
   if (queueQuery.isError) {
     return (
-      <p className={styles.notice} role="status">
-        {unavailableMessage(queueQuery.error)}
-      </p>
+      <InlineError
+        title="The live queue isn't available"
+        message={unavailableMessage(queueQuery.error)}
+        onRetry={() => void queueQuery.refetch()}
+      />
     );
   }
 
   const queue = queueQuery.data;
   if (!queue) {
-    return (
-      <p className={styles.notice} role="status">
-        {queueQuery.isFetching ? 'Checking the live queue…' : 'No live queue is available for this visit yet.'}
-      </p>
+    return queueQuery.isFetching ? (
+      <Skeleton lines={2} label="Checking the live queue" />
+    ) : (
+      <EmptyState
+        title="No live queue is available for this visit yet"
+        description="Your place in the queue appears here once the clinic opens check-in on the day."
+        action={{ label: 'Back to your appointments', to: '/patient/appointments' }}
+      />
     );
   }
 

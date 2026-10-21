@@ -1,7 +1,10 @@
 import { type FormEvent, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
@@ -20,7 +23,7 @@ interface Props {
 }
 
 export function HealthSection({ section }: Props) {
-  const { data: entries, isLoading } = useHealthEntries(section);
+  const { data: entries, isLoading, isError, error, refetch } = useHealthEntries(section);
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
   const removeMutation = useRemoveHealthEntry();
@@ -96,8 +99,16 @@ export function HealthSection({ section }: Props) {
 
       {isLoading && (
         <div className={styles.loading}>
-          <Spinner size={18} />
+          <Skeleton lines={2} label={`Loading ${SECTION_LABELS[section].toLowerCase()}`} />
         </div>
+      )}
+
+      {isError && (
+        <InlineError
+          title={`${SECTION_LABELS[section]} couldn't be loaded`}
+          message={queryErrorMessage(error)}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {showAdd && (
@@ -118,7 +129,13 @@ export function HealthSection({ section }: Props) {
         </form>
       )}
 
-      {entries?.length === 0 && !showAdd && <p className={styles.empty}>None recorded.</p>}
+      {entries?.length === 0 && !showAdd && (
+        <EmptyState
+          title="None recorded"
+          description={`Doctors see your ${SECTION_LABELS[section].toLowerCase()} at every consultation, so keeping this list current helps them treat you safely.`}
+          action={{ label: 'Record the first one', onClick: () => setShowAdd(true) }}
+        />
+      )}
 
       {entries?.map((entry) => (
         <div key={entry.id} className={styles.entry}>
