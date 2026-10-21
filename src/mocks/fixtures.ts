@@ -7,7 +7,7 @@
 // shapes are still assumed contracts.
 import type {
   Appointment,
-  AvailabilitySlot,
+  AuditEvent,
   CareThread,
   Closure,
   ConsultationAddendum,
@@ -15,25 +15,27 @@ import type {
   ConsultationNote,
   ConsultationRecord,
   ConsultationReferral,
+  CredentialDocument,
   DataExport,
   Dependent,
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
+  FacilityPerformanceInsights,
   FacilityWithDistance,
   FollowUpRequest,
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
-  MessageThread,
-  PatientAppointment,
+  DoctorMessageThread,
   PatientOrder,
   PaymentIntent,
   PendingReferral,
   QualifiedOrderFacility,
   RunningDelay,
   User,
+  VerificationStatus,
   WalletLink,
 } from '../types/models';
 
@@ -89,12 +91,13 @@ export interface MockDb {
   appointments: Appointment[];
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
-  messageThreads: MessageThread[];
+  messageThreads: DoctorMessageThread[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
   consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
+  facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
@@ -105,11 +108,28 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  verifications: MockVerification[];
+  auditEvents: AuditEvent[];
   closures: Closure[];
   pendingReferrals: PendingReferral[];
   followUpRequests: FollowUpRequest[];
   availabilitySlots: AvailabilitySlot[];
   patientAppointments: PatientAppointment[];
+}
+
+/** A doctor's verification application (issue #64's assumed queue/detail
+ * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockVerification {
+  doctorProfileId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  specialties: string[];
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  verificationStatus: VerificationStatus;
+  documents: CredentialDocument[];
 }
 
 export function createSeedDb(): MockDb {
@@ -351,7 +371,7 @@ export function createSeedDb(): MockDb {
     effectiveDelayMin: 12,
   };
 
-  const messageThreads: MessageThread[] = [
+  const messageThreads: DoctorMessageThread[] = [
     {
       id: 'mth-demo-1',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -501,6 +521,48 @@ export function createSeedDb(): MockDb {
       respondedWithin2hCount: 24,
       respondedWithin24hCount: 35,
       rateWithin2h: 63.2,
+      sampleSizeWarning: false,
+    },
+  };
+
+  const facilityInsights: FacilityPerformanceInsights = {
+    facilityId: FACILITY_ID,
+    range: { preset: '30d', startDate: '2026-09-18', endDate: '2026-10-18' },
+    generatedAt: '2026-10-18T06:00:00.000Z',
+    turnaround: {
+      fulfilledCount: 68,
+      medianHours: 3.5,
+      p90Hours: 27.4,
+      minHours: 0.4,
+      maxHours: 51.2,
+      within1h: 12,
+      within4h: 38,
+      within24h: 61,
+      over24h: 7,
+      sampleSizeWarning: false,
+    },
+    volumeByDay: [
+      { date: '2026-10-12', received: 9, fulfilled: 8, rejected: 1 },
+      { date: '2026-10-13', received: 11, fulfilled: 9, rejected: 2 },
+      { date: '2026-10-14', received: 7, fulfilled: 7, rejected: 0 },
+      { date: '2026-10-15', received: 12, fulfilled: 10, rejected: 1 },
+      { date: '2026-10-16', received: 10, fulfilled: 9, rejected: 1 },
+      { date: '2026-10-17', received: 8, fulfilled: 6, rejected: 2 },
+      { date: '2026-10-18', received: 5, fulfilled: 4, rejected: 0 },
+    ],
+    rejectionReasons: [
+      { code: 'out_of_stock', label: 'Out of stock', count: 4, percentage: 57.1 },
+      { code: 'prescription_invalid', label: 'Prescription invalid', count: 2, percentage: 28.6 },
+      { code: 'patient_unreachable', label: 'Patient unreachable', count: 1, percentage: 14.3 },
+    ],
+    disputes: {
+      totalOrders: 68,
+      disputedOrders: 3,
+      disputeRate: 4.4,
+      resolvedInFacilityFavour: 1,
+      resolvedInPatientFavour: 1,
+      openDisputes: 1,
+      averageResolutionHours: 40.5,
       sampleSizeWarning: false,
     },
   };
@@ -849,7 +911,8 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-17T10:05:00.000Z',
     },
     {
-      // Never funded — backs ord-demo-lab-101.
+      // Never funded — backs ord-demo-lab-101; also what the pay-with-wallet
+      // panel (issue #59, behind its default-off flag) acts on in dev.
       id: 'pin-demo-2',
       orderType: 'lab_order',
       orderId: 'ord-demo-lab-101',
@@ -1152,6 +1215,124 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Issue #64 — the verification review queue: two waiting applications
+  // (different ages and document counts), one with no documents at all, and
+  // one already decided so the detail page has history to show. All fake
+  // personas on the example.test domain.
+  const verifications: MockVerification[] = [
+    {
+      doctorProfileId: 'vrf-demo-1',
+      userId: 'usr-vrf-demo-1',
+      fullName: 'Dr Ada Example (fake)',
+      email: 'ada.doctor@example.test',
+      specialties: ['Cardiology'],
+      submittedAt: '2026-10-12T09:00:00.000Z',
+      createdAt: '2026-10-12T09:00:00.000Z',
+      updatedAt: '2026-10-12T09:00:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-1',
+          fileName: 'medical-license-ada.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 245_760,
+          uploadedAt: '2026-10-12T09:03:00.000Z',
+        },
+        {
+          id: 'doc-demo-2',
+          fileName: 'board-certification-ada.jpg',
+          contentType: 'image/jpeg',
+          sizeBytes: 1_843_200,
+          uploadedAt: '2026-10-12T09:04:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-2',
+      userId: 'usr-vrf-demo-2',
+      fullName: 'Dr Bek Example (fake)',
+      email: 'bek.doctor@example.test',
+      specialties: ['Dermatology', 'General practice'],
+      submittedAt: '2026-10-18T14:30:00.000Z',
+      createdAt: '2026-10-18T14:30:00.000Z',
+      updatedAt: '2026-10-18T14:30:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-3',
+          fileName: 'medical-license-bek.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 312_320,
+          uploadedAt: '2026-10-18T14:35:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-3',
+      userId: 'usr-vrf-demo-3',
+      fullName: 'Dr Cy Example (fake)',
+      email: 'cy.doctor@example.test',
+      specialties: [],
+      submittedAt: '2026-10-19T10:15:00.000Z',
+      createdAt: '2026-10-19T10:15:00.000Z',
+      updatedAt: '2026-10-19T10:15:00.000Z',
+      verificationStatus: 'pending',
+      documents: [],
+    },
+    {
+      doctorProfileId: 'vrf-demo-4',
+      userId: 'usr-vrf-demo-4',
+      fullName: 'Dr Dee Example (fake)',
+      email: 'dee.doctor@example.test',
+      specialties: ['Paediatrics'],
+      submittedAt: '2026-10-01T08:00:00.000Z',
+      createdAt: '2026-10-01T08:00:00.000Z',
+      updatedAt: '2026-10-05T11:00:00.000Z',
+      verificationStatus: 'verified',
+      documents: [
+        {
+          id: 'doc-demo-4',
+          fileName: 'medical-license-dee.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 198_656,
+          uploadedAt: '2026-10-01T08:02:00.000Z',
+        },
+      ],
+    },
+  ];
+
+  // Issue #64 reads decision history from the real audit trail contract
+  // (#43); these seed the decided doctor's flip plus one unrelated event so
+  // the audit page has something to show too.
+  const auditEvents: AuditEvent[] = [
+    {
+      id: 'aud-demo-1',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'DoctorProfile',
+      entityId: 'vrf-demo-4',
+      action: 'doctor.verification_status_changed',
+      fromState: 'pending',
+      toState: 'verified',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-05T11:00:00.000Z',
+    },
+    {
+      id: 'aud-demo-2',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'PaymentIntent',
+      entityId: 'pin-demo-1',
+      action: 'payment_intent.funded',
+      fromState: 'created',
+      toState: 'escrowed',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-17T10:05:00.000Z',
+    },
+  ];
+
   const closures: Closure[] = [
     {
       id: 'clo-holiday-new-year',
@@ -1296,6 +1477,7 @@ export function createSeedDb(): MockDb {
     consultationReferrals: [],
     consultationOrders: [],
     insights,
+    facilityInsights,
     facilities,
     facilityMembers,
     facilityInvites,
@@ -1306,6 +1488,8 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    verifications,
+    auditEvents,
     closures,
     pendingReferrals,
     followUpRequests,

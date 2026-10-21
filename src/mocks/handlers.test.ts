@@ -31,7 +31,9 @@ import * as followupService from '../services/followup-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
-import * as referralService from '../services/referral-service';
+import * as verificationService from '../services/admin-verification-service';
+import * as auditService from '../services/audit-service';
+import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -85,6 +87,18 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('serves role-aware session timeout settings (issue #82)', async () => {
+    useMockStore.setState({ activeRole: 'admin' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 10, warningSeconds: 60 });
+
+    useMockStore.setState({ activeRole: 'patient' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 30, warningSeconds: 60 });
   });
 });
 
@@ -368,6 +382,40 @@ describe('facility finder', () => {
     );
     expect(nearby[0].id).toBe('fac-demo-pharmacy');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
+  });
+});
+
+describe('facility performance insights', () => {
+  it('returns aggregate-only insights and honours the date range', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: '30d' },
+    );
+    expect(insights.facilityId).toBe(FACILITY_ID);
+    expect(insights.range.preset).toBe('30d');
+    expect(insights.turnaround.fulfilledCount).toBeGreaterThan(0);
+    expect(insights.volumeByDay.length).toBe(7);
+    expect(insights.rejectionReasons.length).toBeGreaterThan(0);
+    expect(insights.disputes.totalOrders).toBeGreaterThan(0);
+
+    const custom = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: 'custom', startDate: '2026-10-01', endDate: '2026-10-07' },
+    );
+    expect(custom.range).toMatchObject({ startDate: '2026-10-01', endDate: '2026-10-07' });
+  });
+
+  it('never leaks patient-level identifiers in the aggregate payload', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+    );
+    const serialised = JSON.stringify(insights).toLowerCase();
+    expect(serialised).not.toContain('patientname');
+    expect(serialised).not.toContain('patientprofileid');
+    expect(serialised).not.toContain('ord-demo');
   });
 });
 
@@ -754,5 +802,102 @@ describe('dev panel scenarios', () => {
     const started = Date.now();
     await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(Date.now() - started).toBeGreaterThanOrEqual(180);
+  });
+});
+
+describe('pay with wallet (issue #59)', () => {
+  it("lists an order's intent, prepares it, and submits the signature to escrow", async () => {
+    const intent = await paymentsService.getPaymentIntentForOrder('ord-demo-lab-101', MOCK_ACCESS_TOKEN);
+    expect(intent).not.toBeNull();
+    expect(intent!.status).toBe('created');
+
+    const prepared = await paymentsService.preparePaymentIntent(intent!.id, MOCK_ACCESS_TOKEN);
+    expect(prepared.intentId).toBe(intent!.id);
+    expect(prepared.xdr).toContain('AAAA');
+    expect(prepared.status).toBe('awaiting_signature');
+    expect(Date.parse(prepared.expiresAt)).toBeGreaterThan(Date.now());
+
+    const submitted = await paymentsService.submitPaymentIntent(intent!.id, 'SIGNED_XDR', MOCK_ACCESS_TOKEN);
+    expect(submitted.status).toBe('escrowed');
+    expect(submitted.stellarTxHash).toBeTruthy();
+
+    // What the confirm poll reads back after submission.
+    const polled = await paymentsService.getPaymentIntent(intent!.id, MOCK_ACCESS_TOKEN);
+    expect(polled.status).toBe('escrowed');
+  });
+
+  it('returns no intent for an order with no payment — the panel stays hidden', async () => {
+    await expect(
+      paymentsService.getPaymentIntentForOrder('ord-unpriced', MOCK_ACCESS_TOKEN),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects a submit without a signed XDR', async () => {
+    const intent = await paymentsService.getPaymentIntentForOrder('ord-demo-lab-101', MOCK_ACCESS_TOKEN);
+    await expect(
+      paymentsService.submitPaymentIntent(intent!.id, '', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('verification queue (issue #64)', () => {
+  it('lists pending doctors oldest first with document counts', async () => {
+    const list = await verificationService.listVerifications({}, MOCK_ACCESS_TOKEN);
+    expect(list.items.map((item) => item.doctorProfileId)).toEqual([
+      'vrf-demo-1',
+      'vrf-demo-2',
+      'vrf-demo-3',
+    ]);
+    expect(list.items[0].documentCount).toBe(2);
+    expect(list.items[2].documentCount).toBe(0);
+    expect(list.nextCursor).toBeNull();
+  });
+
+  it('serves the detail, mints short-lived document URLs, and records decisions once', async () => {
+    const detail = await verificationService.getVerification('vrf-demo-1', MOCK_ACCESS_TOKEN);
+    expect(detail.profile.fullName).toContain('Dr Ada Example');
+    expect(detail.documents).toHaveLength(2);
+
+    const link = await verificationService.requestDocumentUrl('vrf-demo-1', 'doc-demo-1', MOCK_ACCESS_TOKEN);
+    expect(link.url).toContain('files.example.test');
+    expect(Date.parse(link.expiresAt)).toBeGreaterThan(Date.now());
+
+    const decision = {
+      status: 'rejected' as const,
+      reason: 'Credentials could not be verified.',
+      expectedUpdatedAt: detail.profile.updatedAt,
+    };
+    const decided = await verificationService.decideVerification('vrf-demo-1', decision, MOCK_ACCESS_TOKEN);
+    expect(decided.verificationStatus).toBe('rejected');
+
+    // The decided doctor leaves the pending queue.
+    const list = await verificationService.listVerifications({}, MOCK_ACCESS_TOKEN);
+    expect(list.items.map((item) => item.doctorProfileId)).not.toContain('vrf-demo-1');
+
+    // The decision lands in the audit-backed history…
+    const history = await auditService.listAuditEvents(
+      { entityType: 'DoctorProfile', entityId: 'vrf-demo-1', limit: 50 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0].action).toBe('doctor.verification_status_changed');
+    expect(history.items[0].toState).toBe('rejected');
+
+    // …and repeating the same decision is a no-op: no duplicate event.
+    await verificationService.decideVerification('vrf-demo-1', decision, MOCK_ACCESS_TOKEN);
+    const after = await auditService.listAuditEvents(
+      { entityType: 'DoctorProfile', entityId: 'vrf-demo-1', limit: 50 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(after.items).toHaveLength(1);
+  });
+
+  it('404s an unknown doctor and an unknown document', async () => {
+    await expect(
+      verificationService.getVerification('vrf-nope', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      verificationService.requestDocumentUrl('vrf-demo-1', 'doc-nope', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });

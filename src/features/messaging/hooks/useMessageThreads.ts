@@ -4,7 +4,7 @@ import * as messagingService from '../../../services/messaging-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { messageKeys } from '../../../query-keys';
 import type { ListThreadsInput } from '../../../services/messaging-service';
-import type { MessageThread } from '../../../types/models';
+import type { DoctorMessageThread } from '../../../types/models';
 
 export function useMessageThreads(input: ListThreadsInput) {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -30,13 +30,13 @@ export function useMessageThreads(input: ListThreadsInput) {
     mutationFn: (threadId: string) =>
       messagingService.markThreadRead(threadId, accessToken!),
     onSuccess: (_: unknown, threadId: string) => {
-      queryClient.setQueryData<{ threads: MessageThread[]; nextCursor: string | null } | undefined>(
+      queryClient.setQueryData<{ threads: DoctorMessageThread[]; nextCursor: string | null } | undefined>(
         queryKey,
         (old) => {
           if (!old) return old;
           return {
             ...old,
-            threads: old.threads.map((t: MessageThread) =>
+            threads: old.threads.map((t: DoctorMessageThread) =>
               t.id === threadId ? { ...t, unreadCount: 0 } : t,
             ),
           };
@@ -63,4 +63,4 @@ export function useMessageThreads(input: ListThreadsInput) {
   };
 }
 
-export type ListThreadsResult = { threads: MessageThread[]; nextCursor: string | null };
+export type ListThreadsResult = { threads: DoctorMessageThread[]; nextCursor: string | null };

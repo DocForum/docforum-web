@@ -11,6 +11,19 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+// --- Session idle timeout (issue #82) — ASSUMED, not yet in docforum-core --
+// Shared clinical devices: the backend is expected to be able to push its
+// own per-role idle timeout, which takes precedence over the frontend
+// defaults. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Session
+// idle timeout".
+
+export interface SessionTimeoutSettings {
+  /** Idle minutes before the session is signed out. */
+  idleTimeoutMinutes: number;
+  /** Seconds of warning shown before the sign-out. */
+  warningSeconds: number;
+}
+
 /** Roles a user may self-register as. Facility accounts are admin-invited
  * only (PRD OQ-2) — there is deliberately no self-serve facility signup. */
 export type SelfServeRole = Extract<Role, 'patient' | 'doctor'>;
@@ -103,6 +116,57 @@ export interface ActingProfile {
   isSelf: boolean;
 }
 
+// --- Orders (Phase W2 in docforum-web, assumed contract against
+// docforum-core issue #71 / PRD §8.1.6 — see ARCHITECTURE_ESSENTIALS.md
+// "Known assumptions". Endpoints and field names are provisional until
+// docforum-core's order-token implementation lands.) -------------------
+
+/** Type of clinical order a doctor can issue. */
+export type OrderType = 'prescription' | 'lab_order';
+
+/** Order validity state as reported by docforum-core.
+ * - active:      Current, valid — show the scannable QR.
+ * - superseded:  A newer order replaced this one — hide the QR, explain.
+ * - expired:     Time-limited token has passed its validity window.
+ * - fulfilled:   Facility marked the order completed.
+ * - cancelled:   Order was cancelled by doctor or patient.
+ */
+export type OrderStatus = 'active' | 'superseded' | 'expired' | 'fulfilled' | 'cancelled';
+
+/** An individual line item on a lab order or prescription. */
+export interface OrderItem {
+  /** Human-readable name (e.g. "FBC" or "Amoxicillin 250mg"). */
+  name: string;
+  /** Directions or instructions (optional). */
+  note?: string;
+}
+
+/** Full detail of a patient order, as returned by docforum-core's
+ * `GET /orders/:id` endpoint. The `token` field is the opaque signed
+ * string that encodes into the QR code — never include order details
+ * in the QR, only the token itself (issue #25 constraint). */
+export interface Order {
+  id: string;
+  type: OrderType;
+  status: OrderStatus;
+  /** The signed, opaque token that facilities scan. Absent/null for
+   * non-active orders (superseded, expired) — the QR must not be shown
+   * when token is null. */
+  token: string | null;
+  items: OrderItem[];
+  /** ISO 8601 timestamp of when the order was issued. */
+  issuedAt: string;
+  /** ISO 8601 expiry timestamp (null if the order has no time limit). */
+  expiresAt: string | null;
+  /** The doctor who issued the order. */
+  doctorName: string; // assumed — not yet in schema.prisma
+  /** The facility the patient chose (null if not yet assigned). */
+  facilityName: string | null; // assumed — not yet in schema.prisma
+  patientProfileId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
 // repo's docs/adr/0004-custodial-payments-v1.md) ---------------------------
 // Custodial v1: docforum-core holds its own Stellar identities; this repo
@@ -118,7 +182,15 @@ export interface WalletLink {
 }
 
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
-export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
+export type PaymentIntentStatus =
+  | 'created'
+  // docforum-core#80 (prepare) moves an intent here while it waits for the
+  // patient's wallet signature; status value assumed until that issue lands.
+  | 'awaiting_signature'
+  | 'escrowed'
+  | 'released'
+  | 'refunded'
+  | 'failed';
 
 // `PatientOrder` (= Prescription | LabOrder) is defined with the orders
 // work (Phase W2, issue #5) — the order detail page (issue #61) reuses
@@ -326,7 +398,7 @@ export interface UpdateRunningDelayInput {
   manualOverrideMin: number | null;
 }
 
-export interface MessageThread {
+export interface DoctorMessageThread {
   id: string;
   patientProfileId: string;
   patientName: string;
@@ -644,6 +716,71 @@ export interface FacilityLedgerPage {
   totals: FacilityPayoutTotals;
 }
 
+// --- Phase W4 — Facility Performance Insights (issue #57, assumed aggregate
+// endpoint in docforum-core; see ARCHITECTURE_ESSENTIALS.md "Known assumptions")
+// ---------------------------------------------------------------------------
+// Deliberately aggregate-only: no patient identifiers, names or per-order rows
+// ever reach this model. Reviewer must confirm.
+
+export interface FacilityTurnaroundMetrics {
+  /** Orders fulfilled in the period (denominator for the rates below). */
+  fulfilledCount: number;
+  /** Median time from assignment/receipt to fulfilment, in hours. */
+  medianHours: number;
+  /** 90th-percentile assignment → fulfilment time, in hours. */
+  p90Hours: number;
+  /** Fastest / slowest fulfilled order, in hours (context for the median). */
+  minHours: number;
+  maxHours: number;
+  /** Fulfilled within each SLA bucket. */
+  within1h: number;
+  within4h: number;
+  within24h: number;
+  over24h: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityVolumeDay {
+  date: string; // ISO date YYYY-MM-DD
+  received: number;
+  fulfilled: number;
+  rejected: number;
+}
+
+export interface FacilityRejectionReason {
+  /** Stable machine reason code, e.g. 'out_of_stock'. */
+  code: string;
+  /** Human-readable label for the code. */
+  label: string;
+  count: number;
+  /** Share of all rejections in the period, 0-100. */
+  percentage: number;
+}
+
+export interface FacilityDisputeMetrics {
+  /** Payment intents for orders fulfilled in the period. */
+  totalOrders: number;
+  disputedOrders: number;
+  /** Disputes per 100 orders, 0-100. */
+  disputeRate: number;
+  resolvedInFacilityFavour: number;
+  resolvedInPatientFavour: number;
+  /** Still open at period end. */
+  openDisputes: number;
+  averageResolutionHours: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityPerformanceInsights {
+  facilityId: string;
+  range: DateRange;
+  generatedAt: string;
+  turnaround: FacilityTurnaroundMetrics;
+  volumeByDay: FacilityVolumeDay[];
+  rejectionReasons: FacilityRejectionReason[];
+  disputes: FacilityDisputeMetrics;
+}
+
 // --- Phase W6 — Admin audit & access logs (issue #71) -----------------------
 // AuditEvent is real: mirrors docforum-core's `AuditEvent` model and
 // `GET /admin/audit-events` (docforum-core#43, see its docs/api/README.md).
@@ -943,17 +1080,6 @@ export interface RotateTokenResponse {
   icsUrl: string;
 }
 
-export interface Order {
-  id: string;
-  orderType: 'prescription' | 'lab_order';
-  patientName: string;
-  medicationOrTest: string;
-  instructions?: string | null;
-  issuedAt: string;
-  expiresAt: string;
-  status: 'active' | 'completed' | 'cancelled';
-}
-
 export interface LabResult {
   id: string;
   testName: string;
@@ -1211,6 +1337,150 @@ export interface ResolveDisputeInput {
 /** One-time, short-lived URL for an attachment. Never rendered before the
  * admin asks for it, and never cached in the query client. */
 export interface DisputeAttachmentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Phase W5 — Pay with wallet (issue #59) ---------------------------------
+// `POST /payments/intents/:id/prepare` and `POST /payments/intents/:id/submit`
+// are assumed: docforum-core#80 and #81 describe both endpoints but have not
+// landed. Everything else here (`PaymentIntent`, stroops as strings) is real.
+// This repo never builds, simulates or submits a transaction — it hands the
+// prepared XDR to the patient's wallet and returns the signed XDR (hard rule 1).
+
+/** Unsigned transaction docforum-core built and simulated for this intent. */
+export interface PreparedTransaction {
+  intentId: string;
+  /** The unsigned XDR — the only thing the patient's wallet ever sees. */
+  xdr: string;
+  /** ISO time after which the prepared transaction is no longer accepted.
+   * Expiry is a normal outcome (ADR 0005), not an error. */
+  expiresAt: string;
+  /** Ledger sequence the transaction is valid until, when the backend knows it. */
+  expiryLedger: number | null;
+  status: PaymentIntentStatus;
+}
+
+// --- Phase W6 — Doctor verification review queue (issue #64) ----------------
+// The queue and detail endpoints are assumed — docforum-core only serves
+// `PATCH /doctors/:id/verification` today (real), and credential document
+// storage is tracked in docforum-core#52. `VerificationStatus` and
+// `DoctorProfile` are real.
+
+/** One pending doctor in the review queue. */
+export interface VerificationQueueItem {
+  doctorProfileId: string;
+  fullName: string;
+  specialties: string[];
+  /** When the doctor went in line for review (assumed: profile creation). */
+  submittedAt: string;
+  /** How many credential documents were submitted with the application. */
+  documentCount: number;
+  verificationStatus: VerificationStatus;
+}
+
+/** Credential document metadata — never the bytes, and never a durable URL:
+ * documents are opened only through a fresh short-lived signed URL. */
+export interface CredentialDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface VerificationDetail {
+  profile: {
+    id: string;
+    fullName: string;
+    /** null when the backend doesn't expose the applicant's email to admins. */
+    email: string | null;
+    verificationStatus: VerificationStatus;
+    specialties: string[];
+    submittedAt: string;
+    createdAt: string;
+    /** Sent so decisions can carry `expectedUpdatedAt` for conflict detection. */
+    updatedAt: string;
+  };
+  documents: CredentialDocument[];
+}
+
+export interface VerificationDecisionInput {
+  status: Exclude<VerificationStatus, 'pending'>;
+  /** Required for both approve and reject — it lands in the audit trail. */
+  reason: string;
+  /** The `updatedAt` the admin saw — a 409 means another admin decided first. */
+  expectedUpdatedAt: string;
+}
+
+/** One entry of the per-doctor decision history, projected from docforum-core's
+ * real audit trail (`GET /admin/audit-events?entityType=DoctorProfile&entityId=`). */
+export interface VerificationDecision {
+  id: string;
+  at: string;
+  from: VerificationStatus | null;
+  to: VerificationStatus;
+  actorUserId: string | null;
+}
+
+/** One-time, short-lived URL for a credential document — minted per click,
+ * held in component state only, never cached on the document row. */
+export interface CredentialDocumentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Messaging & message attachments (Phase W2 — assumed, docforum-core
+// #61 (thread) and #62 (attachments) not landed yet). See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions". Attachments are stored
+// behind the thread's access rules; downloads always go through a
+// short-lived signed URL minted per click, never a permanent link.
+
+export type MessageThreadStatus = 'open' | 'closed';
+
+export interface MessageThread {
+  id: string;
+  appointmentId: string;
+  status: MessageThreadStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageAttachmentKind = 'image' | 'pdf';
+
+export interface MessageAttachment {
+  id: string;
+  messageId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: MessageAttachmentKind;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  threadId: string;
+  senderProfileId: string;
+  body: string;
+  attachments: MessageAttachment[];
+  createdAt: string;
+}
+
+/** One page of a cursor-paginated thread. `nextCursor` is null at the
+ * start of the thread (older history exhausted). */
+export interface MessagePage {
+  messages: Message[];
+  nextCursor: string | null;
+}
+
+export interface SendMessageInput {
+  body: string;
+  attachmentIds?: string[];
+}
+
+/** Short-lived signed download URL — minted per request, never persisted. */
+export interface SignedDownloadUrl {
   url: string;
   expiresAt: string;
 }
