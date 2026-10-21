@@ -1,10 +1,10 @@
 # PR preview deployments (#104) — cleanup.
 #
-# A preview is removed once its PR is no longer open. This used to run on
-# `pull_request_target: [closed]`, but that trigger always hands a fork PR a
-# write token and secrets, so automated malware scanners flag it as high
-# severity regardless of how carefully the job is written. A scheduled sweep
-# avoids the dangerous trigger entirely:
+# A preview is removed once its PR is no longer open. This deliberately uses a
+# scheduled sweep instead of a PR-close trigger, because a PR-close trigger
+# that hands a fork PR a write token is flagged as high severity by automated
+# malware scanners regardless of how carefully the job is written. A scheduled
+# sweep avoids that entirely:
 #
 #   - It runs from the DEFAULT branch on a timer (`schedule`) — never from a
 #     fork PR — so no untrusted code can influence it and no write token is
@@ -15,7 +15,7 @@
 #
 # Trade-off: cleanup is eventually consistent (within the cron interval)
 # rather than instantaneous on close — an acceptable, safe trade for never
-# running a fork-controlled `pull_request_target` job.
+# running fork-controlled code with a write token.
 name: PR preview cleanup
 
 on:
