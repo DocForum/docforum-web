@@ -34,6 +34,7 @@ import type {
   PendingReferral,
   QualifiedOrderFacility,
   RunningDelay,
+  SpecialtyClaim,
   User,
   VerificationStatus,
   WalletLink,
@@ -109,6 +110,7 @@ export interface MockDb {
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
   verifications: MockVerification[];
+  specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
   closures: Closure[];
   pendingReferrals: PendingReferral[];
@@ -1360,106 +1362,72 @@ export function createSeedDb(): MockDb {
     },
   ];
 
-  const pendingReferrals: PendingReferral[] = [
+  // Per-specialty claims (issue #65) — deliberately fake pairs: a GP
+  // claiming cardiology is exactly the PRD §8.1.5 failure this queue exists
+  // to catch. `status: 'pending'` rows are the ones the queue serves.
+  // Ages are relative to seed time so the age filter stays deterministic.
+  const claimedAt = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const CARDIO_CLAIMED_AT = claimedAt(4 * 24); // 4 days — old enough for the 72h filter, not 168h
+  const NEURO_CLAIMED_AT = claimedAt(6); // today
+  const DERM_CLAIMED_AT = claimedAt(10 * 24); // 10 days — survives the 168h filter
+  const specialtyClaims: SpecialtyClaim[] = [
     {
-      id: 'ref-demo-1',
-      sourceConsultationId: 'cst-demo-100',
-      referringDoctorName: 'Dr. Sarah Connor',
-      targetSpecialty: 'Cardiology',
-      reason: 'Elevated blood pressure and chest tightness during exercise',
+      id: 'dsc-demo-1',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-cardiology',
+      specialty: { id: 'spec-cardiology', name: 'Cardiology', slug: 'cardiology' },
       status: 'pending',
-      createdAt: '2026-10-15T09:00:00.000Z',
-      expiresAt: '2026-11-15T09:00:00.000Z',
-    },
-  ];
-
-  const followUpRequests: FollowUpRequest[] = [
-    {
-      id: 'fur-demo-1',
-      doctorId: DOCTOR_PROFILE_ID,
-      doctorName: 'Dr. Ficticia Example',
-      doctorSpecialty: 'General Practice',
-      note: 'Re-evaluate blood pressure after two weeks of new medication',
-      suggestedWindowStart: '2026-10-20T00:00:00.000Z',
-      suggestedWindowEnd: '2026-11-05T00:00:00.000Z',
-      status: 'open',
-      sourceConsultationId: 'cst-demo-101',
-      carriedOverIntake: {
-        chiefComplaint: 'Follow-up for BP check',
-        symptomDuration: '2 weeks',
-        severity: 3,
-        currentMedications: ['Demo Vitamin D 1000 IU'],
-        allergies: ['Peanuts (fake)'],
-        notes: 'Carried over from consultation cst-demo-101',
+      credential: {
+        id: 'crd-demo-1',
+        fileName: 'cardiology-certificate-demo.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 245_760,
+        uploadedAt: CARDIO_CLAIMED_AT,
       },
-      createdAt: '2026-10-10T10:00:00.000Z',
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: CARDIO_CLAIMED_AT,
+      updatedAt: CARDIO_CLAIMED_AT,
     },
     {
-      id: 'fur-demo-2',
-      doctorId: DOCTOR_PROFILE_ID,
-      doctorName: 'Dr. Ficticia Example',
-      doctorSpecialty: 'General Practice',
-      note: 'Check rash recovery after topical treatment',
-      suggestedWindowStart: '2026-09-01T00:00:00.000Z',
-      suggestedWindowEnd: '2026-09-15T00:00:00.000Z',
-      status: 'expired',
-      sourceConsultationId: 'cst-demo-090',
-      createdAt: '2026-08-15T10:00:00.000Z',
-    },
-  ];
-
-  const availabilitySlots: AvailabilitySlot[] = [
-    {
-      id: 'slt-demo-1',
-      doctorProfileId: DOCTOR_PROFILE_ID,
-      status: 'open',
-      startTime: '2026-10-25T10:00:00.000Z',
-      endTime: '2026-10-25T10:30:00.000Z',
-      createdAt: '2026-10-10T00:00:00.000Z',
-      updatedAt: '2026-10-10T00:00:00.000Z',
+      id: 'dsc-demo-2',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-neurology',
+      specialty: { id: 'spec-neurology', name: 'Neurology', slug: 'neurology' },
+      status: 'pending',
+      // No credential attached — the UI must flag the judgement call.
+      credential: null,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: NEURO_CLAIMED_AT,
+      updatedAt: NEURO_CLAIMED_AT,
     },
     {
-      id: 'slt-demo-2',
-      doctorProfileId: DOCTOR_PROFILE_ID,
-      status: 'open',
-      startTime: '2026-10-25T11:00:00.000Z',
-      endTime: '2026-10-25T11:30:00.000Z',
-      createdAt: '2026-10-10T00:00:00.000Z',
-      updatedAt: '2026-10-10T00:00:00.000Z',
-    },
-    {
-      // Reserved slot id to simulate 409 double-booking
-      id: 'slt-demo-409',
-      doctorProfileId: DOCTOR_PROFILE_ID,
-      status: 'held',
-      startTime: '2026-10-25T14:00:00.000Z',
-      endTime: '2026-10-25T14:30:00.000Z',
-      createdAt: '2026-10-10T00:00:00.000Z',
-      updatedAt: '2026-10-10T00:00:00.000Z',
-    },
-  ];
-
-  const patientAppointments: PatientAppointment[] = [
-    {
-      id: 'papt-demo-1',
-      patientProfileId: PATIENT_PROFILE_ID,
-      doctorProfileId: DOCTOR_PROFILE_ID,
-      doctorName: 'Dr. Ficticia Example',
-      doctorSpecialty: 'General Practice',
-      availabilitySlotId: 'slt-demo-prev-1',
-      status: 'scheduled',
-      origin: 'direct_booking',
-      availabilitySlot: {
-        id: 'slt-demo-prev-1',
-        doctorProfileId: DOCTOR_PROFILE_ID,
-        status: 'booked',
-        startTime: '2026-10-28T09:00:00.000Z',
-        endTime: '2026-10-28T09:30:00.000Z',
-        createdAt: '2026-10-10T00:00:00.000Z',
-        updatedAt: '2026-10-10T00:00:00.000Z',
+      id: 'dsc-demo-3',
+      doctorId: 'prf-doctor-2',
+      doctor: { id: 'prf-doctor-2', fullName: 'Dr. Placeholder Example (fake)' },
+      specialtyId: 'spec-dermatology',
+      specialty: { id: 'spec-dermatology', name: 'Dermatology', slug: 'dermatology' },
+      status: 'pending',
+      credential: {
+        id: 'crd-demo-3',
+        fileName: 'derm-portfolio-demo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1_843_200,
+        uploadedAt: DERM_CLAIMED_AT,
       },
-      createdAt: '2026-10-12T09:00:00.000Z',
-      updatedAt: '2026-10-12T09:00:00.000Z',
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: DERM_CLAIMED_AT,
+      updatedAt: DERM_CLAIMED_AT,
     },
   ];
 
@@ -1489,6 +1457,7 @@ export function createSeedDb(): MockDb {
     disputes,
     consultationAddenda,
     verifications,
+    specialtyClaims,
     auditEvents,
     closures,
     pendingReferrals,

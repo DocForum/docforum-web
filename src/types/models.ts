@@ -897,6 +897,58 @@ export interface CancelReferralInput {
   expectedUpdatedAt: string;
 }
 
+// --- Phase W6 — Per-specialty verification review (issue #65) ----------------
+// Assumed shapes: docforum-core#51 (per-specialty credential verification,
+// PRD §8.1.5) hasn't landed. #51 names the two admin endpoints but not
+// their payloads; the credential attachment, the filter parameters and the
+// specialty catalog are this repo's assumption. See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+/** The document a doctor attached to back one specialty claim. */
+export interface SpecialtyClaimCredential {
+  id: string;
+  fileName: string;
+  /** `application/pdf` and images today; anything else is offered as a
+   * download rather than previewed. */
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+/** One doctor↔specialty pair awaiting review (a `DoctorSpecialty` row). */
+export interface SpecialtyClaim {
+  id: string;
+  doctorId: string;
+  doctor: DoctorSummary;
+  specialtyId: string;
+  specialty: Specialty;
+  /** Always `pending` while in the queue — decided claims leave it. */
+  status: VerificationStatus;
+  /** Null when the doctor attached nothing — approving then is a judgement
+   * call the UI must not hide. */
+  credential: SpecialtyClaimCredential | null;
+  /** What the doctor was told to fix, when rejected. */
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  /** When the doctor attached the specialty — drives the age filter. */
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ClaimDecision = 'approve' | 'reject';
+
+export interface ReviewSpecialtyClaimInput {
+  decision: ClaimDecision;
+  /** Required for `reject`: what the doctor must fix or resubmit — the
+   * doctor sees it. Optional note for `approve`. */
+  reason: string | null;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else reviewed the claim in the meantime. */
+  expectedUpdatedAt: string;
+}
+
 // --- Phase W6 — System health (issue #73) ------------------------------------
 // All assumed. Readiness follows docforum-core#104 (`/health/ready`: database,
 // migrations, required config, optional Stellar RPC); jobs follow #100's

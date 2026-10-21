@@ -93,6 +93,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
     base.push(
       { to: '/admin', label: 'Payments', roles: ['admin'] },
       { to: '/admin/verifications', label: 'Verifications', roles: ['admin'] },
+      { to: '/admin/verification', label: 'Specialty claims', roles: ['admin'] },
       { to: '/admin/referrals', label: 'Referrals', roles: ['admin'] },
       { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
       { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },
