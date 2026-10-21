@@ -1,3 +1,5 @@
+// Must run before any other module can compile a schema — see the file.
+import './zod-csp';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { init } from '@sentry/react';

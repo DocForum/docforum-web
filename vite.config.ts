@@ -15,6 +15,15 @@ import { visualizer } from 'rollup-plugin-visualizer';
 //     API preconnect are same-origin or listed explicitly.
 // The plugin injects `<meta http-equiv="Content-Security-Policy">` into
 // index.html on every dev request and on the production build output.
+//
+// Notes that keep the policy enforceable without console noise:
+//   - `frame-ancestors` is NOT in the meta policy: Chrome drops it from
+//     <meta> entirely and logs a console error on every page load (which
+//     fails Lighthouse's errors-in-console check). It can only be enforced
+//     via an HTTP response header, which GitHub Pages cannot set.
+//   - Zod v4's JIT compiles validators with `new Function`, which this
+//     policy blocks. `src/zod-csp.ts` runs Zod in `jitless` mode instead of
+//     widening the policy — see that file.
 
 const PROD_CSP = [
   "default-src 'self'",
@@ -25,7 +34,6 @@ const PROD_CSP = [
   "img-src 'self' data:",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'", // ignored in a meta tag; enforced via HTTP header where supported
   "require-trusted-types-for 'script'", // Chrome/Edge; no DOM XSS sinks in the app
 ].join('; ');
 
@@ -62,6 +70,13 @@ export default defineConfig(({ command }) => {
         ? [visualizer({ filename: 'dist/bundle-analysis.html', open: false, gzipSize: true, brotliSize: true })]
         : []),
     ],
+    build: {
+      // First-party source maps (issue #99): Lighthouse's valid-source-maps
+      // audit fails when large JS ships without maps, and they make
+      // production stack traces readable. Maps are only fetched when
+      // DevTools is open, so they don't affect load performance budgets.
+      sourcemap: true,
+    },
     test: {
       environment: 'happy-dom',
       globals: true,
