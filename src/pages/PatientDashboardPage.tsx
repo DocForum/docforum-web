@@ -86,6 +86,8 @@ export function PatientDashboardPage() {
   return (
     <Routes>
       <Route index element={<PatientHome />} />
+      <Route path="orders" element={<PatientOrdersPage />} />
+      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />

@@ -525,7 +525,13 @@ export interface RemoveMemberResponse {
 }
 
 export type FulfillmentOrderType = 'prescription' | 'lab';
-export type FulfillmentItemStatus = 'pending' | 'in_progress' | 'fulfilled' | 'rejected';
+export type FulfillmentItemStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'partially_dispensed'
+  | 'fulfilled'
+  | 'dispensed_elsewhere'
+  | 'rejected';
 
 export interface FulfillmentActionAttribution {
   action: 'dispensed' | 'sample_collected' | 'verified' | 'rejected';
@@ -556,6 +562,8 @@ export interface FulfillmentQueueItem {
   patientProfileId: string;
   itemName: string;
   instructions?: string | null;
+  /** Links this facility queue row to the patient's order item. */
+  orderItemId?: string;
   status: FulfillmentItemStatus;
   receivedAt: string;
   attribution?: FulfillmentActionAttribution | null;
@@ -952,6 +960,8 @@ export interface Order {
   issuedAt: string;
   expiresAt: string;
   status: 'active' | 'completed' | 'cancelled';
+  fulfillmentStatus?: PartialFulfillmentStatus;
+  items?: OrderItem[];
 }
 
 export interface LabResult {

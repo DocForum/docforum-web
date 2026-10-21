@@ -1,3 +1,4 @@
+import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { usePatientChart } from '../hooks/usePatientChart';
 import styles from './PatientChartPanel.module.css';
 
@@ -121,6 +122,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
               <tr>
                 <th>Type</th>
                 <th>Medication/Test</th>
+                <th>Fulfillment</th>
                 <th>Instructions</th>
                 <th>Issued</th>
                 <th>Expires</th>
@@ -131,6 +133,13 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                 <tr key={o.id}>
                   <td>{o.orderType === 'prescription' ? 'Prescription' : 'Lab order'}</td>
                   <td>{o.medicationOrTest}</td>
+                  <td>
+                    {o.fulfillmentStatus ? (
+                      <FulfillmentStatusBadge status={o.fulfillmentStatus} />
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td>{o.instructions ?? ''}</td>
                   <td>{formatDate(o.issuedAt)}</td>
                   <td>{formatDate(o.expiresAt)}</td>
