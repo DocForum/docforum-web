@@ -14,7 +14,7 @@ vi.mock('../../../services/payments-service', async (importOriginal) => {
     preparePaymentIntent: vi.fn(),
     submitPaymentIntent: vi.fn(),
     getPaymentIntent: vi.fn(),
-    listOrderPaymentIntents: vi.fn(),
+    getPaymentIntentForOrder: vi.fn(),
   };
 });
 

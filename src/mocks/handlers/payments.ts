@@ -1,7 +1,7 @@
 // Payments endpoints: wallet link and the payment-intent lifecycle.
 // Everything goes through docforum-core's API shape — no Stellar calls
 // here (hard rule 1). Amounts stay BigInt-as-string.
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_ID } from '../fixtures';
@@ -61,15 +61,24 @@ export const paymentsHandlers = [
     }),
   ),
 
-  // Pay with wallet (issue #59): the intent attached to an order, as the
-  // owning patient sees it. An empty array means "no payment to make" and the
-  // order's payment panel stays hidden.
+  // Order → intent lookup for the patient payment panel (issues #59/#61).
+  // No intent for the order is a 404 — both the status panel and the
+  // pay-with-wallet panel hide (the service maps it to null). One handler
+  // serves both. ASSUMED: docforum-core#85 (real FKs) hasn't landed.
   http.get(
     '*/payments/intents',
-    respond('json', ({ request }) => {
+    respond('nullable', ({ request }) => {
       const orderId = new URL(request.url).searchParams.get('orderId');
-      if (!orderId) return db.paymentIntents;
-      return db.paymentIntents.filter((intent) => intent.orderId === orderId);
+      if (!orderId) {
+        return HttpResponse.json(
+          { message: 'Mock API: orderId query parameter is required' },
+          { status: 400 },
+        );
+      }
+      return (
+        db.paymentIntents.find((i) => i.orderId === orderId) ??
+        notFound('payment intent for this order')
+      );
     }),
   ),
 

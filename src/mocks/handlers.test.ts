@@ -13,6 +13,7 @@ import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError } from '../services/api-client';
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
+import * as adminClosuresService from '../services/admin-closures-service';
 import * as careThreadService from '../services/care-thread-service';
 import * as consultationService from '../services/consultation-service';
 import * as disputesService from '../services/disputes-service';
@@ -29,6 +30,7 @@ import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
+import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -82,6 +84,18 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('serves role-aware session timeout settings (issue #82)', async () => {
+    useMockStore.setState({ activeRole: 'admin' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 10, warningSeconds: 60 });
+
+    useMockStore.setState({ activeRole: 'patient' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 30, warningSeconds: 60 });
   });
 });
 
@@ -368,6 +382,40 @@ describe('facility finder', () => {
   });
 });
 
+describe('facility performance insights', () => {
+  it('returns aggregate-only insights and honours the date range', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: '30d' },
+    );
+    expect(insights.facilityId).toBe(FACILITY_ID);
+    expect(insights.range.preset).toBe('30d');
+    expect(insights.turnaround.fulfilledCount).toBeGreaterThan(0);
+    expect(insights.volumeByDay.length).toBe(7);
+    expect(insights.rejectionReasons.length).toBeGreaterThan(0);
+    expect(insights.disputes.totalOrders).toBeGreaterThan(0);
+
+    const custom = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: 'custom', startDate: '2026-10-01', endDate: '2026-10-07' },
+    );
+    expect(custom.range).toMatchObject({ startDate: '2026-10-01', endDate: '2026-10-07' });
+  });
+
+  it('never leaks patient-level identifiers in the aggregate payload', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+    );
+    const serialised = JSON.stringify(insights).toLowerCase();
+    expect(serialised).not.toContain('patientname');
+    expect(serialised).not.toContain('patientprofileid');
+    expect(serialised).not.toContain('ord-demo');
+  });
+});
+
 describe('facility team', () => {
   it('lists members and invites, and sends an invite', async () => {
     const members = await facilityTeamService.listFacilityMembers(FACILITY_ID, MOCK_ACCESS_TOKEN);
@@ -495,6 +543,91 @@ describe('payments', () => {
   });
 });
 
+describe('admin closures', () => {
+  it('lists, creates, updates and deletes closures', async () => {
+    const seeded = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(seeded).toHaveLength(2);
+    expect(seeded[0].facilityId).toBeNull(); // platform-wide
+
+    const created = await adminClosuresService.createClosure(
+      {
+        name: 'Demo bank holiday (fake)',
+        allDay: true,
+        start: '2026-11-15T00:00:00.000Z',
+        end: '2026-11-16T00:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.status).toBe('active');
+    expect(created.facilityId).toBeNull();
+
+    const afterCreate = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(afterCreate).toHaveLength(3);
+
+    const updated = await adminClosuresService.updateClosure(
+      created.id,
+      { id: created.id, name: 'Renamed closure (fake)', status: 'inactive' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.name).toBe('Renamed closure (fake)');
+    expect(updated.status).toBe('inactive');
+    expect(updated.allDay).toBe(true); // untouched fields survive a partial update
+
+    await adminClosuresService.deleteClosure(created.id, MOCK_ACCESS_TOKEN);
+    const afterDelete = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(afterDelete).toHaveLength(2);
+
+    await expect(
+      adminClosuresService.updateClosure('clo-does-not-exist', { id: 'clo-does-not-exist', name: 'x' }, MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('scopes the list to a facility when facilityId is given', async () => {
+    // The closures hook appends ?facilityId= to the same path the service
+    // uses — exercise that query filter exactly as the UI does.
+    const res = await fetch(
+      `http://localhost:4000/admin/closures?facilityId=${FACILITY_ID}`,
+      { headers: { Authorization: `Bearer ${MOCK_ACCESS_TOKEN}` } },
+    );
+    const scoped = (await res.json()) as { id: string; facilityId: string | null }[];
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0].facilityId).toBe(FACILITY_ID);
+
+    const all = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    expect(all).toHaveLength(2);
+  });
+
+  it('reports booked appointments inside a closure window', async () => {
+    const seeded = await adminClosuresService.listClosures(MOCK_ACCESS_TOKEN);
+    // Seeded closures sit in Nov/Dec, fixture appointments on 2026-10-18.
+    await expect(
+      adminClosuresService.listAffectedAppointments(seeded[0].id, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
+
+    const demoDay = await adminClosuresService.createClosure(
+      {
+        name: 'Demo clinic day closure (fake)',
+        allDay: true,
+        start: '2026-10-18T00:00:00.000Z',
+        end: '2026-10-19T00:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    const affected = await adminClosuresService.listAffectedAppointments(
+      demoDay.id,
+      MOCK_ACCESS_TOKEN,
+    );
+    // Fixture appointments on 2026-10-18: completed/in_progress/no_show are
+    // left alone — only scheduled/checked_in bookings are "affected".
+    expect(affected.map((a) => a.appointmentId).sort()).toEqual(['apt-demo-3', 'apt-demo-4']);
+    expect(affected.every((a) => a.patientName.length > 0)).toBe(true);
+
+    await expect(
+      adminClosuresService.listAffectedAppointments('clo-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
 describe('admin disputes', () => {
   it('pages open disputes oldest first and returns a full detail', async () => {
     const first = await disputesService.listDisputes({ status: 'open' }, MOCK_ACCESS_TOKEN);
@@ -605,36 +738,35 @@ describe('dev panel scenarios', () => {
 
 describe('pay with wallet (issue #59)', () => {
   it("lists an order's intent, prepares it, and submits the signature to escrow", async () => {
-    const intents = await paymentsService.listOrderPaymentIntents('ord-demo-rx-102', MOCK_ACCESS_TOKEN);
-    expect(intents).toHaveLength(1);
-    const intent = intents[0];
-    expect(intent.status).toBe('created');
+    const intent = await paymentsService.getPaymentIntentForOrder('ord-demo-lab-101', MOCK_ACCESS_TOKEN);
+    expect(intent).not.toBeNull();
+    expect(intent!.status).toBe('created');
 
-    const prepared = await paymentsService.preparePaymentIntent(intent.id, MOCK_ACCESS_TOKEN);
-    expect(prepared.intentId).toBe(intent.id);
+    const prepared = await paymentsService.preparePaymentIntent(intent!.id, MOCK_ACCESS_TOKEN);
+    expect(prepared.intentId).toBe(intent!.id);
     expect(prepared.xdr).toContain('AAAA');
     expect(prepared.status).toBe('awaiting_signature');
     expect(Date.parse(prepared.expiresAt)).toBeGreaterThan(Date.now());
 
-    const submitted = await paymentsService.submitPaymentIntent(intent.id, 'SIGNED_XDR', MOCK_ACCESS_TOKEN);
+    const submitted = await paymentsService.submitPaymentIntent(intent!.id, 'SIGNED_XDR', MOCK_ACCESS_TOKEN);
     expect(submitted.status).toBe('escrowed');
     expect(submitted.stellarTxHash).toBeTruthy();
 
     // What the confirm poll reads back after submission.
-    const polled = await paymentsService.getPaymentIntent(intent.id, MOCK_ACCESS_TOKEN);
+    const polled = await paymentsService.getPaymentIntent(intent!.id, MOCK_ACCESS_TOKEN);
     expect(polled.status).toBe('escrowed');
   });
 
   it('returns no intent for an order with no payment — the panel stays hidden', async () => {
     await expect(
-      paymentsService.listOrderPaymentIntents('ord-unpriced', MOCK_ACCESS_TOKEN),
-    ).resolves.toEqual([]);
+      paymentsService.getPaymentIntentForOrder('ord-unpriced', MOCK_ACCESS_TOKEN),
+    ).resolves.toBeNull();
   });
 
   it('rejects a submit without a signed XDR', async () => {
-    const intents = await paymentsService.listOrderPaymentIntents('ord-demo-rx-102', MOCK_ACCESS_TOKEN);
+    const intent = await paymentsService.getPaymentIntentForOrder('ord-demo-lab-101', MOCK_ACCESS_TOKEN);
     await expect(
-      paymentsService.submitPaymentIntent(intents[0].id, '', MOCK_ACCESS_TOKEN),
+      paymentsService.submitPaymentIntent(intent!.id, '', MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
   });
 });

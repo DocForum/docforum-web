@@ -21,8 +21,8 @@ export function linkWallet(stellarPublicKey: string, accessToken: string): Promi
   });
 }
 
-export function getOwnWalletLink(accessToken: string): Promise<WalletLink> {
-  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken });
+export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<WalletLink> {
+  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken, signal });
 }
 
 export interface CreatePaymentIntentInput {
@@ -37,8 +37,31 @@ export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken
   return apiFetch<PaymentIntent>('/payments/intents', { method: 'POST', body: input, accessToken });
 }
 
-export function getPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken });
+export function getPaymentIntent(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentIntent> {
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken, signal });
+}
+
+/**
+ * The payment intent for a patient's order, or `null` when the order has
+ * none (issue #61 — the panel simply hides). ASSUMED lookup: docforum-core
+ * doesn't serve intents by order yet (docforum-core#85, real FKs on
+ * PaymentIntent, is open) — see ARCHITECTURE_ESSENTIALS.md "Known
+ * assumptions — Patient order detail & payment panel". A `404` means
+ * "no intent for this order", not an error the UI should show.
+ */
+export function getPaymentIntentForOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<PaymentIntent | null> {
+  return apiFetch<PaymentIntent>(
+    `/payments/intents?orderId=${encodeURIComponent(orderId)}`,
+    { accessToken },
+  )
+    .then((intent) => intent ?? null)
+    .catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
@@ -55,21 +78,9 @@ export function refundPaymentIntent(id: string, accessToken: string): Promise<Pa
 
 // --- Pay with wallet (issue #59) -------------------------------------------
 // Assumed contracts, pending docforum-core#80 (prepare) and #81 (submit).
-// The panel's intent lookup is likewise assumed: there is no patient-facing
-// "intents for this order" endpoint yet (today's `/payments/intents/:id` is
-// admin-only), so the shape below is the smallest one that serves both this
-// flow and the payment-status panel owed by issue #61.
-
-/** The intent attached to an order, as the owning patient sees it. An empty
- * array means no intent exists yet — the order's payment panel stays hidden. */
-export function listOrderPaymentIntents(
-  orderId: string,
-  accessToken: string,
-  signal?: AbortSignal,
-): Promise<PaymentIntent[]> {
-  const params = new URLSearchParams({ orderId });
-  return apiFetch<PaymentIntent[]>(`/payments/intents?${params.toString()}`, { accessToken, signal });
-}
+// The order→intent lookup itself is issue #61's assumed contract
+// (`getPaymentIntentForOrder` above): one lookup serves the status panel
+// and this flow, so there is no second shape to keep in step.
 
 /** docforum-core#80 (assumed): builds and simulates the `create_escrow`
  * transaction and returns unsigned XDR for the patient's wallet to sign.
@@ -129,13 +140,14 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
 export function getFacilityPayoutLedger(
   facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string }
+  params?: { cursor?: string; status?: string; asset?: string },
+  signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set('cursor', params.cursor);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
   if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken });
+  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
 

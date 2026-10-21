@@ -147,9 +147,6 @@ export const verificationKeys = {
 export const paymentKeys = {
   all: ['payments'] as const,
   intent: (intentId: string) => ['payments', 'intent', intentId] as const,
-  /** The intent attached to one order (patient view, issue #59) — narrow on
-   * purpose: paying an order moves that order's intent row and nothing else. */
-  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
   walletLink: () => ['payments', 'wallet-link'] as const,
   /** Root over every facility's ledger: an intent action moves held/released
    *  totals we cannot attribute to a single facility from the intent alone. */
@@ -159,6 +156,8 @@ export const paymentKeys = {
   /** The patient's payment history (infinite list + one entry). */
   history: () => ['payments', 'mine'] as const,
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
+  /** The intent attached to an order — `null` when the order has none (issue #61). */
+  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
 };
 
 /** Doctor's abnormal-results inbox (polls every 30 s, acked rows drop off). */

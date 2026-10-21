@@ -22,6 +22,6 @@ function toQuery(filters: AccessLogFilters): string {
   return query ? `?${query}` : '';
 }
 
-export function listAccessLog(filters: AccessLogFilters, accessToken: string): Promise<AccessLogPage> {
-  return apiFetch<AccessLogPage>(`/patients/me/access-log${toQuery(filters)}`, { accessToken });
+export function listAccessLog(filters: AccessLogFilters, accessToken: string, signal?: AbortSignal): Promise<AccessLogPage> {
+  return apiFetch<AccessLogPage>(`/patients/me/access-log${toQuery(filters)}`, { accessToken, signal });
 }

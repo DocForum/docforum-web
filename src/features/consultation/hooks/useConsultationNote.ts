@@ -10,7 +10,7 @@ export function useConsultationNote(appointmentId: string | null) {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: NOTE_KEY(appointmentId ?? ''),
-    queryFn: () => consultationService.getConsultationNote(appointmentId!, accessToken!),
+    queryFn: ({ signal }) => consultationService.getConsultationNote(appointmentId!, accessToken!, signal),
     enabled: Boolean(accessToken && appointmentId),
   });
 }

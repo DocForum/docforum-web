@@ -95,7 +95,11 @@ describe('PaymentHistoryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /show older payments/i }));
 
     await waitFor(() => expect(screen.getByText('1 XLM')).toBeInTheDocument());
-    expect(paymentHistoryService.listPaymentHistory).toHaveBeenLastCalledWith('cursor-2', 'test-token');
+    expect(paymentHistoryService.listPaymentHistory).toHaveBeenLastCalledWith(
+      'cursor-2',
+      'test-token',
+      expect.any(AbortSignal),
+    );
   });
 
   it('says history is unavailable rather than empty when the endpoint is missing', async () => {

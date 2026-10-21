@@ -1,108 +1,136 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// Issue #61: every payment status must have plain-language copy and a
+// timeline, the explorer link comes from #10's shared helper, amounts
+// stay bigint-safe, and admin/console-only fields are never rendered.
+// Labels and copy come from features/payments/status.ts — the same
+// wording the payment history screens show.
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '../../../test/render';
 import { OrderPaymentPanel } from './OrderPaymentPanel';
-import { ApiError } from '../../../services/api-client';
-import type { PatientOrder, PaymentIntent } from '../../../types/models';
+import type { PaymentIntent, PaymentIntentStatus } from '../../../types/models';
 
-vi.mock('../../../services/payments-service', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../services/payments-service')>();
+function makeIntent(overrides: Partial<PaymentIntent> = {}): PaymentIntent {
   return {
-    ...actual,
-    preparePaymentIntent: vi.fn(),
-    submitPaymentIntent: vi.fn(),
-    getPaymentIntent: vi.fn(),
-    listOrderPaymentIntents: vi.fn(),
-  };
-});
-
-vi.mock('../walletPayFlag', () => ({ walletPayEnabled: true, isWalletPayEnabled: (raw: string | undefined) => raw === 'true' }));
-
-import * as paymentsService from '../../../services/payments-service';
-import { useAuthStore } from '../../../store/auth-store';
-
-const listIntents = vi.mocked(paymentsService.listOrderPaymentIntents);
-
-const order: PatientOrder = {
-  id: 'ord-1',
-  patientProfileId: 'pp-1',
-  orderType: 'prescription',
-  version: 1,
-  supersedesId: null,
-  status: 'active',
-  issuedAt: '2026-10-18T09:00:00.000Z',
-  issuedByDoctorName: 'Dr Demo',
-  requiresFacilitySelection: false,
-  selectedFacility: null,
-  medication: 'Amoxicillin 500mg',
-  dose: '1 capsule three times daily',
-  quantity: '21 capsules',
-  instructions: 'Take with food.',
-};
-
-function intentWith(status: PaymentIntent['status']): PaymentIntent {
-  return {
-    id: 'int-1',
+    id: 'pin-1',
     orderType: 'prescription',
-    orderId: order.id,
-    status,
-    patientProfileId: 'pp-1',
-    facilityId: 'fac-1',
-    amountStroops: '250000000',
-    escrowId: status === 'escrowed' ? 'esc-1' : null,
+    orderId: 'ord-rx-1',
+    status: 'created',
+    patientProfileId: 'prf-admin-only-should-not-leak',
+    facilityId: 'fac-admin-only-should-not-leak',
+    amountStroops: '1250000000',
+    escrowId: 'esc-admin-only-should-not-leak',
     stellarTxHash: null,
-    sorobanContractId: null,
-    createdAt: '2026-10-20T09:00:00.000Z',
-    updatedAt: '2026-10-20T09:00:00.000Z',
+    sorobanContractId: 'CADMINONLYSHOULDNOTLEAK',
+    createdAt: '2026-10-16T10:00:00.000Z',
+    updatedAt: '2026-10-17T15:06:00.000Z',
+    ...overrides,
   };
 }
 
-function renderPanel() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+describe('OrderPaymentPanel', () => {
+  it('shows a plain-language explanation for a created (not funded) intent', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'created' })} />);
+
+    expect(screen.getByText('Not funded')).toBeInTheDocument();
+    expect(screen.getByText(/set up but never funded/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing has left you/i)).toBeInTheDocument();
+    // Future steps are marked as not yet reached.
+    expect(screen.getAllByText('Not yet').length).toBeGreaterThan(0);
   });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <OrderPaymentPanel order={order} />
-    </QueryClientProvider>,
+
+  it('explains escrow protection for an escrowed intent, marking it current', () => {
+    render(
+      <OrderPaymentPanel
+        intent={makeIntent({ status: 'escrowed', stellarTxHash: 'abc123' })}
+      />,
+    );
+
+    // The label appears both as the status pill and as a timeline step.
+    expect(screen.getAllByText('Held in escrow')).toHaveLength(2);
+    expect(screen.getByText(/protection escrow exists for/i)).toBeInTheDocument();
+    expect(screen.getByText('Current')).toBeInTheDocument();
+  });
+
+  it('explains a released intent as complete', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'released' })} />);
+
+    expect(screen.getByText('Released')).toBeInTheDocument();
+    expect(screen.getByText('Released to the facility')).toBeInTheDocument();
+    expect(screen.getByText(/This payment is complete/i)).toBeInTheDocument();
+  });
+
+  it('explains a refunded intent as money coming back out of escrow', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'refunded' })} />);
+
+    expect(screen.getByText('Refunded')).toBeInTheDocument();
+    expect(screen.getByText(/came back out of escrow/i)).toBeInTheDocument();
+    expect(screen.getByText('Refunded to you')).toBeInTheDocument();
+  });
+
+  it('tells the patient to contact support for a failed intent', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'failed' })} />);
+
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(screen.getByText(/contact DocForum support/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing was released to the facility/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing was moved on-chain/i)).toBeInTheDocument();
+  });
+
+  it('renders a timeline step for every status without inventing times', () => {
+    const { container } = render(
+      <OrderPaymentPanel intent={makeIntent({ status: 'escrowed' })} />,
+    );
+
+    const timeline = container.querySelector('ol');
+    expect(timeline).not.toBeNull();
+    // initiated + held + settled
+    expect(timeline!.querySelectorAll('li')).toHaveLength(3);
+  });
+
+  it('formats the amount bigint-safely (large stroop values keep full precision)', () => {
+    render(
+      <OrderPaymentPanel intent={makeIntent({ amountStroops: '123456789012345678' })} />,
+    );
+
+    expect(screen.getByTestId('payment-amount')).toHaveTextContent(
+      '12,345,678,901.2345678 XLM',
+    );
+  });
+
+  it('links the transaction hash through the shared explorer helper', () => {
+    render(
+      <OrderPaymentPanel intent={makeIntent({ status: 'released', stellarTxHash: 'deadbeef' })} />,
+    );
+
+    const link = screen.getByRole('link', { name: /stellar explorer/i });
+    expect(link).toHaveAttribute(
+      'href',
+      'https://testnet.stellar.expert/explorer/public/transaction/deadbeef',
+    );
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('shows no explorer link when there is no transaction hash yet', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'created' })} />);
+
+    expect(
+      screen.queryByRole('link', { name: /stellar explorer/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each<PaymentIntentStatus>(['created', 'escrowed', 'released', 'refunded', 'failed'])(
+    'never renders admin/console-only fields for status %s',
+    (status) => {
+      render(<OrderPaymentPanel intent={makeIntent({ status })} />);
+
+      // facilityId, patientProfileId, escrowId, sorobanContractId are
+      // console-only — the patient panel must not leak them.
+      expect(screen.queryByText(/fac-admin-only-should-not-leak/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/prf-admin-only-should-not-leak/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/esc-admin-only-should-not-leak/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/CADMINONLYSHOULDNOTLEAK/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/escrowId/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/soroban/i)).not.toBeInTheDocument();
+    },
   );
-}
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  useAuthStore.setState({
-    accessToken: 'patient-token',
-    user: { id: 'u-1', email: 'pat@example.test', role: 'patient', createdAt: '', updatedAt: '' },
-  });
-});
-
-describe('OrderPaymentPanel (flag on)', () => {
-  it('renders nothing when the order has no payment intent', async () => {
-    listIntents.mockResolvedValue([]);
-    const { container } = renderPanel();
-    await vi.waitFor(() => expect(listIntents).toHaveBeenCalledWith(order.id, 'patient-token', expect.anything()));
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('renders nothing when the endpoint is not served yet (404 is normal)', async () => {
-    listIntents.mockRejectedValue(new ApiError('Not found', 404));
-    const { container } = renderPanel();
-    await vi.waitFor(() => expect(listIntents).toHaveBeenCalled());
-    await vi.waitFor(() => expect(container).toBeEmptyDOMElement());
-  });
-
-  it('offers the wallet flow for a payable intent', async () => {
-    listIntents.mockResolvedValue([intentWith('created')]);
-    renderPanel();
-    expect(await screen.findByRole('heading', { name: 'Pay with your wallet' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pay with wallet' })).toBeInTheDocument();
-  });
-
-  it('shows only the status for a settled intent — no pay button', async () => {
-    listIntents.mockResolvedValue([intentWith('escrowed')]);
-    renderPanel();
-    expect(await screen.findByText(/Payment:/)).toBeInTheDocument();
-    expect(screen.getByText('Held in escrow')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Pay with wallet' })).toBeNull();
-  });
 });

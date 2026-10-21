@@ -1,0 +1,108 @@
+.root {
+  background: #fff;
+  color: #1a1a1a;
+  font-family: var(--font-body, 'IBM Plex Sans', sans-serif);
+  max-width: 210mm; /* A4 width */
+  margin: 0 auto;
+  padding: var(--space-4);
+  line-height: 1.5;
+}
+
+.root[data-print-layout='true'] {
+  opacity: 0;
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  transition: opacity 0.2s;
+}
+
+.root[data-print-layout='true']._visible {
+  opacity: 1;
+  position: static;
+  left: 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #1f4d3a;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.brandName {
+  font-family: var(--font-display, 'Fraunces', serif);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: #1f4d3a;
+  margin: 0;
+}
+
+.metaBlock {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.metaBlock strong {
+  font-size: var(--text-lg);
+}
+
+.metaBlock span {
+  font-size: var(--text-sm);
+  color: #555;
+}
+
+.body {
+  min-height: 50vh;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  padding-top: var(--space-3);
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  color: #777;
+}
+
+/* Print styles — hide everything except the print layout */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .root,
+  .root * {
+    visibility: visible;
+  }
+
+  .root {
+    position: static;
+    left: 0;
+    opacity: 1;
+    max-width: none;
+    padding: 0;
+  }
+
+  /* Prevent page breaks inside table rows and QR codes */
+  tr,
+  .qrPlaceholder {
+    page-break-inside: avoid;
+  }
+
+  /* Hide the on-screen "Print" and "Export" buttons */
+  .noPrint {
+    display: none !important;
+  }
+}

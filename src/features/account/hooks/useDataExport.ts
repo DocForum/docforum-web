@@ -10,7 +10,7 @@ export function useDataExport() {
 
   return useQuery({
     queryKey: accountKeys.dataExport(),
-    queryFn: () => getDataExportStatus(accessToken!),
+    queryFn: ({ signal }) => getDataExportStatus(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
