@@ -102,7 +102,8 @@ https://docforum.github.io/docforum-web/pr-preview/pr-<number>/
 ```
 
 - The URL is commented on the PR automatically, updated on every push, and
-the deployment is deleted when the PR closes.
+the deployment is swept away once the PR closes (an hourly cleanup removes
+previews for PRs that are no longer open).
 - The preview runs against the MSW mock API only (`npm run dev:mock`'s
 handlers and fixtures), seeded with obviously fake `@example.test` data. It
 is built with a reserved-invalid API URL, so it cannot reach the real
@@ -117,7 +118,7 @@ are for "click a link and see it".
 | --- | --- | --- | --- |
 | `pr-preview-build.yml` | `pull_request` | read-only, no secrets | Yes — checkout, test, build → artifact |
 | `pr-preview-deploy.yml` | `workflow_run` | write | **No** — downloads the artifact and copies it |
-| `pr-preview-cleanup.yml` | `pull_request_target` (`closed`) | write | **No** — reads only the PR number |
+| `pr-preview-cleanup.yml` | `schedule` (hourly sweep from `main`) | write | **No** — reads only PR numbers already on `gh-pages` |
 
 Fork code therefore never runs in a job that holds a write token or a secret,
 and the privileged jobs never execute anything the PR produced. Keep it that

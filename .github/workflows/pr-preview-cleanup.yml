@@ -1,15 +1,28 @@
 # PR preview deployments (#104) — cleanup.
 #
-# Runs when a PR closes. `pull_request_target` is required because a
-# `pull_request` workflow from a fork only gets a read-only token, and this job
-# must push to gh-pages. It is safe here precisely because the PR is NEVER
-# checked out and no PR code or artifact is run or read: the only input is the
-# PR number, which is used to delete one directory and edit one comment.
+# A preview is removed once its PR is no longer open. This used to run on
+# `pull_request_target: [closed]`, but that trigger always hands a fork PR a
+# write token and secrets, so automated malware scanners flag it as high
+# severity regardless of how carefully the job is written. A scheduled sweep
+# avoids the dangerous trigger entirely:
+#
+#   - It runs from the DEFAULT branch on a timer (`schedule`) — never from a
+#     fork PR — so no untrusted code can influence it and no write token is
+#     ever exposed to a PR.
+#   - The only PR-derived value it touches is a number, read from the names of
+#     directories already on `gh-pages` and used purely to decide what to
+#     delete. It never checks out or executes PR code.
+#
+# Trade-off: cleanup is eventually consistent (within the cron interval)
+# rather than instantaneous on close — an acceptable, safe trade for never
+# running a fork-controlled `pull_request_target` job.
 name: PR preview cleanup
 
 on:
-  pull_request_target:
-    types: [closed]
+  schedule:
+    # Hourly, offset from the hour to avoid the top-of-the-hour stampede.
+    - cron: '27 * * * *'
+  workflow_dispatch: {} # manual trigger for maintainers
 
 permissions:
   contents: write
@@ -20,60 +33,71 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  cleanup:
-    name: Remove preview
+  sweep:
+    name: Remove previews for closed PRs
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Delete pr-preview/pr-<n> from gh-pages
-        env:
-          PR: ${{ github.event.pull_request.number }}
+      - name: Check out gh-pages
+        id: pages
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "No gh-pages branch — nothing to clean up."
             exit 0
           fi
-
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages --depth=1
           git checkout -B gh-pages FETCH_HEAD
+          echo "exists=true" >> "$GITHUB_OUTPUT"
 
-          if [ ! -d "pr-preview/pr-$PR" ]; then
-            echo "No preview directory for PR #$PR — nothing to clean up."
-            exit 0
-          fi
-
-          rm -rf "pr-preview/pr-$PR"
-          rmdir pr-preview 2>/dev/null || true
-
-          git add -A
-          git commit -m "chore(preview): remove abandoned preview for PR #$PR"
-          git push origin gh-pages
-
-      - name: Update the PR comment
+      - name: Remove previews whose PR is closed
+        if: steps.pages.outputs.exists == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           marker='<!-- docforum-pr-preview -->'
-          body=$(cat <<EOF
-          $marker
+          removed=()
+
+          for dir in pr-preview/pr-*; do
+            [ -d "$dir" ] || continue
+            pr="${dir##*/pr-}"
+            [[ "$pr" =~ ^[0-9]+$ ]] || continue
+            # OPEN previews stay; CLOSED / MERGED / unknown (deleted head) go.
+            state=$(gh pr view "$pr" --json state --jq .state 2>/dev/null || echo "UNKNOWN")
+            if [ "$state" = "OPEN" ]; then
+              continue
+            fi
+            echo "Removing preview for PR #$pr (state: $state)"
+            rm -rf "$dir"
+            removed+=("$pr")
+          done
+
+          rmdir pr-preview 2>/dev/null || true
+
+          if [ ${#removed[@]} -eq 0 ]; then
+            echo "No abandoned previews."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "chore(preview): remove previews for closed PRs (${removed[*]})"
+          git push origin gh-pages
+
+          # Best-effort: flip each removed PR's preview comment to "removed".
+          body="${marker}
           ### 🔎 Preview deployment removed
 
           This pull request is closed, so its preview deployment has been deleted.
-          Reopening the PR (or pushing to it) starts a fresh build and a new preview.
-          EOF
-          )
-
-          existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | head -n 1)
-
-          if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -f body="$body" >/dev/null
-          fi
+          Reopening the PR (or pushing to it) starts a fresh build and a new preview."
+          for pr in "${removed[@]}"; do
+            existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}/comments" --paginate \
+              --jq ".[] | select(.body | contains(\"${marker}\")) | .id" 2>/dev/null | head -n 1) || true
+            if [ -n "$existing" ]; then
+              gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" \
+                -f body="$body" >/dev/null || true
+            fi
+          done

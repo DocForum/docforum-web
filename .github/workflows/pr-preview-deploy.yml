@@ -119,7 +119,7 @@ jobs:
 
           - Built from \`${short_sha}\` ([build log](${RUN_URL}))
           - Runs against the **mock API** only — obviously fake seed data, no real backend, no real credentials.
-          - Updated automatically on every push to this PR; removed when the PR closes.
+          - Updated automatically on every push to this PR; removed shortly after it closes.
 
           If the link 404s, the repository's Pages source must be the \`gh-pages\` branch — see \`CONTRIBUTING.md\` → "Preview deployments".
           EOF

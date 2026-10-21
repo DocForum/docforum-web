@@ -6,7 +6,8 @@ consistent loading/empty/error states, and the notification centre
 [#107](https://github.com/DocForum/docforum-web/issues/107)).
 
 Every PR now gets a mock-API preview at
-`/docforum-web/pr-preview/pr-<n>/`, commented on the PR and removed on close;
+`/docforum-web/pr-preview/pr-<n>/`, commented on the PR and swept away once it
+closes (an hourly run from `main` — never `pull_request_target`);
 the build runs unprivileged on `pull_request` and only the artifact is
 published from `workflow_run`, so fork code never sees a write token or a
 secret. Previews are built against a reserved-invalid API URL and checked by
