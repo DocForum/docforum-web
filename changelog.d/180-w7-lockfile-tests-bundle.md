@@ -1,0 +1,1 @@
+Phase W7: repair npm lock metadata for platform binaries and transitive CSS dependencies, centralize MSW test isolation, wrap queue mutations in `act`, fix the dark-mode media rule, and lazy-load route modules to reduce the initial JavaScript bundle.

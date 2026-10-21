@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import * as queueService from '../../../services/queue-service';
@@ -52,7 +52,7 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.startVisit('appt-1');
+    act(() => result.current.startVisit('appt-1'));
     expect(vi.mocked(queueService.startVisit)).not.toHaveBeenCalled();
     expect(
       (
@@ -60,7 +60,7 @@ describe('useVisitActions', () => {
       )?.[0].status,
     ).toBe('in_progress');
 
-    result.current.undo('appt-1');
+    act(() => result.current.undo('appt-1'));
     expect(vi.mocked(queueService.startVisit)).not.toHaveBeenCalled();
     expect(
       (
@@ -75,11 +75,10 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.startVisit('appt-1');
-    vi.advanceTimersByTime(UNDO_WINDOW_MS);
-    // mutate() invokes mutationFn on a microtask; flush it.
-    await Promise.resolve();
-    await Promise.resolve();
+    act(() => result.current.startVisit('appt-1'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+    });
     expect(vi.mocked(queueService.startVisit)).toHaveBeenCalledWith('appt-1', 'test-token');
   });
 
@@ -89,7 +88,7 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.completeVisit('appt-1');
+    act(() => result.current.completeVisit('appt-1'));
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
     expect(
       (
@@ -97,7 +96,7 @@ describe('useVisitActions', () => {
       )?.[0].status,
     ).toBe('completed');
 
-    result.current.undo('appt-1');
+    act(() => result.current.undo('appt-1'));
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
     expect(
       (
@@ -112,10 +111,10 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.completeVisit('appt-1');
-    vi.advanceTimersByTime(UNDO_WINDOW_MS);
-    await Promise.resolve();
-    await Promise.resolve();
+    act(() => result.current.completeVisit('appt-1'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+    });
     expect(vi.mocked(queueService.completeVisit)).toHaveBeenCalledWith('appt-1', 'test-token');
   });
 
@@ -126,14 +125,15 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.startVisit('appt-1');
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
-    await vi.waitFor(() => {
-      expect(
-        queryClient.getQueryState(appointmentKeys.today())?.isInvalidated,
-      ).toBe(true);
-      expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true);
+    act(() => result.current.startVisit('appt-1'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+      await vi.waitFor(() => {
+        expect(
+          queryClient.getQueryState(appointmentKeys.today())?.isInvalidated,
+        ).toBe(true);
+        expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true);
+      });
     });
   });
 
@@ -143,7 +143,7 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.startVisit('appt-1');
+    act(() => result.current.startVisit('appt-1'));
     expect(vi.mocked(queueService.startVisit)).not.toHaveBeenCalled();
   });
 
@@ -153,7 +153,7 @@ describe('useVisitActions', () => {
 
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
-    result.current.completeVisit('appt-1');
+    act(() => result.current.completeVisit('appt-1'));
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
   });
 });
