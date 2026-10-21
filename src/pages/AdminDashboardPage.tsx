@@ -28,12 +28,16 @@ export function AdminDashboardPage() {
           on Stellar testnet, entirely through docforum-core's API.
         </p>
         <p>
+          <Link to="/admin/verifications">Review doctor verifications</Link> to approve or reject doctors waiting
+          for credential review — unverified doctors never appear in search.
+        </p>
+        <p>
           <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
           pending too long.
         </p>
         <p>
-          <Link to="/admin/verification">Review specialty claims</Link> to approve or reject each doctor's claims one
-          specialty at a time, with the supporting credential beside each claim.
+          <Link to="/admin/disputes">Resolve fulfilment disputes</Link> to release or refund escrow that is blocked
+          while a patient disputes a fulfilled order.
         </p>
         <p>
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.

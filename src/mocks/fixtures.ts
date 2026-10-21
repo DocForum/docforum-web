@@ -7,22 +7,34 @@
 // shapes are still assumed contracts.
 import type {
   Appointment,
+  AuditEvent,
   CareThread,
+  Closure,
   ConsultationAddendum,
+  ConsultationIssuedOrder,
   ConsultationNote,
+  ConsultationRecord,
+  ConsultationReferral,
+  CredentialDocument,
   DataExport,
   Dependent,
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
+  FacilityPerformanceInsights,
   FacilityWithDistance,
+  FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
-  MessageThread,
+  IntakeForm,
+  DoctorMessageThread,
+  PatientOrder,
   PaymentIntent,
+  QualifiedOrderFacility,
   RunningDelay,
   SpecialtyClaim,
   User,
+  VerificationStatus,
   WalletLink,
 } from '../types/models';
 
@@ -76,18 +88,43 @@ export interface MockDb {
   dataExport: DataExport | null;
   careThreads: CareThread[];
   appointments: Appointment[];
+  intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
-  messageThreads: MessageThread[];
+  messageThreads: DoctorMessageThread[];
   consultationNotes: ConsultationNote[];
+  consultationRecords: ConsultationRecord[];
+  consultationReferrals: ConsultationReferral[];
+  consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
+  facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
+  patientOrders: PatientOrder[];
+  orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
-  specialtyClaims: SpecialtyClaim[];
+  disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  verifications: MockVerification[];
+  auditEvents: AuditEvent[];
+  closures: Closure[];
+}
+
+/** A doctor's verification application (issue #64's assumed queue/detail
+ * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockVerification {
+  doctorProfileId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  specialties: string[];
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  verificationStatus: VerificationStatus;
+  documents: CredentialDocument[];
 }
 
 export function createSeedDb(): MockDb {
@@ -296,13 +333,40 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const intakeForms: IntakeForm[] = [
+    {
+      id: 'itk-demo-1',
+      appointmentId: 'apt-demo-3',
+      patientProfileId: 'prf-patient-3',
+      submittedAt: '2026-10-18T09:18:00.000Z',
+      chiefComplaint: 'Demo prescription review (fake)',
+      symptomDuration: '2 days',
+      severity: 4,
+      currentMedications: ['Demo Metformin 850mg (fake)'],
+      allergies: ['None recorded'],
+      notes: 'Demo intake note (fake).',
+    },
+    {
+      id: 'itk-demo-2',
+      appointmentId: 'apt-demo-4',
+      patientProfileId: 'prf-patient-4',
+      submittedAt: '2026-10-18T09:45:00.000Z',
+      chiefComplaint: 'Demo new concern (fake)',
+      symptomDuration: null,
+      severity: null,
+      currentMedications: [],
+      allergies: ['Demo penicillin allergy (fake)'],
+      notes: null,
+    },
+  ];
+
   const runningDelay: RunningDelay = {
     computedDelayMin: 12,
     manualOverrideMin: null,
     effectiveDelayMin: 12,
   };
 
-  const messageThreads: MessageThread[] = [
+  const messageThreads: DoctorMessageThread[] = [
     {
       id: 'mth-demo-1',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -456,6 +520,48 @@ export function createSeedDb(): MockDb {
     },
   };
 
+  const facilityInsights: FacilityPerformanceInsights = {
+    facilityId: FACILITY_ID,
+    range: { preset: '30d', startDate: '2026-09-18', endDate: '2026-10-18' },
+    generatedAt: '2026-10-18T06:00:00.000Z',
+    turnaround: {
+      fulfilledCount: 68,
+      medianHours: 3.5,
+      p90Hours: 27.4,
+      minHours: 0.4,
+      maxHours: 51.2,
+      within1h: 12,
+      within4h: 38,
+      within24h: 61,
+      over24h: 7,
+      sampleSizeWarning: false,
+    },
+    volumeByDay: [
+      { date: '2026-10-12', received: 9, fulfilled: 8, rejected: 1 },
+      { date: '2026-10-13', received: 11, fulfilled: 9, rejected: 2 },
+      { date: '2026-10-14', received: 7, fulfilled: 7, rejected: 0 },
+      { date: '2026-10-15', received: 12, fulfilled: 10, rejected: 1 },
+      { date: '2026-10-16', received: 10, fulfilled: 9, rejected: 1 },
+      { date: '2026-10-17', received: 8, fulfilled: 6, rejected: 2 },
+      { date: '2026-10-18', received: 5, fulfilled: 4, rejected: 0 },
+    ],
+    rejectionReasons: [
+      { code: 'out_of_stock', label: 'Out of stock', count: 4, percentage: 57.1 },
+      { code: 'prescription_invalid', label: 'Prescription invalid', count: 2, percentage: 28.6 },
+      { code: 'patient_unreachable', label: 'Patient unreachable', count: 1, percentage: 14.3 },
+    ],
+    disputes: {
+      totalOrders: 68,
+      disputedOrders: 3,
+      disputeRate: 4.4,
+      resolvedInFacilityFavour: 1,
+      resolvedInPatientFavour: 1,
+      openDisputes: 1,
+      averageResolutionHours: 40.5,
+      sampleSizeWarning: false,
+    },
+  };
+
   const facilities: FacilityWithDistance[] = [
     {
       id: FACILITY_ID,
@@ -593,6 +699,188 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const patientOrders: PatientOrder[] = [
+    {
+      id: 'ord-demo-rx-102',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 2,
+      supersedesId: 'ord-demo-rx-101',
+      status: 'active',
+      issuedAt: '2026-10-18T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 500mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Demo instructions (fake): take with food for ten days.',
+    },
+    {
+      id: 'ord-demo-rx-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'superseded',
+      issuedAt: '2026-10-17T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medication: 'Demo Amoxicillin 250mg (fake)',
+      dose: 'One capsule three times daily',
+      quantity: '30 capsules',
+      instructions: 'Superseded by a corrected dose.',
+    },
+    {
+      id: 'ord-demo-lab-101',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'lab_order',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-18T09:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      testName: 'Demo full blood count (fake)',
+      fastingRequired: true,
+      instructions: 'Demo instructions (fake): fasting sample required.',
+    },
+    {
+      id: 'ord-demo-rx-100',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'completed',
+      issuedAt: '2026-09-20T08:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Vitamin D 1000 IU (fake)',
+      dose: 'One tablet daily',
+      quantity: '30 tablets',
+      instructions: null,
+    },
+    {
+      // Cancelled — backs the refunded payment intent below (issue #61):
+      // the order fell through and the escrow came back to the patient.
+      id: 'ord-demo-rx-103',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'cancelled',
+      issuedAt: '2026-10-14T11:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: false,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Insulin pen (fake)',
+      dose: 'One injection nightly',
+      quantity: '1 pen',
+      instructions: null,
+    },
+    {
+      // Active — its payment failed, so the panel shows "contact support"
+      // (issue #61).
+      id: 'ord-demo-rx-104',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-17T15:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo blood thinners (fake)',
+      dose: 'One tablet in the morning',
+      quantity: '28 tablets',
+      instructions: null,
+    },
+  ];
+
+  const orderFacilities: Record<string, QualifiedOrderFacility[]> = {
+    'ord-demo-rx-102': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+      {
+        id: 'fac-demo-pharmacy-2',
+        userId: 'usr-facility-pharmacy-2',
+        name: 'Example Chemist (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '3 Example Street',
+          city: 'Mockford',
+          latitude: 6.6,
+          longitude: 3.45,
+        },
+        isOpen: false,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-rx-101': [
+      {
+        id: FACILITY_ID,
+        userId: 'usr-facility-demo',
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        location: {
+          address: '1 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5244,
+          longitude: 3.3792,
+        },
+        isOpen: true,
+        capabilities: ['Prescription dispensing'],
+      },
+    ],
+    'ord-demo-lab-101': [
+      {
+        id: 'fac-demo-lab',
+        userId: 'usr-facility-lab',
+        name: 'Demo Lab (fake)',
+        type: 'lab',
+        location: {
+          address: '2 Fixture Lane',
+          city: 'Sampleton',
+          latitude: 6.5312,
+          longitude: 3.3915,
+        },
+        isOpen: true,
+        capabilities: ['Sample collection', 'Lab result delivery'],
+      },
+    ],
+  };
+
   const walletLink: WalletLink = {
     id: 'wln-demo-1',
     facilityId: FACILITY_ID,
@@ -603,9 +891,10 @@ export function createSeedDb(): MockDb {
 
   const paymentIntents: PaymentIntent[] = [
     {
+      // Held in escrow — backs ord-demo-rx-102.
       id: 'pin-demo-1',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-1',
+      orderId: 'ord-demo-rx-102',
       status: 'escrowed',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -617,9 +906,11 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-17T10:05:00.000Z',
     },
     {
+      // Never funded — backs ord-demo-lab-101; also what the pay-with-wallet
+      // panel (issue #59, behind its default-off flag) acts on in dev.
       id: 'pin-demo-2',
       orderType: 'lab_order',
-      orderId: 'ord-demo-lab-1',
+      orderId: 'ord-demo-lab-101',
       status: 'created',
       patientProfileId: 'prf-patient-2',
       facilityId: FACILITY_ID,
@@ -631,9 +922,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-18T08:10:00.000Z',
     },
     {
+      // Released — backs the completed ord-demo-rx-100.
       id: 'pin-demo-3',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-2',
+      orderId: 'ord-demo-rx-100',
       status: 'released',
       patientProfileId: 'prf-patient-3',
       facilityId: FACILITY_ID,
@@ -643,6 +935,423 @@ export function createSeedDb(): MockDb {
       sorobanContractId: 'CD demo contract (fake)',
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-16T09:00:00.000Z',
+    },
+    {
+      // Refunded — backs the cancelled ord-demo-rx-103 (issue #61).
+      id: 'pin-demo-4',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-103',
+      status: 'refunded',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '40000000',
+      escrowId: 'esc-demo-4 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000004',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-14T11:05:00.000Z',
+      updatedAt: '2026-10-15T16:00:00.000Z',
+    },
+    {
+      // Failed — backs ord-demo-rx-104 (issue #61); the panel says to
+      // contact support. ord-demo-rx-101 (superseded) deliberately has no
+      // intent at all, so the panel hides there.
+      id: 'pin-demo-5',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-104',
+      status: 'failed',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '1250000000',
+      escrowId: null,
+      stellarTxHash: null,
+      sorobanContractId: null,
+      createdAt: '2026-10-17T15:05:00.000Z',
+      updatedAt: '2026-10-17T15:06:00.000Z',
+    },
+    // Escrow held for the seeded fulfilment disputes below.
+    {
+      id: 'pin-dispute-demo-1',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-1',
+      status: 'escrowed',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '500000000',
+      escrowId: 'esc-dispute-demo-1 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000011',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-14T08:05:00.000Z',
+      updatedAt: '2026-10-14T08:10:00.000Z',
+    },
+    {
+      id: 'pin-dispute-demo-2',
+      orderType: 'lab_order',
+      orderId: 'ord-demo-lab-1',
+      status: 'escrowed',
+      patientProfileId: 'prf-patient-2',
+      facilityId: FACILITY_ID,
+      amountStroops: '250000000',
+      escrowId: 'esc-dispute-demo-2 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000012',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-18T11:20:00.000Z',
+      updatedAt: '2026-10-18T11:25:00.000Z',
+    },
+    {
+      id: 'pin-dispute-demo-3',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-2',
+      status: 'escrowed',
+      patientProfileId: 'prf-patient-3',
+      facilityId: FACILITY_ID,
+      amountStroops: '750000000',
+      escrowId: 'esc-dispute-demo-3 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000013',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-19T15:30:00.000Z',
+      updatedAt: '2026-10-19T15:35:00.000Z',
+    },
+  ];
+
+  // Fulfilment disputes (issue #76). Every row is fake; the amounts match the
+  // escrowed intents above so the detail's payment panel links somewhere real.
+  const disputes: FulfillmentDispute[] = [
+    {
+      id: 'dsp-demo-1',
+      status: 'open',
+      orderId: 'ord-demo-rx-1',
+      orderType: 'prescription',
+      itemName: 'Demo Amoxicillin 500mg (fake)',
+      patientName: 'Pat Placeholder',
+      facility: { id: FACILITY_ID, name: 'Demo Pharmacy (fake)' },
+      amountStroops: '500000000',
+      asset: 'XLM',
+      reason: 'not_received',
+      openedAt: '2026-10-14T08:15:00.000Z',
+      updatedAt: '2026-10-15T10:20:00.000Z',
+      patientReport: {
+        reason: 'not_received',
+        description:
+          'The pharmacy marked this fulfilled six days ago, but nothing was delivered and the courier has no record of it. I paid for next-day delivery.',
+        submittedAt: '2026-10-14T08:15:00.000Z',
+        submittedBy: 'Pat Placeholder',
+      },
+      facilityProof: {
+        reference: 'DR-2041 (fake)',
+        note: 'Dispensed to a courier and signed out at the counter. Courier reference CD-7781 (fake).',
+        submittedAt: '2026-10-15T10:20:00.000Z',
+        submittedBy: 'Mo Example (fake)',
+        attachments: [
+          {
+            id: 'att-demo-1',
+            filename: 'dispensing-record-demo.pdf',
+            contentType: 'application/pdf',
+            sizeBytes: 184_320,
+            kind: 'dispensing_record',
+            uploadedAt: '2026-10-15T10:18:00.000Z',
+            uploadedBy: 'Mo Example (fake)',
+          },
+        ],
+      },
+      payment: { intentId: 'pin-dispute-demo-1', status: 'escrowed', escrowId: 'esc-dispute-demo-1 (fake)' },
+      timeline: [
+        {
+          id: 'tl-demo-1-1',
+          at: '2026-10-14T08:15:00.000Z',
+          actorRole: 'patient',
+          actorName: 'Pat Placeholder',
+          kind: 'opened',
+          summary: 'Dispute opened: order not received.',
+        },
+        {
+          id: 'tl-demo-1-2',
+          at: '2026-10-14T08:15:00.000Z',
+          actorRole: 'system',
+          actorName: 'docforum-core',
+          kind: 'payment',
+          summary: '50.00 XLM remains held in escrow while the dispute is open.',
+        },
+        {
+          id: 'tl-demo-1-3',
+          at: '2026-10-15T10:20:00.000Z',
+          actorRole: 'facility',
+          actorName: 'Mo Example (fake)',
+          kind: 'proof_submitted',
+          summary: 'Facility submitted dispensing record DR-2041 (fake) with one attachment.',
+        },
+      ],
+      resolvedAt: null,
+      resolution: null,
+      resolutionNotes: null,
+      resolvedBy: null,
+    },
+    {
+      id: 'dsp-demo-2',
+      status: 'open',
+      orderId: 'ord-demo-lab-1',
+      orderType: 'lab_order',
+      itemName: 'Demo blood panel (fake)',
+      patientName: 'Sam Example',
+      facility: { id: FACILITY_ID, name: 'Demo Pharmacy (fake)' },
+      amountStroops: '250000000',
+      asset: 'XLM',
+      reason: 'incomplete',
+      openedAt: '2026-10-18T11:30:00.000Z',
+      updatedAt: '2026-10-18T11:30:00.000Z',
+      patientReport: {
+        reason: 'incomplete',
+        description:
+          'Only one of the three tests on the order was collected. The other two were marked complete anyway and I was still charged for the full panel.',
+        submittedAt: '2026-10-18T11:30:00.000Z',
+        submittedBy: 'Sam Example',
+      },
+      facilityProof: null,
+      payment: { intentId: 'pin-dispute-demo-2', status: 'escrowed', escrowId: 'esc-dispute-demo-2 (fake)' },
+      timeline: [
+        {
+          id: 'tl-demo-2-1',
+          at: '2026-10-18T11:30:00.000Z',
+          actorRole: 'patient',
+          actorName: 'Sam Example',
+          kind: 'opened',
+          summary: 'Dispute opened: incomplete order.',
+        },
+        {
+          id: 'tl-demo-2-2',
+          at: '2026-10-18T11:30:00.000Z',
+          actorRole: 'system',
+          actorName: 'docforum-core',
+          kind: 'payment',
+          summary: '25.00 XLM remains held in escrow while the dispute is open.',
+        },
+      ],
+      resolvedAt: null,
+      resolution: null,
+      resolutionNotes: null,
+      resolvedBy: null,
+    },
+    {
+      id: 'dsp-demo-3',
+      status: 'open',
+      orderId: 'ord-demo-rx-2',
+      orderType: 'prescription',
+      itemName: 'Demo Metformin 850mg (fake)',
+      patientName: 'Quinn Example',
+      facility: { id: FACILITY_ID, name: 'Demo Pharmacy (fake)' },
+      amountStroops: '750000000',
+      asset: 'XLM',
+      reason: 'damaged',
+      openedAt: '2026-10-19T15:40:00.000Z',
+      updatedAt: '2026-10-20T07:05:00.000Z',
+      patientReport: {
+        reason: 'damaged',
+        description:
+          'The sealed box arrived crushed and two blister packs were open. I did not take any of it and want a refund rather than a replacement.',
+        submittedAt: '2026-10-19T15:40:00.000Z',
+        submittedBy: 'Quinn Example',
+      },
+      facilityProof: {
+        reference: 'DR-2099 (fake)',
+        note: 'Packed intact and photographed before handover. See the sealed-box photo.',
+        submittedAt: '2026-10-20T07:05:00.000Z',
+        submittedBy: 'Mo Example (fake)',
+        attachments: [
+          {
+            id: 'att-demo-2',
+            filename: 'sealed-box-before-handover-demo.jpg',
+            contentType: 'image/jpeg',
+            sizeBytes: 2_411_724,
+            kind: 'photo',
+            uploadedAt: '2026-10-20T07:02:00.000Z',
+            uploadedBy: 'Mo Example (fake)',
+          },
+          {
+            id: 'att-demo-3',
+            filename: 'courier-handover-demo.pdf',
+            contentType: 'application/pdf',
+            sizeBytes: 96_256,
+            kind: 'dispensing_record',
+            uploadedAt: '2026-10-20T07:04:00.000Z',
+            uploadedBy: 'Mo Example (fake)',
+          },
+        ],
+      },
+      payment: { intentId: 'pin-dispute-demo-3', status: 'escrowed', escrowId: 'esc-dispute-demo-3 (fake)' },
+      timeline: [
+        {
+          id: 'tl-demo-3-1',
+          at: '2026-10-19T15:40:00.000Z',
+          actorRole: 'patient',
+          actorName: 'Quinn Example',
+          kind: 'opened',
+          summary: 'Dispute opened: damaged on arrival.',
+        },
+        {
+          id: 'tl-demo-3-2',
+          at: '2026-10-19T15:40:00.000Z',
+          actorRole: 'system',
+          actorName: 'docforum-core',
+          kind: 'payment',
+          summary: '75.00 XLM remains held in escrow while the dispute is open.',
+        },
+        {
+          id: 'tl-demo-3-3',
+          at: '2026-10-20T07:05:00.000Z',
+          actorRole: 'facility',
+          actorName: 'Mo Example (fake)',
+          kind: 'proof_submitted',
+          summary: 'Facility submitted dispensing record DR-2099 (fake) with two attachments.',
+        },
+      ],
+      resolvedAt: null,
+      resolution: null,
+      resolutionNotes: null,
+      resolvedBy: null,
+    },
+  ];
+
+  // Issue #64 — the verification review queue: two waiting applications
+  // (different ages and document counts), one with no documents at all, and
+  // one already decided so the detail page has history to show. All fake
+  // personas on the example.test domain.
+  const verifications: MockVerification[] = [
+    {
+      doctorProfileId: 'vrf-demo-1',
+      userId: 'usr-vrf-demo-1',
+      fullName: 'Dr Ada Example (fake)',
+      email: 'ada.doctor@example.test',
+      specialties: ['Cardiology'],
+      submittedAt: '2026-10-12T09:00:00.000Z',
+      createdAt: '2026-10-12T09:00:00.000Z',
+      updatedAt: '2026-10-12T09:00:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-1',
+          fileName: 'medical-license-ada.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 245_760,
+          uploadedAt: '2026-10-12T09:03:00.000Z',
+        },
+        {
+          id: 'doc-demo-2',
+          fileName: 'board-certification-ada.jpg',
+          contentType: 'image/jpeg',
+          sizeBytes: 1_843_200,
+          uploadedAt: '2026-10-12T09:04:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-2',
+      userId: 'usr-vrf-demo-2',
+      fullName: 'Dr Bek Example (fake)',
+      email: 'bek.doctor@example.test',
+      specialties: ['Dermatology', 'General practice'],
+      submittedAt: '2026-10-18T14:30:00.000Z',
+      createdAt: '2026-10-18T14:30:00.000Z',
+      updatedAt: '2026-10-18T14:30:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-3',
+          fileName: 'medical-license-bek.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 312_320,
+          uploadedAt: '2026-10-18T14:35:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-3',
+      userId: 'usr-vrf-demo-3',
+      fullName: 'Dr Cy Example (fake)',
+      email: 'cy.doctor@example.test',
+      specialties: [],
+      submittedAt: '2026-10-19T10:15:00.000Z',
+      createdAt: '2026-10-19T10:15:00.000Z',
+      updatedAt: '2026-10-19T10:15:00.000Z',
+      verificationStatus: 'pending',
+      documents: [],
+    },
+    {
+      doctorProfileId: 'vrf-demo-4',
+      userId: 'usr-vrf-demo-4',
+      fullName: 'Dr Dee Example (fake)',
+      email: 'dee.doctor@example.test',
+      specialties: ['Paediatrics'],
+      submittedAt: '2026-10-01T08:00:00.000Z',
+      createdAt: '2026-10-01T08:00:00.000Z',
+      updatedAt: '2026-10-05T11:00:00.000Z',
+      verificationStatus: 'verified',
+      documents: [
+        {
+          id: 'doc-demo-4',
+          fileName: 'medical-license-dee.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 198_656,
+          uploadedAt: '2026-10-01T08:02:00.000Z',
+        },
+      ],
+    },
+  ];
+
+  // Issue #64 reads decision history from the real audit trail contract
+  // (#43); these seed the decided doctor's flip plus one unrelated event so
+  // the audit page has something to show too.
+  const auditEvents: AuditEvent[] = [
+    {
+      id: 'aud-demo-1',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'DoctorProfile',
+      entityId: 'vrf-demo-4',
+      action: 'doctor.verification_status_changed',
+      fromState: 'pending',
+      toState: 'verified',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-05T11:00:00.000Z',
+    },
+    {
+      id: 'aud-demo-2',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'PaymentIntent',
+      entityId: 'pin-demo-1',
+      action: 'payment_intent.funded',
+      fromState: 'created',
+      toState: 'escrowed',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-17T10:05:00.000Z',
+    },
+  ];
+
+  const closures: Closure[] = [
+    {
+      id: 'clo-holiday-new-year',
+      name: 'New Year Holiday',
+      description: 'Year-end holiday closure (fake)',
+      status: 'active',
+      allDay: true,
+      start: '2026-12-24T00:00:00.000Z',
+      end: '2026-12-26T23:59:59.999Z',
+      facilityId: null, // platform-wide
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      id: 'clo-maintenance-pharmacy',
+      name: 'Pharmacy Maintenance',
+      description: 'Quarterly equipment maintenance (fake)',
+      status: 'active',
+      allDay: false,
+      start: '2026-11-01T09:00:00.000Z',
+      end: '2026-11-01T17:00:00.000Z',
+      facilityId: FACILITY_ID, // scoped to the demo pharmacy
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
     },
   ];
 
@@ -721,17 +1430,27 @@ export function createSeedDb(): MockDb {
     dataExport,
     careThreads,
     appointments,
+    intakeForms,
     runningDelay,
     messageThreads,
     consultationNotes,
+    consultationRecords: [],
+    consultationReferrals: [],
+    consultationOrders: [],
     insights,
+    facilityInsights,
     facilities,
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,
+    patientOrders,
+    orderFacilities,
     walletLink,
     paymentIntents,
-    specialtyClaims,
+    disputes,
     consultationAddenda,
+    verifications,
+    auditEvents,
+    closures,
   };
 }
