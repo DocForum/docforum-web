@@ -1,0 +1,229 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.panelHeader h1 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-family: var(--font-display);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: #eef6f2;
+  border: 1px solid #b8dfcb;
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--color-surface);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.kind {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.meta {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.status {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  background: #fff8e6;
+  color: #8c5b00;
+  border: 1px solid #ebd08c;
+}
+
+.status[data-status='completed'],
+.status[data-status='active'] {
+  background: #eef6f2;
+  color: var(--color-accent);
+  border-color: #b8dfcb;
+}
+
+.status[data-status='cancelled'],
+.status[data-status='superseded'] {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.detail,
+.instructions,
+.history,
+.selectedFacility,
+.muted {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.instructions {
+  color: var(--color-text);
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--space-3);
+}
+
+.history,
+.muted {
+  color: var(--color-text-muted);
+}
+
+.facilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: var(--space-3);
+}
+
+.selectedFacility {
+  color: var(--color-text);
+}
+
+.detailLink {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+.detailLink a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.error {
+  margin: 0;
+  color: #b3261e;
+  font-size: var(--text-sm);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 24, 21, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 100;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-family: var(--font-display);
+}
+
+.dialogSubtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.facilityList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.facilityItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.facilityMeta {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+}

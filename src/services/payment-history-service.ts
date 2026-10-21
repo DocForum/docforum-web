@@ -7,11 +7,11 @@
 import { apiFetch } from './api-client';
 import type { PaymentHistoryEntry, PaymentHistoryPage } from '../types/models';
 
-export function listPaymentHistory(cursor: string | undefined, accessToken: string): Promise<PaymentHistoryPage> {
+export function listPaymentHistory(cursor: string | undefined, accessToken: string, signal?: AbortSignal): Promise<PaymentHistoryPage> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
-  return apiFetch<PaymentHistoryPage>(`/payments/mine${query}`, { accessToken });
+  return apiFetch<PaymentHistoryPage>(`/payments/mine${query}`, { accessToken, signal });
 }
 
-export function getPaymentHistoryEntry(id: string, accessToken: string): Promise<PaymentHistoryEntry> {
-  return apiFetch<PaymentHistoryEntry>(`/payments/mine/${encodeURIComponent(id)}`, { accessToken });
+export function getPaymentHistoryEntry(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentHistoryEntry> {
+  return apiFetch<PaymentHistoryEntry>(`/payments/mine/${encodeURIComponent(id)}`, { accessToken, signal });
 }

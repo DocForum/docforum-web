@@ -9,6 +9,9 @@ import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
 import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
+import { OrdersPage } from './OrdersPage';
+import { OrderDetailPage } from './OrderDetailPage';
+import { MessageThreadPage } from './MessageThreadPage';
 import styles from './PatientDashboardPage.module.css';
 
 function PatientHome() {
@@ -68,6 +71,7 @@ function PatientHome() {
           <Link to="dependents">Manage dependents</Link>
           <Link to="health">Health profile</Link>
           <Link to="/care">Care journey timeline</Link>
+          <Link to="orders">My prescriptions & lab orders</Link>
           <Link to="facilities">Find pharmacies & labs</Link>
           <Link to="settings">Account settings & privacy</Link>
           <Link to="/payments">Payments</Link>
@@ -85,6 +89,9 @@ export function PatientDashboardPage() {
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />
+      <Route path="orders" element={<OrdersPage />} />
+      <Route path="orders/:orderId" element={<OrderDetailPage />} />
+      <Route path="messages/:threadId" element={<MessageThreadPage />} />
       <Route path="settings" element={<AccountSettingsPage />} />
       <Route path="care/*" element={<CareThreadPage />} />
       <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />

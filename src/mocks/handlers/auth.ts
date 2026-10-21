@@ -115,27 +115,15 @@ export const authHandlers = [
     respond('void', () => null),
   ),
 
-  // Active sessions (issue #79). `others` is listed before `:sessionId` so
-  // the literal path wins.
-  http.get('*/auth/sessions', respond('list', () => mockSessions)),
-
-  http.delete(
-    '*/auth/sessions/others',
+  // Session idle-timeout settings (issue #82) — role-aware like the real
+  // backend is expected to be (ARCHITECTURE_ESSENTIALS.md "Known
+  // assumptions — Session idle timeout").
+  http.get(
+    '*/auth/session-timeout',
     respond('json', () => {
-      const revokedCount = mockSessions.filter((session) => !session.isCurrent).length;
-      mockSessions = mockSessions.filter((session) => session.isCurrent);
-      return { revokedCount };
-    }),
-  ),
-
-  http.delete(
-    '*/auth/sessions/:sessionId',
-    respond('void', ({ params }) => {
-      const id = String(params.sessionId);
-      const index = mockSessions.findIndex((session) => session.id === id);
-      if (index === -1) return notFound('session');
-      mockSessions.splice(index, 1);
-      return null;
+      const role = useMockStore.getState().activeRole;
+      const idleTimeoutMinutes = role === 'admin' ? 10 : role === 'patient' ? 30 : 15;
+      return { idleTimeoutMinutes, warningSeconds: 60 };
     }),
   ),
 ];
