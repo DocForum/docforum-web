@@ -28,6 +28,7 @@ import * as messagingService from '../services/messaging-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -81,6 +82,18 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('serves role-aware session timeout settings (issue #82)', async () => {
+    useMockStore.setState({ activeRole: 'admin' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 10, warningSeconds: 60 });
+
+    useMockStore.setState({ activeRole: 'patient' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 30, warningSeconds: 60 });
   });
 });
 
@@ -364,6 +377,40 @@ describe('facility finder', () => {
     );
     expect(nearby[0].id).toBe('fac-demo-pharmacy');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
+  });
+});
+
+describe('facility performance insights', () => {
+  it('returns aggregate-only insights and honours the date range', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: '30d' },
+    );
+    expect(insights.facilityId).toBe(FACILITY_ID);
+    expect(insights.range.preset).toBe('30d');
+    expect(insights.turnaround.fulfilledCount).toBeGreaterThan(0);
+    expect(insights.volumeByDay.length).toBe(7);
+    expect(insights.rejectionReasons.length).toBeGreaterThan(0);
+    expect(insights.disputes.totalOrders).toBeGreaterThan(0);
+
+    const custom = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+      { preset: 'custom', startDate: '2026-10-01', endDate: '2026-10-07' },
+    );
+    expect(custom.range).toMatchObject({ startDate: '2026-10-01', endDate: '2026-10-07' });
+  });
+
+  it('never leaks patient-level identifiers in the aggregate payload', async () => {
+    const insights = await insightsService.getFacilityPerformanceInsights(
+      MOCK_ACCESS_TOKEN,
+      FACILITY_ID,
+    );
+    const serialised = JSON.stringify(insights).toLowerCase();
+    expect(serialised).not.toContain('patientname');
+    expect(serialised).not.toContain('patientprofileid');
+    expect(serialised).not.toContain('ord-demo');
   });
 });
 

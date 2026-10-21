@@ -1,0 +1,33 @@
+.canvas {
+  display: block;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: #ffffff; /* always white — QR must be high-contrast */
+}
+
+/* Full-screen overlay mode — applied by OrderDetailPage via className */
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.fullscreen .canvas {
+  border: none;
+  border-radius: 0;
+}
+
+/* Print: render the canvas at a size scanners can reliably read from
+   a printed A4/Letter sheet. @media print rules are also in
+   OrderDetailPage.module.css for broader page layout. */
+@media print {
+  .canvas {
+    width: 220px !important;
+    height: 220px !important;
+    border: none;
+  }
+}
