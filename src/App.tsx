@@ -19,6 +19,7 @@ import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminVerificationPage } from './pages/AdminVerificationPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
@@ -113,6 +114,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminReferralsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/verification"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationPage />
             </RequireAuth>
           }
         />

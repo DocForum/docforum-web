@@ -32,6 +32,10 @@ export function AdminDashboardPage() {
           pending too long.
         </p>
         <p>
+          <Link to="/admin/verification">Review specialty claims</Link> to approve or reject each doctor's claims one
+          specialty at a time, with the supporting credential beside each claim.
+        </p>
+        <p>
           <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
         </p>
         <p>
