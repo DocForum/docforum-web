@@ -681,6 +681,12 @@ and typed errors.
 - **CSP:** Sentry is bundled via npm — there is no external `<script>` to whitelist. The only network target is `*.sentry.io`, and only when a DSN is configured; if a CSP is adopted, add `connect-src https://*.sentry.io`.
 
 
+### Content Security Policy (issue #101; Zod interaction from #99)
+
+- The production policy is injected as a `<meta http-equiv="Content-Security-Policy">` tag by the `cspPlugin` in `vite.config.ts` (strict: `script-src 'self'`, no inline scripts/styles, `require-trusted-types-for 'script'`); dev builds get a relaxed policy because Vite HMR and React Fast Refresh need inline scripts and `eval`.
+- GitHub Pages cannot set HTTP response headers, so the meta tag is the enforcement point (see `ARCHITECTURE_ESSENTIALS.md` “Deployment”). `frame-ancestors` is therefore deliberately absent from the meta policy: Chrome ignores it inside `<meta>` and logs a console error on every page load (which fails Lighthouse `errors-in-console` in CI). Clickjacking protection requires an HTTP header and remains an open gap on Pages.
+- `require-trusted-types-for 'script'` blocks `new Function`, which Zod v4's JIT uses to compile validators. Zod catches the rejection and falls back to its interpreter, but the browser still logs a TrustedScript error — so `src/zod-csp.ts` (the first import of `src/main.tsx`) calls `config({ jitless: true })` to skip the JIT entirely. Do not widen the policy with `'unsafe-eval'`; if another dependency needs `eval`, prefer its no-eval switch first.
+
 ### Phase W7 — Platform quality (issues #116–#119)
 
 #### DataTable pagination contract (issue #116, depends on docforum-core#114)

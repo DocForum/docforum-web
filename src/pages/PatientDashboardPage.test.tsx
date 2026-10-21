@@ -58,6 +58,17 @@ function laterToday(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 50, 0);
 }
 
+/** The day after today, at noon — `slot.ts` labels a visit "tomorrow" when
+ * it falls on the same calendar day as `now + 24h`, and noon is always
+ * still ahead on that day. A `now + 26h` offset crosses two midnights when
+ * the test runs after 22:00 and files the visit as the day after tomorrow,
+ * so the expectation has to be anchored to the calendar day, not elapsed
+ * hours. */
+function tomorrowAtNoon(): Date {
+  const inOneDay = new Date(Date.now() + DAY_MS);
+  return new Date(inOneDay.getFullYear(), inOneDay.getMonth(), inOneDay.getDate(), 12, 0, 0);
+}
+
 function appointment(start: Date, status: PatientAppointment['status'] = 'scheduled'): PatientAppointment {
   return {
     id: 'apt-1',
@@ -215,7 +226,7 @@ describe('PatientDashboardPage care hub', () => {
   it('files a later visit under Coming up without promising check-in today', async () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
-      appointment(new Date(Date.now() + 26 * 60 * 60 * 1000)),
+      appointment(tomorrowAtNoon()),
     ]);
 
     render(<PatientDashboardPage />);
