@@ -113,6 +113,17 @@ export const systemKeys = {
 };
 
 /**
+ * The admin operations overview board (issue #68): one aggregated read per
+ * refresh. A poll-driven read model, so its freshness comes from the
+ * 60-second poll; the admin-side writes that provably move a queue it shows
+ * (job run, referral settled) also invalidate it through `invalidations.ts`.
+ */
+export const overviewKeys = {
+  all: ['admin', 'overview'] as const,
+  board: () => ['admin', 'overview', 'board'] as const,
+};
+
+/**
  * Feature flags. `list` and `history` stay *siblings* under `all` (the
  * original rule, preserved): invalidating the list must not refetch the
  * audit lookup and vice-versa — only `flagKeys.all` (the write path) hits

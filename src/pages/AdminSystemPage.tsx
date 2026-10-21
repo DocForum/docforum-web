@@ -6,7 +6,7 @@ export function AdminSystemPage() {
   return (
     <div className={styles.page}>
       <Link to="/admin" className={styles.backLink}>
-        ← Back to payments console
+        ← Back to admin overview
       </Link>
       <SystemHealthConsole />
     </div>

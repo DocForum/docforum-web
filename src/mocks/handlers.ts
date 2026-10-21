@@ -1,6 +1,7 @@
 // All mock handlers, composed. Order matters only where paths could
 // overlap — specific (`/patients/me/…`) before generic (`/patients/:id/…`).
 import { accountHandlers } from './handlers/account';
+import { adminOverviewHandlers } from './handlers/admin-overview';
 import { authHandlers } from './handlers/auth';
 import { careThreadHandlers } from './handlers/care-thread';
 import { consultationHandlers } from './handlers/consultation';
@@ -20,6 +21,7 @@ import { adminClosuresHandlers } from './handlers/admin-closures';
 export const handlers = [
   ...authHandlers,
   ...accountHandlers,
+  ...adminOverviewHandlers,
   ...dependentHandlers,
   ...healthProfileHandlers,
   ...careThreadHandlers,

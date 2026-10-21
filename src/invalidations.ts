@@ -24,6 +24,7 @@ import {
   facilityKeys,
   flagKeys,
   healthKeys,
+  overviewKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
@@ -47,12 +48,14 @@ export const invalidations = {
   'facility.member-removed': (facilityId: string) => [facilityKeys.members(facilityId)],
   /** Fulfilling/rejecting an item moves the facility's fulfillment queue. */
   'facility.fulfillment-action': (facilityId: string) => [facilityKeys.queue(facilityId)],
-  /** A job run can move readiness, job rows, and outbox counts together. */
-  'admin.run-job': () => [systemKeys.all],
+  /** A job run can move readiness, job rows, and outbox counts together —
+   * and the overview board's failed-jobs queue with them. */
+  'admin.run-job': () => [systemKeys.all, overviewKeys.board()],
   /** Flag writes update the list and its "last changed by…" audit lookup. */
   'admin.feature-flags.write': () => [flagKeys.all],
-  /** Reassignment/cancellation moved the stuck queue we're showing. */
-  'admin.referral.settled': () => [referralKeys.stuckRoot()],
+  /** Reassignment/cancellation moved the stuck queue we're showing — and the
+   * overview board's stuck-referrals count with it. */
+  'admin.referral.settled': () => [referralKeys.stuckRoot(), overviewKeys.board()],
   /** A 422 means the picker's candidate list is stale, not the queue. */
   'admin.referral.candidates': () => [referralKeys.candidatesRoot()],
   /** Fund/release/refund: the intent row plus held/released totals in ledgers. */

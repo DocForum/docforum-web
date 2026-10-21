@@ -215,7 +215,10 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
             <div>
               <dt>Payment intent</dt>
               <dd>
-                <Link className={styles.mono} to={`/admin?intent=${encodeURIComponent(dispute.payment.intentId)}`}>
+                <Link
+                  className={styles.mono}
+                  to={`/admin/payments/console?intent=${encodeURIComponent(dispute.payment.intentId)}`}
+                >
                   {dispute.payment.intentId}
                 </Link>
               </dd>

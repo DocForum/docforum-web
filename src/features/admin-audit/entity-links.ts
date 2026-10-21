@@ -3,7 +3,8 @@
 // listed — appointments and doctor profiles have no admin-facing screen yet
 // (the consultation view is doctor-only), so they render as plain ids.
 const RECORD_VIEWS: Record<string, (entityId: string) => string> = {
-  PaymentIntent: (entityId) => `/admin?intent=${encodeURIComponent(entityId)}`,
+  // The payments console moved to its own route with issue #68.
+  PaymentIntent: (entityId) => `/admin/payments/console?intent=${encodeURIComponent(entityId)}`,
 };
 
 export function entityRecordPath(entityType: string, entityId: string): string | null {

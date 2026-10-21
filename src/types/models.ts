@@ -1273,6 +1273,42 @@ export interface DisputeAttachmentUrl {
   expiresAt: string;
 }
 
+// --- Phase W6 — Admin operations overview board (issue #68) ------------------
+// Assumed contract: docforum-core#123 ("Admin operations overview API:
+// queues, stuck items and failures in one place") has not landed. One
+// `GET /admin/overview` aggregates every attention queue through a backend
+// registry; a section that fails is reported as unavailable instead of
+// failing the whole response. Shapes are recorded in
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6"; reconcile here
+// when that backend issue ships.
+
+/** One attention queue on the overview board. */
+export interface AdminOverviewSection {
+  /** Registry key from docforum-core's aggregation (docforum-core#123). The
+   * board renders unknown keys as sent — the backend may register sections
+   * this frontend version has never seen. */
+  key: string;
+  /** Human-readable queue name, shown as sent. */
+  label: string;
+  /** False when this section failed to answer. The rest of the board still
+   * stands; the card renders a muted state, never an error. */
+  available: boolean;
+  /** Items waiting in the queue. `null` when unavailable. */
+  count: number | null;
+  /** ISO timestamp of the queue's oldest item — the board's age — or `null`
+   * when the queue is empty or the section doesn't report ages. `null` when
+   * unavailable. */
+  oldestItemCreatedAt: string | null;
+}
+
+/** `GET /admin/overview` — every queue the backend's registry knows about,
+ * in registry order, in one call. Admin-only, counts only, no PHI. */
+export interface AdminOverview {
+  /** When the backend aggregated this board. */
+  generatedAt: string;
+  sections: AdminOverviewSection[];
+}
+
 // --- Messaging & message attachments (Phase W2 — assumed, docforum-core
 // #61 (thread) and #62 (attachments) not landed yet). See
 // ARCHITECTURE_ESSENTIALS.md "Known assumptions". Attachments are stored

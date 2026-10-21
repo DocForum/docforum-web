@@ -7,13 +7,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { setupServer } from 'msw/node';
 import { handlers } from './handlers';
-import { resetDb } from './db';
+import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError } from '../services/api-client';
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
+import * as adminOverviewService from '../services/admin-overview-service';
 import * as careThreadService from '../services/care-thread-service';
 import * as consultationService from '../services/consultation-service';
 import * as disputesService from '../services/disputes-service';
@@ -698,6 +699,65 @@ describe('admin disputes', () => {
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('admin overview', () => {
+  it('aggregates every queue the mock db models and reports the rest unavailable', async () => {
+    const overview = await adminOverviewService.getAdminOverview(MOCK_ACCESS_TOKEN);
+
+    expect(overview.sections.map((section) => section.key)).toEqual([
+      'verifications',
+      'stuck_referrals',
+      'unrouted_orders',
+      'stuck_payments',
+      'failed_jobs',
+      'open_disputes',
+    ]);
+
+    const unrouted = overview.sections.find((section) => section.key === 'unrouted_orders');
+    expect(unrouted).toMatchObject({
+      available: true,
+      count: db.patientOrders.filter(
+        (order) =>
+          order.status === 'active' && order.requiresFacilitySelection && order.selectedFacility === null,
+      ).length,
+    });
+
+    const stuckPayments = overview.sections.find((section) => section.key === 'stuck_payments');
+    expect(stuckPayments).toMatchObject({
+      available: true,
+      count: db.paymentIntents.filter((intent) => intent.status === 'created' || intent.status === 'escrowed')
+        .length,
+    });
+
+    const openDisputes = db.disputes.filter((dispute) => dispute.status === 'open');
+    const disputes = overview.sections.find((section) => section.key === 'open_disputes');
+    expect(disputes).toMatchObject({ available: true, count: openDisputes.length });
+    expect(disputes?.oldestItemCreatedAt).toBe(
+      openDisputes.map((dispute) => dispute.openedAt).sort((a, b) => Date.parse(a) - Date.parse(b))[0],
+    );
+
+    // Queues the mock db doesn't model come back unavailable — the muted
+    // card state the board must render instead of an error.
+    for (const key of ['verifications', 'stuck_referrals', 'failed_jobs']) {
+      expect(overview.sections.find((section) => section.key === key)).toMatchObject({
+        available: false,
+        count: null,
+        oldestItemCreatedAt: null,
+      });
+    }
+  });
+
+  it('reports every queue clear in the "empty" scenario', async () => {
+    useMockStore.setState({ scenario: 'empty' });
+
+    const overview = await adminOverviewService.getAdminOverview(MOCK_ACCESS_TOKEN);
+
+    expect(overview.sections).toHaveLength(6);
+    expect(overview.sections.every((section) => section.available)).toBe(true);
+    expect(overview.sections.every((section) => section.count === 0)).toBe(true);
+    expect(overview.sections.every((section) => section.oldestItemCreatedAt === null)).toBe(true);
   });
 });
 

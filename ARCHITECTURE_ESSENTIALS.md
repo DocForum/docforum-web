@@ -364,7 +364,7 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 
 #### Frontend behaviour
 - Filters, tab and cursor live in the URL query (`tab`, `entityType`, `entityId`, `actor`, `action`, `from`, `to`, `cursor`); values from the URL are validated (charset, length, real calendar dates, `from ≤ to`) and invalid ones are dropped with a visible notice.
-- Entity links: only `PaymentIntent` has an admin-reachable view (`/admin?intent=<id>`). Appointment and doctor-profile ids render as plain text until admin views exist.
+- Entity links: only `PaymentIntent` has an admin-reachable view (`/admin/payments/console?intent=<id>` — the console's own route since issue #68 moved it off `/admin`). Appointment and doctor-profile ids render as plain text until admin views exist.
 - CSV export is client-side and covers exactly the rows on screen; cells starting with `= + - @` are prefixed with `'` to defuse spreadsheet formulas.
 
 ### Phase W6 — Stuck referrals console (issue #72, depends on docforum-core#68 and #65)
@@ -430,6 +430,22 @@ call still goes through docforum-core (hard rule 1).
 - `DisputeTimelineEvent` = `{id, at, actorRole: Role|'system', actorName, kind: 'opened'|'proof_submitted'|'patient_message'|'payment'|'resolved', summary}`, oldest first as sent. It is display-only; the console never invents events.
 - Queue badges escalate at 24 h and 72 h open (tighter than the referral queue's thresholds, because each open dispute is blocked escrow). A queue/detail `403` says the admin session lost access; queue errors offer a retry and keep already-loaded pages visible.
 - Mock fixtures (`dsp-demo-1…3`) cover proof-with-attachments, no-proof, and a multi-page queue (mock page size 2); `npm run dev:mock` serves the resolve and signed-URL endpoints from `src/mocks/handlers/disputes.ts`.
+
+### Phase W6 — Admin operations overview board (issue #68, depends on docforum-core#123)
+
+docforum-core#123 ("Admin operations overview API") has not landed, so the
+shape below is assumed and mirrored in `models.ts` under "Phase W6 — Admin
+operations overview board". The board lives at `/admin` (issue #68 rebuilt
+the admin landing page around it); every call goes through docforum-core
+(hard rule 1).
+
+- `GET /admin/overview` (admin-only, counts only, no PHI) → `AdminOverview` = `{generatedAt, sections: AdminOverviewSection[]}`, sections in the backend registry's order. `AdminOverviewSection` = `{key, label, available, count, oldestItemCreatedAt}` — `count` is the queue's size and `oldestItemCreatedAt` its oldest item's ISO timestamp (`null` when the queue is empty or the section doesn't report ages); both are `null` while `available: false`.
+- **Per-section failure is the contract:** a failing section is reported as `available: false` and never fails the response — the card renders a muted "Unavailable" state (`data-tone="neutral"`), not an error page. A whole-endpoint `404` (the backend hasn't shipped #123) is likewise a muted notice — "docforum-core doesn't serve the operations overview yet (docforum-core#123)" — and a failed refresh after an earlier success keeps the last board with a "Couldn't refresh" banner instead of dropping it.
+- **`key` is the backend's registry key; the drill-down link is client-side.** `features/admin-overview/sections.ts` maps the keys this frontend knows (`stuck_referrals` → `/admin/referrals`, `stuck_payments` → `/admin/payments/console`, `failed_jobs` → `/admin/system`, `open_disputes` → `/admin/disputes`). Keys without a screen (`verifications`, `unrouted_orders`) and keys this version has never seen render as sent, with no link — the backend may register sections ahead of their frontend screens. Unknown keys are never dropped.
+- **Freshness is the 60-second poll:** `refetchInterval` of 60 000 ms with `refetchIntervalInBackground: false`, so polling stops while the tab is hidden and refetch-on-focus catches up when it returns (same mechanism as the system-health page's 30 s poll). The admin-side writes that provably move a queue on the board (job run, referral settled) also carry `overviewKeys.board()` in `invalidations.ts`; other queue-moving actions land on the next tick.
+- **Oldest age is computed client-side** from `oldestItemCreatedAt` against render time (clamped at 0 for clock skew), and the card escalates `info → warning → danger` at 24 h / 72 h — the same cadence the disputes queue badges at.
+- **The payments console moved** from `/admin` to `/admin/payments/console` (issue #68's "no functionality lost" requirement): same component, same `?intent=<id>` deep link the audit trail and dispute detail use — those links now target the new route. `/admin` remains the overview landing (`admin/*` route), the admin nav gained an "Overview" entry, and each admin page's back link now reads "Back to admin overview".
+- Mock: `src/mocks/handlers/admin-overview.ts` derives the queues the mock db models (unrouted orders, stuck payments, open disputes) and reports verifications, stuck referrals and failed jobs unavailable, so the muted card state is exercisable in `npm run dev:mock`; the "empty" scenario reports every queue clear.
 
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`

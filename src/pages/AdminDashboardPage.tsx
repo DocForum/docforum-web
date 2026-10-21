@@ -1,66 +1,44 @@
-import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useAuthStore } from '../store/auth-store';
-import { CreatePaymentIntentForm } from '../features/payments/components/CreatePaymentIntentForm';
-import { PaymentIntentPanel } from '../features/payments/components/PaymentIntentPanel';
-import { TextField } from '../components/TextField';
+import { Link } from 'react-router-dom';
+import { AdminOverviewBoard } from '../features/admin-overview/components/AdminOverviewBoard';
+import styles from '../features/admin-overview/components/AdminOverview.module.css';
 
 // v1: admin accounts are invited/seeded directly, not self-serve — there's
 // no admin signup flow anywhere in this repo or docforum-core, by design
 // (PRD OQ-2). This page is real once an admin session exists.
+//
+// Issue #68: `/admin` is the "what needs attention" board, not the payments
+// console — the console moved to `/admin/payments/console` with no
+// functionality lost.
 export function AdminDashboardPage() {
-  const user = useAuthStore((state) => state.user);
-  // `?intent=<id>` opens an intent directly — the audit trail links here.
-  const [searchParams] = useSearchParams();
-  const linkedIntentId = searchParams.get('intent')?.trim() || null;
-  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(linkedIntentId);
-  const [lookupId, setLookupId] = useState(linkedIntentId ?? '');
-
   return (
-    <div className="container">
-      <div className="card">
-        <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
-        <p>
-          Payments console (Phase W5) — creates and drives real{' '}
-          <a href="https://github.com/DocForum/docforum-core/blob/main/docs/adr/0004-custodial-payments-v1.md">
-            custodial escrow payments
-          </a>{' '}
-          on Stellar testnet, entirely through docforum-core's API.
-        </p>
-        <p>
-          <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
-          pending too long.
-        </p>
-        <p>
-          <Link to="/admin/disputes">Resolve fulfilment disputes</Link> to release or refund escrow that is blocked
-          while a patient disputes a fulfilled order.
-        </p>
-        <p>
-          <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
-        </p>
-        <p>
-          <Link to="/admin/flags">Manage feature flags</Link> to stage rollouts like wallet payments or 2FA enforcement.
-        </p>
-        <p>
-          <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
-        </p>
-      </div>
+    <div className={styles.page}>
+      <AdminOverviewBoard />
 
-      <CreatePaymentIntentForm onCreated={setSelectedIntentId} />
-
-      <div className="card">
-        <h2>Look up an existing payment intent</h2>
-        <TextField
-          label="Payment intent id"
-          value={lookupId}
-          onChange={(e) => setLookupId(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setSelectedIntentId(lookupId);
-          }}
-        />
-      </div>
-
-      {selectedIntentId && <PaymentIntentPanel intentId={selectedIntentId} />}
+      <nav className={styles.consoleNav} aria-labelledby="admin-consoles-title">
+        <h2 id="admin-consoles-title" className={styles.consoleTitle}>
+          All admin consoles
+        </h2>
+        <ul className={styles.consoleList}>
+          <li>
+            <Link to="/admin/payments/console">Payments console</Link>
+          </li>
+          <li>
+            <Link to="/admin/referrals">Stuck referrals</Link>
+          </li>
+          <li>
+            <Link to="/admin/disputes">Fulfilment disputes</Link>
+          </li>
+          <li>
+            <Link to="/admin/audit">Audit trail</Link>
+          </li>
+          <li>
+            <Link to="/admin/flags">Feature flags</Link>
+          </li>
+          <li>
+            <Link to="/admin/system">System health</Link>
+          </li>
+        </ul>
+      </nav>
     </div>
   );
 }

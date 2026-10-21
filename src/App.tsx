@@ -11,6 +11,7 @@ import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminPaymentsConsolePage } from './pages/AdminPaymentsConsolePage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { AccessLogPage } from './pages/AccessLogPage';
@@ -220,6 +221,16 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminFlagsPage />
+            </RequireAuth>
+          }
+        />
+        {/* Issue #68: the payments console moved off `/admin` to its own
+            route; `/admin` stays the overview landing via `admin/*`. */}
+        <Route
+          path="admin/payments/console"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminPaymentsConsolePage />
             </RequireAuth>
           }
         />

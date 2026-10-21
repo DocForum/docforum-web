@@ -91,7 +91,10 @@ function roleNavItems(userRole: Role | null): NavItem[] {
     );
   } else if (userRole === 'admin') {
     base.push(
-      { to: '/admin', label: 'Payments', roles: ['admin'] },
+      // `/admin` is the operations-overview landing (issue #68); the payments
+      // console lives at its own route now.
+      { to: '/admin', label: 'Overview', roles: ['admin'] },
+      { to: '/admin/payments/console', label: 'Payments', roles: ['admin'] },
       { to: '/admin/referrals', label: 'Referrals', roles: ['admin'] },
       { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
       { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },

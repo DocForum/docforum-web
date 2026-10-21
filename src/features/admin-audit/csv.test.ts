@@ -51,7 +51,7 @@ describe('audit CSV export', () => {
 
 describe('audit entity links', () => {
   it('links payment intents to the admin payments console', () => {
-    expect(entityRecordPath('PaymentIntent', 'pi 1')).toBe('/admin?intent=pi%201');
+    expect(entityRecordPath('PaymentIntent', 'pi 1')).toBe('/admin/payments/console?intent=pi%201');
   });
 
   it('returns null for types with no admin view, including prototype keys', () => {

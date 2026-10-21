@@ -10,6 +10,7 @@ import {
   facilityKeys,
   flagKeys,
   healthKeys,
+  overviewKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
@@ -109,11 +110,14 @@ describe('invalidation map', () => {
   it('splits the referral paths: settled refreshes the queue, a 422 only the picker', async () => {
     seed(referralKeys.stuck('24h'));
     seed(referralKeys.candidatesRoot());
+    seed(overviewKeys.board());
 
     await invalidateFor(queryClient, 'admin.referral.settled');
 
     expect(isInvalidated(referralKeys.stuck('24h'))).toBe(true);
     expect(isInvalidated(referralKeys.candidatesRoot())).toBe(false);
+    // Settling a referral also moves the overview board's stuck-referral count.
+    expect(isInvalidated(overviewKeys.board())).toBe(true);
 
     queryClient.removeQueries({ queryKey: referralKeys.stuck('24h') });
     seed(referralKeys.stuck('24h'));

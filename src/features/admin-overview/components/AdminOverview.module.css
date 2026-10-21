@@ -1,0 +1,229 @@
+/* The "what needs attention" board: one card per queue, one `data-tone`
+   per card, so colours mean the same thing here as on the system-health
+   board. Unavailable sections stay muted — no red for a queue the backend
+   simply couldn't answer. */
+
+.page {
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-12);
+}
+
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ---- Header ---- */
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-2xl);
+}
+
+.subtitle {
+  margin: var(--space-2) 0 0;
+  max-width: 56ch;
+  font-size: var(--text-sm);
+}
+
+.refresh {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  text-align: right;
+}
+
+.refreshText,
+.refreshHint {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.refreshText {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.refreshHint {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+/* ---- Board states ---- */
+
+.loading,
+.empty,
+.notice {
+  margin: 0;
+  padding: var(--space-6);
+  text-align: center;
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+}
+
+.staleBanner {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+/* ---- Queue cards ---- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: var(--space-3);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--tone-fg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card[data-tone='ok'] {
+  --tone-fg: var(--color-success);
+  --tone-bg: var(--color-success-surface);
+}
+
+.card[data-tone='info'] {
+  --tone-fg: var(--color-accent);
+  --tone-bg: var(--color-accent-subtle);
+}
+
+.card[data-tone='warning'] {
+  --tone-fg: var(--color-warning);
+  --tone-bg: var(--color-warning-surface);
+}
+
+.card[data-tone='danger'] {
+  --tone-fg: var(--color-danger);
+  --tone-bg: var(--color-danger-surface);
+}
+
+.card[data-tone='neutral'] {
+  --tone-fg: var(--color-text-muted);
+  --tone-bg: var(--color-surface-alt);
+}
+
+.cardLabel {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.cardValue {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+}
+
+.cardCount {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--tone-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardCountUnit {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* One muted pill for "Unavailable" — neutral, never red. */
+.mutedPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cardDetail {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.cardAge {
+  font-weight: 600;
+  color: var(--tone-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardLink {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* ---- Console links on the landing page ---- */
+
+.consoleNav {
+  margin-top: var(--space-8);
+}
+
+.consoleTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+
+.consoleList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  .refresh {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
