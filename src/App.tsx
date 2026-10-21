@@ -28,6 +28,7 @@ import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminVerificationPage } from './pages/AdminVerificationPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { AdminDisputesPage } from './pages/AdminDisputesPage';
 import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
@@ -200,6 +201,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminVerificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/verification"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationPage />
             </RequireAuth>
           }
         />
