@@ -11,6 +11,19 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+// --- Session idle timeout (issue #82) — ASSUMED, not yet in docforum-core --
+// Shared clinical devices: the backend is expected to be able to push its
+// own per-role idle timeout, which takes precedence over the frontend
+// defaults. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Session
+// idle timeout".
+
+export interface SessionTimeoutSettings {
+  /** Idle minutes before the session is signed out. */
+  idleTimeoutMinutes: number;
+  /** Seconds of warning shown before the sign-out. */
+  warningSeconds: number;
+}
+
 /** Roles a user may self-register as. Facility accounts are admin-invited
  * only (PRD OQ-2) — there is deliberately no self-serve facility signup. */
 export type SelfServeRole = Extract<Role, 'patient' | 'doctor'>;

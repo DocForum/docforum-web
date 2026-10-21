@@ -23,6 +23,21 @@ real API" (no refresh-on-reload flow).
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Idle timeout & automatic sign-out for shared devices. Tracked as
+  [issue #82](https://github.com/DocForum/docforum-web/issues/82)
+  (High, 200 pts) — `src/hooks/idle-timeout.ts` (pure timestamp logic) +
+  `src/hooks/useIdleTimeout.ts`, `SessionTimeoutWarning` /
+  `SessionTimeoutController` mounted in `Layout`. Timestamp-based
+  activity tracking (input, focus, visibility — never
+  interval-counting, so throttled background tabs stay correct), a
+  warning modal with "Stay signed in", cross-tab `BroadcastChannel`
+  coordination, and role-based defaults (patient 30 min, doctor/facility
+  15 min, admin 10 min) with a backend value taking precedence when
+  served. On timeout: API logout, ALL client state cleared, then
+  `/login?reason=idle-timeout` with an explanation. Unsaved form data is
+  flagged in the modal via `useUnsavedChangesWarning`. **Built against
+  assumed shape:** `GET /auth/session-timeout` (not in docforum-core) —
+  see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.

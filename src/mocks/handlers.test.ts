@@ -28,6 +28,7 @@ import * as messagingService from '../services/messaging-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 const server = setupServer(...handlers);
@@ -81,6 +82,18 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('serves role-aware session timeout settings (issue #82)', async () => {
+    useMockStore.setState({ activeRole: 'admin' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 10, warningSeconds: 60 });
+
+    useMockStore.setState({ activeRole: 'patient' });
+    await expect(
+      sessionTimeoutService.getSessionTimeoutSettings(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ idleTimeoutMinutes: 30, warningSeconds: 60 });
   });
 });
 

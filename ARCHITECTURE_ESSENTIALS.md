@@ -184,6 +184,44 @@ while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
+### Session idle timeout — shared devices (issue #82)
+
+Clinic computers and family tablets are shared, so a configurable idle
+timeout (warning, then automatic sign-out) is the control. Everything
+below is ASSUMED — docforum-core has no session-timeout endpoint; this
+shape is worth mirroring in an issue there.
+
+- `GET /auth/session-timeout` (authenticated) → `SessionTimeoutSettings`
+  = `{idleTimeoutMinutes, warningSeconds}` — the backend knows the
+  session's role and is expected to return its per-role value. A valid
+  backend value takes precedence over the frontend defaults; a `404`
+  (not implemented yet) or any malformed/out-of-range value (rejected by
+  `sanitizeSessionTimeoutSettings`) falls back to the frontend role-based
+  defaults in `src/hooks/idle-timeout.ts` (patient 30 min, doctor and
+  facility 15 min, admin 10 min; 60–90 s warning).
+- Frontend behaviour (`src/hooks/useIdleTimeout.ts`,
+  `src/components/SessionTimeoutController.tsx`, mounted in `Layout`):
+  timestamp-based checks (`now − lastActivityAt`), never
+  interval-counting — throttled background tabs still compute the
+  correct state, however late the check runs. Activity = pointer,
+  keyboard, touch and wheel input, window focus, and tab visibility.
+  Cross-tab: activity is broadcast on
+  `BroadcastChannel('docforum-idle-activity')` and the newest timestamp
+  wins, so typing in one tab keeps the others alive (broadcasts
+  throttled to 1 per 2 s).
+- On timeout: best-effort `POST /auth/logout`, then ALL client state is
+  cleared (React Query cache, profile/acting-for store,
+  unsaved-changes registry, auth session) and the user lands on
+  `/login?reason=idle-timeout`. The login page shows its explanation
+  when EITHER the query param is present OR the in-memory
+  `auth-store.signOutReason` says `idle-timeout` — a route guard's
+  redirect (e.g. `RequireAuth` on the page being left) can win the
+  navigation race and strip the query param, and the reason must not be
+  lost with it. `setSession` clears the in-memory reason.
+- The warning modal (`SessionTimeoutWarning`) says when unsaved form
+  data will be lost; forms opt in via `useUnsavedChangesWarning(isDirty)`
+  (wired into the health-profile editor as the first adopter).
+
 ### Phase W2 — Patient core flow (dependents, health profile, acting-for)
 
 These API shapes are assumed and not yet implemented in `docforum-core`.
