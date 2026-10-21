@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { ApiError } from '../../../services/api-client';
+import { OrderPaymentPanel } from '../../payments/components/OrderPaymentPanel';
 import type { PatientOrder, QualifiedOrderFacility } from '../../../types/models';
 import { currentOrderVersions } from '../current-orders';
 import {
@@ -212,6 +213,10 @@ export function OrdersList() {
                     <p className={styles.muted}>No facility selection is needed for this order.</p>
                   )}
                 </div>
+
+                {/* Hidden unless the pay-with-wallet flag is on (default off)
+                    and docforum-core has an intent for this order. */}
+                <OrderPaymentPanel order={order} />
               </li>
             );
           })}

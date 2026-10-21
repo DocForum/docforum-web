@@ -61,11 +61,60 @@ export const paymentsHandlers = [
     }),
   ),
 
+  // Pay with wallet (issue #59): the intent attached to an order, as the
+  // owning patient sees it. An empty array means "no payment to make" and the
+  // order's payment panel stays hidden.
+  http.get(
+    '*/payments/intents',
+    respond('json', ({ request }) => {
+      const orderId = new URL(request.url).searchParams.get('orderId');
+      if (!orderId) return db.paymentIntents;
+      return db.paymentIntents.filter((intent) => intent.orderId === orderId);
+    }),
+  ),
+
   http.get(
     '*/payments/intents/:id',
     respond('json', ({ params }) => {
       const intent = db.paymentIntents.find((i) => i.id === paramId(params));
       if (!intent) return notFound('payment intent');
+      return intent;
+    }),
+  ),
+
+  // docforum-core#80 (assumed): prepare the unsigned create_escrow XDR.
+  http.post(
+    '*/payments/intents/:id/prepare',
+    respond('json', ({ params }) => {
+      const intent = db.paymentIntents.find((i) => i.id === paramId(params));
+      if (!intent) return notFound('payment intent');
+      const now = new Date();
+      intent.status = 'awaiting_signature';
+      intent.updatedAt = now.toISOString();
+      return {
+        intentId: intent.id,
+        xdr: `AAAA${btoa(`mock-unsigned-create_escrow:${intent.id}`)}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`,
+        expiresAt: new Date(now.getTime() + 5 * 60_000).toISOString(),
+        expiryLedger: 987_654,
+        status: intent.status,
+      };
+    }),
+  ),
+
+  // docforum-core#81 (assumed): verify + fee-bump + submit (all server-side;
+  // the browser only relays the signed XDR).
+  http.post(
+    '*/payments/intents/:id/submit',
+    respond('json', async ({ params, request }) => {
+      const intent = db.paymentIntents.find((i) => i.id === paramId(params));
+      if (!intent) return notFound('payment intent');
+      const body = (await request.json().catch(() => ({}))) as { signedXdr?: string };
+      if (!body.signedXdr) return conflict('signedXdr is required');
+      const now = new Date().toISOString();
+      intent.status = 'escrowed';
+      intent.escrowId = `esc-mock-${intent.id}`;
+      intent.stellarTxHash = `mocktx${Date.now()}`;
+      intent.updatedAt = now;
       return intent;
     }),
   ),

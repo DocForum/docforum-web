@@ -131,10 +131,25 @@ export const accountKeys = {
   accessLog: (filters: unknown) => ['account', 'access-log', filters] as const,
 };
 
+/**
+ * Doctor verification review queue (issue #64). `list` is the pending queue;
+ * `detail` nests under the same root so one decision invalidation refreshes
+ * both. The per-doctor decision history is read from `auditKeys`, not here —
+ * it is the audit trail's data, not a verification resource of its own.
+ */
+export const verificationKeys = {
+  all: ['admin', 'verifications'] as const,
+  list: () => ['admin', 'verifications', 'list'] as const,
+  detail: (doctorProfileId: string) => ['admin', 'verifications', 'detail', doctorProfileId] as const,
+};
+
 /** Escrow intents, the facility payout ledger, and wallet linking. */
 export const paymentKeys = {
   all: ['payments'] as const,
   intent: (intentId: string) => ['payments', 'intent', intentId] as const,
+  /** The intent attached to one order (patient view, issue #59) — narrow on
+   * purpose: paying an order moves that order's intent row and nothing else. */
+  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
   walletLink: () => ['payments', 'wallet-link'] as const,
   /** Root over every facility's ledger: an intent action moves held/released
    *  totals we cannot attribute to a single facility from the intent alone. */
