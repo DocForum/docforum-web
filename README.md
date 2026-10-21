@@ -92,7 +92,7 @@ npm run dev        # → http://localhost:5173
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
-| `npm test` | Runs the vitest suite (21 tests today) |
+| `npm test` | Runs the vitest suite |
 | `npm run typecheck` | `tsc -b --noEmit` only |
 
 All four are real and verified working — the app shell, routing, and

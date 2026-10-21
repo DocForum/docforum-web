@@ -1,16 +1,23 @@
 import { Route, Routes } from 'react-router-dom';
+import { HashRedirectShim } from './components/HashRedirectShim';
+import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { PatientResultsPage } from './pages/PatientResultsPage';
 import { PatientResultDetailPage } from './pages/PatientResultDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { AccessLogPage } from './pages/AccessLogPage';
+import { PaymentDetailPage } from './pages/PaymentDetailPage';
+import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -22,17 +29,58 @@ import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { AdminDisputesPage } from './pages/AdminDisputesPage';
+import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
+import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
+import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
+import { PatientChartPage } from "./pages/PatientChartPage";
+import { MessageThreadPage } from './pages/MessageThreadPage';
+
+const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
 export default function App() {
+  useAnalyticsPageview();
+
   return (
-    <Routes>
+    <>
+      {!useHashRouter && <HashRedirectShim />}
+      <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
+            at the literal path the issues name, guarded to patients, rather
+            than being folded under /patient where the hub's nested routes
+            live. #32's detail page has no path of its own, so it nests. */}
+        <Route
+          path="account/access-log"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <AccessLogPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="payments"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PaymentHistoryPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="payments/:intentId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PaymentDetailPage />
+            </RequireAuth>
+          }
+        />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
           path="care/*"
@@ -43,18 +91,10 @@ export default function App() {
           }
         />
         <Route
-          path="patient/results/:resultId"
+          path="patient/orders/:orderId"
           element={
             <RequireAuth allowedRoles={['patient']}>
-              <PatientResultDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="patient/results"
-          element={
-            <RequireAuth allowedRoles={['patient']}>
-              <PatientResultsPage />
+              <OrderDetailPage />
             </RequireAuth>
           }
         />
@@ -86,6 +126,19 @@ export default function App() {
             <DoctorInbox />
           </RequireAuth>
         } />
+        <Route path="doctor/messages/:threadId" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <MessageThreadPage />
+          </RequireAuth>
+        } />
+        <Route
+          path="doctor/patient-chart/:patientProfileId"
+          element={
+            <RequireAuth allowedRoles={["doctor"]}>
+              <PatientChartPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="facility/verify"
           element={
@@ -107,6 +160,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/insights"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityInsightsPage />
             </RequireAuth>
           }
         />
@@ -135,6 +196,38 @@ export default function App() {
           }
         />
         <Route
+          path="admin/verifications"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/verifications/:doctorProfileId"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/disputes"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminDisputesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/disputes/:disputeId"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminDisputeDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="admin/system"
           element={
             <RequireAuth allowedRoles={['admin']}>
@@ -158,8 +251,10 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </>
   );
 }
