@@ -184,6 +184,44 @@ while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
+### Session idle timeout — shared devices (issue #82)
+
+Clinic computers and family tablets are shared, so a configurable idle
+timeout (warning, then automatic sign-out) is the control. Everything
+below is ASSUMED — docforum-core has no session-timeout endpoint; this
+shape is worth mirroring in an issue there.
+
+- `GET /auth/session-timeout` (authenticated) → `SessionTimeoutSettings`
+  = `{idleTimeoutMinutes, warningSeconds}` — the backend knows the
+  session's role and is expected to return its per-role value. A valid
+  backend value takes precedence over the frontend defaults; a `404`
+  (not implemented yet) or any malformed/out-of-range value (rejected by
+  `sanitizeSessionTimeoutSettings`) falls back to the frontend role-based
+  defaults in `src/hooks/idle-timeout.ts` (patient 30 min, doctor and
+  facility 15 min, admin 10 min; 60–90 s warning).
+- Frontend behaviour (`src/hooks/useIdleTimeout.ts`,
+  `src/components/SessionTimeoutController.tsx`, mounted in `Layout`):
+  timestamp-based checks (`now − lastActivityAt`), never
+  interval-counting — throttled background tabs still compute the
+  correct state, however late the check runs. Activity = pointer,
+  keyboard, touch and wheel input, window focus, and tab visibility.
+  Cross-tab: activity is broadcast on
+  `BroadcastChannel('docforum-idle-activity')` and the newest timestamp
+  wins, so typing in one tab keeps the others alive (broadcasts
+  throttled to 1 per 2 s).
+- On timeout: best-effort `POST /auth/logout`, then ALL client state is
+  cleared (React Query cache, profile/acting-for store,
+  unsaved-changes registry, auth session) and the user lands on
+  `/login?reason=idle-timeout`. The login page shows its explanation
+  when EITHER the query param is present OR the in-memory
+  `auth-store.signOutReason` says `idle-timeout` — a route guard's
+  redirect (e.g. `RequireAuth` on the page being left) can win the
+  navigation race and strip the query param, and the reason must not be
+  lost with it. `setSession` clears the in-memory reason.
+- The warning modal (`SessionTimeoutWarning`) says when unsaved form
+  data will be lost; forms opt in via `useUnsavedChangesWarning(isDirty)`
+  (wired into the health-profile editor as the first adopter).
+
 ### Phase W2 — Patient core flow (dependents, health profile, acting-for)
 
 These API shapes are assumed and not yet implemented in `docforum-core`.
@@ -420,6 +458,31 @@ call still goes through docforum-core (hard rule 1).
 - **What is sent (scrubbed):** the error message and exception type, the HTTP method, a sanitized URL (host + route shape only; query string dropped, id-like path segments replaced with `[id-redacted]`), and an opaque user id only. Benign extra/contexts/tags pass through with sensitive keys redacted.
 - **CSP:** Sentry is bundled via npm — there is no external `<script>` to whitelist. The only network target is `*.sentry.io`, and only when a DSN is configured; if a CSP is adopted, add `connect-src https://*.sentry.io`.
 
+
+### Phase W7 — Platform quality (issues #116–#119)
+
+#### DataTable pagination contract (issue #116, depends on docforum-core#114)
+- `DataTable<T>` consumes server-side keyset pagination via `hasPrev`, `hasNext`, `onPrev`, `onNext` props. The UI never renders a page number — cursor pagination cannot jump to page N.
+- `useTableUrlState` syncs sort, filter values and cursor to URL query params prefixed with `<id>-`. Filter values are validated (length cap, charset, allowed select options); invalid values are silently dropped. Sort direction is `asc | desc`; a third click clears sorting.
+- Column definitions are typed generics; the component imposes no knowledge of any specific entity.
+
+#### Print / PDF library lazy-load contract (issue #117)
+- `jspdf` and `html2canvas` are loaded via `import('jspdf')` / `import('html2canvas')` inside `usePrint.onExportPdf`, so they are code-split out of the main bundle. `npm run check:dist` is the mock-code guard, not the bundle-size guard — check the emitted chunks for yourself.
+- `PrintLayout` takes only `title: string` and `children: ReactNode`; it is decoupled from any specific data shape.
+- No print-related data is sent to third parties. PDF generation is fully client-side.
+
+#### Analytics endpoint contract (issue #118)
+- `VITE_ANALYTICS_ENDPOINT` is read inside each `send()` call (not at module load time) so environment stubs work in tests.
+- `scrubUrl` strips query strings entirely and replaces UUIDs/numeric path segments; it does not retain any user-provided input.
+- `ALLOWED_EVENTS` is a `const` tuple; TypeScript prevents callers from passing unlisted event names.
+- Plausible/Umami event body: `{event, path, domain, referrer, screenWidth, props?}`. If the self-hosted endpoint expects a different shape, only `send()` in `analytics.ts` needs updating.
+
+#### Configurable router contract (issue #119, docs/adr/0001-routing-strategy.md)
+- `VITE_USE_HASH_ROUTER=true` → `HashRouter`; absent or `false` → `BrowserRouter`.
+- GitHub Pages builds always pass `VITE_USE_HASH_ROUTER: "true"` (set in `deploy-pages.yml`).
+- `HashRedirectShim` is mounted only in BrowserRouter mode; it reads `window.location.hash` directly to detect `#/` prefixes on the root path.
+- Email links from docforum-core should use clean paths (`/reset?token=…`), not hash paths. Old hash-format links are transparently redirected by the shim.
+
 ### Responsive navigation and layout (issue #103)
 
 - **Layout:** `src/components/Layout.tsx` provides the app shell: skip-to-content link, header (logo, role-aware nav, user chip, logout), mobile drawer, main content area, and footer. Landmark regions (`role="banner"`, `role="navigation"`, `role="main"`, `role="contentinfo"`) are used throughout.
@@ -484,3 +547,42 @@ shell so the attachment composer/preview have a real home.
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s
 `ROADMAP.md` for the original (pre-split) frontend phase this was carved
 out of.
+
+## Known assumptions (Phase W2 orders — issue #25, added 2026-10-15)
+
+These are assumed contracts against `docforum-core` issue #71 (verifiable
+order tokens). Reconcile `src/types/models.ts` and `src/services/orders-service.ts`
+once those endpoints ship.
+
+### `GET /orders/:id` — order detail
+```json
+{
+  "id": "string",
+  "type": "prescription" | "lab_order",
+  "status": "active" | "superseded" | "expired" | "fulfilled" | "cancelled",
+  "token": "string | null",
+  "items": [{ "name": "string", "note": "string?" }],
+  "issuedAt": "ISO 8601",
+  "expiresAt": "ISO 8601 | null",
+  "doctorName": "string",
+  "facilityName": "string | null",
+  "patientProfileId": "string",
+  "createdAt": "ISO 8601",
+  "updatedAt": "ISO 8601"
+}
+```
+
+Key constraint: `token` is `null` for any order whose `status` is not
+`active`. The frontend enforces this by refusing to render a QR for any
+order with a null token or a non-active status — the facility scan is only
+meaningful against the current, valid order.
+
+### `GET /orders/mine` — list patient's own orders
+```json
+[
+  { /* same shape as GET /orders/:id */ }
+]
+```
+
+Route is guarded with a valid `Authorization: Bearer <accessToken>` header;
+returns only the authenticated patient's orders.

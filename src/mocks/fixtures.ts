@@ -19,6 +19,7 @@ import type {
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
+  FacilityPerformanceInsights,
   FacilityWithDistance,
   FulfillmentDispute,
   FulfillmentQueueItem,
@@ -91,6 +92,7 @@ export interface MockDb {
   consultationReferrals: ConsultationReferral[];
   consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
+  facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
@@ -493,6 +495,48 @@ export function createSeedDb(): MockDb {
       respondedWithin2hCount: 24,
       respondedWithin24hCount: 35,
       rateWithin2h: 63.2,
+      sampleSizeWarning: false,
+    },
+  };
+
+  const facilityInsights: FacilityPerformanceInsights = {
+    facilityId: FACILITY_ID,
+    range: { preset: '30d', startDate: '2026-09-18', endDate: '2026-10-18' },
+    generatedAt: '2026-10-18T06:00:00.000Z',
+    turnaround: {
+      fulfilledCount: 68,
+      medianHours: 3.5,
+      p90Hours: 27.4,
+      minHours: 0.4,
+      maxHours: 51.2,
+      within1h: 12,
+      within4h: 38,
+      within24h: 61,
+      over24h: 7,
+      sampleSizeWarning: false,
+    },
+    volumeByDay: [
+      { date: '2026-10-12', received: 9, fulfilled: 8, rejected: 1 },
+      { date: '2026-10-13', received: 11, fulfilled: 9, rejected: 2 },
+      { date: '2026-10-14', received: 7, fulfilled: 7, rejected: 0 },
+      { date: '2026-10-15', received: 12, fulfilled: 10, rejected: 1 },
+      { date: '2026-10-16', received: 10, fulfilled: 9, rejected: 1 },
+      { date: '2026-10-17', received: 8, fulfilled: 6, rejected: 2 },
+      { date: '2026-10-18', received: 5, fulfilled: 4, rejected: 0 },
+    ],
+    rejectionReasons: [
+      { code: 'out_of_stock', label: 'Out of stock', count: 4, percentage: 57.1 },
+      { code: 'prescription_invalid', label: 'Prescription invalid', count: 2, percentage: 28.6 },
+      { code: 'patient_unreachable', label: 'Patient unreachable', count: 1, percentage: 14.3 },
+    ],
+    disputes: {
+      totalOrders: 68,
+      disputedOrders: 3,
+      disputeRate: 4.4,
+      resolvedInFacilityFavour: 1,
+      resolvedInPatientFavour: 1,
+      openDisputes: 1,
+      averageResolutionHours: 40.5,
       sampleSizeWarning: false,
     },
   };
@@ -1185,6 +1229,7 @@ export function createSeedDb(): MockDb {
     consultationReferrals: [],
     consultationOrders: [],
     insights,
+    facilityInsights,
     facilities,
     facilityMembers,
     facilityInvites,

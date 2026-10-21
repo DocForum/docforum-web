@@ -11,6 +11,19 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+// --- Session idle timeout (issue #82) — ASSUMED, not yet in docforum-core --
+// Shared clinical devices: the backend is expected to be able to push its
+// own per-role idle timeout, which takes precedence over the frontend
+// defaults. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Session
+// idle timeout".
+
+export interface SessionTimeoutSettings {
+  /** Idle minutes before the session is signed out. */
+  idleTimeoutMinutes: number;
+  /** Seconds of warning shown before the sign-out. */
+  warningSeconds: number;
+}
+
 /** Roles a user may self-register as. Facility accounts are admin-invited
  * only (PRD OQ-2) — there is deliberately no self-serve facility signup. */
 export type SelfServeRole = Extract<Role, 'patient' | 'doctor'>;
@@ -101,6 +114,57 @@ export interface ActingProfile {
   id: string;
   fullName: string;
   isSelf: boolean;
+}
+
+// --- Orders (Phase W2 in docforum-web, assumed contract against
+// docforum-core issue #71 / PRD §8.1.6 — see ARCHITECTURE_ESSENTIALS.md
+// "Known assumptions". Endpoints and field names are provisional until
+// docforum-core's order-token implementation lands.) -------------------
+
+/** Type of clinical order a doctor can issue. */
+export type OrderType = 'prescription' | 'lab_order';
+
+/** Order validity state as reported by docforum-core.
+ * - active:      Current, valid — show the scannable QR.
+ * - superseded:  A newer order replaced this one — hide the QR, explain.
+ * - expired:     Time-limited token has passed its validity window.
+ * - fulfilled:   Facility marked the order completed.
+ * - cancelled:   Order was cancelled by doctor or patient.
+ */
+export type OrderStatus = 'active' | 'superseded' | 'expired' | 'fulfilled' | 'cancelled';
+
+/** An individual line item on a lab order or prescription. */
+export interface OrderItem {
+  /** Human-readable name (e.g. "FBC" or "Amoxicillin 250mg"). */
+  name: string;
+  /** Directions or instructions (optional). */
+  note?: string;
+}
+
+/** Full detail of a patient order, as returned by docforum-core's
+ * `GET /orders/:id` endpoint. The `token` field is the opaque signed
+ * string that encodes into the QR code — never include order details
+ * in the QR, only the token itself (issue #25 constraint). */
+export interface Order {
+  id: string;
+  type: OrderType;
+  status: OrderStatus;
+  /** The signed, opaque token that facilities scan. Absent/null for
+   * non-active orders (superseded, expired) — the QR must not be shown
+   * when token is null. */
+  token: string | null;
+  items: OrderItem[];
+  /** ISO 8601 timestamp of when the order was issued. */
+  issuedAt: string;
+  /** ISO 8601 expiry timestamp (null if the order has no time limit). */
+  expiresAt: string | null;
+  /** The doctor who issued the order. */
+  doctorName: string; // assumed — not yet in schema.prisma
+  /** The facility the patient chose (null if not yet assigned). */
+  facilityName: string | null; // assumed — not yet in schema.prisma
+  patientProfileId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
@@ -644,6 +708,71 @@ export interface FacilityLedgerPage {
   totals: FacilityPayoutTotals;
 }
 
+// --- Phase W4 — Facility Performance Insights (issue #57, assumed aggregate
+// endpoint in docforum-core; see ARCHITECTURE_ESSENTIALS.md "Known assumptions")
+// ---------------------------------------------------------------------------
+// Deliberately aggregate-only: no patient identifiers, names or per-order rows
+// ever reach this model. Reviewer must confirm.
+
+export interface FacilityTurnaroundMetrics {
+  /** Orders fulfilled in the period (denominator for the rates below). */
+  fulfilledCount: number;
+  /** Median time from assignment/receipt to fulfilment, in hours. */
+  medianHours: number;
+  /** 90th-percentile assignment → fulfilment time, in hours. */
+  p90Hours: number;
+  /** Fastest / slowest fulfilled order, in hours (context for the median). */
+  minHours: number;
+  maxHours: number;
+  /** Fulfilled within each SLA bucket. */
+  within1h: number;
+  within4h: number;
+  within24h: number;
+  over24h: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityVolumeDay {
+  date: string; // ISO date YYYY-MM-DD
+  received: number;
+  fulfilled: number;
+  rejected: number;
+}
+
+export interface FacilityRejectionReason {
+  /** Stable machine reason code, e.g. 'out_of_stock'. */
+  code: string;
+  /** Human-readable label for the code. */
+  label: string;
+  count: number;
+  /** Share of all rejections in the period, 0-100. */
+  percentage: number;
+}
+
+export interface FacilityDisputeMetrics {
+  /** Payment intents for orders fulfilled in the period. */
+  totalOrders: number;
+  disputedOrders: number;
+  /** Disputes per 100 orders, 0-100. */
+  disputeRate: number;
+  resolvedInFacilityFavour: number;
+  resolvedInPatientFavour: number;
+  /** Still open at period end. */
+  openDisputes: number;
+  averageResolutionHours: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityPerformanceInsights {
+  facilityId: string;
+  range: DateRange;
+  generatedAt: string;
+  turnaround: FacilityTurnaroundMetrics;
+  volumeByDay: FacilityVolumeDay[];
+  rejectionReasons: FacilityRejectionReason[];
+  disputes: FacilityDisputeMetrics;
+}
+
 // --- Phase W6 — Admin audit & access logs (issue #71) -----------------------
 // AuditEvent is real: mirrors docforum-core's `AuditEvent` model and
 // `GET /admin/audit-events` (docforum-core#43, see its docs/api/README.md).
@@ -941,17 +1070,6 @@ export interface CalendarFeedResponse {
 
 export interface RotateTokenResponse {
   icsUrl: string;
-}
-
-export interface Order {
-  id: string;
-  orderType: 'prescription' | 'lab_order';
-  patientName: string;
-  medicationOrTest: string;
-  instructions?: string | null;
-  issuedAt: string;
-  expiresAt: string;
-  status: 'active' | 'completed' | 'cancelled';
 }
 
 export interface LabResult {

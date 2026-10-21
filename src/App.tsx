@@ -1,13 +1,17 @@
 import { Route, Routes } from 'react-router-dom';
+import { HashRedirectShim } from './components/HashRedirectShim';
+import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { AccessLogPage } from './pages/AccessLogPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
@@ -27,12 +31,19 @@ import { AdminDisputesPage } from './pages/AdminDisputesPage';
 import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
 
+const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
+
 export default function App() {
+  useAnalyticsPageview();
+
   return (
-    <Routes>
+    <>
+      {!useHashRouter && <HashRedirectShim />}
+      <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
@@ -72,6 +83,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['patient', 'doctor']}>
               <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="patient/orders/:orderId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <OrderDetailPage />
             </RequireAuth>
           }
         />
@@ -141,6 +160,14 @@ export default function App() {
           }
         />
         <Route
+          path="facility/insights"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityInsightsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="facility/*"
           element={
             <RequireAuth allowedRoles={['facility']}>
@@ -204,8 +231,10 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </>
   );
 }
