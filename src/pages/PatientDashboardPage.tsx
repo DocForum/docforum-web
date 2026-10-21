@@ -20,7 +20,7 @@ function PatientHome() {
 
   // A source that failed must not blank the hub: its section says so, the
   // others still render from the data that did arrive.
-  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.health.isLoading;
+  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.orders.isLoading || sources.health.isLoading;
 
   return (
     <div className="container">
@@ -36,7 +36,7 @@ function PatientHome() {
           <h2 id="action-needed" className={styles.heading}>
             Action needed
           </h2>
-          {sources.dependents.failed || sources.appointments.failed || sources.health.failed ? (
+          {sources.dependents.failed || sources.appointments.failed || sources.orders.failed || sources.health.failed ? (
             <p className={styles.sourceError} role="status">
               Some of your information could not be loaded. Everything else below is still current — retry
               by reloading this page.

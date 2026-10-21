@@ -25,6 +25,7 @@ import {
   facilityKeys,
   flagKeys,
   healthKeys,
+  orderKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
@@ -79,6 +80,8 @@ export const invalidations = {
   ],
   /** A requested export changes the status card (and its polling cadence). */
   'account.data-export': () => [accountKeys.dataExport()],
+  /** Confirm receipt or report problem: the order detail and the patient's order list. */
+  'order.confirm-action': (orderId: string) => [orderKeys.detail(orderId), orderKeys.mine()],
 };
 
 export type InvalidationKey = keyof typeof invalidations;
