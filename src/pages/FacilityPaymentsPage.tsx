@@ -18,6 +18,9 @@ export function FacilityPaymentsPage() {
         <Link to="/facility/payments" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
           Payouts &amp; Escrow
         </Link>
+        <Link to="/facility/integrations" className={styles.tabLink}>
+          Integrations
+        </Link>
       </nav>
 
       <div style={{ marginTop: 'var(--space-6)' }}>

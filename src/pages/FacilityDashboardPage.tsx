@@ -23,6 +23,9 @@ export function FacilityDashboardPage() {
         <Link to="/facility/payments" className={styles.tabLink}>
           Payouts &amp; Escrow
         </Link>
+        <Link to="/facility/integrations" className={styles.tabLink}>
+          Integrations
+        </Link>
       </nav>
 
       <div className={styles.header}>

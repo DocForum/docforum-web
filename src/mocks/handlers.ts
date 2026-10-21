@@ -11,6 +11,7 @@ import { facilityTeamHandlers } from './handlers/facility-team';
 import { facilityHandlers } from './handlers/facility';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
+import { integrationsHandlers } from './handlers/integrations';
 import { messagingHandlers } from './handlers/messaging';
 import { orderHandlers } from './handlers/orders';
 import { paymentsHandlers } from './handlers/payments';

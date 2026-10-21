@@ -24,6 +24,7 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
