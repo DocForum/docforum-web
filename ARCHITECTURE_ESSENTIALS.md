@@ -184,6 +184,52 @@ while that work remains outstanding.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
+### Phase W5 — Pay with wallet (issue #59)
+
+The flow is built against assumed contracts — docforum-core#80 (prepare) and
+#81 (submit) describe both endpoints but haven't landed. Real today:
+`PaymentIntent` and its status machine (custodial v1, core ADR 0004), the
+explorer helper (`features/payments/explorer.ts`), and the boundary itself —
+the browser only relays XDR (hard rule 1, enforced by
+`scripts/check-stellar-boundary.mjs`: no SDK imports, no network URLs).
+
+- `POST /payments/intents/:id/prepare` (patient, own intent) →
+  `PreparedTransaction` = `{intentId, xdr, expiresAt, expiryLedger: number |
+  null, status}`. Moves the intent to the **assumed** `awaiting_signature`
+  status (added to `PaymentIntentStatus` in `models.ts`). `409` with code
+  `WALLET_NOT_LINKED` (error envelope `code` field is assumed — the current
+  envelope is `{message}` only) renders an explanatory, non-error state.
+- `POST /payments/intents/:id/submit` (body `{signedXdr}`) → the updated
+  `PaymentIntent`. A `410`/expired-preparation code is the **normal** expired
+  branch (one-tap re-prepare, same panel, no navigation). #81 documents a
+  failure path that returns the intent to `created` — the confirm poll reads
+  that as "did not go through".
+- The order→intent lookup is issue #61's assumed contract
+  (`getPaymentIntentForOrder`, pending docforum-core#85): one lookup serves
+  the status panel and this flow, so there is no second shape to keep in
+  step. A `404` means "no intent for this order" — the panel stays hidden.
+- **Polling:** after submit, the real `GET /payments/intents/:id` is polled
+  every second while `confirming`, capped at 30 s with an honest "not
+  confirmed yet" state; only reads that land *after* submission count (a
+  cached status from an earlier attempt can't resolve a new one).
+- **Wallet access** is the smallest default while #58 (wallet connection) is
+  parked on core#77/#78: `features/payments/wallet.ts` duck-types an injected
+  extension — `window.freighterApi`, or a generic `window.stellarWallet`
+  exposing `{getAddress | getPublicKey, signTransaction}`. No wallet package
+  is imported and the browser contacts no Stellar network; a wallet-kit
+  integration later replaces the detection only. A refusal is detected from
+  the thrown message and treated as a normal outcome (back to the start, no
+  error styling).
+- **Feature flag:** `VITE_PAY_WITH_WALLET === 'true'` at build time, default
+  **off** (ADR 0005: "an option, not the default"). Flag off ⇒ the order card
+  renders no payment panel and makes no payment request at all.
+- Expiry is checked locally against `expiresAt` before signing and before
+  submitting, so a patient who takes too long to approve never sends a dead
+  transaction.
+- Dev/mocks: `src/mocks/handlers/payments.ts` serves the order lookup
+  (`pin-demo-2`, a `created` intent on the seeded lab order), prepare and
+  submit; the confirm state lands on a mock explorer link.
+
 ### Session idle timeout — shared devices (issue #82)
 
 Clinic computers and family tablets are shared, so a configurable idle
@@ -430,6 +476,49 @@ call still goes through docforum-core (hard rule 1).
 - `DisputeTimelineEvent` = `{id, at, actorRole: Role|'system', actorName, kind: 'opened'|'proof_submitted'|'patient_message'|'payment'|'resolved', summary}`, oldest first as sent. It is display-only; the console never invents events.
 - Queue badges escalate at 24 h and 72 h open (tighter than the referral queue's thresholds, because each open dispute is blocked escrow). A queue/detail `403` says the admin session lost access; queue errors offer a retry and keep already-loaded pages visible.
 - Mock fixtures (`dsp-demo-1…3`) cover proof-with-attachments, no-proof, and a multi-page queue (mock page size 2); `npm run dev:mock` serves the resolve and signed-URL endpoints from `src/mocks/handlers/disputes.ts`.
+
+### Phase W6 — Doctor verification review queue (issue #64)
+
+The decision endpoint is **real**: `PATCH /doctors/:id/verification` (body
+`{status}`) is docforum-core's admin-gated status flip, which writes its
+`doctor.verification_status_changed` AuditEvent in the same transaction and
+is a documented no-op (no event) when the profile already has that status.
+Everything else is assumed — credential storage is docforum-core#52:
+
+- `GET /admin/verifications?status=pending&cursor=` → `{items, nextCursor}`
+  where `VerificationQueueItem` = `{doctorProfileId, fullName, specialties[],
+  submittedAt, documentCount, verificationStatus}`. **API gap:** core has no
+  admin doctor listing at all, and `submittedAt` is assumed to be the
+  application time (profile creation). A dedicated core issue is worth filing
+  for this endpoint.
+- `GET /admin/verifications/:doctorProfileId` → `VerificationDetail` =
+  `{profile: {id, fullName, email | null, verificationStatus, specialties,
+  submittedAt, createdAt, updatedAt}, documents: CredentialDocument[]}`;
+  `CredentialDocument` = `{id, fileName, contentType, sizeBytes, uploadedAt}`
+  — metadata only, never bytes and never a durable URL.
+- `POST /admin/verifications/:id/documents/:documentId/signed-url` →
+  `{url, expiresAt}` — minted per click and held in component state only,
+  exactly like the disputes console's attachments.
+- **Reason + `expectedUpdatedAt` travel with the real PATCH and are currently
+  *stripped* by core's zod schema** (it validates `status` only): the reason
+  is required and validated client-side (10–500 chars, whitespace collapsed)
+  but does not persist yet, and a real `409` cannot occur yet either. The UI
+  handles `409`/`404` (another admin decided first) by closing and reloading
+  the record and `400`/`422` by staying open with the server's message, so
+  once core#52/#60 adds persistence and optimistic locking the flow is
+  already correct. **Known gap, not a silent assumption.**
+- **Decision history is real, not assumed:** projected from
+  `GET /admin/audit-events?entityType=DoctorProfile&entityId=` (core#43),
+  keeping only `doctor.verification_status_changed` events (other actions on
+  the same entity are ignored). An audit failure degrades to a notice — the
+  rest of the detail keeps working.
+- The queue lists `pending` only; a decided doctor drops out of it on refresh
+  (`admin.verification.decision` in `invalidations.ts` invalidates the detail,
+  the list and the audit trail together).
+- Dev/mocks: `src/mocks/handlers/verifications.ts` serves the queue, detail,
+  signed URLs, the PATCH (including the no-op-on-same-status semantics) and
+  `GET /admin/audit-events`; fixtures seed two waiting doctors (one with zero
+  documents) plus one already decided with history.
 
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`

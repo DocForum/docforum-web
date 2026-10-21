@@ -16,6 +16,7 @@ import { orderHandlers } from './handlers/orders';
 import { paymentsHandlers } from './handlers/payments';
 import { queueHandlers } from './handlers/queue';
 import { adminClosuresHandlers } from './handlers/admin-closures';
+import { verificationHandlers } from './handlers/verifications';
 
 export const handlers = [
   ...authHandlers,
@@ -34,4 +35,5 @@ export const handlers = [
   ...paymentsHandlers,
   ...adminClosuresHandlers,
   ...disputesHandlers,
+  ...verificationHandlers,
 ];

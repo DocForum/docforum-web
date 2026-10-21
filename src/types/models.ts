@@ -182,7 +182,15 @@ export interface WalletLink {
 }
 
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
-export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
+export type PaymentIntentStatus =
+  | 'created'
+  // docforum-core#80 (prepare) moves an intent here while it waits for the
+  // patient's wallet signature; status value assumed until that issue lands.
+  | 'awaiting_signature'
+  | 'escrowed'
+  | 'released'
+  | 'refunded'
+  | 'failed';
 
 // `PatientOrder` (= Prescription | LabOrder) is defined with the orders
 // work (Phase W2, issue #5) — the order detail page (issue #61) reuses
@@ -1269,6 +1277,95 @@ export interface ResolveDisputeInput {
 /** One-time, short-lived URL for an attachment. Never rendered before the
  * admin asks for it, and never cached in the query client. */
 export interface DisputeAttachmentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Phase W5 — Pay with wallet (issue #59) ---------------------------------
+// `POST /payments/intents/:id/prepare` and `POST /payments/intents/:id/submit`
+// are assumed: docforum-core#80 and #81 describe both endpoints but have not
+// landed. Everything else here (`PaymentIntent`, stroops as strings) is real.
+// This repo never builds, simulates or submits a transaction — it hands the
+// prepared XDR to the patient's wallet and returns the signed XDR (hard rule 1).
+
+/** Unsigned transaction docforum-core built and simulated for this intent. */
+export interface PreparedTransaction {
+  intentId: string;
+  /** The unsigned XDR — the only thing the patient's wallet ever sees. */
+  xdr: string;
+  /** ISO time after which the prepared transaction is no longer accepted.
+   * Expiry is a normal outcome (ADR 0005), not an error. */
+  expiresAt: string;
+  /** Ledger sequence the transaction is valid until, when the backend knows it. */
+  expiryLedger: number | null;
+  status: PaymentIntentStatus;
+}
+
+// --- Phase W6 — Doctor verification review queue (issue #64) ----------------
+// The queue and detail endpoints are assumed — docforum-core only serves
+// `PATCH /doctors/:id/verification` today (real), and credential document
+// storage is tracked in docforum-core#52. `VerificationStatus` and
+// `DoctorProfile` are real.
+
+/** One pending doctor in the review queue. */
+export interface VerificationQueueItem {
+  doctorProfileId: string;
+  fullName: string;
+  specialties: string[];
+  /** When the doctor went in line for review (assumed: profile creation). */
+  submittedAt: string;
+  /** How many credential documents were submitted with the application. */
+  documentCount: number;
+  verificationStatus: VerificationStatus;
+}
+
+/** Credential document metadata — never the bytes, and never a durable URL:
+ * documents are opened only through a fresh short-lived signed URL. */
+export interface CredentialDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface VerificationDetail {
+  profile: {
+    id: string;
+    fullName: string;
+    /** null when the backend doesn't expose the applicant's email to admins. */
+    email: string | null;
+    verificationStatus: VerificationStatus;
+    specialties: string[];
+    submittedAt: string;
+    createdAt: string;
+    /** Sent so decisions can carry `expectedUpdatedAt` for conflict detection. */
+    updatedAt: string;
+  };
+  documents: CredentialDocument[];
+}
+
+export interface VerificationDecisionInput {
+  status: Exclude<VerificationStatus, 'pending'>;
+  /** Required for both approve and reject — it lands in the audit trail. */
+  reason: string;
+  /** The `updatedAt` the admin saw — a 409 means another admin decided first. */
+  expectedUpdatedAt: string;
+}
+
+/** One entry of the per-doctor decision history, projected from docforum-core's
+ * real audit trail (`GET /admin/audit-events?entityType=DoctorProfile&entityId=`). */
+export interface VerificationDecision {
+  id: string;
+  at: string;
+  from: VerificationStatus | null;
+  to: VerificationStatus;
+  actorUserId: string | null;
+}
+
+/** One-time, short-lived URL for a credential document — minted per click,
+ * held in component state only, never cached on the document row. */
+export interface CredentialDocumentUrl {
   url: string;
   expiresAt: string;
 }

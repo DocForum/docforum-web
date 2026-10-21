@@ -29,6 +29,8 @@ import { AdminSystemPage } from './pages/AdminSystemPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { AdminDisputesPage } from './pages/AdminDisputesPage';
 import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
+import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
+import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
@@ -188,6 +190,22 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminReferralsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/verifications"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/verifications/:doctorProfileId"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationDetailPage />
             </RequireAuth>
           }
         />

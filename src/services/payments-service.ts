@@ -4,7 +4,14 @@
 // ARCHITECTURE_ESSENTIALS.md) — everything here goes through
 // docforum-core's API.
 import { apiFetch, ApiError } from './api-client';
-import type { OrderTypeForPayment, PaymentIntent, WalletLink, PayoutAsset, FacilityLedgerPage } from '../types/models';
+import type {
+  OrderTypeForPayment,
+  PaymentIntent,
+  PreparedTransaction,
+  WalletLink,
+  PayoutAsset,
+  FacilityLedgerPage,
+} from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<WalletLink> {
   return apiFetch<WalletLink>('/payments/wallet-link', {
@@ -67,6 +74,40 @@ export function releasePaymentIntent(id: string, accessToken: string): Promise<P
 
 export function refundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
   return apiFetch<PaymentIntent>(`/payments/intents/${id}/refund`, { method: 'POST', accessToken });
+}
+
+// --- Pay with wallet (issue #59) -------------------------------------------
+// Assumed contracts, pending docforum-core#80 (prepare) and #81 (submit).
+// The order→intent lookup itself is issue #61's assumed contract
+// (`getPaymentIntentForOrder` above): one lookup serves the status panel
+// and this flow, so there is no second shape to keep in step.
+
+/** docforum-core#80 (assumed): builds and simulates the `create_escrow`
+ * transaction and returns unsigned XDR for the patient's wallet to sign.
+ * Patient-only, own intent; `409 WALLET_NOT_LINKED` when no verified wallet
+ * link exists. */
+export function preparePaymentIntent(id: string, accessToken: string): Promise<PreparedTransaction> {
+  return apiFetch<PreparedTransaction>(`/payments/intents/${id}/prepare`, { method: 'POST', accessToken });
+}
+
+/** docforum-core#81 (assumed): verifies the signed XDR against what it
+ * prepared, fee-bumps, submits and tracks to finality. This repo passes the
+ * wallet's signature straight through — it never inspects or rebuilds it. */
+export function submitPaymentIntent(id: string, signedXdr: string, accessToken: string): Promise<PaymentIntent> {
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}/submit`, {
+    method: 'POST',
+    body: { signedXdr },
+    accessToken,
+  });
+}
+
+/** Machine code from the API's error body, when the envelope carries one
+ * (e.g. `WALLET_NOT_LINKED`). The `{message}` envelope is provisional, so
+ * callers must degrade to the HTTP status when this is undefined. */
+export function apiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || typeof error.body !== 'object' || error.body === null) return undefined;
+  const code = (error.body as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
 }
 
 /**
