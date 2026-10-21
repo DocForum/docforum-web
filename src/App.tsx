@@ -203,6 +203,14 @@ export default function App() {
           }
         />
         <Route
+          path="admin/verification"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminVerificationPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="admin/verifications/:doctorProfileId"
           element={
             <RequireAuth allowedRoles={['admin']}>

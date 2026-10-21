@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
 import { useSpecialtyCatalog, useSpecialtyClaims } from '../hooks/useSpecialtyClaims';
-import { describeQueueError } from '../errors';
+import { describeClaimsQueueError } from '../errors';
 import {
   CLAIM_AGES,
   groupClaimsByDoctor,
@@ -81,7 +81,7 @@ export function SpecialtyClaimsConsole() {
   } else if (queue.error) {
     body = (
       <div className={styles.errorBox} role="alert">
-        <p>{describeQueueError(queue.error)}</p>
+        <p>{describeClaimsQueueError(queue.error)}</p>
         <Button variant="secondary" onClick={() => void queue.refetch()}>
           Try again
         </Button>

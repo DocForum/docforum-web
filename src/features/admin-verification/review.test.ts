@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normaliseReason, validateReason } from './reason';
-import { describeQueueError, describeReviewError } from './errors';
+import { describeClaimsQueueError, describeReviewError } from './errors';
 import { ApiError } from '../../services/api-client';
 
 describe('validateReason', () => {
@@ -51,13 +51,13 @@ describe('describeReviewError', () => {
   });
 });
 
-describe('describeQueueError', () => {
+describe('describeClaimsQueueError', () => {
   it('explains a 404 as the backend issue not landed yet', () => {
-    expect(describeQueueError(new ApiError('Not Found', 404))).toMatch(/docforum-core#51/);
+    expect(describeClaimsQueueError(new ApiError('Not Found', 404))).toMatch(/docforum-core#51/);
   });
 
   it('explains lost admin sessions and transient failures', () => {
-    expect(describeQueueError(new ApiError('Unauthorized', 401))).toMatch(/no longer has admin access/);
-    expect(describeQueueError(new TypeError('Failed to fetch'))).toMatch(/waking up/);
+    expect(describeClaimsQueueError(new ApiError('Unauthorized', 401))).toMatch(/no longer has admin access/);
+    expect(describeClaimsQueueError(new TypeError('Failed to fetch'))).toMatch(/waking up/);
   });
 });

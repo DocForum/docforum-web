@@ -108,6 +108,7 @@ export interface MockDb {
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
   verifications: MockVerification[];
+  specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
   closures: Closure[];
 }
@@ -1450,6 +1451,7 @@ export function createSeedDb(): MockDb {
     disputes,
     consultationAddenda,
     verifications,
+    specialtyClaims,
     auditEvents,
     closures,
   };
