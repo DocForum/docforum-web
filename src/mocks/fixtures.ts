@@ -32,6 +32,7 @@ import type {
   PaymentIntent,
   QualifiedOrderFacility,
   RunningDelay,
+  SpecialtyClaim,
   User,
   VerificationStatus,
   WalletLink,
@@ -107,6 +108,7 @@ export interface MockDb {
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
   verifications: MockVerification[];
+  specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
   closures: Closure[];
 }
@@ -1354,6 +1356,75 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Per-specialty claims (issue #65) — deliberately fake pairs: a GP
+  // claiming cardiology is exactly the PRD §8.1.5 failure this queue exists
+  // to catch. `status: 'pending'` rows are the ones the queue serves.
+  // Ages are relative to seed time so the age filter stays deterministic.
+  const claimedAt = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const CARDIO_CLAIMED_AT = claimedAt(4 * 24); // 4 days — old enough for the 72h filter, not 168h
+  const NEURO_CLAIMED_AT = claimedAt(6); // today
+  const DERM_CLAIMED_AT = claimedAt(10 * 24); // 10 days — survives the 168h filter
+  const specialtyClaims: SpecialtyClaim[] = [
+    {
+      id: 'dsc-demo-1',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-cardiology',
+      specialty: { id: 'spec-cardiology', name: 'Cardiology', slug: 'cardiology' },
+      status: 'pending',
+      credential: {
+        id: 'crd-demo-1',
+        fileName: 'cardiology-certificate-demo.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 245_760,
+        uploadedAt: CARDIO_CLAIMED_AT,
+      },
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: CARDIO_CLAIMED_AT,
+      updatedAt: CARDIO_CLAIMED_AT,
+    },
+    {
+      id: 'dsc-demo-2',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-neurology',
+      specialty: { id: 'spec-neurology', name: 'Neurology', slug: 'neurology' },
+      status: 'pending',
+      // No credential attached — the UI must flag the judgement call.
+      credential: null,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: NEURO_CLAIMED_AT,
+      updatedAt: NEURO_CLAIMED_AT,
+    },
+    {
+      id: 'dsc-demo-3',
+      doctorId: 'prf-doctor-2',
+      doctor: { id: 'prf-doctor-2', fullName: 'Dr. Placeholder Example (fake)' },
+      specialtyId: 'spec-dermatology',
+      specialty: { id: 'spec-dermatology', name: 'Dermatology', slug: 'dermatology' },
+      status: 'pending',
+      credential: {
+        id: 'crd-demo-3',
+        fileName: 'derm-portfolio-demo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1_843_200,
+        uploadedAt: DERM_CLAIMED_AT,
+      },
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: DERM_CLAIMED_AT,
+      updatedAt: DERM_CLAIMED_AT,
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -1380,6 +1451,7 @@ export function createSeedDb(): MockDb {
     disputes,
     consultationAddenda,
     verifications,
+    specialtyClaims,
     auditEvents,
     closures,
   };

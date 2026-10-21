@@ -771,6 +771,95 @@ describe('pay with wallet (issue #59)', () => {
   });
 });
 
+describe('specialty claims (admin verification)', () => {
+  it('lists pending claims oldest first and filters by specialty and age', async () => {
+    const page = await verificationService.listSpecialtyClaims({}, MOCK_ACCESS_TOKEN);
+    expect(page.items.map((c) => c.id)).toEqual(['dsc-demo-3', 'dsc-demo-1', 'dsc-demo-2']);
+    expect(page.nextCursor).toBeNull();
+
+    const cardio = await verificationService.listSpecialtyClaims(
+      { specialtyId: 'spec-cardiology' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(cardio.items.map((c) => c.specialtyId)).toEqual(['spec-cardiology']);
+
+    // The 168h fixture (dsc-demo-3, seeded 10 days old) survives; newer claims drop.
+    const old = await verificationService.listSpecialtyClaims({ olderThan: '168h' }, MOCK_ACCESS_TOKEN);
+    expect(old.items.map((c) => c.id)).toEqual(['dsc-demo-3']);
+    const week = await verificationService.listSpecialtyClaims({ olderThan: '72h' }, MOCK_ACCESS_TOKEN);
+    expect(week.items.map((c) => c.id)).toEqual(['dsc-demo-3', 'dsc-demo-1']);
+  });
+
+  it('approves a claim and leaves the pending queue', async () => {
+    const page = await verificationService.listSpecialtyClaims({}, MOCK_ACCESS_TOKEN);
+    const claim = page.items.find((c) => c.id === 'dsc-demo-1')!;
+    const approved = await verificationService.reviewSpecialtyClaim(
+      'dsc-demo-1',
+      { decision: 'approve', reason: null, expectedUpdatedAt: claim.updatedAt },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(approved.status).toBe('verified');
+    expect(approved.reviewedById).toBeTruthy();
+
+    const after = await verificationService.listSpecialtyClaims({}, MOCK_ACCESS_TOKEN);
+    expect(after.items.find((c) => c.id === 'dsc-demo-1')).toBeUndefined();
+  });
+
+  it('rejects with an actionable reason, and refuses a bare rejection', async () => {
+    const page = await verificationService.listSpecialtyClaims({}, MOCK_ACCESS_TOKEN);
+    const neuro = page.items.find((c) => c.id === 'dsc-demo-2')!;
+    const derm = page.items.find((c) => c.id === 'dsc-demo-3')!;
+    const rejected = await verificationService.reviewSpecialtyClaim(
+      'dsc-demo-2',
+      {
+        decision: 'reject',
+        reason: 'Upload a neurology board certification to resubmit.',
+        expectedUpdatedAt: neuro.updatedAt,
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.rejectionReason).toContain('board certification');
+
+    await expect(
+      verificationService.reviewSpecialtyClaim(
+        'dsc-demo-3',
+        { decision: 'reject', reason: 'no', expectedUpdatedAt: derm.updatedAt },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+
+  it('409s when the admin reviewed a stale version of the claim', async () => {
+    await expect(
+      verificationService.reviewSpecialtyClaim(
+        'dsc-demo-1',
+        { decision: 'approve', reason: null, expectedUpdatedAt: '2026-01-01T00:00:00.000Z' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('serves the claim credential as bytes and 404s unknown claims', async () => {
+    const blob = await verificationService.fetchClaimCredential('dsc-demo-1', MOCK_ACCESS_TOKEN);
+    expect(blob.size).toBeGreaterThan(0);
+    expect(blob.type).toContain('pdf');
+
+    await expect(verificationService.fetchClaimCredential('nope', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 404,
+    });
+    // dsc-demo-2 deliberately has no document attached.
+    await expect(verificationService.fetchClaimCredential('dsc-demo-2', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
+  it('serves the specialty catalog for the filter dropdown', async () => {
+    const specialties = await verificationService.listSpecialties(MOCK_ACCESS_TOKEN);
+    expect(specialties.map((s) => s.id)).toContain('spec-cardiology');
+  });
+});
+
 describe('verification queue (issue #64)', () => {
   it('lists pending doctors oldest first with document counts', async () => {
     const list = await verificationService.listVerifications({}, MOCK_ACCESS_TOKEN);
