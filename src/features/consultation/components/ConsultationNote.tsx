@@ -4,25 +4,18 @@ import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/us
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { useFormat } from '../../../i18n/useFormat';
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
-
-function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 interface ConsultationNoteProps {
   appointmentId?: string;
 }
 
 export function ConsultationNote({ appointmentId: appointmentIdProp }: ConsultationNoteProps) {
+  const formatters = useFormat();
+  const formatDateTime = (iso: string | null | undefined) =>
+    iso ? formatters.formatDateTime(iso) : '—';
   const params = useParams<{ appointmentId: string }>();
   const appointmentId = appointmentIdProp ?? params.appointmentId;
   const query = useConsultationNote(appointmentId ?? null);
@@ -127,7 +120,11 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
             <>
               {editing ? (
                 <>
+                  <label htmlFor="consultation-note-content" className="srOnly">
+                    Consultation note content
+                  </label>
                   <textarea
+                    id="consultation-note-content"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}
@@ -162,7 +159,11 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
 
           <h3 className={styles.addendaHeading}>Addenda</h3>
           <div className={styles.addendumComposer}>
+            <label htmlFor="consultation-addendum" className="srOnly">
+              Addendum content
+            </label>
             <textarea
+              id="consultation-addendum"
               value={addendumContent}
               onChange={(e) => setAddendumContent(e.target.value)}
               placeholder="Add an addendum…"

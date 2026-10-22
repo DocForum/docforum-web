@@ -11,7 +11,11 @@ export function FacilityDashboardPage() {
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
       <nav className={styles.tabsNav} aria-label="Facility navigation">
-        <Link to="/facility" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
+        <Link
+          to="/facility"
+          className={`${styles.tabLink} ${styles.tabLinkActive}`}
+          aria-current="page"
+        >
           Fulfillment Queue
         </Link>
         <Link to="/facility/verify" className={styles.tabLink}>

@@ -56,29 +56,37 @@
   --color-surface-hover: #e9e0d1;
   --color-border: #e4dbcb;
   --color-border-strong: #cfc2aa;
+  --color-border-subtle: #efe8dc;
 
   --color-text: #1c1815;
   --color-text-muted: #5e5648;
-  --color-text-faint: #8c8271;
+  /* Darkened from #8c8271: 3.52:1 failed WCAG 2.2 AA for small text.
+     This keeps the same warm grey at 5.2:1 on the light background. */
+  --color-text-faint: #6f6757;
 
   --color-accent: #1f4d3a;
   --color-accent-hover: #163829;
   --color-accent-contrast: #faf6f0;
   --color-accent-subtle: #e7eee9;
 
-  --color-accent-2: #a6763d;
-  --color-accent-2-hover: #8a6132;
+  --color-accent-2: #8a6132;
+  --color-accent-2-hover: #6f4e28;
   --color-accent-2-contrast: #faf6f0;
   --color-accent-2-subtle: #f3e9d8;
 
   --color-success: #1f4d3a;
   --color-success-surface: #e7eee9;
-  --color-warning: #a6763d;
+  --color-warning: #8a5a1f;
   --color-warning-surface: #f3e9d8;
   --color-danger: #9b3b2b;
   --color-danger-surface: #f7e8e3;
+  --color-danger-contrast: #ffffff;
 
   --color-focus-ring: #1f4d3a;
+
+  /* WCAG 2.2 AA target size (2.5.8 is 24px; 44px is the comfortable
+     touch minimum this design uses for primary controls). */
+  --target-size: 2.75rem;
 }
 
 /* ---- Color: dark ---- */
@@ -97,10 +105,13 @@
 
     --color-text: #f3ecdf;
     --color-text-muted: #b8ac94;
-    --color-text-faint: #8a7f68;
+    --color-text-faint: #9a8f77;
+    --color-border-subtle: #4a422f;
 
-    --color-accent: #4a9b76;
-    --color-accent-hover: #6bb690;
+    /* Lightened so small accent text on --color-accent-subtle clears 4.5:1
+       (the previous #4a9b76 was 4.25:1). */
+    --color-accent: #5fae8a;
+    --color-accent-hover: #7cc3a1;
     --color-accent-contrast: #0e1c16;
     --color-accent-subtle: #1c2e26;
 
@@ -115,6 +126,7 @@
     --color-warning-surface: #2e2517;
     --color-danger: #e08469;
     --color-danger-surface: #2e1c15;
+    --color-danger-contrast: #241a08;
 
     --color-focus-ring: #4a9b76;
 

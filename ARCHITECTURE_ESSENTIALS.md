@@ -23,7 +23,9 @@ those first if you're new to the org, not just this file.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
-   — keep this shape.
+   — keep this shape. `src/i18n/` was added in Phase W7 for locale-aware
+   formatting and direction (issue #88); it is not a place for business
+   logic.
 
 ## Where things live
 - `src/services/` — API client calls to `docforum-core`. `api-client.ts` is

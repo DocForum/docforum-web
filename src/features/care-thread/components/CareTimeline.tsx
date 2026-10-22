@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useFormat } from '../../../i18n/useFormat';
 import type { CareStepStatus, CareStepType, CareThread, CareThreadStep } from '../../../types/models';
 import styles from './CareTimeline.module.css';
 
@@ -51,6 +52,8 @@ function formatStatus(status: CareStepStatus): string {
 }
 
 export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
+  const { formatDate, formatDateTime } = useFormat();
+
   if (isLoading) {
     return (
       <div className={styles.timelineContainer}>
@@ -81,14 +84,16 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
   const isPartialConcludedAtConsultation = hasConsultation && !hasSubsequentSteps;
 
   return (
-    <div className={styles.timelineContainer} aria-label="Care thread timeline">
+    <section className={styles.timelineContainer} aria-label="Care thread timeline">
       <div className={styles.timelineHeader}>
         <div>
           <span className={styles.statusPill}>{thread.status} care episode</span>
           <h2 className={styles.threadTitle}>{thread.title}</h2>
           <div className={styles.threadMeta}>
             <span>Doctor: {thread.doctorName} ({thread.specialty})</span>
-            <span>Started: {new Date(thread.startedAt).toLocaleDateString()}</span>
+            <span>
+              Started: <time dateTime={thread.startedAt}>{formatDate(thread.startedAt)}</time>
+            </span>
           </div>
         </div>
       </div>
@@ -114,10 +119,7 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
 
                 {step.timestamp && (
                   <div className={styles.stepTimestamp}>
-                    {new Date(step.timestamp).toLocaleString(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
+                    <time dateTime={step.timestamp}>{formatDateTime(step.timestamp)}</time>
                   </div>
                 )}
 
@@ -135,12 +137,12 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
       </ol>
 
       {isPartialConcludedAtConsultation && (
-        <div className={styles.partialNotice}>
+        <div className={styles.partialNotice} role="note">
           <strong>Care Episode Concluded:</strong> Following the consultation, no specialist referrals or diagnostic
           laboratory orders were deemed necessary by {thread.doctorName}. You can review your clinical notes or book a
           follow-up if needed.
         </div>
       )}
-    </div>
+    </section>
   );
 }

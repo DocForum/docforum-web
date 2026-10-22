@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/auth-store';
 import { CreatePaymentIntentForm } from '../features/payments/components/CreatePaymentIntentForm';
 import { PaymentIntentPanel } from '../features/payments/components/PaymentIntentPanel';
 import { TextField } from '../components/TextField';
+import { Button } from '../components/Button';
 
 // v1: admin accounts are invited/seeded directly, not self-serve — there's
 // no admin signup flow anywhere in this repo or docforum-core, by design
@@ -56,17 +57,26 @@ export function AdminDashboardPage() {
 
       <CreatePaymentIntentForm onCreated={setSelectedIntentId} />
 
-      <div className="card">
-        <h2>Look up an existing payment intent</h2>
-        <TextField
-          label="Payment intent id"
-          value={lookupId}
-          onChange={(e) => setLookupId(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setSelectedIntentId(lookupId);
+      <section className="card" aria-labelledby="lookup-heading">
+        <h2 id="lookup-heading">Look up an existing payment intent</h2>
+        <form
+          aria-label="Look up an existing payment intent"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (lookupId.trim()) setSelectedIntentId(lookupId.trim());
           }}
-        />
-      </div>
+        >
+          <TextField
+            label="Payment intent id"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+            hint="Paste the id returned when the intent was created."
+          />
+          <Button type="submit" variant="secondary">
+            Look up
+          </Button>
+        </form>
+      </section>
 
       {selectedIntentId && <PaymentIntentPanel intentId={selectedIntentId} />}
     </div>

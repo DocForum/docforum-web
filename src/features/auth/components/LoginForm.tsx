@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -27,6 +27,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const loginMutation = useLogin();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
   const [serverError, setServerError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { errors } = form.formState;
+
+  // Move focus to the first problem after a failed submit so keyboard and
+  // screen-reader users do not have to hunt through the form.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
@@ -51,8 +61,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+      <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {loginMutation.isPending && (
+          <p className="srOnly" role="status">
+            Logging in. Please wait.
+          </p>
+        )}
         {isSlow && (
           <p className="slowHint" role="status">
             <Spinner size={14} />
