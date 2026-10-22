@@ -1,0 +1,41 @@
+.title {
+  text-wrap: balance;
+}
+
+.when {
+  font-size: var(--text-base);
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
+}
+
+.until {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+}
+
+.detail {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.loading {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  margin: var(--space-3) 0 0;
+}
+
+.notice {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin: var(--space-4) 0 0;
+  max-width: none;
+}
+
+.back {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-sm);
+}

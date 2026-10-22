@@ -4,16 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import * as messagingService from '../../../services/messaging-service';
 import { useMessageThreads } from './useMessageThreads';
-import type { MessageThread } from '../../../types/models';
+import type { DoctorMessageThread } from '../../../types/models';
 
 vi.mock('../../../services/messaging-service', () => ({
   listThreads: vi.fn(),
   markThreadRead: vi.fn(),
-  totalUnread: (threads: MessageThread[]) =>
+  totalUnread: (threads: DoctorMessageThread[]) =>
     threads.reduce((sum, t) => sum + t.unreadCount, 0),
 }));
 
-const THREAD: MessageThread = {
+const THREAD: DoctorMessageThread = {
   id: 'thread-1',
   patientProfileId: 'pat-1',
   patientName: 'Ada Patient',
@@ -61,6 +61,7 @@ describe('useMessageThreads', () => {
     expect(vi.mocked(messagingService.listThreads)).toHaveBeenCalledWith(
       { filter: 'all', cursor: null, limit: 10 },
       'test-token',
+      expect.any(AbortSignal),
     );
   });
 
@@ -90,7 +91,7 @@ describe('useMessageThreads', () => {
           'all',
           null,
           10,
-        ]) as { threads: MessageThread[] } | undefined
+        ]) as { threads: DoctorMessageThread[] } | undefined
       )?.threads?.[0].unreadCount;
       expect(cached).toBe(0);
     });
@@ -107,7 +108,7 @@ describe('useMessageThreads', () => {
           'all',
           null,
           10,
-        ]) as { threads: MessageThread[] } | undefined
+        ]) as { threads: DoctorMessageThread[] } | undefined
       )?.threads?.[0].unreadCount,
     ).toBe(0);
   });

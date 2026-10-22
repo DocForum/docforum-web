@@ -1,8 +1,8 @@
 import { apiFetch } from './api-client';
 import type { Dependent, DependentInput } from '../types/models';
 
-export function listDependents(accessToken: string): Promise<Dependent[]> {
-  return apiFetch<Dependent[]>('/patients/me/dependents', { accessToken });
+export function listDependents(accessToken: string, signal?: AbortSignal): Promise<Dependent[]> {
+  return apiFetch<Dependent[]>('/patients/me/dependents', { accessToken, signal });
 }
 
 export function addDependent(input: DependentInput, accessToken: string): Promise<Dependent> {

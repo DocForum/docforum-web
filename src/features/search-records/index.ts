@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Appointment, CareThread, MessageThread, Role } from '../../types/models';
+import type { Appointment, CareThread, DoctorMessageThread, Role } from '../../types/models';
 
 export type RecordKind = 'appointment' | 'order' | 'result' | 'message';
 
@@ -117,7 +117,7 @@ function isLocalRoute(href: string): boolean {
   return href.startsWith('/') && !href.startsWith('//') && !href.includes('\\');
 }
 
-function isThreadListData(value: unknown): value is { threads: MessageThread[] } {
+function isThreadListData(value: unknown): value is { threads: DoctorMessageThread[] } {
   return Boolean(
     value
     && typeof value === 'object'
