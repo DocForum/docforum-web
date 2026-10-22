@@ -4,11 +4,11 @@ import { render, screen, waitFor } from '../../../test/render';
 import { DoctorInbox } from './DoctorInbox';
 import { useAuthStore } from '../../../store/auth-store';
 import * as messagingService from '../../../services/messaging-service';
-import type { DoctorMessageThread } from '../../../types/models';
+import type { MessageThread } from '../../../types/models';
 
 vi.mock('../../../services/messaging-service');
 
-const THREADS: DoctorMessageThread[] = [
+const THREADS: MessageThread[] = [
   {
     id: 'thread-1',
     patientProfileId: 'pat-1',

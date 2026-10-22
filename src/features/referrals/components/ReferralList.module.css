@@ -1,0 +1,94 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-text-main);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: -0.5rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.doctorInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.doctorName {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--color-text-main);
+}
+
+.specialtyBadge {
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle, rgba(20, 184, 166, 0.15));
+  color: var(--color-accent-text, var(--color-text-main));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.reasonBox {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle, rgba(0, 0, 0, 0.03));
+  font-size: 0.9rem;
+  color: var(--color-text-main);
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.acceptedNotice {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.acceptedHeader {
+  font-weight: 600;
+  color: #059669;
+}
+
+.empty {
+  padding: 1.5rem;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}

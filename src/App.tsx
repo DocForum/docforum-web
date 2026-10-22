@@ -1,17 +1,13 @@
 import { Route, Routes } from 'react-router-dom';
-import { HashRedirectShim } from './components/HashRedirectShim';
-import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
-import { PrivacyPage } from './pages/PrivacyPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { AccessLogPage } from './pages/AccessLogPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
@@ -26,27 +22,16 @@ import { FacilityTeamPage } from './pages/FacilityTeamPage';
 import { AdminAuditPage } from './pages/AdminAuditPage';
 import { AdminReferralsPage } from './pages/AdminReferralsPage';
 import { AdminSystemPage } from './pages/AdminSystemPage';
-import { AdminVerificationPage } from './pages/AdminVerificationPage';
 import { AdminFlagsPage } from './pages/AdminFlagsPage';
 import { AdminDisputesPage } from './pages/AdminDisputesPage';
 import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
-import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
-import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
-import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
-import { MessageThreadPage } from './pages/MessageThreadPage';
-
-const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
 export default function App() {
-  useAnalyticsPageview();
-
   return (
-    <>
-      {!useHashRouter && <HashRedirectShim />}
-      <Routes>
+    <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
@@ -90,14 +75,6 @@ export default function App() {
           }
         />
         <Route
-          path="patient/orders/:orderId"
-          element={
-            <RequireAuth allowedRoles={['patient']}>
-              <OrderDetailPage />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="patient/*"
           element={
             <RequireAuth allowedRoles={['patient']}>
@@ -123,11 +100,6 @@ export default function App() {
         <Route path="doctor/messages" element={
           <RequireAuth allowedRoles={['doctor']}>
             <DoctorInbox />
-          </RequireAuth>
-        } />
-        <Route path="doctor/messages/:threadId" element={
-          <RequireAuth allowedRoles={['doctor']}>
-            <MessageThreadPage />
           </RequireAuth>
         } />
         <Route
@@ -163,14 +135,6 @@ export default function App() {
           }
         />
         <Route
-          path="facility/insights"
-          element={
-            <RequireAuth allowedRoles={['facility']}>
-              <FacilityInsightsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="facility/*"
           element={
             <RequireAuth allowedRoles={['facility']}>
@@ -191,30 +155,6 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminReferralsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="admin/verifications"
-          element={
-            <RequireAuth allowedRoles={['admin']}>
-              <AdminVerificationsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="admin/verification"
-          element={
-            <RequireAuth allowedRoles={['admin']}>
-              <AdminVerificationPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="admin/verifications/:doctorProfileId"
-          element={
-            <RequireAuth allowedRoles={['admin']}>
-              <AdminVerificationDetailPage />
             </RequireAuth>
           }
         />
@@ -258,10 +198,8 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
-    </>
   );
 }
