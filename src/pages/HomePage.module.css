@@ -36,7 +36,9 @@
   color: var(--color-accent-contrast);
   font-weight: 600;
   font-size: var(--text-base);
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  transition:
+    background-color var(--motion-duration-color-change) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 .ctaPrimary:hover {
   background: var(--color-accent-hover);
