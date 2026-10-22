@@ -28,6 +28,7 @@ import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { AdminCatalogsPage } from './pages/AdminCatalogsPage';
 
 export default function App() {
   return (
@@ -190,6 +191,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="admin/catalogs" element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
         <Route
           path="admin/*"
           element={

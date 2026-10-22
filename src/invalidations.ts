@@ -19,6 +19,7 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import {
   accountKeys,
+  catalogKeys,
   appointmentKeys,
   dependentKeys,
   facilityKeys,
@@ -51,6 +52,7 @@ export const invalidations = {
   'admin.run-job': () => [systemKeys.all],
   /** Flag writes update the list and its "last changed by…" audit lookup. */
   'admin.feature-flags.write': () => [flagKeys.all],
+  'admin.catalog.write': () => [catalogKeys.all],
   /** Reassignment/cancellation moved the stuck queue we're showing. */
   'admin.referral.settled': () => [referralKeys.stuckRoot()],
   /** A 422 means the picker's candidate list is stale, not the queue. */

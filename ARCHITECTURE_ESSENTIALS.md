@@ -169,6 +169,29 @@ the cookie to be sent/received at all). One gap remains:
 
 ## Known assumptions
 
+### Phase W6 — Catalog management (issue #67; depends on docforum-core #23, #60, #69 and #70)
+
+The `docforum-core` checkout and its `PRD.md`/`AGENTS.md` were not present
+in the workspace when this UI was implemented. These endpoint and response
+shapes are provisional and must be reconciled with those backend issues
+before release:
+
+- `GET /admin/catalogs/:catalog?search=&page=&pageSize=` →
+  `{ items: CatalogItem[], total, page, pageSize }`, with catalog values
+  `specialties`, `symptoms`, `medications`, `lab-tests`.
+- `POST /admin/catalogs/:catalog` and `PATCH /admin/catalogs/:catalog/:id`
+  accept `{ name, slug, description? }` and return `CatalogItem`.
+- `GET /admin/catalogs/:catalog/:id/usage` → `{ usageCount }`;
+  `POST /admin/catalogs/:catalog/:id/retire` retires without deletion and
+  returns the updated `CatalogItem`.
+- `GET /admin/catalogs/symptoms/:symptomId/specialties` →
+  `SymptomSpecialtyMapping[]`; `PUT` to the same route accepts
+  `{ mappings: { specialtyId, weight }[] }`.
+- `CatalogItem` is provisionally `{ id, name, slug, description?, active,
+  usageCount, createdAt, updatedAt }`; weights are assumed to be numeric
+  values from 0 to 1. Existing records retain backend snapshots after
+  retirement. Slug edits can break links and are warned about in the form.
+
 ### Patient wallet linking (issue #58)
 
 The patient-wallet flow is intentionally not implemented against an assumed

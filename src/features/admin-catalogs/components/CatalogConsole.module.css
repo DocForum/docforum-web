@@ -1,0 +1,33 @@
+.page { max-width: 1120px; margin: 0 auto; padding: 1.5rem; color: var(--text, #18212b); }
+.page header h1 { margin: .2rem 0; font-size: clamp(1.8rem, 4vw, 2.5rem); }
+.page header p { color: var(--muted, #5e6b78); }
+.eyebrow { color: #166b61 !important; font-size: .75rem; font-weight: 700; letter-spacing: .12em; }
+.tabs { display: flex; gap: .4rem; overflow-x: auto; border-bottom: 1px solid #d8e0e5; margin: 1.5rem 0; }
+.tabs button { white-space: nowrap; padding: .8rem 1rem; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #40505f; cursor: pointer; }
+.tabs .activeTab { border-bottom-color: #167568; color: #105b52; font-weight: 700; }
+.toolbar, .fields, .formActions, .pager { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; }
+.toolbar { justify-content: space-between; margin: 1rem 0; }
+.toolbar label, .fields label, .mapping label { display: grid; gap: .4rem; font-weight: 600; }
+.toolbar input, .fields input, .mapping input, .mapping select { min-height: 42px; min-width: min(100%, 240px); padding: .55rem .7rem; border: 1px solid #bac6cf; border-radius: 8px; font: inherit; }
+.form, .mapping { background: #f6f9fa; border: 1px solid #dce5e8; border-radius: 12px; padding: 1rem; margin: 1.2rem 0; }
+.form h2, .mapping h2 { margin-top: 0; font-size: 1.1rem; }
+.fields { align-items: start; }
+.formActions { margin-top: 1rem; align-items: center; }
+.warning { color: #8b4a08; background: #fff7e8; padding: .65rem; border-radius: 8px; }
+.notice { padding: .8rem; border-radius: 8px; background: #e8f6ef; color: #175b3d; }
+.tableWrap { overflow-x: auto; border: 1px solid #dce5e8; border-radius: 10px; }
+.tableWrap table { width: 100%; border-collapse: collapse; min-width: 650px; }
+.tableWrap th, .tableWrap td { text-align: left; padding: .8rem; border-bottom: 1px solid #e4eaed; }
+.tableWrap th { background: #f6f9fa; font-size: .82rem; }
+.actions { display: flex; gap: .8rem; }
+.actions button, .pager button, .tableWrap button, .warning button { border: 0; background: transparent; color: #12675c; font: inherit; text-decoration: underline; cursor: pointer; }
+.pager { justify-content: center; margin: 1rem; align-items: center; }
+.pager button:disabled { color: #98a3aa; cursor: not-allowed; }
+.empty { padding: 1rem; text-align: center; color: #5e6b78; }
+.loading { display: flex; gap: .6rem; align-items: center; }
+.mapping > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .8rem; align-items: end; }
+.weight { display: grid; }
+.backdrop { position: fixed; inset: 0; background: #12212c99; display: grid; place-items: center; padding: 1rem; z-index: 100; }
+.dialog { width: min(100%, 480px); background: white; border-radius: 14px; padding: 1.3rem; box-shadow: 0 20px 60px #0003; }
+.dialog h2 { margin-top: 0; }
+@media (max-width: 600px) { .page { padding: 1rem; } .fields { display: grid; } .fields label, .toolbar label { width: 100%; } .toolbar input, .fields input { width: 100%; } }

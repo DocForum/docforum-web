@@ -124,6 +124,14 @@ export const flagKeys = {
   history: () => ['admin', 'flags', 'history'] as const,
 };
 
+export const catalogKeys = {
+  all: ['admin', 'catalogs'] as const,
+  page: (catalog: string, search: string, page: number, pageSize: number) =>
+    ['admin', 'catalogs', catalog, search, page, pageSize] as const,
+  usage: (catalog: string, id: string) => ['admin', 'catalogs', catalog, id, 'usage'] as const,
+  mappings: (symptomId: string) => ['admin', 'catalogs', 'symptoms', symptomId, 'specialties'] as const,
+};
+
 export const accountKeys = {
   all: ['account'] as const,
   dataExport: () => ['account', 'data-export'] as const,

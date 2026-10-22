@@ -11,6 +11,47 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+// --- Admin controlled vocabularies (Phase W6, issue #67; provisional until
+// docforum-core catalog contracts land) -----------------------------------
+export type CatalogKind = 'specialties' | 'symptoms' | 'medications' | 'lab-tests';
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  active: boolean;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogPage {
+  items: CatalogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CatalogInput {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface SymptomSpecialtyMapping {
+  id: string;
+  symptomId: string;
+  specialtyId: string;
+  specialtyName: string;
+  weight: number;
+}
+
+export interface SymptomMappingInput {
+  specialtyId: string;
+  weight: number;
+}
+
 /** Roles a user may self-register as. Facility accounts are admin-invited
  * only (PRD OQ-2) — there is deliberately no self-serve facility signup. */
 export type SelfServeRole = Extract<Role, 'patient' | 'doctor'>;
