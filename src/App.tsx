@@ -82,7 +82,23 @@ export default function App() {
         />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
-          path="care/*"
+          path="care"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/:threadId"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/threads/:threadId"
           element={
             <RequireAuth allowedRoles={['patient', 'doctor']}>
               <CareThreadPage />
