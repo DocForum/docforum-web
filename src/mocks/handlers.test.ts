@@ -24,6 +24,7 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
@@ -507,6 +508,94 @@ describe('facility fulfillment queue', () => {
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('integrations (API keys & webhooks)', () => {
+  it('creates an API key with a one-time secret not returned by list', async () => {
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys).toHaveLength(2);
+
+    const created = await integrationsService.createApiKey(
+      FACILITY_ID,
+      { name: 'Test key (fake)', scopes: ['orders.read'] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.secret).toMatch(/^df_live_/);
+    expect(created.name).toBe('Test key (fake)');
+
+    const after = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(after).toHaveLength(3);
+    expect(after.some((k) => 'secret' in k)).toBe(false);
+  });
+
+  it('revokes an API key and keeps it in the list as revoked', async () => {
+    const revoked = await integrationsService.revokeApiKey(
+      FACILITY_ID,
+      'key-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(revoked.success).toBe(true);
+
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys.find((k) => k.id === 'key-demo-1')?.revokedAt).not.toBeNull();
+  });
+
+  it('creates a webhook endpoint with a one-time signing secret', async () => {
+    const created = await integrationsService.createWebhookEndpoint(
+      FACILITY_ID,
+      {
+        url: 'https://new.example.test/webhook',
+        events: ['order.created', 'order.fulfilled'],
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.signingSecret).toMatch(/^whsec_/);
+
+    const endpoints = await integrationsService.listWebhookEndpoints(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(endpoints.some((e) => 'signingSecret' in e)).toBe(false);
+    expect(endpoints.find((e) => e.id === created.id)?.url).toBe(
+      'https://new.example.test/webhook',
+    );
+  });
+
+  it('sends a test delivery and redelivers a failed one', async () => {
+    const delivery = await integrationsService.sendTestDelivery(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(delivery.status).toBe('success');
+
+    const deliveries = await integrationsService.listWebhookDeliveries(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(deliveries.some((d) => d.status === 'failed')).toBe(true);
+
+    const redelivered = await integrationsService.redeliverWebhook(
+      FACILITY_ID,
+      'whk-demo-1',
+      'whd-demo-2',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(redelivered.status).toBe('success');
+  });
+
+  it('deletes an endpoint and its deliveries', async () => {
+    const result = await integrationsService.deleteWebhookEndpoint(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(result.success).toBe(true);
+    await expect(
+      integrationsService.listWebhookDeliveries(FACILITY_ID, 'whk-demo-1', MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
   });
 });
 

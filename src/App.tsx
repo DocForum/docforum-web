@@ -36,6 +36,7 @@ import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
 import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
@@ -84,7 +85,23 @@ export default function App() {
         />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
-          path="care/*"
+          path="care"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/:threadId"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/threads/:threadId"
           element={
             <RequireAuth allowedRoles={['patient', 'doctor']}>
               <CareThreadPage />
@@ -161,6 +178,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/integrations"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityIntegrationsPage />
             </RequireAuth>
           }
         />
