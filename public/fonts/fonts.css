@@ -1,0 +1,69 @@
+/* Self-hosted fonts (issue #101 — CSP / SRI).
+ *
+ * Fonts are served from the same origin so they are covered by
+ * `font-src 'self'` and the stylesheet link carries a Subresource
+ * Integrity hash. Google Fonts is no longer an external origin.
+ *
+ * Source: Google Fonts (Fraunces v38, IBM Plex Sans v23), downloaded as
+ * static TrueType files and committed under public/fonts/.
+ */
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fraunces-500.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fraunces-600.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fraunces-700.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-stretch: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./ibmplexsans-400.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-stretch: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./ibmplexsans-500.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-stretch: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./ibmplexsans-600.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-stretch: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./ibmplexsans-700.ttf') format('truetype');
+}

@@ -75,7 +75,12 @@ scoped (and why).
   `docforum-core` contributor eventually building the real endpoint)
   knows what to match or revise.
 - If your change starts, completes, or blocks a roadmap-tracked item,
-  update `ROADMAP.md` in the same PR.
+  tick or update that item's line in `ROADMAP.md` and add a changelog
+  entry as a new file in `changelog.d/`, in the same PR. Don't append to
+  the end of `ROADMAP.md`; that is what made every PR conflict. See
+  `changelog.d/README.md`.
+- Keep doc edits to your own lines: add rows and lines, don't rewrite
+  other people's paragraphs. See `AGENTS.md` → "Shared docs".
 - Run `npm run typecheck && npm run test && npm run build` locally —
   this is exactly what CI checks.
 

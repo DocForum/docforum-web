@@ -76,4 +76,16 @@ export const authHandlers = [
     '*/auth/claim-account',
     respond('void', () => null),
   ),
+
+  // Session idle-timeout settings (issue #82) — role-aware like the real
+  // backend is expected to be (ARCHITECTURE_ESSENTIALS.md "Known
+  // assumptions — Session idle timeout").
+  http.get(
+    '*/auth/session-timeout',
+    respond('json', () => {
+      const role = useMockStore.getState().activeRole;
+      const idleTimeoutMinutes = role === 'admin' ? 10 : role === 'patient' ? 30 : 15;
+      return { idleTimeoutMinutes, warningSeconds: 60 };
+    }),
+  ),
 ];
