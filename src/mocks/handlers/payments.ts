@@ -1,7 +1,7 @@
 // Payments endpoints: wallet link and the payment-intent lifecycle.
 // Everything goes through docforum-core's API shape — no Stellar calls
 // here (hard rule 1). Amounts stay BigInt-as-string.
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_ID } from '../fixtures';
@@ -61,11 +61,69 @@ export const paymentsHandlers = [
     }),
   ),
 
+  // Order → intent lookup for the patient payment panel (issues #59/#61).
+  // No intent for the order is a 404 — both the status panel and the
+  // pay-with-wallet panel hide (the service maps it to null). One handler
+  // serves both. ASSUMED: docforum-core#85 (real FKs) hasn't landed.
+  http.get(
+    '*/payments/intents',
+    respond('nullable', ({ request }) => {
+      const orderId = new URL(request.url).searchParams.get('orderId');
+      if (!orderId) {
+        return HttpResponse.json(
+          { message: 'Mock API: orderId query parameter is required' },
+          { status: 400 },
+        );
+      }
+      return (
+        db.paymentIntents.find((i) => i.orderId === orderId) ??
+        notFound('payment intent for this order')
+      );
+    }),
+  ),
+
   http.get(
     '*/payments/intents/:id',
     respond('json', ({ params }) => {
       const intent = db.paymentIntents.find((i) => i.id === paramId(params));
       if (!intent) return notFound('payment intent');
+      return intent;
+    }),
+  ),
+
+  // docforum-core#80 (assumed): prepare the unsigned create_escrow XDR.
+  http.post(
+    '*/payments/intents/:id/prepare',
+    respond('json', ({ params }) => {
+      const intent = db.paymentIntents.find((i) => i.id === paramId(params));
+      if (!intent) return notFound('payment intent');
+      const now = new Date();
+      intent.status = 'awaiting_signature';
+      intent.updatedAt = now.toISOString();
+      return {
+        intentId: intent.id,
+        xdr: `AAAA${btoa(`mock-unsigned-create_escrow:${intent.id}`)}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`,
+        expiresAt: new Date(now.getTime() + 5 * 60_000).toISOString(),
+        expiryLedger: 987_654,
+        status: intent.status,
+      };
+    }),
+  ),
+
+  // docforum-core#81 (assumed): verify + fee-bump + submit (all server-side;
+  // the browser only relays the signed XDR).
+  http.post(
+    '*/payments/intents/:id/submit',
+    respond('json', async ({ params, request }) => {
+      const intent = db.paymentIntents.find((i) => i.id === paramId(params));
+      if (!intent) return notFound('payment intent');
+      const body = (await request.json().catch(() => ({}))) as { signedXdr?: string };
+      if (!body.signedXdr) return conflict('signedXdr is required');
+      const now = new Date().toISOString();
+      intent.status = 'escrowed';
+      intent.escrowId = `esc-mock-${intent.id}`;
+      intent.stellarTxHash = `mocktx${Date.now()}`;
+      intent.updatedAt = now;
       return intent;
     }),
   ),

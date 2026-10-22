@@ -6,6 +6,7 @@ import {
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
 import { LiveRegion } from '../../../components/LiveRegion';
 import { useAnnouncer } from '../../../hooks/useAnnouncer';
@@ -66,6 +67,7 @@ export function QueuePanel() {
 
   const [overrideMin, setOverrideMin] = useState('');
   const [undoTarget, setUndoTarget] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const byPosition = useMemo(
     () => [...queue].sort((a, b) => a.queuePosition - b.queuePosition),
@@ -206,6 +208,14 @@ export function QueuePanel() {
                       </Button>
                     )}
                     {entry.status === 'completed' && <span className={styles.done}>Done</span>}
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        navigate(`/doctor/patient-chart/${entry.patientProfileId}`);
+                      }}
+                    >
+                      Chart
+                    </Button>
                   </td>
                 </tr>
               );

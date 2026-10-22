@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from './api-client';
+import { ApiError, SLOW_REQUEST_TIMEOUT_MS, apiFetch } from './api-client';
 import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport } from '../types/models';
 
 // docforum-core answers "not ready" with a 503 whose body is still the full
@@ -14,7 +14,7 @@ function isReadinessReport(body: unknown): body is ReadinessReport {
  * when not ready, same body either way. */
 export async function getReadiness(accessToken: string, signal?: AbortSignal): Promise<ReadinessReport> {
   try {
-    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal });
+    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal, retry: false });
   } catch (error) {
     if (error instanceof ApiError && error.status === 503 && isReadinessReport(error.body)) return error.body;
     throw error;
@@ -34,7 +34,13 @@ export function listJobs(accessToken: string, signal?: AbortSignal): Promise<Bac
  * `running` if the job outlives the request.
  */
 export function runJob(jobName: string, accessToken: string): Promise<JobRun> {
-  return apiFetch<JobRun>(`/admin/jobs/${encodeURIComponent(jobName)}/run`, { method: 'POST', accessToken });
+  return apiFetch<JobRun>(`/admin/jobs/${encodeURIComponent(jobName)}/run`, {
+    method: 'POST',
+    accessToken,
+    // The runner does the work inside the request, so this can be slower
+    // than a normal call (same reasoning as the data-export endpoints).
+    timeoutMs: SLOW_REQUEST_TIMEOUT_MS,
+  });
 }
 
 /** Assumed contract (docforum-core#94). A `404` means the outbox isn't exposed. */
