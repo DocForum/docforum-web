@@ -13,6 +13,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { PageHeader } from './PageHeader';
+import { PUBLIC_PAGES } from '../pages/public-routes';
 import styles from './Layout.module.css';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
@@ -116,6 +117,7 @@ export function Layout() {
   const toggleRef = useRef<HTMLButtonElement>(null);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -211,12 +213,14 @@ export function Layout() {
           )}
         </nav>
 
-        <div className={styles.headerActions}>
-          <ProfileSwitcher />
-          <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
-            {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
-          </Button>
-        </div>
+        {user && (
+          <div className={styles.headerActions}>
+            <ProfileSwitcher />
+            <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
+              {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
+            </Button>
+          </div>
+        )}
       </header>
 
       {/* Mobile drawer */}
@@ -294,7 +298,9 @@ export function Layout() {
       )}
 
       <main className={styles.main} id="main-content" role="main">
-        <PageHeader title={routeTitle(location.pathname)} />
+        {/* Public information pages (#120) render their own <header>/<h1>;
+            the app shell must not add a second one. */}
+        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
         <Outlet context={{}} />
       </main>
 

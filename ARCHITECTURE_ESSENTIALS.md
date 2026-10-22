@@ -42,6 +42,12 @@ those first if you're new to the org, not just this file.
   in-memory only (not persisted) — see hard rule about
   localStorage/sessionStorage above; it applies to auth tokens too, not
   just business data.
+- `src/prerender/` — build-time prerendering for the public pages (issue
+  #120). `entry-server.tsx` renders the real `<App/>` with an empty auth
+  store; `html.ts` is pure HTML assembly/validation (head metadata, link
+  rewriting, `#root` injection). `scripts/prerender.mjs` does the file I/O
+  and fails the build on any validation problem. See "Public pages &
+  prerendering" below.
 
 ## Query keys & cache invalidation (issue #122)
 React Query caches everything this app fetches. Two files own the key
@@ -110,6 +116,59 @@ land and consume `appointmentKeys.list(profileId)`.
   (e.g. behind `docforum-core` itself, or Vercel/Netlify).
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
+
+## Public pages & prerendering (issue #120)
+- **One registry, many consumers.** `src/pages/public-routes.ts` is the
+  single source of truth for public routes: path, title, description and
+  heading per page, plus the canonical/sitemap/robots builders. The router
+  (`src/pages/public-page-map.tsx` → `App.tsx`), the SSR entry, the
+  prerender script and the client-side metadata hook all read it — never
+  register a public route anywhere else.
+- **Build-time prerender, no new dependencies.** `npm run build` and
+  `npm run build:pages` run `npm run prerender` last: a Vite SSR build of
+  `src/prerender/entry-server.tsx` (into `dist-ssr/`, gitignored) followed
+  by `scripts/prerender.mjs`, which renders each public route to
+  `dist/<route>/index.html`, writes `dist/sitemap.xml` and
+  `dist/robots.txt`, and re-validates every page. A single problem fails
+  the build — CI therefore exercises the whole pipeline without any change
+  to `.github/workflows/`.
+- **No authenticated code paths during prerender.** The SSR entry wraps
+  `<App/>` in an empty auth store, so the logged-out `Layout` branch runs
+  and nothing signed-in can render. `validatePrerenderedHtml` treats a
+  leaked "Log out" control or a leftover `#app-loading` shell as a build
+  error, and `check:dist` still guards against mock code.
+- **Canonical origin is production, always.** `SITE_ORIGIN`
+  (`https://docforum.github.io`, overridable for previews via
+  `VITE_PUBLIC_SITE_ORIGIN`) and `SITE_BASE` (`/docforum-web/`) come from
+  the registry, not from the build-time `base`. A local `npm run build`
+  therefore emits production canonical URLs — that is deliberate, so what
+  search engines would index is what ships.
+- **Link rewriting.** Prerendered markup rewrites `href` values only:
+  public routes become real, crawlable, base-prefixed paths
+  (`/faq/` → `/docforum-web/faq/`) so crawlers and no-JS visitors can
+  follow them; app-only routes become `{base}#/{route}` so clicking them
+  boots the SPA; hrefs with a file extension and all `src`/`href` assets
+  are left alone. On load, `restorePublicPathIntoHash()` (called in
+  `main.tsx` before render) moves a path-based public URL into the
+  `HashRouter` so the SPA takes over from the static page.
+- **GSAP is progressive enhancement only.** Landing-page and logo
+  animations must never hide content when they fail: wrap GSAP work in
+  try/catch, strip primed inline styles on failure
+  (`clearAnimationStyles()` in `HomePage`), and keep all copy in the DOM
+  regardless. Regression-tested in `src/pages/HomePage.test.tsx`.
+- **Content rules.** Public copy is PRD-sourced only. Facility accounts
+  are described as admin-invited (PRD OQ-2), payouts as Stellar testnet
+  (hard rule 1 — no escrow/Stellar SDK talk here). Privacy and
+  Accessibility statements are marked "Draft — pending legal review" until
+  real legal review happens; do not silently drop that flag. Disclosed
+  third parties only (OpenStreetMap tiles; fonts are self-hosted since
+  #101) — no analytics or ads, and no new ones without updating the copy
+  in the same PR.
+- **`vite.config.ts` test env:** happy-dom is configured with
+  `disableCSSFileLoading`/`handleDisabledFileLoadingAsSuccess` because the
+  prerender tests parse the real `index.html` template (via `?raw`),
+  which links the self-hosted `/fonts/fonts.css` and
+  `/loading-shell.css` — tests must never fetch them.
 
 ## API client behaviour (issue #123)
 `src/services/api-client.ts` is the only place HTTP lives, and it now owns

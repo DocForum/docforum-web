@@ -21,13 +21,22 @@ export function Logo({ size = 28 }: { size?: number }) {
     const ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const length = path.getTotalLength();
-        gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
-        gsap.set(dotRefs.current, { scale: 0, transformOrigin: '50% 50%' });
+        try {
+          const length = path.getTotalLength();
+          gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
+          gsap.set(dotRefs.current, { scale: 0, transformOrigin: '50% 50%' });
 
-        const tl = gsap.timeline({ delay: 0.1 });
-        tl.to(path, { strokeDashoffset: 0, duration: 0.6, ease: 'power2.out' });
-        tl.to(dotRefs.current, { scale: 1, duration: 0.3, stagger: 0.07, ease: 'back.out(2)' }, '-=0.3');
+          const tl = gsap.timeline({ delay: 0.1 });
+          tl.to(path, { strokeDashoffset: 0, duration: 0.6, ease: 'power2.out' });
+          tl.to(dotRefs.current, { scale: 1, duration: 0.3, stagger: 0.07, ease: 'back.out(2)' }, '-=0.3');
+        } catch {
+          // The mark is decorative but must not vanish if animation setup
+          // fails — strip whatever inline styles were written and leave the
+          // finished SVG on screen.
+          path.style.removeProperty('stroke-dasharray');
+          path.style.removeProperty('stroke-dashoffset');
+          for (const dot of dotRefs.current) dot?.style.removeProperty('transform');
+        }
       });
       return () => mm.revert();
     });
