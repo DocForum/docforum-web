@@ -15,7 +15,6 @@ import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
 import { OrdersPage } from './OrdersPage';
 import { OrderDetailPage } from './OrderDetailPage';
-import { MessageThreadPage } from './MessageThreadPage';
 import styles from './PatientDashboardPage.module.css';
 
 function PatientHome() {
@@ -99,7 +98,6 @@ export function PatientDashboardPage() {
       <Route path="facilities" element={<FacilityFinderPage />} />
       <Route path="orders" element={<OrdersPage />} />
       <Route path="orders/:orderId" element={<OrderDetailPage />} />
-      <Route path="messages/:threadId" element={<MessageThreadPage />} />
       <Route path="settings" element={<AccountSettingsPage />} />
       <Route path="appointments" element={<AppointmentsPage />} />
       <Route path="booking" element={<BookingPage />} />

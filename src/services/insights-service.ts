@@ -1,8 +1,5 @@
 import { apiFetch } from './api-client';
-import type {
-  DoctorPracticeInsights,
-  FacilityPerformanceInsights,
-} from '../types/models';
+import type { DoctorPracticeInsights } from '../types/models';
 
 export interface GetInsightsParams {
   preset?: string;
@@ -23,19 +20,4 @@ export function getDoctorPracticeInsights(
   const qs = query.toString();
   const endpoint = `/doctor/insights${qs ? `?${qs}` : ''}`;
   return apiFetch<DoctorPracticeInsights>(endpoint, { accessToken, signal });
-}
-
-export function getFacilityPerformanceInsights(
-  accessToken: string,
-  facilityId: string,
-  params?: GetInsightsParams,
-): Promise<FacilityPerformanceInsights> {
-  const query = new URLSearchParams();
-  if (params?.preset) query.set('preset', params.preset);
-  if (params?.startDate) query.set('startDate', params.startDate);
-  if (params?.endDate) query.set('endDate', params.endDate);
-
-  const qs = query.toString();
-  const endpoint = `/facilities/${facilityId}/insights${qs ? `?${qs}` : ''}`;
-  return apiFetch<FacilityPerformanceInsights>(endpoint, { accessToken });
 }
