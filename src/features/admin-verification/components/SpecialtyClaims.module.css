@@ -1,0 +1,447 @@
+/* A review queue, read top to bottom — one card per doctor, claims nested
+   inside, so the supporting document and both actions fit on a phone
+   without sideways scrolling. */
+.page {
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-12);
+}
+
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.console {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-2xl);
+}
+
+.subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+/* ---- Toolbar ---- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.selectField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.select {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-raised);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
+/* ---- Notices & states ---- */
+
+.noticeSuccess,
+.noticeWarning {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.noticeSuccess {
+  background: var(--color-success-surface);
+}
+
+.noticeWarning {
+  background: var(--color-warning-surface);
+}
+
+.noticeSuccess p,
+.noticeWarning p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.dismiss {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-surface);
+  font-size: var(--text-sm);
+}
+
+.errorBox p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.empty {
+  margin: 0;
+  max-width: none;
+  padding: var(--space-8);
+  text-align: center;
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loadMore {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- Doctor card ---- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardTop {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doctorName {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.claimCount {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Monospace for the one value admins copy and compare. */
+.claimId {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  overflow-wrap: anywhere;
+}
+
+.claims {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.claim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-raised);
+}
+
+.claimTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.specialty {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.age {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ageElevated {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.ageHigh {
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+
+.ageCritical {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* ---- Credential ---- */
+
+.credential {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  font-size: var(--text-sm);
+}
+
+.credentialMissing {
+  background: var(--color-warning-surface);
+}
+
+.credentialName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.credentialMeta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.claimActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---- Dialog ---- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(28, 24, 21, 0.45);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  padding: var(--space-6);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.dialogDescription p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.dialogDescription p:last-child {
+  margin-bottom: 0;
+}
+
+.doctorNotice {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-surface);
+  color: var(--color-text);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dialogBody > :global(*) {
+  margin-bottom: 0;
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.textarea {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-raised);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  resize: vertical;
+  min-height: 5rem;
+  line-height: var(--leading-snug);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.fieldFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.fieldError {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+}
+
+.count,
+.countOver {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-faint);
+}
+
+.countOver {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  .toolbar,
+  .card {
+    padding: var(--space-4);
+  }
+
+  .dialog {
+    padding: var(--space-4);
+  }
+
+  .claimActions > :global(*) {
+    flex: 1 1 auto;
+  }
+}

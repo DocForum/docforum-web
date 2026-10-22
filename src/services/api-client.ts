@@ -35,6 +35,10 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly body?: unknown,
+    /** True when the request was aborted by the caller (e.g. an upload the
+     * user cancelled) — distinct from a network error, which also reports
+     * status 0. */
+    public readonly cancelled = false,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -300,4 +304,74 @@ export async function apiFetchBlob(path: string, options: RequestOptions = {}): 
   return method === 'GET'
     ? executeDeduped<Blob>(path, options, 'blob')
     : executeOnce<Blob>(path, options, 'blob');
+}
+
+export interface UploadOptions {
+  accessToken?: string | null;
+  signal?: AbortSignal;
+  /** 0–100. Fired as the browser reports upload progress. */
+  onProgress?: (percent: number) => void;
+}
+
+/** Multipart upload with real progress + cancellation. `fetch()` can't
+ * report upload progress, so this is the one deliberate exception to the
+ * fetch-only rule above — XMLHttpRequest, still confined here so feature
+ * code never touches HTTP details directly. Same base URL, auth header,
+ * credentials and `{ message }` error envelope as `apiFetch`. */
+export function apiUpload<T>(path: string, formData: FormData, options: UploadOptions = {}): Promise<T> {
+  const { accessToken, signal, onProgress } = options;
+
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError('Upload cancelled', 0, undefined, true));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    const handleAbort = () => xhr.abort();
+    signal?.addEventListener('abort', handleAbort);
+    const cleanup = () => signal?.removeEventListener('abort', handleAbort);
+
+    xhr.onload = () => {
+      cleanup();
+      const isJson = xhr.getResponseHeader('content-type')?.includes('application/json');
+      let payload: unknown;
+      if (isJson) {
+        try {
+          payload = JSON.parse(xhr.responseText);
+        } catch {
+          payload = undefined;
+        }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+      const message = (payload as ErrorEnvelope | undefined)?.message ?? xhr.statusText;
+      reject(new ApiError(message, xhr.status, payload));
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new ApiError('Network error during upload', 0));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new ApiError('Upload cancelled', 0, undefined, true));
+    };
+
+    xhr.send(formData);
+  });
 }
