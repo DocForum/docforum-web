@@ -201,3 +201,11 @@ export const messageKeys = {
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
 };
+
+/** First-run onboarding summary (#121). One key per role: the server scopes
+ * the response to the session, so there is nothing else to key on. */
+export const onboardingKeys = {
+  all: ['onboarding'] as const,
+  patient: () => ['onboarding', 'patient'] as const,
+  doctor: () => ['onboarding', 'doctor'] as const,
+};

@@ -7,10 +7,12 @@ import type { PatientAppointment, Dependent, HealthEntry, HealthSectionKey } fro
 import * as dependentsService from '../services/dependents-service';
 import * as healthService from '../services/health-profile-service';
 import * as appointmentsService from '../services/appointments-service';
+import * as onboardingService from '../services/onboarding-service';
 
 vi.mock('../services/dependents-service');
 vi.mock('../services/health-profile-service');
 vi.mock('../services/appointments-service');
+vi.mock('../services/onboarding-service');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -88,6 +90,13 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(healthService.listHealthEntries).mockReset();
     vi.mocked(appointmentsService.listMyAppointments).mockReset();
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([]);
+    vi.mocked(onboardingService.getPatientOnboarding).mockReset();
+    // Default: setup finished, so these tests describe the care hub itself.
+    vi.mocked(onboardingService.getPatientOnboarding).mockResolvedValue({
+      profileComplete: true,
+      healthProfileComplete: true,
+      firstSearchComplete: true,
+    });
     mockHealth();
   });
 
@@ -264,5 +273,24 @@ describe('PatientDashboardPage care hub', () => {
     expect(screen.queryByText(/Loading your care summary/i)).not.toBeInTheDocument();
     expect(appointmentsService.listMyAppointments).not.toHaveBeenCalled();
     expect(screen.queryByText(/could not be loaded/i)).not.toBeInTheDocument();
+  });
+
+  it('shows first-run setup progress from the server summary', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
+    vi.mocked(onboardingService.getPatientOnboarding).mockResolvedValue({
+      profileComplete: true,
+      healthProfileComplete: false,
+      firstSearchComplete: false,
+    });
+
+    render(<PatientDashboardPage />);
+
+    expect(await screen.findByText('1 of 3 done')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Get set up' })).toHaveAttribute(
+      'aria-valuenow',
+      '1',
+    );
+    // The hub below is still fully usable while onboarding is unfinished.
+    expect(screen.getByRole('heading', { name: 'What needs your attention' })).toBeInTheDocument();
   });
 });

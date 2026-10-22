@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { PatientOnboarding } from '../features/onboarding/components/PatientOnboarding';
 import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
@@ -25,6 +26,7 @@ function PatientHome() {
   return (
     <div className="container">
       <ActingForBanner />
+      <PatientOnboarding />
 
       <div className="card">
         <span className="statusPill">Phase W2 · in progress</span>
