@@ -11,6 +11,23 @@
 [data-theme="light"] {
   color-scheme: light;
 
+  /* Paired CSS/GSAP aliases preserve each runtime's original easing curve. */
+  --motion-duration-fast: 100ms;
+  --motion-duration-color-change: 150ms;
+  --motion-duration-logo-draw: 600ms;
+  --motion-duration-node-pop: 300ms;
+  --motion-duration-node-stagger: 70ms;
+  --motion-duration-hero-reveal: 500ms;
+  --motion-duration-hero-stagger: 100ms;
+  --motion-duration-hero-delay: 50ms;
+  --motion-duration-thread-line: 350ms;
+  --motion-duration-thread-hold: 1400ms;
+  --motion-duration-thread-repeat-delay: 1000ms;
+  --motion-ease-out: ease;
+  --motion-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-ease-gsap-out: power2.out;
+  --motion-ease-gsap-pop: back.out(2);
+
   /* ---- Typography ---- */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

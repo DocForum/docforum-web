@@ -4,40 +4,41 @@ import { HashRedirectShim } from './components/HashRedirectShim';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
-const HomePage = lazy(() => import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage })));
-const LoginPage = lazy(() => import('./pages/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })));
-const SignupPage = lazy(() => import('./pages/SignupPage').then(({ SignupPage }) => ({ default: SignupPage })));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(({ PrivacyPage }) => ({ default: PrivacyPage })));
-const PatientDashboardPage = lazy(() => import('./pages/PatientDashboardPage').then(({ PatientDashboardPage }) => ({ default: PatientDashboardPage })));
-const DoctorDashboardPage = lazy(() => import('./pages/DoctorDashboardPage').then(({ DoctorDashboardPage }) => ({ default: DoctorDashboardPage })));
-const FacilityDashboardPage = lazy(() => import('./pages/FacilityDashboardPage').then(({ FacilityDashboardPage }) => ({ default: FacilityDashboardPage })));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(({ AdminDashboardPage }) => ({ default: AdminDashboardPage })));
-const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then(({ OrderDetailPage }) => ({ default: OrderDetailPage })));
-const ClaimAccountPage = lazy(() => import('./pages/ClaimAccountPage').then(({ ClaimAccountPage }) => ({ default: ClaimAccountPage })));
-const AccessLogPage = lazy(() => import('./pages/AccessLogPage').then(({ AccessLogPage }) => ({ default: AccessLogPage })));
-const PaymentDetailPage = lazy(() => import('./pages/PaymentDetailPage').then(({ PaymentDetailPage }) => ({ default: PaymentDetailPage })));
-const PaymentHistoryPage = lazy(() => import('./pages/PaymentHistoryPage').then(({ PaymentHistoryPage }) => ({ default: PaymentHistoryPage })));
-const CareThreadPage = lazy(() => import('./pages/CareThreadPage').then(({ CareThreadPage }) => ({ default: CareThreadPage })));
-const AccountDeletedPage = lazy(() => import('./pages/AccountDeletedPage').then(({ AccountDeletedPage }) => ({ default: AccountDeletedPage })));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(({ NotFoundPage }) => ({ default: NotFoundPage })));
-const ConsultationNote = lazy(() => import('./features/consultation/components/ConsultationNote').then(({ ConsultationNote }) => ({ default: ConsultationNote })));
-const DoctorInbox = lazy(() => import('./features/messaging/components/DoctorInbox').then(({ DoctorInbox }) => ({ default: DoctorInbox })));
-const DoctorPracticeInsightsPage = lazy(() => import('./pages/DoctorPracticeInsightsPage').then(({ DoctorPracticeInsightsPage }) => ({ default: DoctorPracticeInsightsPage })));
-const FacilityTeamPage = lazy(() => import('./pages/FacilityTeamPage').then(({ FacilityTeamPage }) => ({ default: FacilityTeamPage })));
-const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage').then(({ AdminAuditPage }) => ({ default: AdminAuditPage })));
-const AdminReferralsPage = lazy(() => import('./pages/AdminReferralsPage').then(({ AdminReferralsPage }) => ({ default: AdminReferralsPage })));
-const AdminSystemPage = lazy(() => import('./pages/AdminSystemPage').then(({ AdminSystemPage }) => ({ default: AdminSystemPage })));
-const AdminVerificationPage = lazy(() => import('./pages/AdminVerificationPage').then(({ AdminVerificationPage }) => ({ default: AdminVerificationPage })));
-const AdminFlagsPage = lazy(() => import('./pages/AdminFlagsPage').then(({ AdminFlagsPage }) => ({ default: AdminFlagsPage })));
-const AdminDisputesPage = lazy(() => import('./pages/AdminDisputesPage').then(({ AdminDisputesPage }) => ({ default: AdminDisputesPage })));
-const AdminDisputeDetailPage = lazy(() => import('./pages/AdminDisputeDetailPage').then(({ AdminDisputeDetailPage }) => ({ default: AdminDisputeDetailPage })));
-const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage').then(({ AdminVerificationsPage }) => ({ default: AdminVerificationsPage })));
-const AdminVerificationDetailPage = lazy(() => import('./pages/AdminVerificationDetailPage').then(({ AdminVerificationDetailPage }) => ({ default: AdminVerificationDetailPage })));
-const OrderVerifyPage = lazy(() => import('./pages/OrderVerifyPage').then(({ OrderVerifyPage }) => ({ default: OrderVerifyPage })));
-const FacilityPaymentsPage = lazy(() => import('./pages/FacilityPaymentsPage').then(({ FacilityPaymentsPage }) => ({ default: FacilityPaymentsPage })));
-const FacilityInsightsPage = lazy(() => import('./pages/FacilityInsightsPage').then(({ FacilityInsightsPage }) => ({ default: FacilityInsightsPage })));
-const PatientChartPage = lazy(() => import('./pages/PatientChartPage').then(({ PatientChartPage }) => ({ default: PatientChartPage })));
-const MessageThreadPage = lazy(() => import('./pages/MessageThreadPage').then(({ MessageThreadPage }) => ({ default: MessageThreadPage })));
+import { HomePage } from './pages/HomePage';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
+import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
+import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { AccessLogPage } from './pages/AccessLogPage';
+import { PaymentDetailPage } from './pages/PaymentDetailPage';
+import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
+import { CareThreadPage } from './pages/CareThreadPage';
+import { AccountDeletedPage } from './pages/AccountDeletedPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { ConsultationNote } from './features/consultation/components/ConsultationNote';
+import { DoctorInbox } from './features/messaging/components/DoctorInbox';
+import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
+import { FacilityTeamPage } from './pages/FacilityTeamPage';
+import { AdminAuditPage } from './pages/AdminAuditPage';
+import { AdminReferralsPage } from './pages/AdminReferralsPage';
+import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminVerificationPage } from './pages/AdminVerificationPage';
+import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { AdminDisputesPage } from './pages/AdminDisputesPage';
+import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
+import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
+import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
+import { OrderVerifyPage } from './pages/OrderVerifyPage';
+import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
+import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
+import { PatientChartPage } from "./pages/PatientChartPage";
+import { MessageThreadPage } from './pages/MessageThreadPage';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -83,7 +84,23 @@ export default function App() {
         />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
-          path="care/*"
+          path="care"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/:threadId"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor']}>
+              <CareThreadPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="care/threads/:threadId"
           element={
             <RequireAuth allowedRoles={['patient', 'doctor']}>
               <CareThreadPage />
@@ -160,6 +177,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityTeamPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/integrations"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilityIntegrationsPage />
             </RequireAuth>
           }
         />

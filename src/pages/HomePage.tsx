@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
+import { motionDuration, motionEase, useMotion } from '../hooks/useMotion';
 import { useAuthStore } from '../store/auth-store';
 import styles from './HomePage.module.css';
 
@@ -114,8 +115,76 @@ export function HomePage() {
     return () => {
       active = false;
       revert?.();
+  const animateHero = useCallback((gsap: typeof import('gsap').gsap, hero: HTMLElement) => {
+    const targets = hero.querySelectorAll('[data-reveal]');
+    gsap.set(targets, { opacity: 0, y: 14 });
+    gsap.to(targets, {
+      opacity: 1,
+      y: 0,
+      duration: motionDuration('--motion-duration-hero-reveal'),
+      stagger: motionDuration('--motion-duration-hero-stagger'),
+      ease: motionEase('--motion-ease-gsap-out'),
+      delay: motionDuration('--motion-duration-hero-delay'),
+    });
+  }, []);
+  useMotion(heroRef, animateHero);
+
+  // The observer keeps the repeating diagram paused while it is off-screen.
+  const animateThread = useCallback((gsap: typeof import('gsap').gsap, section: HTMLElement) => {
+    const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+    const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    const duration = (token: `--motion-duration-${string}`) => motionDuration(token);
+
+    gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+    lines.forEach((line) => {
+      const length = line.getTotalLength();
+      gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+    });
+
+    const tl = gsap.timeline({
+      paused: true,
+      repeat: -1,
+      repeatDelay: duration('--motion-duration-thread-repeat-delay'),
+      yoyo: true,
+    });
+    tl.to(dots[0], {
+      scale: 1,
+      duration: duration('--motion-duration-node-pop'),
+      ease: motionEase('--motion-ease-gsap-pop'),
+    });
+    lines.forEach((line, i) => {
+      tl.to(line, {
+        strokeDashoffset: 0,
+        duration: duration('--motion-duration-thread-line'),
+        ease: motionEase('--motion-ease-gsap-out'),
+      });
+      tl.to(
+        dots[i + 1],
+        {
+          scale: 1,
+          duration: duration('--motion-duration-node-pop'),
+          ease: motionEase('--motion-ease-gsap-pop'),
+        },
+        `-=${duration('--motion-duration-node-pop') / 2}`,
+      );
+    });
+    tl.to({}, { duration: duration('--motion-duration-thread-hold') });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) tl.play();
+        else tl.pause();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+      tl.kill();
     };
   }, []);
+  useMotion(threadSectionRef, animateThread);
 
   if (user) {
     const destination = DASHBOARD_BY_ROLE[user.role];

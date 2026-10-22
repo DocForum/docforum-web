@@ -13,6 +13,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { Spinner } from './Spinner';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { PageHeader } from './PageHeader';
 import styles from './Layout.module.css';
 
@@ -213,6 +214,7 @@ export function Layout() {
         </nav>
 
         <div className={styles.headerActions}>
+          <RecordSearch />
           <ProfileSwitcher />
           <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
             {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
