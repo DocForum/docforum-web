@@ -6,6 +6,16 @@ import type { PatientOrder } from '../../types/models';
 export const orderHandlers = [
   http.get('*/orders/mine', respond('list', () => db.patientOrders)),
 
+  // Single-order detail for the patient order page (issue #61). Must stay
+  // after `/orders/mine` above so `mine` isn't captured as an orderId.
+  http.get(
+    '*/orders/:orderId',
+    respond('json', ({ params }) => {
+      const order = db.patientOrders.find((o) => o.id === paramId(params, 'orderId'));
+      return order ?? notFound('order');
+    }),
+  ),
+
   http.get(
     '*/orders/:orderId/qualified-facilities',
     respond('list', ({ params }) => {

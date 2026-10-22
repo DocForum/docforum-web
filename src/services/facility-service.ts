@@ -13,6 +13,7 @@ export interface FacilitySearchParams {
 export function getFacilities(
   params: FacilitySearchParams = {},
   accessToken?: string | null,
+  signal?: AbortSignal,
 ): Promise<FacilityWithDistance[]> {
   const queryParts: string[] = [];
   if (params.type) queryParts.push(`type=${encodeURIComponent(params.type)}`);
@@ -25,5 +26,6 @@ export function getFacilities(
   const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
   return apiFetch<FacilityWithDistance[]>(`/facilities${qs}`, {
     accessToken,
+    signal,
   });
 }

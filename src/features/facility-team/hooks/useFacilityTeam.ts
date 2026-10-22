@@ -10,7 +10,7 @@ export function useFacilityMembers(facilityId: string) {
 
   return useQuery({
     queryKey: facilityKeys.members(facilityId),
-    queryFn: () => teamService.listFacilityMembers(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.listFacilityMembers(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }
@@ -20,7 +20,7 @@ export function useFacilityInvites(facilityId: string, isOwner: boolean) {
 
   return useQuery({
     queryKey: facilityKeys.invites(facilityId),
-    queryFn: () => teamService.listFacilityInvites(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.listFacilityInvites(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId && isOwner),
   });
 }
@@ -74,7 +74,7 @@ export function useFulfillmentQueue(facilityId: string) {
 
   return useQuery({
     queryKey: facilityKeys.queue(facilityId),
-    queryFn: () => teamService.getFulfillmentQueue(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.getFulfillmentQueue(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }

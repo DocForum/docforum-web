@@ -85,6 +85,7 @@ describe('FacilityFinder', () => {
       expect(facilityService.getFacilities).toHaveBeenCalledWith(
         expect.objectContaining({ lat: 51.5, lng: -0.1 }),
         null,
+        expect.any(AbortSignal),
       );
     });
 
@@ -108,6 +109,7 @@ describe('FacilityFinder', () => {
       expect(facilityService.getFacilities).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'pharmacy' }),
         null,
+        expect.any(AbortSignal),
       );
     });
 
@@ -118,6 +120,7 @@ describe('FacilityFinder', () => {
       expect(facilityService.getFacilities).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'lab' }),
         null,
+        expect.any(AbortSignal),
       );
     });
   });

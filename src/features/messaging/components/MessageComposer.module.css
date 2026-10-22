@@ -1,0 +1,117 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-raised);
+}
+
+.stagedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stagedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.stagedMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.stagedName {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stagedDone {
+  font-size: var(--text-xs);
+  color: var(--color-success);
+}
+
+.stagedError {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+}
+
+.progressTrack {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.15s linear;
+}
+
+.stagedActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-raised);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  margin-right: auto;
+}
+
+.hiddenInput {
+  display: none;
+}

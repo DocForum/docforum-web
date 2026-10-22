@@ -9,6 +9,6 @@ export function useFacilitySearch(params: FacilitySearchParams) {
 
   return useQuery<FacilityWithDistance[]>({
     queryKey: facilitySearchKeys.list(params),
-    queryFn: () => getFacilities(params, accessToken),
+    queryFn: ({ signal }) => getFacilities(params, accessToken, signal),
   });
 }

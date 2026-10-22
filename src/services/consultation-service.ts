@@ -11,8 +11,12 @@ import type {
   ConsultationOrderInput,
 } from '../types/models';
 
-export function getConsultationNote(appointmentId: string, accessToken: string): Promise<ConsultationNote> {
-  return apiFetch<ConsultationNote>(`/consultation-notes/${appointmentId}`, { accessToken });
+export function getConsultationNote(
+  appointmentId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<ConsultationNote> {
+  return apiFetch<ConsultationNote>(`/consultation-notes/${appointmentId}`, { accessToken, signal });
 }
 
 export function signOffNote(noteId: string, accessToken: string): Promise<ConsultationNote> {

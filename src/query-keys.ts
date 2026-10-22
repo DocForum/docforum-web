@@ -131,6 +131,18 @@ export const accountKeys = {
   accessLog: (filters: unknown) => ['account', 'access-log', filters] as const,
 };
 
+/**
+ * Doctor verification review queue (issue #64). `list` is the pending queue;
+ * `detail` nests under the same root so one decision invalidation refreshes
+ * both. The per-doctor decision history is read from `auditKeys`, not here —
+ * it is the audit trail's data, not a verification resource of its own.
+ */
+export const verificationKeys = {
+  all: ['admin', 'verifications'] as const,
+  list: () => ['admin', 'verifications', 'list'] as const,
+  detail: (doctorProfileId: string) => ['admin', 'verifications', 'detail', doctorProfileId] as const,
+};
+
 /** Escrow intents, the facility payout ledger, and wallet linking. */
 export const paymentKeys = {
   all: ['payments'] as const,
@@ -144,6 +156,8 @@ export const paymentKeys = {
   /** The patient's payment history (infinite list + one entry). */
   history: () => ['payments', 'mine'] as const,
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
+  /** The intent attached to an order — `null` when the order has none (issue #61). */
+  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
 };
 
 /** Doctor's abnormal-results inbox (polls every 30 s, acked rows drop off). */

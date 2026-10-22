@@ -7,30 +7,36 @@
 // shapes are still assumed contracts.
 import type {
   Appointment,
+  AuditEvent,
   CareThread,
+  Closure,
   ConsultationAddendum,
   ConsultationIssuedOrder,
   ConsultationNote,
   ConsultationRecord,
   ConsultationReferral,
+  CredentialDocument,
   DataExport,
   Dependent,
   DoctorOnboardingStatus,
   DoctorPracticeInsights,
   FacilityInvite,
   FacilityMember,
+  FacilityPerformanceInsights,
   FacilityWithDistance,
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
-  MessageThread,
+  DoctorMessageThread,
   PatientOrder,
   PaymentIntent,
   PatientOnboardingStatus,
   QualifiedOrderFacility,
   RunningDelay,
+  SpecialtyClaim,
   User,
+  VerificationStatus,
   WalletLink,
 } from '../types/models';
 
@@ -86,12 +92,13 @@ export interface MockDb {
   appointments: Appointment[];
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
-  messageThreads: MessageThread[];
+  messageThreads: DoctorMessageThread[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
   consultationOrders: ConsultationIssuedOrder[];
   insights: DoctorPracticeInsights;
+  facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
@@ -106,6 +113,25 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  verifications: MockVerification[];
+  specialtyClaims: SpecialtyClaim[];
+  auditEvents: AuditEvent[];
+  closures: Closure[];
+}
+
+/** A doctor's verification application (issue #64's assumed queue/detail
+ * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockVerification {
+  doctorProfileId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  specialties: string[];
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  verificationStatus: VerificationStatus;
+  documents: CredentialDocument[];
 }
 
 export function createSeedDb(): MockDb {
@@ -347,7 +373,7 @@ export function createSeedDb(): MockDb {
     effectiveDelayMin: 12,
   };
 
-  const messageThreads: MessageThread[] = [
+  const messageThreads: DoctorMessageThread[] = [
     {
       id: 'mth-demo-1',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -497,6 +523,48 @@ export function createSeedDb(): MockDb {
       respondedWithin2hCount: 24,
       respondedWithin24hCount: 35,
       rateWithin2h: 63.2,
+      sampleSizeWarning: false,
+    },
+  };
+
+  const facilityInsights: FacilityPerformanceInsights = {
+    facilityId: FACILITY_ID,
+    range: { preset: '30d', startDate: '2026-09-18', endDate: '2026-10-18' },
+    generatedAt: '2026-10-18T06:00:00.000Z',
+    turnaround: {
+      fulfilledCount: 68,
+      medianHours: 3.5,
+      p90Hours: 27.4,
+      minHours: 0.4,
+      maxHours: 51.2,
+      within1h: 12,
+      within4h: 38,
+      within24h: 61,
+      over24h: 7,
+      sampleSizeWarning: false,
+    },
+    volumeByDay: [
+      { date: '2026-10-12', received: 9, fulfilled: 8, rejected: 1 },
+      { date: '2026-10-13', received: 11, fulfilled: 9, rejected: 2 },
+      { date: '2026-10-14', received: 7, fulfilled: 7, rejected: 0 },
+      { date: '2026-10-15', received: 12, fulfilled: 10, rejected: 1 },
+      { date: '2026-10-16', received: 10, fulfilled: 9, rejected: 1 },
+      { date: '2026-10-17', received: 8, fulfilled: 6, rejected: 2 },
+      { date: '2026-10-18', received: 5, fulfilled: 4, rejected: 0 },
+    ],
+    rejectionReasons: [
+      { code: 'out_of_stock', label: 'Out of stock', count: 4, percentage: 57.1 },
+      { code: 'prescription_invalid', label: 'Prescription invalid', count: 2, percentage: 28.6 },
+      { code: 'patient_unreachable', label: 'Patient unreachable', count: 1, percentage: 14.3 },
+    ],
+    disputes: {
+      totalOrders: 68,
+      disputedOrders: 3,
+      disputeRate: 4.4,
+      resolvedInFacilityFavour: 1,
+      resolvedInPatientFavour: 1,
+      openDisputes: 1,
+      averageResolutionHours: 40.5,
       sampleSizeWarning: false,
     },
   };
@@ -707,6 +775,52 @@ export function createSeedDb(): MockDb {
       quantity: '30 tablets',
       instructions: null,
     },
+    {
+      // Cancelled — backs the refunded payment intent below (issue #61):
+      // the order fell through and the escrow came back to the patient.
+      id: 'ord-demo-rx-103',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'cancelled',
+      issuedAt: '2026-10-14T11:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: false,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo Insulin pen (fake)',
+      dose: 'One injection nightly',
+      quantity: '1 pen',
+      instructions: null,
+    },
+    {
+      // Active — its payment failed, so the panel shows "contact support"
+      // (issue #61).
+      id: 'ord-demo-rx-104',
+      patientProfileId: PATIENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-10-17T15:00:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: {
+        id: FACILITY_ID,
+        name: 'Demo Pharmacy (fake)',
+        type: 'pharmacy',
+        isOpen: true,
+      },
+      medication: 'Demo blood thinners (fake)',
+      dose: 'One tablet in the morning',
+      quantity: '28 tablets',
+      instructions: null,
+    },
   ];
 
   const orderFacilities: Record<string, QualifiedOrderFacility[]> = {
@@ -784,9 +898,10 @@ export function createSeedDb(): MockDb {
 
   const paymentIntents: PaymentIntent[] = [
     {
+      // Held in escrow — backs ord-demo-rx-102.
       id: 'pin-demo-1',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-1',
+      orderId: 'ord-demo-rx-102',
       status: 'escrowed',
       patientProfileId: PATIENT_PROFILE_ID,
       facilityId: FACILITY_ID,
@@ -798,9 +913,11 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-17T10:05:00.000Z',
     },
     {
+      // Never funded — backs ord-demo-lab-101; also what the pay-with-wallet
+      // panel (issue #59, behind its default-off flag) acts on in dev.
       id: 'pin-demo-2',
       orderType: 'lab_order',
-      orderId: 'ord-demo-lab-1',
+      orderId: 'ord-demo-lab-101',
       status: 'created',
       patientProfileId: 'prf-patient-2',
       facilityId: FACILITY_ID,
@@ -812,9 +929,10 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-10-18T08:10:00.000Z',
     },
     {
+      // Released — backs the completed ord-demo-rx-100.
       id: 'pin-demo-3',
       orderType: 'prescription',
-      orderId: 'ord-demo-rx-2',
+      orderId: 'ord-demo-rx-100',
       status: 'released',
       patientProfileId: 'prf-patient-3',
       facilityId: FACILITY_ID,
@@ -824,6 +942,38 @@ export function createSeedDb(): MockDb {
       sorobanContractId: 'CD demo contract (fake)',
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-16T09:00:00.000Z',
+    },
+    {
+      // Refunded — backs the cancelled ord-demo-rx-103 (issue #61).
+      id: 'pin-demo-4',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-103',
+      status: 'refunded',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '40000000',
+      escrowId: 'esc-demo-4 (fake)',
+      stellarTxHash: 'txdemo000000000000000000000000000000000000000000000000000000000004',
+      sorobanContractId: 'CD demo contract (fake)',
+      createdAt: '2026-10-14T11:05:00.000Z',
+      updatedAt: '2026-10-15T16:00:00.000Z',
+    },
+    {
+      // Failed — backs ord-demo-rx-104 (issue #61); the panel says to
+      // contact support. ord-demo-rx-101 (superseded) deliberately has no
+      // intent at all, so the panel hides there.
+      id: 'pin-demo-5',
+      orderType: 'prescription',
+      orderId: 'ord-demo-rx-104',
+      status: 'failed',
+      patientProfileId: PATIENT_PROFILE_ID,
+      facilityId: FACILITY_ID,
+      amountStroops: '1250000000',
+      escrowId: null,
+      stellarTxHash: null,
+      sorobanContractId: null,
+      createdAt: '2026-10-17T15:05:00.000Z',
+      updatedAt: '2026-10-17T15:06:00.000Z',
     },
     // Escrow held for the seeded fulfilment disputes below.
     {
@@ -1067,6 +1217,220 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Issue #64 — the verification review queue: two waiting applications
+  // (different ages and document counts), one with no documents at all, and
+  // one already decided so the detail page has history to show. All fake
+  // personas on the example.test domain.
+  const verifications: MockVerification[] = [
+    {
+      doctorProfileId: 'vrf-demo-1',
+      userId: 'usr-vrf-demo-1',
+      fullName: 'Dr Ada Example (fake)',
+      email: 'ada.doctor@example.test',
+      specialties: ['Cardiology'],
+      submittedAt: '2026-10-12T09:00:00.000Z',
+      createdAt: '2026-10-12T09:00:00.000Z',
+      updatedAt: '2026-10-12T09:00:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-1',
+          fileName: 'medical-license-ada.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 245_760,
+          uploadedAt: '2026-10-12T09:03:00.000Z',
+        },
+        {
+          id: 'doc-demo-2',
+          fileName: 'board-certification-ada.jpg',
+          contentType: 'image/jpeg',
+          sizeBytes: 1_843_200,
+          uploadedAt: '2026-10-12T09:04:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-2',
+      userId: 'usr-vrf-demo-2',
+      fullName: 'Dr Bek Example (fake)',
+      email: 'bek.doctor@example.test',
+      specialties: ['Dermatology', 'General practice'],
+      submittedAt: '2026-10-18T14:30:00.000Z',
+      createdAt: '2026-10-18T14:30:00.000Z',
+      updatedAt: '2026-10-18T14:30:00.000Z',
+      verificationStatus: 'pending',
+      documents: [
+        {
+          id: 'doc-demo-3',
+          fileName: 'medical-license-bek.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 312_320,
+          uploadedAt: '2026-10-18T14:35:00.000Z',
+        },
+      ],
+    },
+    {
+      doctorProfileId: 'vrf-demo-3',
+      userId: 'usr-vrf-demo-3',
+      fullName: 'Dr Cy Example (fake)',
+      email: 'cy.doctor@example.test',
+      specialties: [],
+      submittedAt: '2026-10-19T10:15:00.000Z',
+      createdAt: '2026-10-19T10:15:00.000Z',
+      updatedAt: '2026-10-19T10:15:00.000Z',
+      verificationStatus: 'pending',
+      documents: [],
+    },
+    {
+      doctorProfileId: 'vrf-demo-4',
+      userId: 'usr-vrf-demo-4',
+      fullName: 'Dr Dee Example (fake)',
+      email: 'dee.doctor@example.test',
+      specialties: ['Paediatrics'],
+      submittedAt: '2026-10-01T08:00:00.000Z',
+      createdAt: '2026-10-01T08:00:00.000Z',
+      updatedAt: '2026-10-05T11:00:00.000Z',
+      verificationStatus: 'verified',
+      documents: [
+        {
+          id: 'doc-demo-4',
+          fileName: 'medical-license-dee.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 198_656,
+          uploadedAt: '2026-10-01T08:02:00.000Z',
+        },
+      ],
+    },
+  ];
+
+  // Issue #64 reads decision history from the real audit trail contract
+  // (#43); these seed the decided doctor's flip plus one unrelated event so
+  // the audit page has something to show too.
+  const auditEvents: AuditEvent[] = [
+    {
+      id: 'aud-demo-1',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'DoctorProfile',
+      entityId: 'vrf-demo-4',
+      action: 'doctor.verification_status_changed',
+      fromState: 'pending',
+      toState: 'verified',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-05T11:00:00.000Z',
+    },
+    {
+      id: 'aud-demo-2',
+      actorUserId: ADMIN_USER.id,
+      actorRole: 'admin',
+      entityType: 'PaymentIntent',
+      entityId: 'pin-demo-1',
+      action: 'payment_intent.funded',
+      fromState: 'created',
+      toState: 'escrowed',
+      requestId: null,
+      metadata: null,
+      createdAt: '2026-10-17T10:05:00.000Z',
+    },
+  ];
+
+  const closures: Closure[] = [
+    {
+      id: 'clo-holiday-new-year',
+      name: 'New Year Holiday',
+      description: 'Year-end holiday closure (fake)',
+      status: 'active',
+      allDay: true,
+      start: '2026-12-24T00:00:00.000Z',
+      end: '2026-12-26T23:59:59.999Z',
+      facilityId: null, // platform-wide
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      id: 'clo-maintenance-pharmacy',
+      name: 'Pharmacy Maintenance',
+      description: 'Quarterly equipment maintenance (fake)',
+      status: 'active',
+      allDay: false,
+      start: '2026-11-01T09:00:00.000Z',
+      end: '2026-11-01T17:00:00.000Z',
+      facilityId: FACILITY_ID, // scoped to the demo pharmacy
+      createdAt: '2026-10-18T09:00:00.000Z',
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+  ];
+
+  // Per-specialty claims (issue #65) — deliberately fake pairs: a GP
+  // claiming cardiology is exactly the PRD §8.1.5 failure this queue exists
+  // to catch. `status: 'pending'` rows are the ones the queue serves.
+  // Ages are relative to seed time so the age filter stays deterministic.
+  const claimedAt = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const CARDIO_CLAIMED_AT = claimedAt(4 * 24); // 4 days — old enough for the 72h filter, not 168h
+  const NEURO_CLAIMED_AT = claimedAt(6); // today
+  const DERM_CLAIMED_AT = claimedAt(10 * 24); // 10 days — survives the 168h filter
+  const specialtyClaims: SpecialtyClaim[] = [
+    {
+      id: 'dsc-demo-1',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-cardiology',
+      specialty: { id: 'spec-cardiology', name: 'Cardiology', slug: 'cardiology' },
+      status: 'pending',
+      credential: {
+        id: 'crd-demo-1',
+        fileName: 'cardiology-certificate-demo.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 245_760,
+        uploadedAt: CARDIO_CLAIMED_AT,
+      },
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: CARDIO_CLAIMED_AT,
+      updatedAt: CARDIO_CLAIMED_AT,
+    },
+    {
+      id: 'dsc-demo-2',
+      doctorId: 'prf-doctor-demo',
+      doctor: { id: 'prf-doctor-demo', fullName: 'Dr. Demo Doctor (fake)' },
+      specialtyId: 'spec-neurology',
+      specialty: { id: 'spec-neurology', name: 'Neurology', slug: 'neurology' },
+      status: 'pending',
+      // No credential attached — the UI must flag the judgement call.
+      credential: null,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: NEURO_CLAIMED_AT,
+      updatedAt: NEURO_CLAIMED_AT,
+    },
+    {
+      id: 'dsc-demo-3',
+      doctorId: 'prf-doctor-2',
+      doctor: { id: 'prf-doctor-2', fullName: 'Dr. Placeholder Example (fake)' },
+      specialtyId: 'spec-dermatology',
+      specialty: { id: 'spec-dermatology', name: 'Dermatology', slug: 'dermatology' },
+      status: 'pending',
+      credential: {
+        id: 'crd-demo-3',
+        fileName: 'derm-portfolio-demo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1_843_200,
+        uploadedAt: DERM_CLAIMED_AT,
+      },
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: DERM_CLAIMED_AT,
+      updatedAt: DERM_CLAIMED_AT,
+    },
+  ];
+
   return {
     dependents,
     healthEntries,
@@ -1081,6 +1445,7 @@ export function createSeedDb(): MockDb {
     consultationReferrals: [],
     consultationOrders: [],
     insights,
+    facilityInsights,
     facilities,
     facilityMembers,
     facilityInvites,
@@ -1105,5 +1470,9 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    verifications,
+    specialtyClaims,
+    auditEvents,
+    closures,
   };
 }
