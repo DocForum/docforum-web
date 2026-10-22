@@ -31,6 +31,7 @@ export const handlers = [
   ...insightsHandlers,
   ...facilityHandlers,
   ...facilityTeamHandlers,
+  ...integrationsHandlers,
   ...orderHandlers,
   ...paymentsHandlers,
   ...adminClosuresHandlers,
