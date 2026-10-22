@@ -182,7 +182,15 @@ export interface WalletLink {
 }
 
 export type OrderTypeForPayment = 'prescription' | 'lab_order';
-export type PaymentIntentStatus = 'created' | 'escrowed' | 'released' | 'refunded' | 'failed';
+export type PaymentIntentStatus =
+  | 'created'
+  // docforum-core#80 (prepare) moves an intent here while it waits for the
+  // patient's wallet signature; status value assumed until that issue lands.
+  | 'awaiting_signature'
+  | 'escrowed'
+  | 'released'
+  | 'refunded'
+  | 'failed';
 
 // `PatientOrder` (= Prescription | LabOrder) is defined with the orders
 // work (Phase W2, issue #5) — the order detail page (issue #61) reuses
@@ -708,6 +716,71 @@ export interface FacilityLedgerPage {
   totals: FacilityPayoutTotals;
 }
 
+// --- Phase W4 — Facility Performance Insights (issue #57, assumed aggregate
+// endpoint in docforum-core; see ARCHITECTURE_ESSENTIALS.md "Known assumptions")
+// ---------------------------------------------------------------------------
+// Deliberately aggregate-only: no patient identifiers, names or per-order rows
+// ever reach this model. Reviewer must confirm.
+
+export interface FacilityTurnaroundMetrics {
+  /** Orders fulfilled in the period (denominator for the rates below). */
+  fulfilledCount: number;
+  /** Median time from assignment/receipt to fulfilment, in hours. */
+  medianHours: number;
+  /** 90th-percentile assignment → fulfilment time, in hours. */
+  p90Hours: number;
+  /** Fastest / slowest fulfilled order, in hours (context for the median). */
+  minHours: number;
+  maxHours: number;
+  /** Fulfilled within each SLA bucket. */
+  within1h: number;
+  within4h: number;
+  within24h: number;
+  over24h: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityVolumeDay {
+  date: string; // ISO date YYYY-MM-DD
+  received: number;
+  fulfilled: number;
+  rejected: number;
+}
+
+export interface FacilityRejectionReason {
+  /** Stable machine reason code, e.g. 'out_of_stock'. */
+  code: string;
+  /** Human-readable label for the code. */
+  label: string;
+  count: number;
+  /** Share of all rejections in the period, 0-100. */
+  percentage: number;
+}
+
+export interface FacilityDisputeMetrics {
+  /** Payment intents for orders fulfilled in the period. */
+  totalOrders: number;
+  disputedOrders: number;
+  /** Disputes per 100 orders, 0-100. */
+  disputeRate: number;
+  resolvedInFacilityFavour: number;
+  resolvedInPatientFavour: number;
+  /** Still open at period end. */
+  openDisputes: number;
+  averageResolutionHours: number;
+  sampleSizeWarning: boolean;
+}
+
+export interface FacilityPerformanceInsights {
+  facilityId: string;
+  range: DateRange;
+  generatedAt: string;
+  turnaround: FacilityTurnaroundMetrics;
+  volumeByDay: FacilityVolumeDay[];
+  rejectionReasons: FacilityRejectionReason[];
+  disputes: FacilityDisputeMetrics;
+}
+
 // --- Phase W6 — Admin audit & access logs (issue #71) -----------------------
 // AuditEvent is real: mirrors docforum-core's `AuditEvent` model and
 // `GET /admin/audit-events` (docforum-core#43, see its docs/api/README.md).
@@ -821,6 +894,58 @@ export interface ReassignReferralInput {
 
 export interface CancelReferralInput {
   reason: string;
+  expectedUpdatedAt: string;
+}
+
+// --- Phase W6 — Per-specialty verification review (issue #65) ----------------
+// Assumed shapes: docforum-core#51 (per-specialty credential verification,
+// PRD §8.1.5) hasn't landed. #51 names the two admin endpoints but not
+// their payloads; the credential attachment, the filter parameters and the
+// specialty catalog are this repo's assumption. See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+
+/** The document a doctor attached to back one specialty claim. */
+export interface SpecialtyClaimCredential {
+  id: string;
+  fileName: string;
+  /** `application/pdf` and images today; anything else is offered as a
+   * download rather than previewed. */
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+/** One doctor↔specialty pair awaiting review (a `DoctorSpecialty` row). */
+export interface SpecialtyClaim {
+  id: string;
+  doctorId: string;
+  doctor: DoctorSummary;
+  specialtyId: string;
+  specialty: Specialty;
+  /** Always `pending` while in the queue — decided claims leave it. */
+  status: VerificationStatus;
+  /** Null when the doctor attached nothing — approving then is a judgement
+   * call the UI must not hide. */
+  credential: SpecialtyClaimCredential | null;
+  /** What the doctor was told to fix, when rejected. */
+  rejectionReason: string | null;
+  reviewedById: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  /** When the doctor attached the specialty — drives the age filter. */
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ClaimDecision = 'approve' | 'reject';
+
+export interface ReviewSpecialtyClaimInput {
+  decision: ClaimDecision;
+  /** Required for `reject`: what the doctor must fix or resubmit — the
+   * doctor sees it. Optional note for `approve`. */
+  reason: string | null;
+  /** The `updatedAt` the admin saw — lets docforum-core answer `409` if
+   * someone else reviewed the claim in the meantime. */
   expectedUpdatedAt: string;
 }
 
@@ -1204,6 +1329,95 @@ export interface ResolveDisputeInput {
 /** One-time, short-lived URL for an attachment. Never rendered before the
  * admin asks for it, and never cached in the query client. */
 export interface DisputeAttachmentUrl {
+  url: string;
+  expiresAt: string;
+}
+
+// --- Phase W5 — Pay with wallet (issue #59) ---------------------------------
+// `POST /payments/intents/:id/prepare` and `POST /payments/intents/:id/submit`
+// are assumed: docforum-core#80 and #81 describe both endpoints but have not
+// landed. Everything else here (`PaymentIntent`, stroops as strings) is real.
+// This repo never builds, simulates or submits a transaction — it hands the
+// prepared XDR to the patient's wallet and returns the signed XDR (hard rule 1).
+
+/** Unsigned transaction docforum-core built and simulated for this intent. */
+export interface PreparedTransaction {
+  intentId: string;
+  /** The unsigned XDR — the only thing the patient's wallet ever sees. */
+  xdr: string;
+  /** ISO time after which the prepared transaction is no longer accepted.
+   * Expiry is a normal outcome (ADR 0005), not an error. */
+  expiresAt: string;
+  /** Ledger sequence the transaction is valid until, when the backend knows it. */
+  expiryLedger: number | null;
+  status: PaymentIntentStatus;
+}
+
+// --- Phase W6 — Doctor verification review queue (issue #64) ----------------
+// The queue and detail endpoints are assumed — docforum-core only serves
+// `PATCH /doctors/:id/verification` today (real), and credential document
+// storage is tracked in docforum-core#52. `VerificationStatus` and
+// `DoctorProfile` are real.
+
+/** One pending doctor in the review queue. */
+export interface VerificationQueueItem {
+  doctorProfileId: string;
+  fullName: string;
+  specialties: string[];
+  /** When the doctor went in line for review (assumed: profile creation). */
+  submittedAt: string;
+  /** How many credential documents were submitted with the application. */
+  documentCount: number;
+  verificationStatus: VerificationStatus;
+}
+
+/** Credential document metadata — never the bytes, and never a durable URL:
+ * documents are opened only through a fresh short-lived signed URL. */
+export interface CredentialDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface VerificationDetail {
+  profile: {
+    id: string;
+    fullName: string;
+    /** null when the backend doesn't expose the applicant's email to admins. */
+    email: string | null;
+    verificationStatus: VerificationStatus;
+    specialties: string[];
+    submittedAt: string;
+    createdAt: string;
+    /** Sent so decisions can carry `expectedUpdatedAt` for conflict detection. */
+    updatedAt: string;
+  };
+  documents: CredentialDocument[];
+}
+
+export interface VerificationDecisionInput {
+  status: Exclude<VerificationStatus, 'pending'>;
+  /** Required for both approve and reject — it lands in the audit trail. */
+  reason: string;
+  /** The `updatedAt` the admin saw — a 409 means another admin decided first. */
+  expectedUpdatedAt: string;
+}
+
+/** One entry of the per-doctor decision history, projected from docforum-core's
+ * real audit trail (`GET /admin/audit-events?entityType=DoctorProfile&entityId=`). */
+export interface VerificationDecision {
+  id: string;
+  at: string;
+  from: VerificationStatus | null;
+  to: VerificationStatus;
+  actorUserId: string | null;
+}
+
+/** One-time, short-lived URL for a credential document — minted per click,
+ * held in component state only, never cached on the document row. */
+export interface CredentialDocumentUrl {
   url: string;
   expiresAt: string;
 }

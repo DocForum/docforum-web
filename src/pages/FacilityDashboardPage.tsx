@@ -26,6 +26,9 @@ export function FacilityDashboardPage() {
         <Link to="/facility/integrations" className={styles.tabLink}>
           Integrations
         </Link>
+        <Link to="/facility/insights" className={styles.tabLink}>
+          Performance
+        </Link>
       </nav>
 
       <div className={styles.header}>

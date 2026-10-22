@@ -21,6 +21,9 @@ export function OrderVerifyPage() {
         <Link to="/facility/integrations" className={styles.tabLink}>
           Integrations
         </Link>
+        <Link to="/facility/insights" className={styles.tabLink}>
+          Performance
+        </Link>
       </nav>
 
       <div style={{ marginTop: 'var(--space-6)' }}>

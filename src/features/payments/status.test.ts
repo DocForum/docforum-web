@@ -16,7 +16,7 @@ describe('payment status copy', () => {
   // The review criterion for #37 is that each real status is explained, not
   // printed as the contract's token.
   it('explains every status the contract has', () => {
-    const statuses: PaymentIntentStatus[] = ['created', 'escrowed', 'released', 'refunded', 'failed'];
+    const statuses: PaymentIntentStatus[] = ['created', 'awaiting_signature', 'escrowed', 'released', 'refunded', 'failed'];
     expect(statuses).toEqual(Object.keys(STATUS_COPY));
     for (const status of statuses) {
       expect(statusCopy(status)).not.toBe(status);
@@ -27,6 +27,7 @@ describe('payment status copy', () => {
 
   it('says where the money actually is for each state', () => {
     expect(statusCopy('created')).toMatch(/nothing has left you/i);
+    expect(statusCopy('awaiting_signature')).toMatch(/expires/i);
     expect(statusCopy('escrowed')).toMatch(/holding this money in escrow/i);
     expect(statusCopy('released')).toMatch(/released to the facility/i);
     expect(statusCopy('refunded')).toMatch(/came back out of escrow/i);

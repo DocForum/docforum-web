@@ -92,6 +92,8 @@ function roleNavItems(userRole: Role | null): NavItem[] {
   } else if (userRole === 'admin') {
     base.push(
       { to: '/admin', label: 'Payments', roles: ['admin'] },
+      { to: '/admin/verifications', label: 'Verifications', roles: ['admin'] },
+      { to: '/admin/verification', label: 'Specialty claims', roles: ['admin'] },
       { to: '/admin/referrals', label: 'Referrals', roles: ['admin'] },
       { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
       { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },
@@ -298,6 +300,7 @@ export function Layout() {
 
       <footer className={styles.footer} role="contentinfo">
         <span>DocForum — care continuity, escrow-secured fulfillment.</span>
+        <a href="/privacy" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Privacy &amp; analytics</a>
       </footer>
     </div>
   );
