@@ -4,11 +4,11 @@ import { render, screen, waitFor } from '../../../test/render';
 import { DoctorInbox } from './DoctorInbox';
 import { useAuthStore } from '../../../store/auth-store';
 import * as messagingService from '../../../services/messaging-service';
-import type { MessageThread } from '../../../types/models';
+import type { DoctorMessageThread } from '../../../types/models';
 
 vi.mock('../../../services/messaging-service');
 
-const THREADS: MessageThread[] = [
+const THREADS: DoctorMessageThread[] = [
   {
     id: 'thread-1',
     patientProfileId: 'pat-1',
@@ -88,6 +88,7 @@ describe('DoctorInbox', () => {
       expect(messagingService.listThreads).toHaveBeenCalledWith(
         { filter: 'unread', cursor: null, limit: 10 },
         'test-token',
+        expect.any(AbortSignal),
       );
     });
   });
