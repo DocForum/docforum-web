@@ -12,6 +12,7 @@ import { CareThreadPage } from './CareThreadPage';
 import { OrdersPage } from './OrdersPage';
 import { OrderDetailPage } from './OrderDetailPage';
 import { MessageThreadPage } from './MessageThreadPage';
+import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import styles from './PatientDashboardPage.module.css';
 
 function PatientHome() {
@@ -83,6 +84,10 @@ function PatientHome() {
 }
 
 export function PatientDashboardPage() {
+  // Profile-scoped reads (`/patients/:profileId/...`) need the caller's own
+  // profile id, which the auth session does not carry.
+  useProfileBootstrap();
+
   return (
     <Routes>
       <Route index element={<PatientHome />} />
