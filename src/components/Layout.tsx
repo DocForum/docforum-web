@@ -14,6 +14,7 @@ import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { PageHeader } from './PageHeader';
+import { RateLimitNotice } from './RateLimitNotice';
 import styles from './Layout.module.css';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
@@ -163,6 +164,9 @@ export function Layout() {
       <a href="#main-content" className={styles.skipLink}>
         Skip to content
       </a>
+
+      {/* Global, non-blocking 429 notice (issue #80). */}
+      <RateLimitNotice />
 
       <header className={styles.header} role="banner">
         <div className={styles.brandBar}>

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { queryClient } from '../query-client';
 import { resetDb } from './db';
+import { resetMockSessions } from './handlers/auth';
 import styles from './DevPanel.module.css';
 import { useMockStore, type MockScenario } from './mock-store';
 import { activateMockRole, mockSignOut } from './roles';
@@ -115,6 +116,7 @@ export function DevPanel() {
           className={styles.action}
           onClick={() => {
             resetDb();
+            resetMockSessions();
             queryClient.invalidateQueries();
           }}
         >

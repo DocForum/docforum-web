@@ -13,6 +13,8 @@
 // GitHub Pages and Render are different domains), which `fetch` only
 // sends/stores with this flag.
 
+import { notifyRateLimit } from '../store/rate-limit-store';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 /**
@@ -124,6 +126,7 @@ async function parseResponse<T>(response: Response, parse: ParseMode): Promise<T
 
   const payload = await readJsonPayload(response);
   if (!response.ok) {
+    if (response.status === 429) throw rateLimitError(response, payload);
     const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
     throw new ApiError(message, response.status, payload);
   }

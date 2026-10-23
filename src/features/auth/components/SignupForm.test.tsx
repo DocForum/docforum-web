@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../test/render';
 import { SignupForm } from './SignupForm';
 import { useAuthStore } from '../../../store/auth-store';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
 import * as authService from '../../../services/auth-service';
 
 vi.mock('../../../services/auth-service');
@@ -65,5 +65,22 @@ describe('SignupForm', () => {
       email: 'a@b.com',
       password: 'password123',
     });
+  });
+
+  it('shows a lockout countdown and disables submit on 429', async () => {
+    vi.mocked(authService.signup).mockRejectedValue(
+      new RateLimitError('Too many attempts', 30),
+    );
+    const user = userEvent.setup();
+    render(<SignupForm />);
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane');
+    await user.type(screen.getByLabelText(/email/i), 'a@b.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    const notice = await screen.findByTestId('lockout-notice');
+    expect(notice).toHaveTextContent('Too many attempts. Try again in 30 seconds.');
+    expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled();
   });
 });

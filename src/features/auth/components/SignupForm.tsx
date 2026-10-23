@@ -10,7 +10,9 @@ import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { useSignup } from '../hooks/useSignup';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 import type { SelfServeRole } from '../../../types/models';
 
 const signupSchema = z.object({
@@ -31,13 +33,20 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const signupMutation = useSignup();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
   const [serverError, setServerError] = useState<string | null>(null);
+  const lockout = useRetryAfterCountdown();
 
   async function onSubmit(data: SignupFormData) {
     setServerError(null);
     try {
       await signupMutation.mutateAsync({ role, ...data });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout (issue #80): countdown + disabled submit, same as login.
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -56,6 +65,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   return (
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
         <FormError message={serverError} />
         {isSlow && (
           <p className="slowHint" role="status">
@@ -68,7 +78,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         <FormField name="fullName" label="Full name" autoComplete="name" />
         <FormField name="email" label="Email" type="email" autoComplete="email" />
         <FormField name="password" label="Password" type="password" autoComplete="new-password" />
-        <Button type="submit" loading={signupMutation.isPending}>
+        <Button
+          type="submit"
+          loading={signupMutation.isPending}
+          disabled={lockout.isLockedOut}
+        >
           {signupMutation.isPending ? 'Creating account…' : 'Create account'}
         </Button>
       </form>

@@ -1,9 +1,9 @@
-// Auth endpoints (signup / login / logout / claim-account).
+// Auth endpoints (signup / login / logout / claim-account / sessions).
 import { http, HttpResponse } from 'msw';
 import { ADMIN_USER, DOCTOR_USER, FACILITY_USER, MOCK_ACCESS_TOKEN, PATIENT_USER } from '../fixtures';
-import { respond } from '../helpers';
+import { notFound, respond } from '../helpers';
 import { useMockStore } from '../mock-store';
-import type { Role, User } from '../../types/models';
+import type { ActiveSession, Role, User } from '../../types/models';
 
 const PERSONAS: Record<Role, User> = {
   patient: PATIENT_USER,
@@ -24,6 +24,44 @@ export function personaByEmail(email: string): User | undefined {
 
 function sessionFor(user: User) {
   return { user, accessToken: MOCK_ACCESS_TOKEN };
+}
+
+// Mock active sessions (issue #79). Coarse device/location only, matching the
+// assumed contract — never an IP address, not even a fake one.
+function seedSessions(): ActiveSession[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'sess-current',
+      device: 'Chrome on Linux',
+      approximateLocation: 'Lagos, Nigeria',
+      lastActiveAt: new Date(now).toISOString(),
+      createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: true,
+    },
+    {
+      id: 'sess-kiosk',
+      device: 'Clinic kiosk · Firefox',
+      approximateLocation: 'Abuja, Nigeria',
+      lastActiveAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: false,
+    },
+    {
+      id: 'sess-phone',
+      device: 'iPhone · Safari',
+      approximateLocation: null,
+      lastActiveAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: false,
+    },
+  ];
+}
+
+let mockSessions: ActiveSession[] = seedSessions();
+
+export function resetMockSessions(): void {
+  mockSessions = seedSessions();
 }
 
 export const authHandlers = [
