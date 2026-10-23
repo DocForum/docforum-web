@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate } from '../../../i18n/time-zone';
 import { RemoveMemberModal } from './RemoveMemberModal';
 import type { FacilityMember } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
@@ -18,6 +20,7 @@ export function FacilityMemberList({
   isRemoving,
 }: FacilityMemberListProps) {
   const [selectedMember, setSelectedMember] = useState<FacilityMember | null>(null);
+  const { timeZone } = useTimeZone();
 
   const ownerCount = members.filter((m) => m.role === 'owner').length;
 
@@ -63,7 +66,7 @@ export function FacilityMemberList({
                       {m.role}
                     </span>
                   </td>
-                  <td>{new Date(m.joinedAt).toLocaleDateString()}</td>
+                  <td>{formatDate(m.joinedAt, timeZone)}</td>
                   {isOwner && (
                     <td className={styles.actionCell}>
                       <Button

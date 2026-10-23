@@ -537,6 +537,33 @@ doctor account, this one decides each claimed doctor↔specialty pair.
 - `PATCH /admin/specialty-verifications/:id` (body: `{decision: 'approve' | 'reject', reason: string | null, expectedUpdatedAt}`) → the updated `SpecialtyClaim`. `reason` is **required for rejections** and shown to the doctor as what to fix or resubmit (server presumed to enforce this too — the mock does, with `422`); optional note on approval. `expectedUpdatedAt` is the claim's `updatedAt` as the admin saw it, so `409` means someone else reviewed it first. `409`/`404` close the dialog and refetch; `400`/`422` keep it open with the server's message; a network failure keeps it open and says a retry is safe (a duplicate comes back as `409`).
 - `GET /specialties` → `Specialty[]` — specialty catalog for the filter dropdown. Assumed from docforum-core#23 ("specialty catalog + `GET /doctors`"), which hasn't landed; on failure the dropdown falls back to the specialties present in the loaded claims.
 - **Out of scope by the issue's own rules:** bulk actions (each claim deserves a look). A claim with `credential: null` is still reviewable — the card calls out that approving is a judgement call and suggests asking for credentials or rejecting with what to upload.
+### Phase W7 — Notification preferences, SSE, time zones and evaluated flags
+
+These shapes back issues #108–#111. None of the corresponding backend
+contracts has landed yet (`docforum-core` #97, #99 and #132 are open), so
+everything below is assumed and mirrored in `models.ts` under "Phase W7".
+
+#### Notification preferences (issue #108, docforum-core#99)
+- `GET /notifications/preferences` (Bearer) → `NotificationPreferences` = `{preferences: NotificationPreference[], quietHours: QuietHours, updatedAt?}`. `NotificationPreference` = `{type, channel: 'email'|'sms'|'in_app', enabled, locked, lockedReason?}`. The server is expected to return the complete type × channel matrix; any missing row is filled from the role defaults in `features/notifications/preferences.ts`.
+- `PATCH /notifications/preferences` with either `{preferences: [{type, channel, enabled}]}` (only changed rows) or `{quietHours}` → the saved `NotificationPreferences`. `critical_lab_result` and `security_alert` are always on and `locked: true` on every channel; the UI cannot disable them and the API is expected to answer `422` if asked to. `marketing` defaults off.
+- `QuietHours` = `{enabled, start, end, timeZone}`, where `start`/`end` are wall-clock `HH:MM` interpreted in the IANA `timeZone`. The UI only validates the format and that start ≠ end; it does no offset arithmetic. Delivery suppression is entirely server-side.
+- Saves are optimistic. A failed save restores the previous cached snapshot and shows that it did; every outcome refetches the server state.
+
+#### Server-Sent Events (issue #109, docforum-core#97)
+- `GET /events` (`Accept: text/event-stream`, Bearer, optional `Last-Event-ID`) opens one stream per browser tab. The client uses `fetch`, not `EventSource`, because `EventSource` cannot attach the bearer token.
+- Event names routed into React Query are `notification.created`, `queue.updated`, `message.created` and `admin.alert`; `auth.expired` / `session.expired` trigger one refresh and reconnect. Unknown event names are still delivered to wildcard subscribers.
+- Heartbeat/comment lines are ignored. `id:` drives `Last-Event-ID`; `retry:` is honoured once, bounded to 30 s, then exponential backoff resumes (1 s, 2 s, … max 30 s). A transport `401` triggers one single-flight refresh; if it fails, the manager reports `error` and stops reconnecting.
+- The stream is ref-counted by subscribers and closes when the last one leaves. After the tab has been hidden for 60 s the connection is closed and re-opened on visibility. The replay cursor is held in memory only (lost on reload) and cleared when the signed-in user changes.
+
+#### Time zones (issue #110)
+- Client-only; no API contract. `TimeZoneProvider` stores an explicit IANA zone in `localStorage['docforum-time-zone']`, falling back to the browser zone and then UTC. Formatting is delegated to `Intl` through `src/i18n/time-zone.ts`; there is no manual offset arithmetic.
+- `DualZoneTime` shows a second zone only when it differs from the viewer's. `CareTimeline` reads the doctor's zone from `step.metadata.doctorTimeZone` (assumed metadata until the backend exposes it).
+- The issue names booking/appointment screens for dual-zone display, but this repo has no booking or appointment-list screen yet (see `ROADMAP.md` Phase W2), so only the reusable component and the care timeline are wired.
+
+#### Evaluated feature flags (issue #111, docforum-core#132)
+- `GET /me/flags` (Bearer) → `EvaluatedFlags` = `{flags: Record<string, boolean>, evaluatedAt?}`. Evaluation (role targeting, allowlist, percentage bucket) is entirely server-side; this repo only reads booleans.
+- The query is per user id, stale for 5 minutes. Missing, unknown or failed flags are `false`; a failed request never falls back to another user's cached values. `<Flag>` renders `loadingFallback` until the first answer and `fallback` when the flag is off/unavailable, so protected UI never flashes first.
+- Known flags are `notification_preferences` and `realtime_updates`; the backend may return more. The mock dev panel can override flags locally.
 
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`

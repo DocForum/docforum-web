@@ -1,4 +1,6 @@
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate } from '../../../i18n/time-zone';
 import type { FacilityInvite } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -19,6 +21,7 @@ export function PendingInvitesList({
   isResending,
   isRevoking,
 }: PendingInvitesListProps) {
+  const { timeZone } = useTimeZone();
   // If not owner, do not render pending invites (hidden for staff)
   if (!isOwner) return null;
 
@@ -62,8 +65,8 @@ export function PendingInvitesList({
                     </span>
                   </td>
                   <td>{invite.invitedBy}</td>
-                  <td>{new Date(invite.invitedAt).toLocaleDateString()}</td>
-                  <td>{new Date(invite.expiresAt).toLocaleDateString()}</td>
+                  <td>{formatDate(invite.invitedAt, timeZone)}</td>
+                  <td>{formatDate(invite.expiresAt, timeZone)}</td>
                   <td className={styles.actionCell}>
                     <div className={styles.buttonGroup}>
                       <Button
