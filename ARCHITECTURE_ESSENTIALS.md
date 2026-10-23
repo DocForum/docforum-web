@@ -650,17 +650,25 @@ server strips it). The full thread UX (optimistic send, live updates,
 per-side layout) is #22's scope — `MessageThread` here is a minimal shared
 shell so the attachment composer/preview have a real home.
 
-## Preview deployments for pull requests (issue #104)
-Every PR is built in mock-API mode and published next to the main site at
-`https://docforum.github.io/docforum-web/pr-preview/pr-<n>/`, with the URL
-commented on the PR and the directory deleted when the PR closes.
+## Preview builds for pull requests (issue #104)
+Every PR is built in mock-API mode and attached to the PR as a downloadable
+artifact. It is never published to GitHub Pages or any other shared origin.
 
+- **No shared-origin publishing.** A PR controls its own build (`package.json`,
+  `vite.config.ts`, the build commands), so serving its `dist/` from
+  `docforum.github.io` would let a contributor run arbitrary JavaScript on the
+  same origin as the real app. The build job uploads a private artifact
+  instead; reviewers download and serve it locally. `check:preview` is a
+  quality gate, **not** the security boundary — the PR controls that script
+  too. Not publishing the build is what makes a malicious PR harmless.
 - **Fork safety is structural, not conditional.** `pr-preview-build.yml` runs
   on `pull_request` (read-only token, no secrets) and only produces an
-  artifact. `pr-preview-deploy.yml` runs on `workflow_run` with write access
-  but never checks out or executes PR code — it copies the artifact into
-  `gh-pages`. `pr-preview-cleanup.yml` runs on `pull_request_target`
-  (`closed`) and reads nothing but the PR number.
+  artifact. `pr-preview-comment.yml` runs on `workflow_run` with write access
+  but never checks out or executes PR code — it lists the run's artifacts and
+  upserts one comment. It resolves the PR from the run's head SHA/branch, so
+  fork PRs work even though GitHub leaves `workflow_run.pull_requests` empty.
+- **Automatic expiry, no cleanup workflow.** Artifacts expire after 14 days,
+  so there is no `gh-pages` branch and no scheduled deletion job.
 - **Mock mode in a production build.** `main.tsx` enables the mock API for a
   DEV build with `VITE_ENABLE_MOCKS=true` (local dev) or, outside DEV, when
   `VITE_PREVIEW_MOCKS=true` — only the preview workflow sets the latter. A
@@ -671,15 +679,9 @@ commented on the PR and the directory deleted when the PR closes.
   `VITE_SENTRY_DSN` empty. `scripts/check-preview-dist.mjs`
   (`npm run check:preview`) fails the build if the mock markers are missing
   or if the real Pages/Render origins appear anywhere in `dist/`.
-- **Subpath support.** `vite.config.ts` honours `VITE_BASE_PATH` (default:
-  `/docforum-web/` when `GITHUB_PAGES=true`), and `src/mocks/setup.tsx`
-  registers the MSW worker at `import.meta.env.BASE_URL + 'mockServiceWorker.js'`
-  so the mocks work under `/pr-preview/pr-<n>/`, not just at the domain root.
-- **One Pages site.** `deploy-pages.yml` detects the Pages source: with the
-  default `workflow` source it keeps using `actions/deploy-pages`; with a
-  `gh-pages` branch source it publishes main to the branch root and preserves
-  every `pr-preview/` directory. All three publishing workflows share one
-  `pages-publish` concurrency group, so a main deploy cannot delete a preview.
+- **Main deploy unchanged.** `deploy-pages.yml` keeps `contents: read` and
+  publishes main with `actions/deploy-pages`; the preview flow never touches
+  it.
 
 ## Testing utilities & coverage gate (issue #105)
 - `src/test/render.tsx` — `renderWithProviders(ui, { route, role, session })`

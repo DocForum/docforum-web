@@ -71,9 +71,9 @@ function cspPlugin(isProd: boolean): Plugin {
 export default defineConfig(({ command }) => {
   const isProd = command === 'build';
   return {
-    // `VITE_BASE_PATH` is set by the PR-preview workflow (#104) so one PR is
-    // served from /docforum-web/pr-preview/pr-<n>/ without touching the main
-    // Pages build. Everything else keeps the GitHub Pages / root behaviour.
+    // `VITE_BASE_PATH` lets a static host serve the app from a subpath without
+    // touching the main Pages build. Everything else keeps the GitHub Pages /
+    // root behaviour.
     base:
       process.env.VITE_BASE_PATH ??
       (process.env.GITHUB_PAGES ? '/docforum-web/' : '/'),

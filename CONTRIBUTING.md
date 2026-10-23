@@ -92,53 +92,39 @@ scoped (and why).
 - CI (typecheck, tests, build) must pass before merge — it runs
   automatically on your PR.
 
-## 5. Preview deployments for every pull request
+## 5. Preview builds for every pull request
 
-Every PR gets a clickable preview, built in **mock-API mode**, so reviewers
+Every PR gets a preview **artifact**, built in **mock-API mode**, so reviewers
 can walk through a change without checking it out:
 
-```
-https://docforum.github.io/docforum-web/pr-preview/pr-<number>/
-```
+- `pr-preview-build.yml` builds the PR on `pull_request` (read-only token, no
+  secrets), runs the tests, checks that the bundle is mock-only, and uploads
+  `dist/` as a downloadable artifact.
+- `pr-preview-comment.yml` runs on `workflow_run` and comments a link to the
+  artifact. It resolves the PR from the build run itself, so it also works for
+  fork PRs (GitHub leaves `workflow_run.pull_requests` empty for those).
+- The artifact is **never published** to GitHub Pages or any other shared
+  origin. A PR controls its own build, so serving it from `docforum.github.io`
+  would put contributor JavaScript on the real app's origin. Artifacts are
+  private to the repository and expire after 14 days.
+- Download the artifact, unzip it, and serve the folder locally, for example
+  `npx serve <folder>`.
 
-- The URL is commented on the PR automatically, updated on every push, and
-the deployment is swept away once the PR closes (an hourly cleanup removes
-previews for PRs that are no longer open).
-- The preview runs against the MSW mock API only (`npm run dev:mock`'s
-handlers and fixtures), seeded with obviously fake `@example.test` data. It
-is built with a reserved-invalid API URL, so it cannot reach the real
-backend even if a request escapes the mocks. `npm run check:preview`
-fails the build if either guarantee is missing.
-- `npm run dev:mock` is still the fastest way to review locally; previews
-are for "click a link and see it".
-
-### How it stays safe for fork PRs
-
-| Workflow | Trigger | Token | Touches PR code? |
-| --- | --- | --- | --- |
-| `pr-preview-build.yml` | `pull_request` | read-only, no secrets | Yes — checkout, test, build → artifact |
-| `pr-preview-deploy.yml` | `workflow_run` | write | **No** — downloads the artifact and copies it |
-| `pr-preview-cleanup.yml` | `schedule` (hourly sweep from `main`) | write | **No** — reads only PR numbers already on `gh-pages` |
+The preview runs against the MSW mock API only (`npm run dev:mock`'s handlers
+and fixtures), seeded with obviously fake `@example.test` data. It is built
+with a reserved-invalid API URL, so it cannot reach the real backend even if a
+request escapes the mocks. `npm run check:preview` fails the build if either
+guarantee is missing; since the PR controls that script, treat it as a quality
+gate rather than a security boundary — the security property is that the build
+is never served from a shared origin.
 
 Fork code therefore never runs in a job that holds a write token or a secret,
-and the privileged jobs never execute anything the PR produced. Keep it that
-way: if a preview needs a secret, it belongs in the build job's *public*
-config, never a token.
+and the privileged comment job never checks out or executes anything the PR
+produced. Keep it that way: if a preview needs a secret, it belongs in the
+build job's *public* config, never a token.
 
-### One-time repository setup (maintainers)
-
-Previews live next to the main site on the same Pages deployment, so Pages
-must be served from the `gh-pages` branch:
-
-1. **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
-   branch `gh-pages`, folder `/ (root)`.
-2. Push to `main` once. `deploy-pages.yml` detects the branch source and
-   publishes the main build to the root of `gh-pages`, keeping every
-   `pr-preview/` directory intact. With the default `workflow` source it
-   keeps using `actions/deploy-pages` exactly as before, and previews will
-   404 until the switch is made (the PR comment says so).
-
-No secrets or third-party accounts are required for this setup.
+`npm run dev:mock` is still the fastest way to review locally; preview builds
+are for "there is a runnable bundle attached to the PR".
 
 ## 6. Shared test utilities and the coverage gate
 

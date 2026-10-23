@@ -10,44 +10,45 @@ One PR for the four Phase W7 platform-quality issues:
 
 | Issue | What it asks for | Where it lives |
 | --- | --- | --- |
-| [#104](https://github.com/DocForum/docforum-web/issues/104) | Preview deployment for every PR (mock API), commented, cleaned up, fork-safe | `.github/workflows/pr-preview-{build,deploy,cleanup}.yml`, `scripts/check-preview-dist.mjs` |
+| [#104](https://github.com/DocForum/docforum-web/issues/104) | Preview build for every PR (mock API), uploaded as a downloadable artifact and commented, fork-safe | `.github/workflows/pr-preview-{build,comment}.yml`, `scripts/check-preview-dist.mjs` |
 | [#105](https://github.com/DocForum/docforum-web/issues/105) | Shared test utilities, typed factories, one MSW server, v8 coverage gate in CI | `src/test/{render.tsx,factories.ts,server.ts}`, `vite.config.ts`, `.github/workflows/ci.yml` |
 | [#106](https://github.com/DocForum/docforum-web/issues/106) | Consistent skeleton / empty / inline-error / page-error states across the app | `src/components/states/` + the query-driven views that consumed them |
 | [#107](https://github.com/DocForum/docforum-web/issues/107) | Notification bell, inbox, deep links, mark-as-read, live updates | `src/features/notifications/`, `src/services/notifications-service.ts`, `src/pages/NotificationsPage.tsx` |
 
-`ROADMAP.md` (W7 items ticked), `ARCHITECTURE_ESSENTIALS.md` (new sections + "Known assumptions (issue #107)") and `CONTRIBUTING.md` ("Preview deployments") are updated, and the changelog entry is in `changelog.d/104-107-w7-platform-quality.md` per the repo's changelog.d rules.
+`ROADMAP.md` (W7 items ticked), `ARCHITECTURE_ESSENTIALS.md` (new sections + "Known assumptions (issue #107)") and `CONTRIBUTING.md` ("Preview builds") are updated, and the changelog entry is in `changelog.d/104-107-w7-platform-quality.md` per the repo's changelog.d rules.
 
 ---
 
-## Issue #104 — Preview deployments for every pull request
+## Issue #104 — Preview builds for every pull request
 
 ### Security model (the thing to review)
 
-Fork PR code must never get a write token or a secret, so the pipeline is split in two:
+Fork PR code must never get a write token or a secret, and a PR-controlled build must never be served from the real origin. The pipeline therefore produces a downloadable artifact only:
 
 ```
 pull_request (fork code runs)          workflow_run (fork code never runs)
-pr-preview-build.yml  ──artifact──▶  pr-preview-deploy.yml
-  permissions: contents: read             permissions: contents/pull-requests: write
-  no secrets                             downloads the artifact, copies the bytes to
-  runs typecheck + tests + build           gh-pages/<repo>/pr-preview/pr-<n>/, comments the URL
-  in mock-API mode
+pr-preview-build.yml  ──artifact──▶  pr-preview-comment.yml
+  permissions: contents: read             permissions: actions: read,
+  no secrets                                pull-requests: write
+  runs typecheck + tests + build          lists the run's artifacts, upserts
+  in mock-API mode                        one comment with the artifact link
 ```
 
-- **`pr-preview-build.yml`** — on `pull_request`: checkout of the PR, `npm ci`, typecheck, tests, and `npm run build:preview` in mock-API mode, uploading `dist/` as an artifact. `permissions: contents: read`, no secrets — for a fork PR a `pull_request` token is read-only anyway, and nothing here needs either.
-- **`pr-preview-deploy.yml`** — on `workflow_run` (after the build): has write permissions, but **never checks out or executes the PR**. It only downloads the artifact and copies its bytes into `pr-preview/pr-<n>/` on `gh-pages`, then upserts one PR comment with the preview URL. Both it and `deploy-pages.yml` push to `gh-pages`, so they share one concurrency group (`pages-publish`) — a main deploy can never delete a preview and vice versa.
-- **`pr-preview-cleanup.yml`** — an **hourly `schedule` sweep (plus `workflow_dispatch`) run from `main`**, which deletes `pr-preview/pr-<n>/` and flips the PR comment for any preview whose PR is no longer open. It deliberately does **not** use `pull_request_target`: that trigger hands a fork PR a write token and is flagged high-severity by malware scanners regardless of how carefully the job is written. A scheduled sweep runs from the default branch on a timer, so no untrusted code can influence it and no write token is ever exposed to a PR — the only PR-derived value it reads is a number from a directory name already on `gh-pages`. Trade-off: cleanup is eventually consistent (within the cron interval) instead of instantaneous on close.
+- **`pr-preview-build.yml`** — on `pull_request`: checkout of the PR, `npm ci`, typecheck, tests, and `npm run build:preview` in mock-API mode, uploading `dist/` as a private artifact. `permissions: contents: read`, no secrets — for a fork PR a `pull_request` token is read-only anyway, and nothing here needs either.
+- **`pr-preview-comment.yml`** — on `workflow_run` (after the build): has write permissions, but **never checks out or executes the PR**. It resolves the PR from the run (event payload, then head SHA, then head branch for forks), finds the matching `pr-preview-<n>` artifact, and upserts one comment linking to it. Nothing is copied to `gh-pages` or Pages.
+- **No cleanup workflow.** Artifacts are private to the repository and expire after 14 days automatically; there is no branch or directory to sweep.
+- **No Pages change.** `deploy-pages.yml` keeps `contents: read` and the existing `actions/deploy-pages` flow; no repository setting has to change for previews.
 
 ### Previews can never reach the real backend
 
 - The preview build sets `VITE_API_BASE_URL=https://mock-api.invalid` (a reserved, guaranteed-unroutable name), so even a request that escapes MSW has nowhere to go.
 - The CSP `connect-src` in `vite.config.ts` and the `index.html` preconnect now follow the configured API origin, so a preview's HTML/CSP never mentions the real Render host either.
 - **`npm run check:preview`** (`scripts/check-preview-dist.mjs`) fails the build if the mock API markers (`setupWorker`, the dev panel, the fixtures' scenario labels) are missing from `dist/` or if the real API host or the production Pages origin appears anywhere in it. CI-equivalent guard rails both ways: `check:dist` proves production has no mocks, `check:preview` proves a preview is nothing but mocks.
-- `VITE_BASE_PATH=/docforum-web/pr-preview/pr-<n>/` serves each PR under its own subpath; `VITE_USE_HASH_ROUTER=true` keeps deep links working on a static host (see ADR 0001). `deploy-pages.yml` preserves the `pr-preview/` directory when it publishes `main`.
+- `VITE_USE_HASH_ROUTER=true` keeps deep links working on any static server; the artifact is served locally from its own root.
 
 ### One-time setup for maintainers
 
-Documented in `CONTRIBUTING.md` → "Preview deployments": set the Pages source to the `gh-pages` branch once (or point the deploy job at a Cloudflare/Netlify host). No secrets are required for previews at all.
+None. Download the artifact from the link the comment job posts, unzip it, and serve the folder locally (for example `npx serve <folder>`). No secrets, Pages source switch or third-party account is required.
 
 ### Bug found and fixed while verifying
 
@@ -100,8 +101,8 @@ Depends on **DocForum/docforum-core#93**, which has not landed yet. The assumed 
 | `GET` | `/notifications?cursor=&limit=` | cursor-paginated `NotificationPage` + `unreadCount` |
 | `GET` | `/notifications/stream-ticket` | single-use ticket for the SSE stream |
 | `GET` | `/notifications/stream?ticket=` | `text/event-stream` of notification events |
-| `PATCH` | `/notifications/:id/read` | mark one read |
-| `PATCH` | `/notifications/read-all` | mark all read |
+| `POST` | `/notifications/:id/read` | mark one read |
+| `POST` | `/notifications/read-all` | mark all read |
 
 All calls go through `docforum-core`'s API via `apiFetch` — no direct Stellar/escrow calls (architecture hard rule 1). If the real endpoints differ, the only places to change are `src/types/models.ts`, `src/services/notifications-service.ts` and the MSW handlers.
 
@@ -109,7 +110,7 @@ All calls go through `docforum-core`'s API via `apiFetch` — no direct Stellar/
 
 ## Acceptance checklist
 
-- [x] #104 Preview workflow + PR comment + cleanup, fork-safe (`pull_request` build with no secrets → `workflow_run` publish that never runs PR code).
+- [x] #104 Preview build + PR comment, fork-safe (`pull_request` build with no secrets → `workflow_run` comment that never runs PR code); artifact only, never published to Pages.
 - [x] #104 Previews are mock-API-only and provably cannot reach a real backend (`check:preview`).
 - [x] #104 Documented in `CONTRIBUTING.md`.
 - [x] #105 `renderWithProviders` (role/session/router/fresh QueryClient), typed factories, single MSW server.
@@ -139,7 +140,7 @@ npm run check:preview           # ✓ preview build uses the mock API only (prev
 npm run check:stellar-boundary  # ✓ no direct Stellar/escrow calls in src/
 ```
 
-No screens changed visually except the added notification bell and `/notifications` inbox, so no screenshots are attached for #104/#105/#106 (a preview URL is posted on the PR for #107's new screens).
+No screens changed visually except the added notification bell and `/notifications` inbox, so no screenshots are attached for #104/#105/#106 (a downloadable preview build is commented on the PR for #107's new screens).
 
 ---
 
@@ -151,8 +152,8 @@ Notification centre implements the PRD §4 notification flow (FR-15 / FR-16: pat
 
 ## How this will be reviewed
 
-- **#104 fork safety:** read `pr-preview-build.yml`'s `permissions`/`secrets` and confirm `pr-preview-deploy.yml` and `pr-preview-cleanup.yml` never contain a `checkout` of the PR ref. The only untrusted input that reaches a privileged job is the PR number.
-- **#104 "previews can't reach the backend":** `npm run check:preview` is the mechanical proof; the built `index.html` in a preview has `connect-src 'self' https://mock-api.invalid`.
+- **#104 fork safety:** read `pr-preview-build.yml`'s `permissions`/`secrets` and confirm `pr-preview-comment.yml` never checks out the PR. It only reads the run's artifact list and comments; fork PRs are resolved from the head SHA/branch, not `workflow_run.pull_requests`.
+- **#104 "previews can't reach the backend":** `npm run check:preview` is the mechanical proof; the built `index.html` in a preview has `connect-src 'self' https://mock-api.invalid`. Nothing is published to Pages, so the artifact cannot run on the real origin.
 - **#105 gate:** drop a covered line in a feature file and watch `npm run test:coverage` fail.
 - **#106:** every query-driven view now renders `Skeleton` → `EmptyState`/`InlineError` → content; grep a screen for `isLoading` to spot one that still hand-rolls it.
 - **#107:** deep links per notification kind, unknown-kind fallback, and the fact that the stream URL carries a single-use ticket and never the access token.
@@ -161,4 +162,4 @@ Notification centre implements the PRD §4 notification flow (FR-15 / FR-16: pat
 
 - When DocForum/docforum-core#93 lands, reconcile the assumed notification contract above and delete the MSW-only shapes if they differ.
 - Raise the coverage thresholds as tests land — never lower them.
-- Maintainers should flip the one-time Pages source switch (or point the deploy job at the chosen static host) before the first preview appears.
+- No maintainer setup is needed for previews; artifacts expire on their own after 14 days.

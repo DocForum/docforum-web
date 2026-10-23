@@ -23,13 +23,13 @@ const Router = useHashRouter ? HashRouter : BrowserRouter;
 // Awaited before the first render so the persona session exists when
 // route guards first evaluate (deep links would otherwise bounce to the
 // login screen mid-boot).
-// PR previews (#104) are a production build served from GitHub Pages, so
-// `import.meta.env.DEV` is false there. They opt in explicitly with
-// VITE_PREVIEW_MOCKS; the preview workflow sets that flag and nothing else, so
-// a normal `npm run build` still cannot contain mock code (CI checks that with
-// `npm run check:dist`). A preview must never talk to a real backend: it is
-// built with a reserved-invalid API base URL and every request is answered by
-// MSW. See .github/workflows/pr-preview-build.yml.
+// PR preview builds (#104) are production builds uploaded as a downloadable
+// artifact, so `import.meta.env.DEV` is false there. They opt in explicitly
+// with VITE_PREVIEW_MOCKS; the preview workflow sets that flag and nothing
+// else, so a normal `npm run build` still cannot contain mock code (CI checks
+// that with `npm run check:dist`). A preview must never talk to a real
+// backend: it is built with a reserved-invalid API base URL and every request
+// is answered by MSW. See .github/workflows/pr-preview-build.yml.
 const mocksEnabled = import.meta.env.DEV
   ? import.meta.env.VITE_ENABLE_MOCKS === 'true'
   : import.meta.env.VITE_PREVIEW_MOCKS === 'true';
