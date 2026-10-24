@@ -52,3 +52,13 @@
   background: #802e21;
 }
 
+.sizeSmall {
+  padding: 0.45rem 0.9rem;
+  font-size: var(--text-xs);
+}
+
+.fullWidth {
+  width: 100%;
+  justify-content: center;
+}
+
