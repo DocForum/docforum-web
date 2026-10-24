@@ -3,13 +3,11 @@ import { ActingForBanner } from '../features/dependents/components/ActingForBann
 import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
-import { useAuthStore } from '../store/auth-store';
 import styles from './PatientDashboardPage.module.css';
 
 export function PatientHomePage() {
   const { cards, sources } = useCareHub();
   const sections = groupBySection(cards);
-  const user = useAuthStore((state) => state.user);
 
   // A source that failed must not blank the hub: its section says so, the
   // others still render from the data that did arrive.
@@ -22,7 +20,6 @@ export function PatientHomePage() {
       <div className="card">
         <span className="statusPill">Phase W2 · in progress</span>
         <h1 className={styles.title}>What needs your attention</h1>
-        {user ? <p>Welcome, {user.email}</p> : null}
 
         {anyLoading && <p className={styles.loading}>Loading your care summary…</p>}
 

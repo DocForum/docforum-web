@@ -60,7 +60,9 @@ describe('data-router guards', () => {
 
     resolveRefresh({ user: patient, accessToken: 'restored-token' });
 
-    expect(await screen.findByText(/Welcome, patient@example.com/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'What needs your attention' }),
+    ).toBeInTheDocument();
     expect(useAuthStore.getState().accessToken).toBe('restored-token');
   });
 
@@ -76,7 +78,9 @@ describe('data-router guards', () => {
     signIn(patient);
     renderRoute('/patient');
 
-    expect(await screen.findByText(/Welcome, patient@example.com/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'What needs your attention' }),
+    ).toBeInTheDocument();
   });
 
   it('redirects a signed-in user without the required role to their dashboard', async () => {
