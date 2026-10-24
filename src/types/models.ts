@@ -11,6 +11,38 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+export interface SlotGenerationInput {
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+}
+
+export interface SlotGenerationResult {
+  requestedDays: number;
+  createdCount: number;
+  slots: AvailabilitySlot[];
+}
+
+export interface BlockRangeInput {
+  startTime: string;
+  endTime: string;
+  reason?: string;
+}
+
+export interface BlockRangeResult {
+  blockedCount: number;
+  skippedBookedCount: number;
+}
+
+export type EvaluatedFlags = Record<string, boolean>;
+
+export type NotificationChannel = 'email' | 'sms' | 'push';
+
+export interface NotificationPreferences {
+  channels: Record<NotificationChannel, boolean>;
+}
+
 // --- Session idle timeout (issue #82) — ASSUMED, not yet in docforum-core --
 // Shared clinical devices: the backend is expected to be able to push its
 // own per-role idle timeout, which takes precedence over the frontend
@@ -1169,6 +1201,7 @@ export interface AvailabilitySlot {
   status: SlotStatus;
   startTime: string;
   endTime: string;
+  appointment?: PatientAppointment;
   createdAt: string;
   updatedAt: string;
 }
