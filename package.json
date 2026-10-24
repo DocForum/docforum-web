@@ -16,6 +16,7 @@
     "gsap": "^3.15.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-hook-form": "^7.91.0",
     "react-router-dom": "^7.18.3",
     "zustand": "^5.0.15"
   },
