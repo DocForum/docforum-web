@@ -3,7 +3,7 @@ import { test, expect, type Role } from './fixtures';
 const screens: ReadonlyArray<{ name: string; path: string; role: Role; ready: string }> = [
   { name: 'home', path: '/', role: 'patient', ready: 'DocForum' },
   { name: 'login', path: '/login', role: 'patient', ready: 'Log in' },
-  { name: 'patient-dashboard', path: '/patient', role: 'patient', ready: 'Welcome' },
+  { name: 'patient-dashboard', path: '/patient', role: 'patient', ready: 'What needs your attention' },
   { name: 'care-thread', path: '/care/cth-demo-1', role: 'patient', ready: 'Demo cough consult (fake)' },
   { name: 'doctor-dashboard', path: '/doctor', role: 'doctor', ready: 'Quinn Example' },
   { name: 'consultation', path: '/doctor/consultation/apt-demo-2', role: 'doctor', ready: 'Consultation note' },

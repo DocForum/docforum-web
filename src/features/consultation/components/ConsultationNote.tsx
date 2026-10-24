@@ -161,7 +161,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           <div className={styles.contentReadOnly}>{note.content}</div>
           <div className={styles.signedBadge}>Signed {formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS)}</div>
 
-          <h3 className={styles.addendaHeading}>Addenda</h3>
+          <h2 className={styles.addendaHeading}>Addenda</h2>
           <div className={styles.addendumComposer}>
             <textarea
               value={addendumContent}

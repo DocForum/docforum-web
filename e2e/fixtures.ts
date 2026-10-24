@@ -18,6 +18,11 @@ export const test = base.extend<{
       }
       await page.getByRole('button', { name: 'Hide', exact: true }).evaluate((button: HTMLButtonElement) => button.click());
       await page.evaluate(() => document.fonts.ready);
+      await page.waitForFunction(() =>
+        Array.from(document.querySelectorAll('[data-reveal]')).every(
+          (element) => getComputedStyle(element).opacity === '1',
+        ),
+      );
     });
   },
 });

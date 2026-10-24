@@ -23,24 +23,34 @@ test('patient sees a recoverable server error and a delayed response', async ({ 
 });
 
 test('patient facility search retries a one-time network failure', async ({ page, visit }) => {
+  type FacilityState = { requests?: number; failNext?: boolean };
   await page.addInitScript(() => {
     const original = window.fetch.bind(window);
-    (window as Window & { __facilityRequests?: number }).__facilityRequests = 0;
+    const state = window as Window & FacilityState;
+    state.requests = 0;
+    state.failNext = false;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       if (new URL(url).pathname === '/facilities') {
-        const state = window as Window & { __facilityRequests?: number };
-        state.__facilityRequests = (state.__facilityRequests ?? 0) + 1;
+        state.requests = (state.requests ?? 0) + 1;
+        if (state.failNext) {
+          state.failNext = false;
+          return Promise.reject(new TypeError('Failed to fetch'));
+        }
       }
       return original(input, init);
     };
   });
   await visit('/patient/facilities');
   await expect(page.getByText('Demo Pharmacy (fake)').first()).toBeVisible();
-  await page.evaluate(() => { (window as Window & { __facilityRequests?: number }).__facilityRequests = 0; });
+  await page.evaluate(() => {
+    const state = window as Window & FacilityState;
+    state.requests = 0;
+    state.failNext = true;
+  });
   await page.getByRole('button', { name: 'MOCK API' }).click();
-  await page.getByRole('button', { name: 'network once' }).click();
-  await expect.poll(() => page.evaluate(() => (window as Window & { __facilityRequests?: number }).__facilityRequests)).toBe(2);
+  await page.getByRole('button', { name: 'normal', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as Window & FacilityState).requests)).toBe(2);
   await expect(page.getByText('Demo Pharmacy (fake)').first()).toBeVisible();
 });
 
@@ -62,7 +72,7 @@ test('facility fulfills a pending order with attribution', async ({ page, visit 
   const item = page.locator('[class*="queueItem"]').filter({ hasText: 'Demo Amoxicillin 500mg (fake)' }).first();
   await expect(item).toBeVisible();
   await item.getByRole('button', { name: 'Dispense & Fulfill' }).click();
-  await expect(item.getByText('Fulfilled / Dispensed')).toBeVisible();
+  await expect(item.getByText('Fulfilled', { exact: true })).toBeVisible();
   await expect(item.getByLabel('Action attribution')).toContainText('Frank Facility (fake)');
 });
 

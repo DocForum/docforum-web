@@ -30,7 +30,7 @@ export default defineConfig({
     { name: 'visual-mobile', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
   ],
   webServer: {
-    command: 'npm run dev:mock -- --host 127.0.0.1 --port 4173 --strictPort',
+    command: 'VITE_USE_HASH_ROUTER=true npm run dev:mock -- --host 127.0.0.1 --port 4173 --strictPort',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
