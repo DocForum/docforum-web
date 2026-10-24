@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vitest/config';
+import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
@@ -56,6 +56,7 @@ export default defineConfig(({ command }) => {
     base: process.env.GITHUB_PAGES ? '/docforum-web/' : '/',
     plugins: [react(), cspPlugin(isProd)],
     test: {
+      exclude: [...configDefaults.exclude, 'e2e/**'],
       environment: 'happy-dom',
       globals: true,
       setupFiles: ['./src/test/setup.ts'],

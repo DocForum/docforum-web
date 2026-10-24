@@ -12,7 +12,7 @@ import { activateMockRole, mockSignOut } from './roles';
 import type { Role } from '../types/models';
 
 const ROLES: Role[] = ['patient', 'doctor', 'facility', 'admin'];
-const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error'];
+const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error', 'network-once'];
 
 export function DevPanel() {
   const [open, setOpen] = useState(true);
@@ -87,7 +87,7 @@ export function DevPanel() {
                 queryClient.invalidateQueries();
               }}
             >
-              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : 'errors'}
+              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : s === 'error' ? 'errors' : 'network once'}
             </button>
           ))}
         </div>

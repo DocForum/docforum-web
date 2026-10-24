@@ -87,7 +87,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   return (
     <section className={styles.note}>
       <header className={styles.noteHeader}>
-        <h2>Consultation note</h2>
+        <h1>Consultation note</h1>
         <span className={styles.status}>
           {signed ? 'Signed · locked' : 'Draft'}
         </span>
@@ -128,6 +128,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               {editing ? (
                 <>
                   <textarea
+                    aria-label="Consultation note draft"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}
@@ -160,7 +161,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           <div className={styles.contentReadOnly}>{note.content}</div>
           <div className={styles.signedBadge}>Signed {formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS)}</div>
 
-          <h3 className={styles.addendaHeading}>Addenda</h3>
+          <h2 className={styles.addendaHeading}>Addenda</h2>
           <div className={styles.addendumComposer}>
             <textarea
               value={addendumContent}

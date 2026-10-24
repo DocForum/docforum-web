@@ -58,7 +58,7 @@ export function DependentsList() {
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Dependents</h2>
+        <h1 className={styles.title}>Dependents</h1>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
             Add dependent

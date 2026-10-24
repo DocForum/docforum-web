@@ -26,7 +26,7 @@ const Router = useHashRouter ? HashRouter : BrowserRouter;
 // login screen mid-boot).
 if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS === 'true') {
   const { startMockApi } = await import('./mocks/setup');
-  startMockApi();
+  await startMockApi();
 }
 
 // Enable preview session when previewRole query param is set (useful for screenshots & review)

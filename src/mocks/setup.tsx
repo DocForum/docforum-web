@@ -14,8 +14,8 @@ import { useMockStore } from './mock-store';
  * exists when route guards first evaluate — otherwise RequireAuth would
  * bounce a deep-linked protected route to #/login before the mocks boot.
  */
-export function startMockApi(): void {
-  worker.start({ onUnhandledRequest: 'bypass' });
+export async function startMockApi(): Promise<void> {
+  await worker.start({ onUnhandledRequest: 'bypass' });
 
   // Sign the persona in immediately. Navigate to the role's home screen
   // unless the URL already deep-links a route, which we leave untouched.

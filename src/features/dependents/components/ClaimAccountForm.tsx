@@ -35,7 +35,7 @@ export function ClaimAccountForm({ token }: Props) {
   if (claimMutation.isSuccess) {
     return (
       <div className={styles.success}>
-        <h2>Account claimed</h2>
+        <h1>Account claimed</h1>
         <p>Your account is set up. You can now log in with your email and password.</p>
       </div>
     );
@@ -43,7 +43,7 @@ export function ClaimAccountForm({ token }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      <h2 className={styles.title}>Claim your account</h2>
+      <h1 className={styles.title}>Claim your account</h1>
       <p className={styles.description}>
         Your guardian has invited you to take over your health record. Set up your login below.
       </p>

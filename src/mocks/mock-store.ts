@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import type { Role } from '../types/models';
 
-export type MockScenario = 'normal' | 'empty' | 'error';
+export type MockScenario = 'normal' | 'empty' | 'error' | 'network-once';
 
 interface MockState {
   scenario: MockScenario;

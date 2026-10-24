@@ -159,7 +159,7 @@ export function HomePage() {
                     </svg>
                   )}
                 </div>
-                <h3>{step.label}</h3>
+                <h2>{step.label}</h2>
                 <p>{step.body}</p>
               </li>
             );
