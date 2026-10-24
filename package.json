@@ -24,10 +24,13 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
+    "@types/jest-axe": "^3.5.9",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "happy-dom": "^20.14.5",
+    "jest-axe": "^11.0.0",
+    "msw": "^2.15.0",
     "typescript": "^7.0.2",
     "vite": "^6.4.3",
     "vitest": "^4.1.11"
