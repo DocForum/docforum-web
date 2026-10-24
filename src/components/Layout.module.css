@@ -283,11 +283,17 @@
   min-width: 0;
 }
 
+.routeLoading {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+}
+
 .footer {
   padding: var(--space-6);
   text-align: center;
   font-size: var(--text-xs);
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   border-top: 1px solid var(--color-border);
 }
 

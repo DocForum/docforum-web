@@ -8,11 +8,15 @@
     "dev:mock": "VITE_ENABLE_MOCKS=true vite",
     "build": "tsc -b && vite build",
     "build:pages": "tsc -b && GITHUB_PAGES=true vite build",
+    "build-storybook": "storybook build --output-dir dist/storybook",
+    "analyze": "ANALYZE=true npm run build",
     "check:dist": "node scripts/check-dist-no-mocks.mjs",
     "check:stellar-boundary": "node scripts/check-stellar-boundary.mjs",
     "preview": "vite preview",
+    "screenshots:storybook": "node scripts/capture-storybook-screenshots.mjs",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:storybook": "vitest run --config vitest.storybook.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.0",
@@ -30,6 +34,10 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@storybook/addon-a11y": "^10.6.2",
+    "@storybook/addon-vitest": "^10.6.2",
+    "@storybook/react-vite": "^10.6.2",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
@@ -38,8 +46,14 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/browser": "^4.1.12",
+    "@vitest/browser-playwright": "^4.1.12",
+    "esbuild": "^0.25.12",
     "happy-dom": "^20.14.5",
     "msw": "^2.15.0",
+    "rollup": "^4.64.12",
+    "rollup-plugin-visualizer": "^7.1.1",
+    "storybook": "^10.6.2",
     "typescript": "^7.0.2",
     "vite": "^6.4.3",
     "vitest": "^4.1.11"

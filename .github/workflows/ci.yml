@@ -23,6 +23,36 @@ jobs:
 
       - run: npm run test
 
-      - run: npm run build
+      - run: npm run analyze
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis
+          path: dist/bundle-analysis.html
+
+      - run: npm run build-storybook
+        env:
+          STORYBOOK_BASE: /docforum-web/storybook/
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: echo "CHROME_PATH=$(find "$HOME/.cache/ms-playwright" -type f -path '*/chrome-linux64/chrome' | head -n 1)" >> "$GITHUB_ENV"
+
+      - run: npm run test:storybook
+
+      - run: npm run screenshots:storybook
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storybook-screenshots
+          path: docs/screenshots/2026-10-20-w7-platform-quality
 
       - run: npm run check:dist
+
+      - run: npx lhci autorun --config=./lighthouserc.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci
+          if-no-files-found: error

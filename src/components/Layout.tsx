@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
   NavLink as RRNavLink,
@@ -11,6 +11,7 @@ import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
+import { Spinner } from './Spinner';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { PageHeader } from './PageHeader';
@@ -235,16 +236,16 @@ export function Layout() {
           </Button>
         </div>
       </header>
-
       {/* Mobile drawer */}
       <div
         ref={drawerRef}
         id="mobile-drawer"
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
-        role="navigation"
+        role="dialog"
         aria-label="Mobile navigation"
         aria-modal={drawerOpen}
         aria-hidden={!drawerOpen}
+        inert={!drawerOpen}
       >
         <div className={styles.drawerHeader}>
           <Logo size={24} />
@@ -324,7 +325,9 @@ export function Layout() {
 
       <main className={styles.main} id="main-content" role="main">
         <PageHeader title={routeTitle(location.pathname)} />
-        <Outlet context={{}} />
+        <Suspense fallback={<div className={styles.routeLoading} role="status" aria-label="Loading page"><Spinner size={24} /></div>}>
+          <Outlet context={{}} />
+        </Suspense>
       </main>
 
       <footer className={styles.footer} role="contentinfo">

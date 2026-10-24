@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '../test/render';
+import { render, screen, fireEvent, within } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -94,17 +94,18 @@ describe('Layout — role-aware navigation', () => {
     expect(menu).toBeInTheDocument();
 
     // Drawer is hidden from the accessibility tree when closed
-    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).not.toBeInTheDocument();
 
     // Click to open (simulated via fireEvent)
     fireEvent.click(menu);
 
-    // Now the drawer navigation should be in the accessibility tree
-    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
+    // The open modal exposes its navigation links to assistive technology.
+    const drawer = screen.getByRole('dialog', { name: 'Mobile navigation' });
+    expect(within(drawer).getByRole('link', { name: 'Care journey' })).toBeInTheDocument();
 
     // Close button closes it
     const close = screen.getByRole('button', { name: 'Close navigation menu' });
     fireEvent.click(close);
-    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).not.toBeInTheDocument();
   });
 });

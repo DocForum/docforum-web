@@ -28,6 +28,93 @@ export function HomePage() {
   const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
   const lineRefs = useRef<(SVGLineElement | null)[]>([]);
 
+  // Hero: one orchestrated entrance on mount — headline, then subhead, then
+  // the CTAs. A single reveal, not per-section scroll effects scattered
+  // down the page.
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    let active = true;
+    let revert: (() => void) | undefined;
+    void import('gsap').then(({ gsap }) => {
+      if (!active) return;
+      const ctx = gsap.context(() => {
+        const mm = gsap.matchMedia();
+        mm.add('(prefers-reduced-motion: no-preference)', () => {
+          const targets = hero.querySelectorAll('[data-reveal]');
+          gsap.set(targets, { opacity: 0, y: 14 });
+          gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
+        });
+        return () => mm.revert();
+      }, hero);
+      revert = () => ctx.revert();
+    });
+
+    return () => {
+      active = false;
+      revert?.();
+    };
+  }, []);
+
+  // Thread: each connector line draws itself in, left to right, and the
+  // node at its far end pops as it arrives — the diagram extends the way
+  // the thread it represents does. Then it holds, draws itself back out,
+  // and repeats — a continuous, gentle loop (draw ~1.7s, hold ~1.4s, undraw
+  // ~1.7s, pause ~1s) rather than a one-shot reveal. Runs only while the
+  // section is actually on screen (an IntersectionObserver play()/pause()s
+  // the timeline) so it doesn't spend cycles animating off-screen — core
+  // GSAP only, no ScrollTrigger plugin installed.
+  useEffect(() => {
+    const section = threadSectionRef.current;
+    if (!section) return;
+
+    let active = true;
+    let revert: (() => void) | undefined;
+    void import('gsap').then(({ gsap }) => {
+      if (!active) return;
+      const ctx = gsap.context(() => {
+        const mm = gsap.matchMedia();
+        mm.add('(prefers-reduced-motion: no-preference)', () => {
+          const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+          const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+
+          gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+          lines.forEach((line) => {
+            const length = line.getTotalLength();
+            gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+          });
+
+          const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
+          tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+          lines.forEach((line, i) => {
+            tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
+            tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
+          });
+          tl.to({}, { duration: 1.4 });
+
+          const observer = new IntersectionObserver(
+            (entries) => {
+              if (entries[0]?.isIntersecting) tl.play();
+              else tl.pause();
+            },
+            { threshold: 0.3 },
+          );
+          observer.observe(section);
+
+          return () => {
+            observer.disconnect();
+            tl.kill();
+          };
+        });
+        return () => mm.revert();
+      }, section);
+      revert = () => ctx.revert();
+    });
+
+    return () => {
+      active = false;
+      revert?.();
   const animateHero = useCallback((gsap: typeof import('gsap').gsap, hero: HTMLElement) => {
     const targets = hero.querySelectorAll('[data-reveal]');
     gsap.set(targets, { opacity: 0, y: 14 });

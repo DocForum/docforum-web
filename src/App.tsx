@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { HashRedirectShim } from './components/HashRedirectShim';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';

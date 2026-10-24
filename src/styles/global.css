@@ -99,7 +99,6 @@
 }
 
 /* ---- Color: dark ---- */
-[data-theme="dark"],
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="high-contrast"]) {
     color-scheme: dark;

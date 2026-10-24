@@ -1,26 +1,12 @@
-// CSF 3 stories for the DataTable component.
-// These follow the Component Story Format so they can be picked up by
-// Storybook once it is installed (issue #97).  The Meta/StoryObj types
-// are stubbed locally so the file typechecks today without @storybook/react.
+// CSF stories for the DataTable component (issue #97). The local CSF
+// stubs this file once carried are gone: @storybook/react-vite is now a
+// devDependency, so the real Meta/StoryObj types are used and the default
+// export is a static object literal Storybook's indexer can evaluate.
 
 import type { ReactNode } from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router-dom';
 import { DataTable, type ColumnDefinition, type FilterDefinition } from './DataTable';
-
-// ─── Local CSF stubs (remove once @storybook/react is installed) ────────
-
-interface Meta {
-  title: string;
-  component: typeof DataTable;
-  decorators: ((story: () => ReactNode) => ReactNode)[];
-  tags: string[];
-}
-
-type StoryObj = { render: () => ReactNode };
-
-function defineMeta(meta: Meta): Meta {
-  return meta;
-}
 
 // ─── Shared fixtures ─────────────────────────────────────────────────────
 
@@ -60,20 +46,27 @@ const filters: FilterDefinition[] = [
   { key: 'name', label: 'Name', type: 'text' },
 ];
 
-const meta = defineMeta({
+const meta = {
   title: 'Components/DataTable',
   component: DataTable,
   decorators: [
-    (story) => <MemoryRouter>{story()}</MemoryRouter>,
+    (story: () => ReactNode) => <MemoryRouter>{story()}</MemoryRouter>,
   ],
   tags: ['autodocs'],
-});
+} satisfies Meta<typeof DataTable>;
 
 export default meta;
 
+// These stories supply every prop through the render closure instead of
+// `args`, so a full StoryObj (which requires `args` for DataTable's
+// required props) would not fit. `render` stays required (as in the stub
+// this file shipped with) while any extra fields are typed against the
+// real story type.
+type Story = { render: () => ReactNode } & Partial<StoryObj<typeof meta>>;
+
 // ─── Stories ─────────────────────────────────────────────────────────────
 
-export const Default: StoryObj = {
+export const Default: Story = {
   render: () => (
     <DataTable<User>
       id="users"
@@ -94,7 +87,7 @@ export const Default: StoryObj = {
   ),
 };
 
-export const SortedByName: StoryObj = {
+export const SortedByName: Story = {
   render: () => (
     <DataTable<User>
       id="users-sorted"
@@ -115,7 +108,7 @@ export const SortedByName: StoryObj = {
   ),
 };
 
-export const Loading: StoryObj = {
+export const Loading: Story = {
   render: () => (
     <DataTable<User>
       id="users-loading"
@@ -137,7 +130,7 @@ export const Loading: StoryObj = {
   ),
 };
 
-export const ErrorState: StoryObj = {
+export const ErrorState: Story = {
   render: () => (
     <DataTable<User>
       id="users-error"

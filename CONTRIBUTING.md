@@ -47,7 +47,24 @@ fixtures in `src/mocks/` in the same PR, and cover it in
 `src/mocks/handlers.test.ts` — that's what keeps `dev:mock` honest as the
 API grows.
 
-## 2. Find something to work on
+## 2. Component stories and checks
+
+Add a Storybook story for every new or changed component under
+`src/components/`, including its loading, disabled, error, and empty
+states where they apply. Use `play` functions for meaningful interactions;
+the a11y addon is configured to fail on detected violations. Run
+`npx playwright install --with-deps chromium` to install the browser
+runtime, `npm run build-storybook` to build the catalogue, and
+`npm run test:storybook` to run its browser-based interaction and
+accessibility checks. On GitHub Pages, the catalogue is published at
+`https://docforum.github.io/docforum-web/storybook/` alongside the app.
+
+Generated API mocks must come from the checked-in `docforum-core`
+OpenAPI document; do not add assumed or hand-authored schemas as a
+substitute. Once the backend document is available, regenerate mocks and
+run the CI staleness check before opening a PR.
+
+## 3. Find something to work on
 
 Open issues are scoped, real, and tagged with a complexity/point value
 (Trivial/100, Medium/150, High/200) in the issue body — see the
@@ -62,7 +79,7 @@ open.
 belongs to, what depends on what, and what's deliberately not yet
 scoped (and why).
 
-## 3. Before you open a PR
+## 4. Before you open a PR
 
 - Use the `frontend-design` skill's guidance (or just its principles, if
   you're not using Claude Code) for any new UI — see this repo's
@@ -84,7 +101,7 @@ scoped (and why).
 - Run `npm run typecheck && npm run test && npm run build` locally —
   this is exactly what CI checks.
 
-## 4. Opening the PR
+## 5. Opening the PR
 
 - Branch off `main`.
 - Reference the issue you're closing (`Closes #N`).

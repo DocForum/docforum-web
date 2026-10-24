@@ -40,6 +40,13 @@ jobs:
           # GitHub Pages has no server-side rewrites; keep HashRouter for this build.
           # BrowserRouter is the default for all other deployments.
           VITE_USE_HASH_ROUTER: "true"
+      # Issue #97: publish the Storybook catalogue under /docforum-web/storybook/
+      # in the same Pages artifact. build-storybook writes straight to
+      # dist/storybook, and it must run AFTER build:pages (whose vite build
+      # recreates dist/) so both land in the one artifact.
+      - run: npm run build-storybook
+        env:
+          STORYBOOK_BASE: /docforum-web/storybook/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
