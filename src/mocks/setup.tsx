@@ -15,12 +15,12 @@ import { useMockStore } from './mock-store';
  * evaluate — otherwise RequireAuth would bounce a deep-linked protected route
  * to #/login before the mocks boot.
  */
-export function startMockApi(): void {
+export async function startMockApi(): Promise<void> {
   // `BASE_URL` is `/` in dev and can be a subpath when the app is hosted
   // under one. Registering the worker at the root path would 404 there and the
   // page would fall through to the (deliberately invalid) API URL instead of
   // the mocks.
-  worker.start({
+  await worker.start({
     onUnhandledRequest: 'bypass',
     serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
   });

@@ -3,6 +3,7 @@ import { HashRedirectShim } from './components/HashRedirectShim';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
+import { RequireFlag } from './components/RequireFlag';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
@@ -39,6 +40,7 @@ import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -83,6 +85,16 @@ export default function App() {
           }
         />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
+        <Route
+          path="settings/notifications"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
+              <RequireFlag name="notification_preferences">
+                <NotificationSettingsPage />
+              </RequireFlag>
+            </RequireAuth>
+          }
+        />
         <Route
           path="care"
           element={
@@ -140,7 +152,7 @@ export default function App() {
         } />
         <Route path="doctor/messages" element={
           <RequireAuth allowedRoles={['doctor']}>
-            <DoctorInbox />
+            <div className="container"><h1>Messages</h1><DoctorInbox /></div>
           </RequireAuth>
         } />
         <Route path="doctor/messages/:threadId" element={

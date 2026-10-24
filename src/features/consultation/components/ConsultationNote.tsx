@@ -9,24 +9,24 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
 import styles from './ConsultationNote.module.css';
 
-function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const NOTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+};
 
 interface ConsultationNoteProps {
   appointmentId?: string;
 }
 
 export function ConsultationNote({ appointmentId: appointmentIdProp }: ConsultationNoteProps) {
+  const { timeZone } = useTimeZone();
   const params = useParams<{ appointmentId: string }>();
   const appointmentId = appointmentIdProp ?? params.appointmentId;
   const query = useConsultationNote(appointmentId ?? null);
@@ -112,13 +112,13 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   return (
     <section className={styles.note}>
       <header className={styles.noteHeader}>
-        <h2>Consultation note</h2>
+        <h1>Consultation note</h1>
         <span className={styles.status}>
           {signed ? 'Signed · locked' : 'Draft'}
         </span>
         {note.autoSignOffAt && !signed && (
           <span className={styles.deadline}>
-            Auto sign-off: {formatDateTime(note.autoSignOffAt)}
+            Auto sign-off: {formatZonedDateTime(note.autoSignOffAt, timeZone, NOTE_TIME_OPTIONS)}
           </span>
         )}
         {appointmentQuery.data?.patientProfileId && (
@@ -153,6 +153,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               {editing ? (
                 <>
                   <textarea
+                    aria-label="Consultation note draft"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}
@@ -183,9 +184,9 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
       ) : (
         <>
           <div className={styles.contentReadOnly}>{note.content}</div>
-          <div className={styles.signedBadge}>Signed {formatDateTime(note.signedAt)}</div>
+          <div className={styles.signedBadge}>Signed {formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS)}</div>
 
-          <h3 className={styles.addendaHeading}>Addenda</h3>
+          <h2 className={styles.addendaHeading}>Addenda</h2>
           <div className={styles.addendumComposer}>
             <textarea
               value={addendumContent}
@@ -207,7 +208,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               <li key={addendum.id} className={styles.addendumItem}>
                 <p className={styles.addendumContent}>{addendum.content}</p>
                 <span className={styles.addendumMeta}>
-                  {formatDateTime(addendum.createdAt)}
+                  {formatZonedDateTime(addendum.createdAt, timeZone, NOTE_TIME_OPTIONS)}
                 </span>
               </li>
             ))}

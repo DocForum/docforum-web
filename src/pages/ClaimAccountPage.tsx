@@ -9,7 +9,7 @@ export function ClaimAccountPage() {
     return (
       <div className="container">
         <div className="card">
-          <h2>Invalid link</h2>
+          <h1>Invalid link</h1>
           <p>This claim link is missing or invalid. Ask your guardian to resend the invite.</p>
         </div>
       </div>

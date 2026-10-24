@@ -5,6 +5,8 @@ import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import { entityRecordPath } from '../entity-links';
 import { toAuditSearch } from '../filters';
 import type { AuditFilters, AuditTab } from '../filters';
@@ -29,10 +31,11 @@ function narrowedSearch(filters: AuditFilters, patch: Partial<AuditFilters>): st
 }
 
 export function Timestamp({ value }: { value: string }) {
+  const { timeZone } = useTimeZone();
   const date = new Date(value);
   const label = Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+    : formatDateTime(date, timeZone, { dateStyle: 'medium', timeStyle: 'medium' });
   return (
     <time dateTime={value} title={value} className={styles.time}>
       {label}

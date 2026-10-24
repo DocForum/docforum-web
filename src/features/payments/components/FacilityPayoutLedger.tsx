@@ -4,6 +4,8 @@ import { formatStroops } from '../../../services/payments-service';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { transactionUrl } from '../explorer';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
@@ -13,6 +15,7 @@ interface FacilityPayoutLedgerProps {
 export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayoutLedgerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const { timeZone } = useTimeZone();
 
   const { data, isLoading, error, refetch } = useFacilityLedger(facilityId, {
     status: statusFilter,
@@ -208,7 +211,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           <span className={styles.releaserTag}>Releaser:</span> {entry.terms.releaserDescription}
                         </div>
                         <div className={styles.termsText}>
-                          <strong>Refund cutoff:</strong> {new Date(entry.terms.refundDeadline).toLocaleString()}
+                          <strong>Refund cutoff:</strong> {formatDateTime(entry.terms.refundDeadline, timeZone)}
                           {entry.status === 'held' && (
                             <span> ({entry.terms.hoursUntilRefund}h remaining)</span>
                           )}

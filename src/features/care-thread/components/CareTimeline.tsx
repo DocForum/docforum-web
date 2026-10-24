@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import type { CareStepStatus, CareStepType, CareThread, CareThreadStep } from '../../../types/models';
 import { EmptyState, type EmptyStateAction } from '../../../components/states/EmptyState';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate } from '../../../i18n/time-zone';
+import { DualZoneTime } from '../../../i18n/components/ZonedTime';
 import styles from './CareTimeline.module.css';
 
 interface CareTimelineProps {
@@ -60,6 +63,7 @@ export function CareTimeline({
   isLoading = false,
   emptyAction = { label: 'Go to your care hub', to: '/care' },
 }: CareTimelineProps) {
+  const { timeZone } = useTimeZone();
   if (isLoading) {
     return (
       <div className={styles.timelineContainer}>
@@ -95,7 +99,7 @@ export function CareTimeline({
           <h2 className={styles.threadTitle}>{thread.title}</h2>
           <div className={styles.threadMeta}>
             <span>Doctor: {thread.doctorName} ({thread.specialty})</span>
-            <span>Started: {new Date(thread.startedAt).toLocaleDateString()}</span>
+            <span>Started: {formatDate(thread.startedAt, timeZone)}</span>
           </div>
         </div>
       </div>
@@ -121,10 +125,14 @@ export function CareTimeline({
 
                 {step.timestamp && (
                   <div className={styles.stepTimestamp}>
-                    {new Date(step.timestamp).toLocaleString(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
+                    <DualZoneTime
+                      value={step.timestamp}
+                      counterpartZone={
+                        typeof step.metadata?.doctorTimeZone === 'string'
+                          ? step.metadata.doctorTimeZone
+                          : null
+                      }
+                    />
                   </div>
                 )}
 

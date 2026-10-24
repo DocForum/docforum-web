@@ -19,6 +19,7 @@ import {
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
@@ -96,7 +97,9 @@ export function renderWithProviders(
   const result = rtlRender(ui, {
     wrapper: ({ children }) => (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={routes ?? [route]}>{children}</MemoryRouter>
+        <TimeZoneProvider>
+          <MemoryRouter initialEntries={routes ?? [route]}>{children}</MemoryRouter>
+        </TimeZoneProvider>
       </QueryClientProvider>
     ),
     ...rtlOptions,
