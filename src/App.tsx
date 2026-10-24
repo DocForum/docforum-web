@@ -3,12 +3,13 @@ import { HashRedirectShim } from './components/HashRedirectShim';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
-import { RequireFlag } from './components/RequireFlag';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { PatientResultsPage } from './pages/PatientResultsPage';
+import { PatientResultDetailPage } from './pages/PatientResultDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
@@ -39,7 +40,6 @@ import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
-import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -85,12 +85,18 @@ export default function App() {
         />
         <Route path="account-deleted" element={<AccountDeletedPage />} />
         <Route
-          path="settings/notifications"
+          path="patient/results"
           element={
-            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
-              <RequireFlag name="notification_preferences">
-                <NotificationSettingsPage />
-              </RequireFlag>
+            <RequireAuth allowedRoles={['patient']}>
+              <PatientResultsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="patient/results/:resultId"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <PatientResultDetailPage />
             </RequireAuth>
           }
         />
