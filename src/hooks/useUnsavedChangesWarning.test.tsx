@@ -9,7 +9,7 @@ describe('useUnsavedChangesWarning', () => {
   });
 
   it('registers while dirty and deregisters when clean or unmounted', () => {
-    const { rerender, unmount } = renderHook(({ dirty }) => useUnsavedChangesWarning(dirty), {
+    const { rerender, unmount } = renderHook(({ dirty }) => useUnsavedChangesWarning({ hasUnsavedChanges: dirty }), {
       initialProps: { dirty: false },
     });
     expect(useUnsavedChangesStore.getState().count).toBe(0);
@@ -30,12 +30,25 @@ describe('useUnsavedChangesWarning', () => {
   });
 
   it('counts multiple dirty forms independently', () => {
-    const first = renderHook(() => useUnsavedChangesWarning(true));
-    const second = renderHook(() => useUnsavedChangesWarning(true));
+    const first = renderHook(() => useUnsavedChangesWarning({ hasUnsavedChanges: true }));
+    const second = renderHook(() => useUnsavedChangesWarning({ hasUnsavedChanges: true }));
     expect(useUnsavedChangesStore.getState().count).toBe(2);
     first.unmount();
     expect(useUnsavedChangesStore.getState().count).toBe(1);
     second.unmount();
+    expect(useUnsavedChangesStore.getState().count).toBe(0);
+  });
+
+  it('supports backward-compatible boolean argument', () => {
+    const { rerender } = renderHook(({ dirty }) => useUnsavedChangesWarning(dirty), {
+      initialProps: { dirty: false },
+    });
+    expect(useUnsavedChangesStore.getState().count).toBe(0);
+
+    rerender({ dirty: true });
+    expect(useUnsavedChangesStore.getState().count).toBe(1);
+
+    rerender({ dirty: false });
     expect(useUnsavedChangesStore.getState().count).toBe(0);
   });
 });
