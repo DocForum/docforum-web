@@ -1,5 +1,6 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDeferredAction } from '../../../hooks/useDeferredAction';
 import * as queueService from '../../../services/queue-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
@@ -60,7 +61,8 @@ export function useUpdateRunningDelay() {
  * Tapping start/complete applies the optimistic change immediately and
  * defers the real API call by UNDO_WINDOW_MS. `undo(id)` cancels the
  * deferred call and reverts the optimistic UI, so nothing reaches the
- * server unless the window elapses.
+ * server unless the window elapses. The undo offer rides the shared toast
+ * system (with a real Undo button), and a failed call rolls the row back.
  */
 export function useVisitActions() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -78,95 +80,60 @@ export function useVisitActions() {
     onSuccess: () => invalidateFor(queryClient, 'queue.visit-action'),
   });
 
-  const pending = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const deferred = useDeferredAction(UNDO_WINDOW_MS);
 
   const applyOptimistic = useCallback(
     (id: string, status: 'checked_in' | 'in_progress' | 'completed') => {
       queryClient.setQueryData(QUEUE_KEY, (old: QueueEntry[] | undefined) => {
         if (!old) return old;
-        return old.map((e) =>
-          e.appointmentId === id ? { ...e, status } : e,
-        );
+        return old.map((entry) => (entry.appointmentId === id ? { ...entry, status } : entry));
       });
     },
     [queryClient],
   );
 
-  const clearPending = useCallback((id: string) => {
-    const timer = pending.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      pending.current.delete(id);
-    }
-  }, []);
-
   const startVisit = useCallback(
     (id: string) => {
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
-        id,
-      );
+      const entry = findQueueEntry(queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY), id);
       if (!entry || entry.status !== 'checked_in') return;
 
-      applyOptimistic(id, 'in_progress');
-
-      const timer = setTimeout(() => {
-        pending.current.delete(id);
-        startMutation.mutate(id);
-      }, UNDO_WINDOW_MS);
-      pending.current.set(id, timer);
+      deferred.run({
+        id,
+        apply: () => applyOptimistic(id, 'in_progress'),
+        undo: () => applyOptimistic(id, 'checked_in'),
+        commit: () => startMutation.mutateAsync(id),
+        appliedMessage: `${entry.fullName} marked as started.`,
+        successMessage: `${entry.fullName} started.`,
+        errorMessage: `Couldn't start ${entry.fullName}'s visit. The queue has been restored.`,
+      });
     },
-    [accessToken, applyOptimistic, queryClient, startMutation],
+    [applyOptimistic, deferred, queryClient, startMutation],
   );
 
   const completeVisit = useCallback(
     (id: string) => {
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
-        id,
-      );
+      const entry = findQueueEntry(queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY), id);
       if (!entry || entry.status !== 'in_progress') return;
 
-      applyOptimistic(id, 'completed');
-
-      const timer = setTimeout(() => {
-        pending.current.delete(id);
-        completeMutation.mutate(id);
-      }, UNDO_WINDOW_MS);
-      pending.current.set(id, timer);
-    },
-    [accessToken, applyOptimistic, queryClient, completeMutation],
-  );
-
-  const undo = useCallback(
-    (id: string) => {
-      clearPending(id);
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
+      deferred.run({
         id,
-      );
-      if (!entry) return;
-      // Revert to the last known good status.
-      if (entry.status === 'in_progress') {
-        applyOptimistic(id, 'checked_in');
-      } else if (entry.status === 'completed') {
-        applyOptimistic(id, 'in_progress');
-      }
-      startMutation.reset();
-      completeMutation.reset();
+        apply: () => applyOptimistic(id, 'completed'),
+        undo: () => applyOptimistic(id, 'in_progress'),
+        commit: () => completeMutation.mutateAsync(id),
+        appliedMessage: `${entry.fullName}'s visit marked as completed.`,
+        successMessage: `${entry.fullName}'s visit completed.`,
+        errorMessage: `Couldn't complete ${entry.fullName}'s visit. The queue has been restored.`,
+      });
     },
-    [clearPending, applyOptimistic, queryClient, startMutation, completeMutation],
+    [applyOptimistic, deferred, queryClient, completeMutation],
   );
-
-  const hasPendingUndo = pending.current.size > 0;
-  const isPending = startMutation.isPending || completeMutation.isPending;
 
   return {
     startVisit,
     completeVisit,
-    undo,
-    isPending,
-    hasPendingUndo,
+    undo: deferred.undo,
+    isPending: startMutation.isPending || completeMutation.isPending,
+    hasPendingUndo: deferred.hasPending(),
     startError: startMutation.error,
     completeError: completeMutation.error,
   };

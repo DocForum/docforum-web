@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { TextField } from '../../../components/TextField';
+import { DatePicker } from '../../../components/DatePicker';
+import { todayInTimeZone } from '../../../components/date-utils';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import type { Dependent, DependentInput, Relationship } from '../../../types/models';
@@ -52,11 +54,11 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
         error={fieldErrors.fullName}
         required
       />
-      <TextField
+      <DatePicker
         label="Date of birth"
-        type="date"
         value={dateOfBirth}
-        onChange={(e) => setDateOfBirth(e.target.value)}
+        onChange={setDateOfBirth}
+        max={todayInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')}
         error={fieldErrors.dateOfBirth}
         required
       />

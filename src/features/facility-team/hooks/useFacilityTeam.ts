@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '../../../hooks/useOptimisticMutation';
 import * as teamService from '../../../services/facility-team-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { facilityKeys } from '../../../query-keys';
-import type { InviteMemberInput } from '../../../types/models';
+import type { FacilityInvite, InviteMemberInput } from '../../../types/models';
 
 export function useFacilityMembers(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -49,12 +50,21 @@ export function useResendInvite(facilityId: string) {
 
 export function useRevokeInvite(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const queryClient = useQueryClient();
 
-  return useMutation({
+  // Second example of the optimistic helper: a revoked invitation leaves
+  // the table immediately and comes back if docforum-core rejects it.
+  return useOptimisticMutation<
+    { success: boolean },
+    Error,
+    string,
+    FacilityInvite[]
+  >({
     mutationFn: (inviteId: string) =>
       teamService.revokeFacilityInvite(facilityId, inviteId, accessToken!),
-    onSuccess: () => { void invalidateFor(queryClient, 'facility.invite-write', facilityId); },
+    queryKey: facilityKeys.invites(facilityId),
+    update: (invites, inviteId) => invites?.filter((invite) => invite.id !== inviteId),
+    successMessage: 'Invitation revoked.',
+    errorMessage: "Couldn't revoke that invitation. It has been restored.",
   });
 }
 

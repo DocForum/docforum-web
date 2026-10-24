@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '../test/render';
-import { PatientDashboardPage } from './PatientDashboardPage';
+import { PatientHomePage } from './PatientHomePage';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import type { PatientAppointment, Dependent, HealthEntry, HealthSectionKey } from '../types/models';
@@ -80,7 +80,7 @@ function appointment(start: Date, status: PatientAppointment['status'] = 'schedu
   };
 }
 
-describe('PatientDashboardPage care hub', () => {
+describe('PatientHomePage care hub', () => {
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'test-token', user: null });
     useProfileStore.setState({ profiles: [{ id: 'pp-1', fullName: 'Self', isSelf: true }], selectedProfileId: 'pp-1' });
@@ -104,7 +104,7 @@ describe('PatientDashboardPage care hub', () => {
     ]);
     mockHealth({ allergies: [entry({})] });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     const actionHeading = await screen.findByRole('heading', { name: 'Action needed' });
     const actionSection = actionHeading.parentElement as HTMLElement;
@@ -119,7 +119,7 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     mockHealth();
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText(/Add your allergies, conditions and medications/i)).toBeInTheDocument();
   });
@@ -128,7 +128,7 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     mockHealth({ conditions: new Error('offline') });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     await screen.findByText(/could not be loaded/i);
     expect(screen.queryByText(/Add your allergies, conditions and medications/i)).not.toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('PatientDashboardPage care hub', () => {
     ]);
     mockHealth({ medications: new Error('offline') });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText(/Start Child One's handover/i)).toBeInTheDocument();
     expect(screen.getByText(/could not be loaded/i)).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe('PatientDashboardPage care hub', () => {
     ]);
     mockHealth();
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText(/Start Child One's handover/i)).toBeInTheDocument();
     expect(screen.queryByText(/Loading your care summary/i)).not.toBeInTheDocument();
@@ -167,7 +167,7 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     mockHealth({ allergies: [entry({ id: 'he-9', name: 'Latex' })] });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText('Latex updated')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent' })).toBeInTheDocument();
@@ -179,7 +179,7 @@ describe('PatientDashboardPage care hub', () => {
       conditions: [entry({ id: 'he-old', name: 'Asthma', updatedAt: new Date(Date.now() - 90 * DAY_MS).toISOString() })],
     });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     await screen.findByText(/Nothing needs your attention right now/i);
     expect(screen.queryByRole('heading', { name: 'Recent' })).not.toBeInTheDocument();
@@ -192,7 +192,7 @@ describe('PatientDashboardPage care hub', () => {
       conditions: [entry({ id: 'he-settled', name: 'Asthma', updatedAt: new Date(Date.now() - 90 * DAY_MS).toISOString() })],
     });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     await screen.findByText(/Nothing needs your attention right now/i);
     expect(screen.getByRole('link', { name: /manage dependents/i })).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment(laterToday())]);
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     const action = within(screen.getByRole('heading', { name: 'Action needed' }).parentElement as HTMLElement);
     const card = await action.findByRole('link', { name: /check in for your visit today/i });
@@ -218,7 +218,7 @@ describe('PatientDashboardPage care hub', () => {
       appointment(new Date(Date.now() + 26 * 60 * 60 * 1000)),
     ]);
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     const comingUp = await screen.findByRole('heading', { name: 'Coming up' });
     const section = within(comingUp.parentElement as HTMLElement);
@@ -234,7 +234,7 @@ describe('PatientDashboardPage care hub', () => {
       appointment(laterToday(), 'cancelled'),
     ]);
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     // Anchor on *something* the hub settled into: the empty-profile prompt,
     // which only appears once every other source has answered.
@@ -247,7 +247,7 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([dependent({ handoverStatus: 'eligible' })]);
     vi.mocked(appointmentsService.listMyAppointments).mockRejectedValue(new Error('offline'));
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText(/could not be loaded/i)).toBeInTheDocument();
     // The rest of the hub is still real, so it must still be on screen.
@@ -258,7 +258,7 @@ describe('PatientDashboardPage care hub', () => {
   it('makes no visit request without a session, and does not spin forever', async () => {
     useAuthStore.setState({ accessToken: null });
 
-    render(<PatientDashboardPage />);
+    render(<PatientHomePage />);
 
     expect(await screen.findByText(/Nothing needs your attention right now/i)).toBeInTheDocument();
     expect(screen.queryByText(/Loading your care summary/i)).not.toBeInTheDocument();

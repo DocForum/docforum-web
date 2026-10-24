@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '../../../hooks/useOptimisticMutation';
 import * as messagingService from '../../../services/messaging-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { messageKeys } from '../../../query-keys';
@@ -8,7 +9,6 @@ import type { DoctorMessageThread } from '../../../types/models';
 
 export function useMessageThreads(input: ListThreadsInput) {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const queryClient = useQueryClient();
   const queryKey = messageKeys.threads(input.filter, input.cursor, input.limit);
 
   const query = useQuery({
@@ -26,23 +26,29 @@ export function useMessageThreads(input: ListThreadsInput) {
     );
   }, [query.data?.nextCursor, query.isFetching, input, accessToken]);
 
-  const markRead = useMutation({
+  const markRead = useOptimisticMutation<
+    void,
+    Error,
+    string,
+    { threads: DoctorMessageThread[]; nextCursor: string | null }
+  >({
     mutationFn: (threadId: string) =>
       messagingService.markThreadRead(threadId, accessToken!),
-    onSuccess: (_: unknown, threadId: string) => {
-      queryClient.setQueryData<{ threads: DoctorMessageThread[]; nextCursor: string | null } | undefined>(
-        queryKey,
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            threads: old.threads.map((t: DoctorMessageThread) =>
-              t.id === threadId ? { ...t, unreadCount: 0 } : t,
-            ),
-          };
-        },
-      );
+    queryKey,
+    // Example of the optimistic helper's non-money use: the unread badge
+    // clears the moment the doctor opens a thread.
+    update: (old, threadId) => {
+      if (!old) return old;
+      return {
+        ...old,
+        threads: old.threads.map((thread) =>
+          thread.id === threadId ? { ...thread, unreadCount: 0 } : thread,
+        ),
+      };
     },
+    errorMessage: "Couldn't mark that thread as read.",
+    // A read receipt has no richer server state to reconcile.
+    invalidateOnSettle: false,
   });
 
   const threads = query.data?.threads ?? [];

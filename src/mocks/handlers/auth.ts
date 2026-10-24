@@ -72,6 +72,13 @@ export const authHandlers = [
 
   http.post('*/auth/logout', respond('void', () => null)),
 
+  // A reload in mock mode still has the persona's cookie-equivalent session
+  // in the mock store, so refresh returns whatever role is active.
+  http.post(
+    '*/auth/refresh',
+    respond('json', () => sessionFor(PERSONAS[useMockStore.getState().activeRole])),
+  ),
+
   http.post(
     '*/auth/claim-account',
     respond('void', () => null),

@@ -414,3 +414,117 @@ export function apiUpload<T>(path: string, formData: FormData, options: UploadOp
     xhr.send(formData);
   });
 }
+
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  /** 0–100; 0 when the server does not send a total. */
+  percent: number;
+}
+
+export interface FileUploadOptions {
+  method?: 'POST' | 'PUT' | 'PATCH';
+  /** Multipart field name; the core API expects `file` by default. */
+  fieldName?: string;
+  /** Extra multipart text fields (e.g. `purpose=lab_result`). */
+  fields?: Record<string, string>;
+  accessToken?: string | null;
+  signal?: AbortSignal;
+  onProgress?: (progress: UploadProgress) => void;
+}
+
+/**
+ * Single-file multipart upload with progress and cancellation. Same
+ * XHR-only exception as `apiUpload`, but builds the `FormData` from a
+ * `File`/`Blob` so callers don't have to.
+ */
+export function apiUploadFile<T>(
+  path: string,
+  file: Blob,
+  options: FileUploadOptions = {},
+): Promise<T> {
+  const {
+    method = 'POST',
+    fieldName = 'file',
+    fields,
+    accessToken,
+    signal,
+    onProgress,
+  } = options;
+
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+      return;
+    }
+
+    const request = new XMLHttpRequest();
+    const handleAbort = () => request.abort();
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', handleAbort);
+    };
+
+    request.open(method, `${API_BASE_URL}${path}`);
+    request.withCredentials = true;
+    request.responseType = 'text';
+    request.setRequestHeader('Accept', 'application/json');
+    if (accessToken) request.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) return;
+      onProgress({
+        loaded: event.loaded,
+        total: event.total,
+        percent: event.total > 0 ? Math.round((event.loaded / event.total) * 100) : 0,
+      });
+    };
+
+    request.onload = () => {
+      cleanup();
+      const contentType = request.getResponseHeader('content-type') ?? '';
+      let payload: unknown;
+      if (request.responseText && contentType.includes('application/json')) {
+        try {
+          payload = JSON.parse(request.responseText);
+        } catch {
+          payload = undefined;
+        }
+      }
+
+      if (request.status < 200 || request.status >= 300) {
+        const message =
+          (payload as ErrorEnvelope | undefined)?.message ?? (request.statusText || 'Upload failed');
+        reject(new ApiError(message, request.status, payload));
+        return;
+      }
+      resolve(payload as T);
+    };
+
+    request.onerror = () => {
+      cleanup();
+      reject(new ApiError('Network error while uploading.', 0));
+    };
+
+    request.onabort = () => {
+      cleanup();
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+    };
+
+    signal?.addEventListener('abort', handleAbort, { once: true });
+
+    const body = new FormData();
+    if (fields) {
+      for (const [key, value] of Object.entries(fields)) body.append(key, value);
+    }
+    const filename =
+      file instanceof File && file.name
+        ? file.name
+        : file instanceof File
+          ? 'upload'
+          : `upload.${file.type.split('/')[1] || 'bin'}`;
+    body.append(fieldName, file, filename);
+
+    request.send(body);
+  });
+}

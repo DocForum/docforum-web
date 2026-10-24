@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
 import { SpecialtyClaimsConsole } from './SpecialtyClaimsConsole';
 import { ApiError } from '../../../services/api-client';
 import * as verificationService from '../../../services/admin-verification-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { renderRoute } from '../../../test/render';
 import type { Role, Specialty, SpecialtyClaim } from '../../../types/models';
 
 vi.mock('../../../services/admin-verification-service');
@@ -407,15 +407,7 @@ describe('SpecialtyClaimsConsole — reject', () => {
 
 describe('/admin/verification route', () => {
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/verification']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    return renderRoute('/admin/verification');
   }
 
   it('is reachable by admins', async () => {
