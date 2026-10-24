@@ -30,6 +30,7 @@ import type {
   HealthEntry,
   IntakeForm,
   DoctorMessageThread,
+  Notification,
   NotificationPreferences,
   PatientOrder,
   PaymentIntent,
@@ -97,6 +98,7 @@ export interface MockDb {
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
   messageThreads: DoctorMessageThread[];
+  notifications: Notification[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
@@ -419,6 +421,66 @@ export function createSeedDb(): MockDb {
       lastPreview: 'Demo message (fake): pharmacy says my order is not ready…',
       waitingMinutes: 120,
       closingSoon: true,
+    },
+  ];
+
+  // Notification centre (issue #107). Covers every category, an unread and a
+  // read row, and one deliberately unknown kind so the generic rendering path
+  // is visible in `npm run dev:mock`.
+  const notifications: Notification[] = [
+    {
+      id: 'ntf-demo-1',
+      kind: 'appointment_booked',
+      title: 'Appointment confirmed',
+      body: 'Demo appointment with Dr. Ficticia Example (fake) on 18 Oct at 09:00.',
+      link: '/patient/appointments',
+      readAt: null,
+      createdAt: '2026-10-18T07:00:00.000Z',
+    },
+    {
+      id: 'ntf-demo-2',
+      kind: 'result_ready',
+      title: 'A result is ready',
+      body: 'Demo full blood count (fake) has been added to your records.',
+      link: '/patient/records',
+      readAt: null,
+      createdAt: '2026-10-18T08:10:00.000Z',
+    },
+    {
+      id: 'ntf-demo-3',
+      kind: 'payment_escrowed',
+      title: 'Payment held in escrow',
+      body: 'Your demo payment is held until the pharmacy fulfils the order (fake).',
+      link: '/payments',
+      readAt: '2026-10-17T10:06:00.000Z',
+      createdAt: '2026-10-17T10:05:00.000Z',
+    },
+    {
+      id: 'ntf-demo-4',
+      kind: 'message_received',
+      title: 'New message from Dr. Ficticia Example',
+      body: 'Demo message (fake): your test results look fine, no action needed.',
+      link: '/care',
+      readAt: null,
+      createdAt: '2026-10-17T16:20:00.000Z',
+    },
+    {
+      id: 'ntf-demo-5',
+      kind: 'system_announcement',
+      title: 'Scheduled maintenance',
+      body: 'Demo announcement (fake): the service will be unavailable for a few minutes.',
+      link: null,
+      readAt: '2026-10-16T09:00:00.000Z',
+      createdAt: '2026-10-16T08:00:00.000Z',
+    },
+    {
+      id: 'ntf-demo-6',
+      kind: 'referral_accepted',
+      title: 'Referral accepted',
+      body: 'Your demo referral to Cardiology was accepted (fake).',
+      link: '/care',
+      readAt: null,
+      createdAt: '2026-10-15T11:30:00.000Z',
     },
   ];
 
@@ -1514,6 +1576,7 @@ export function createSeedDb(): MockDb {
     intakeForms,
     runningDelay,
     messageThreads,
+    notifications,
     consultationNotes,
     consultationRecords: [],
     consultationReferrals: [],

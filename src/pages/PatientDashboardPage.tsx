@@ -1,6 +1,9 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { CareCardList } from '../features/care-hub/components/CareCardList';
+import { EmptyState } from '../components/states/EmptyState';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
@@ -31,22 +34,26 @@ function PatientHome() {
         <span className="statusPill">Phase W2 · in progress</span>
         <h1 className={styles.title}>What needs your attention</h1>
 
-        {anyLoading && <p className={styles.loading}>Loading your care summary…</p>}
+        {anyLoading && <Skeleton lines={3} label="Loading your care summary" />}
 
         <section aria-labelledby="action-needed">
           <h2 id="action-needed" className={styles.heading}>
             Action needed
           </h2>
           {sources.dependents.failed || sources.appointments.failed || sources.health.failed ? (
-            <p className={styles.sourceError} role="status">
-              Some of your information could not be loaded. Everything else below is still current — retry
-              by reloading this page.
-            </p>
+            <InlineError
+              title={null}
+              message="Some of your information could not be loaded. Everything else below is still current — retry by reloading this page."
+            />
           ) : null}
           {sections.action.length > 0 ? (
             <CareCardList cards={sections.action} />
           ) : !anyLoading ? (
-            <p className={styles.empty}>Nothing needs your attention right now.</p>
+            <EmptyState
+              title="Nothing needs your attention right now"
+              description="Bookings, handovers and recent changes show up here when they need you."
+              action={{ label: 'Update your health details', to: '/patient/health' }}
+            />
           ) : null}
         </section>
 

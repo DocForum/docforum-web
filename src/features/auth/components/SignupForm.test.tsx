@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '../../../test/render';
+import { renderWithProviders, screen, waitFor } from '../../../test/render';
 import { SignupForm } from './SignupForm';
 import { useAuthStore } from '../../../store/auth-store';
 import { ApiError } from '../../../services/api-client';
@@ -15,7 +15,7 @@ describe('SignupForm', () => {
   });
 
   it('offers only patient and doctor as self-serve roles, never facility', () => {
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     // PRD OQ-2: facility accounts are admin-invited only — no self-serve
     // facility signup should ever be offered here.
@@ -25,13 +25,13 @@ describe('SignupForm', () => {
   });
 
   it('defaults to the patient role', () => {
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
     expect(screen.getByRole('radio', { name: 'Patient' })).toBeChecked();
   });
 
   it('shows validation errors instead of submitting when fields are empty', async () => {
     const user = userEvent.setup();
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
@@ -48,7 +48,7 @@ describe('SignupForm', () => {
       }),
     );
     const user = userEvent.setup();
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     await user.type(screen.getByLabelText(/full name/i), 'Jane');
     await user.type(screen.getByLabelText(/email/i), 'a@b.com');

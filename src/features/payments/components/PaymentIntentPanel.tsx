@@ -1,5 +1,7 @@
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import { usePaymentIntent, useFundPaymentIntent, useReleasePaymentIntent, useRefundPaymentIntent } from '../hooks/usePaymentIntent';
 import type { PaymentIntentStatus } from '../../../types/models';
@@ -25,10 +27,19 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
   const releaseMutation = useReleasePaymentIntent();
   const refundMutation = useRefundPaymentIntent();
 
-  if (intentQuery.isLoading) return <p>Loading…</p>;
+  if (intentQuery.isLoading) return <Skeleton lines={3} label="Loading payment intent" />;
   if (intentQuery.isError) {
-    const message = intentQuery.error instanceof ApiError ? intentQuery.error.message : 'Could not load this payment intent.';
-    return <FormError message={message} />;
+    const message =
+      intentQuery.error instanceof ApiError
+        ? intentQuery.error.message
+        : 'Could not load this payment intent.';
+    return (
+      <InlineError
+        title="This payment intent couldn't be loaded"
+        message={message}
+        onRetry={() => void intentQuery.refetch()}
+      />
+    );
   }
 
   const intent = intentQuery.data;

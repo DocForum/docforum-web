@@ -4,6 +4,10 @@ import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/us
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
@@ -79,9 +83,30 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
     setAddendumContent('');
   };
 
-  if (query.isLoading) return <div className={styles.loading}>Loading note…</div>;
-  if (query.isError || !note) {
-    return <div className={styles.empty}>Could not load this consultation note.</div>;
+  if (query.isLoading) {
+    return (
+      <div className={styles.loading}>
+        <Skeleton lines={4} label="Loading consultation note" />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <InlineError
+        title="This consultation note couldn't be loaded"
+        message={queryErrorMessage(query.error)}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
+  if (!note) {
+    return (
+      <EmptyState
+        title="No consultation note for this visit yet"
+        description="Notes are written and signed off during the consultation. Start the visit to record one."
+        action={{ label: 'Back to your dashboard', to: '/doctor' }}
+      />
+    );
   }
 
   return (

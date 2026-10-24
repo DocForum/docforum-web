@@ -39,6 +39,7 @@ import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
@@ -292,6 +293,15 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminDashboardPage />
+            </RequireAuth>
+          }
+        />
+        {/* Notification centre (issue #107) — every signed-in role has an inbox. */}
+        <Route
+          path="notifications"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
+              <NotificationsPage />
             </RequireAuth>
           }
         />

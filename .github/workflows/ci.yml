@@ -21,7 +21,10 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm run test
+      # Coverage gate (issue #105): thresholds live in vite.config.ts and fail
+      # this step when coverage on src/features/ or src/services/ drops below
+      # the recorded floor. Plain `npm test` runs the same suites uncovered.
+      - run: npm run test:coverage
 
       - run: npm run build
 

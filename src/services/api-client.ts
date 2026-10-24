@@ -15,6 +15,13 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
+/** Absolute URL for a path on docforum-core. Exported for the one client API
+ * that cannot go through `fetch`: `EventSource` (notification stream, #107)
+ * needs a full URL and cannot send an Authorization header. */
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 /**
  * Default per-request timeout. Deliberately longer than docforum-core's
  * free-tier Render cold start (~1 minute, see
