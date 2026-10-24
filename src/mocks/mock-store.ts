@@ -10,16 +10,24 @@ interface MockState {
   scenario: MockScenario;
   latencyMs: number;
   activeRole: Role;
+  /** Dev-panel overrides for `/me/flags` (issue #111). */
+  flagOverrides: Record<string, boolean>;
   setScenario: (scenario: MockScenario) => void;
   setLatencyMs: (ms: number) => void;
   setActiveRole: (role: Role) => void;
+  setFlagOverride: (name: string, enabled: boolean) => void;
+  resetFlagOverrides: () => void;
 }
 
 export const useMockStore = create<MockState>((set) => ({
   scenario: 'normal',
   latencyMs: 0,
   activeRole: 'patient',
+  flagOverrides: {},
   setScenario: (scenario) => set({ scenario }),
   setLatencyMs: (latencyMs) => set({ latencyMs }),
   setActiveRole: (activeRole) => set({ activeRole }),
+  setFlagOverride: (name, enabled) =>
+    set((state) => ({ flagOverrides: { ...state.flagOverrides, [name]: enabled } })),
+  resetFlagOverrides: () => set({ flagOverrides: {} }),
 }));

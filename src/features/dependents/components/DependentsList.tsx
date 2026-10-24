@@ -6,18 +6,20 @@ import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
 import { ApiError } from '../../../services/api-client';
 import type { Dependent, DependentInput } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate as formatZonedDate } from '../../../i18n/time-zone';
 import styles from './DependentsList.module.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+function formatDate(iso: string, timeZone: string) {
+  return formatZonedDate(iso, timeZone);
 }
 
-function handoverLabel(d: Dependent): string {
+function handoverLabel(d: Dependent, timeZone: string): string {
   switch (d.handoverStatus) {
     case 'eligible':
       return 'Eligible for handover';
     case 'invited':
-      return `Invite sent${d.claimInviteExpiresAt ? ` (expires ${formatDate(d.claimInviteExpiresAt)})` : ''}`;
+      return `Invite sent${d.claimInviteExpiresAt ? ` (expires ${formatDate(d.claimInviteExpiresAt, timeZone)})` : ''}`;
     case 'claimed':
       return 'Account claimed — you no longer manage this record';
     default:
@@ -26,6 +28,7 @@ function handoverLabel(d: Dependent): string {
 }
 
 export function DependentsList() {
+  const { timeZone } = useTimeZone();
   const { data: dependents, isLoading, error: fetchError } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
@@ -100,10 +103,10 @@ export function DependentsList() {
                 <span className={styles.name}>{d.fullName}</span>
                 <span className={styles.relationship}>{d.relationship}</span>
               </div>
-              <span className={styles.dob}>Born {formatDate(d.dateOfBirth)}</span>
+              <span className={styles.dob}>Born {formatDate(d.dateOfBirth, timeZone)}</span>
               {d.handoverStatus !== 'not_eligible' && (
                 <span className={styles.handover} data-status={d.handoverStatus}>
-                  {handoverLabel(d)}
+                  {handoverLabel(d, timeZone)}
                 </span>
               )}
               {d.handoverStatus !== 'claimed' && (

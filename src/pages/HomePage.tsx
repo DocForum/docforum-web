@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { gsap } from 'gsap';
+import { motionDuration, motionEase, useMotion } from '../hooks/useMotion';
 import { useAuthStore } from '../store/auth-store';
 import styles from './HomePage.module.css';
 
@@ -28,77 +28,76 @@ export function HomePage() {
   const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
   const lineRefs = useRef<(SVGLineElement | null)[]>([]);
 
-  // Hero: one orchestrated entrance on mount — headline, then subhead, then
-  // the CTAs. A single reveal, not per-section scroll effects scattered
-  // down the page.
-  useEffect(() => {
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const targets = hero.querySelectorAll('[data-reveal]');
-        gsap.set(targets, { opacity: 0, y: 14 });
-        gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
-      });
-      return () => mm.revert();
-    }, hero);
-
-    return () => ctx.revert();
+  const animateHero = useCallback((gsap: typeof import('gsap').gsap, hero: HTMLElement) => {
+    const targets = hero.querySelectorAll('[data-reveal]');
+    gsap.set(targets, { opacity: 0, y: 14 });
+    gsap.to(targets, {
+      opacity: 1,
+      y: 0,
+      duration: motionDuration('--motion-duration-hero-reveal'),
+      stagger: motionDuration('--motion-duration-hero-stagger'),
+      ease: motionEase('--motion-ease-gsap-out'),
+      delay: motionDuration('--motion-duration-hero-delay'),
+    });
   }, []);
+  useMotion(heroRef, animateHero);
 
-  // Thread: each connector line draws itself in, left to right, and the
-  // node at its far end pops as it arrives — the diagram extends the way
-  // the thread it represents does. Then it holds, draws itself back out,
-  // and repeats — a continuous, gentle loop (draw ~1.7s, hold ~1.4s, undraw
-  // ~1.7s, pause ~1s) rather than a one-shot reveal. Runs only while the
-  // section is actually on screen (an IntersectionObserver play()/pause()s
-  // the timeline) so it doesn't spend cycles animating off-screen — core
-  // GSAP only, no ScrollTrigger plugin installed.
-  useEffect(() => {
-    const section = threadSectionRef.current;
-    if (!section) return;
+  // The observer keeps the repeating diagram paused while it is off-screen.
+  const animateThread = useCallback((gsap: typeof import('gsap').gsap, section: HTMLElement) => {
+    const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+    const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    const duration = (token: `--motion-duration-${string}`) => motionDuration(token);
 
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
-        const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+    lines.forEach((line) => {
+      const length = line.getTotalLength();
+      gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+    });
 
-        gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
-        lines.forEach((line) => {
-          const length = line.getTotalLength();
-          gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
-        });
-
-        const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
-        tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
-        lines.forEach((line, i) => {
-          tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
-          tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
-        });
-        tl.to({}, { duration: 1.4 }); // hold fully-drawn before undrawing
-
-        const observer = new IntersectionObserver(
-          (entries) => {
-            if (entries[0]?.isIntersecting) tl.play();
-            else tl.pause();
-          },
-          { threshold: 0.3 },
-        );
-        observer.observe(section);
-
-        return () => {
-          observer.disconnect();
-          tl.kill();
-        };
+    const tl = gsap.timeline({
+      paused: true,
+      repeat: -1,
+      repeatDelay: duration('--motion-duration-thread-repeat-delay'),
+      yoyo: true,
+    });
+    tl.to(dots[0], {
+      scale: 1,
+      duration: duration('--motion-duration-node-pop'),
+      ease: motionEase('--motion-ease-gsap-pop'),
+    });
+    lines.forEach((line, i) => {
+      tl.to(line, {
+        strokeDashoffset: 0,
+        duration: duration('--motion-duration-thread-line'),
+        ease: motionEase('--motion-ease-gsap-out'),
       });
-      return () => mm.revert();
-    }, section);
+      tl.to(
+        dots[i + 1],
+        {
+          scale: 1,
+          duration: duration('--motion-duration-node-pop'),
+          ease: motionEase('--motion-ease-gsap-pop'),
+        },
+        `-=${duration('--motion-duration-node-pop') / 2}`,
+      );
+    });
+    tl.to({}, { duration: duration('--motion-duration-thread-hold') });
 
-    return () => ctx.revert();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) tl.play();
+        else tl.pause();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+      tl.kill();
+    };
   }, []);
+  useMotion(threadSectionRef, animateThread);
 
   if (user) {
     const destination = DASHBOARD_BY_ROLE[user.role];

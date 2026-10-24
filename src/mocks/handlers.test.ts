@@ -24,7 +24,10 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
+import * as myFlagsService from '../services/my-flags-service';
+import * as notificationsService from '../services/notification-preferences-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
@@ -39,7 +42,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 beforeEach(() => {
   resetDb();
-  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient' });
+  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
 });
 
 describe('auth', () => {
@@ -510,6 +513,94 @@ describe('facility fulfillment queue', () => {
   });
 });
 
+describe('integrations (API keys & webhooks)', () => {
+  it('creates an API key with a one-time secret not returned by list', async () => {
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys).toHaveLength(2);
+
+    const created = await integrationsService.createApiKey(
+      FACILITY_ID,
+      { name: 'Test key (fake)', scopes: ['orders.read'] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.secret).toMatch(/^df_live_/);
+    expect(created.name).toBe('Test key (fake)');
+
+    const after = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(after).toHaveLength(3);
+    expect(after.some((k) => 'secret' in k)).toBe(false);
+  });
+
+  it('revokes an API key and keeps it in the list as revoked', async () => {
+    const revoked = await integrationsService.revokeApiKey(
+      FACILITY_ID,
+      'key-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(revoked.success).toBe(true);
+
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys.find((k) => k.id === 'key-demo-1')?.revokedAt).not.toBeNull();
+  });
+
+  it('creates a webhook endpoint with a one-time signing secret', async () => {
+    const created = await integrationsService.createWebhookEndpoint(
+      FACILITY_ID,
+      {
+        url: 'https://new.example.test/webhook',
+        events: ['order.created', 'order.fulfilled'],
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.signingSecret).toMatch(/^whsec_/);
+
+    const endpoints = await integrationsService.listWebhookEndpoints(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(endpoints.some((e) => 'signingSecret' in e)).toBe(false);
+    expect(endpoints.find((e) => e.id === created.id)?.url).toBe(
+      'https://new.example.test/webhook',
+    );
+  });
+
+  it('sends a test delivery and redelivers a failed one', async () => {
+    const delivery = await integrationsService.sendTestDelivery(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(delivery.status).toBe('success');
+
+    const deliveries = await integrationsService.listWebhookDeliveries(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(deliveries.some((d) => d.status === 'failed')).toBe(true);
+
+    const redelivered = await integrationsService.redeliverWebhook(
+      FACILITY_ID,
+      'whk-demo-1',
+      'whd-demo-2',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(redelivered.status).toBe('success');
+  });
+
+  it('deletes an endpoint and its deliveries', async () => {
+    const result = await integrationsService.deleteWebhookEndpoint(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(result.success).toBe(true);
+    await expect(
+      integrationsService.listWebhookDeliveries(FACILITY_ID, 'whk-demo-1', MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
+  });
+});
+
 describe('payments', () => {
   it('links a wallet and drives an intent through fund → release', async () => {
     const wallet = await paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN);
@@ -700,6 +791,67 @@ describe('admin disputes', () => {
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('feature flags', () => {
+  it('returns the mock defaults for the signed-in user', async () => {
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+    expect(evaluated.flags.realtime_updates).toBe(false);
+  });
+
+  it('lets the dev panel override a flag without touching the others', async () => {
+    useMockStore.setState({ flagOverrides: { realtime_updates: true } });
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.realtime_updates).toBe(true);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+  });
+});
+
+describe('notification preferences', () => {
+  it('returns role-appropriate defaults with locked safety-critical rows', async () => {
+    const preferences = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const critical = preferences.preferences.filter((pref) => pref.type === 'critical_lab_result');
+    expect(critical).toHaveLength(3);
+    expect(critical.every((pref) => pref.locked && pref.enabled)).toBe(true);
+
+    useMockStore.setState({ activeRole: 'facility' });
+    const facility = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const facilityOrders = facility.preferences.find(
+      (pref) => pref.type === 'order_updates' && pref.channel === 'email',
+    );
+    expect(facilityOrders?.enabled).toBe(true);
+  });
+
+  it('saves a toggle and quiet hours, and refuses to disable a locked row', async () => {
+    const updated = await notificationsService.updateNotificationPreferences(
+      { preferences: [{ type: 'appointment_reminders', channel: 'email', enabled: false }] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(
+      updated.preferences.find(
+        (pref) => pref.type === 'appointment_reminders' && pref.channel === 'email',
+      )?.enabled,
+    ).toBe(false);
+
+    const quiet = await notificationsService.updateNotificationPreferences(
+      { quietHours: { enabled: true, start: '22:00', end: '07:00', timeZone: 'Europe/London' } },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(quiet.quietHours).toEqual({
+      enabled: true,
+      start: '22:00',
+      end: '07:00',
+      timeZone: 'Europe/London',
+    });
+
+    await expect(
+      notificationsService.updateNotificationPreferences(
+        { preferences: [{ type: 'critical_lab_result', channel: 'email', enabled: false }] },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
   });
 });
 

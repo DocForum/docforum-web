@@ -130,6 +130,45 @@ async function parseResponse<T>(response: Response, parse: ParseMode): Promise<T
   return payload as T;
 }
 
+export interface StreamRequestOptions {
+  accessToken?: string | null;
+  /** Sent as `Last-Event-ID` so docforum-core replays missed events. */
+  lastEventId?: string | null;
+  signal?: AbortSignal;
+}
+
+/**
+ * Opens a streaming response (`text/event-stream`). Unlike `apiFetch` this
+ * leaves the body unread for an incremental parser. `EventSource` can't
+ * send an Authorization header, so the shared SSE manager uses this
+ * fetch-based path instead (issue #109).
+ */
+export async function apiFetchStream(
+  path: string,
+  options: StreamRequestOptions = {},
+): Promise<Response> {
+  const { accessToken, lastEventId, signal } = options;
+  const headers: Record<string, string> = { Accept: 'text/event-stream' };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (lastEventId) headers['Last-Event-ID'] = lastEventId;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'GET',
+    headers,
+    credentials: 'include',
+    signal,
+  });
+
+  if (!response.ok) {
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const payload = isJson ? await response.json().catch(() => undefined) : undefined;
+    const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
+    throw new ApiError(message, response.status, payload);
+  }
+
+  return response;
+}
+
 /**
  * One network attempt: `fetch` + timeout against a single controller.
  * - timeout fires → controller aborted with an `ApiTimeoutError`, which is
