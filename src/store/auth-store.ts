@@ -1,11 +1,26 @@
-// Client-only auth session state. Deliberately NOT persisted to
-// localStorage/sessionStorage (XSS token-theft surface) — see
-// ARCHITECTURE_ESSENTIALS.md "No localStorage/sessionStorage for anything
-// server-derived". Silent re-auth on reload is not built yet: docforum-core
-// sends the refresh token as an httpOnly cookie (`POST /auth/refresh`), but
-// nothing here calls it — see ARCHITECTURE_ESSENTIALS.md "Known gaps".
+// Client-only auth session state. The access token and refresh token are
+// deliberately NOT persisted to localStorage/sessionStorage (XSS
+// token-theft surface) — see ARCHITECTURE_ESSENTIALS.md "No
+// localStorage/sessionStorage for anything server-derived". The refresh
+// token stays in docforum-core's httpOnly cookie; on reload `api-client.ts`
+// exchanges it for a new access token via `POST /auth/refresh`.
+//
+// `csrfToken` is the one exception, and it is not a credential: the backend
+// requires it in `X-CSRF-Token` on refresh/logout (Phase 8, issue #37), and
+// it has to survive a reload or silent re-auth would be impossible. It is
+// kept in a first-party, JS-readable cookie (see `csrf-storage.ts`) — never
+// the access/refresh token.
 import { create } from 'zustand';
 import type { User } from '../types/models';
+import { clearCsrfToken, writeCsrfToken } from '../services/csrf-storage';
+
+/**
+ * `resolving` means the boot refresh is in flight: a protected route must
+ * wait for it instead of redirecting a signed-in user to /login.
+ * `idle` is the pre-boot/test default; `resolved` means the boot check is
+ * finished (or never needed).
+ */
+export type AuthStatus = 'idle' | 'resolving' | 'resolved';
 
 interface AuthState {
   user: User | null;

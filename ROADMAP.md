@@ -3,11 +3,11 @@
 > Update this file on every contribution that starts/completes/blocks an
 > item below — same rule as the rest of the org, see `AGENTS.md`.
 
-**Status: Phase W1 built and connected to a live backend.** The deployed
+**Status: Phase W1 complete and connected to a live backend.** The deployed
 Pages preview (https://docforum.github.io/docforum-web/) points at
-`docforum-core`'s Render deployment; signup/login work end-to-end. One
-gap remains — see `ARCHITECTURE_ESSENTIALS.md` "Known gaps against the
-real API" (no refresh-on-reload flow).
+`docforum-core`'s Render deployment; signup/login/reload/logout work
+end-to-end. See `ARCHITECTURE_ESSENTIALS.md` "Known gaps against the real
+API" for the one documented local-dev cookie caveat.
 
 ## Phase W1 — Shell & auth
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React

@@ -34,7 +34,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const [draft, setDraft] = useState(query.data?.content ?? '');
   const [addendumContent, setAddendumContent] = useState('');
   const [confirmingSignOff, setConfirmingSignOff] = useState(false);
-  const [editing, setEditing] = useState(!Boolean(query.data?.signedAt));
+  const [editing, setEditing] = useState(!query.data?.signedAt);
 
   const note = query.data;
   const signed = Boolean(note?.signedAt);

@@ -5,9 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Pinned docforum-core ref for the end-to-end smoke test (#12). Bump here
+  # and in e2e/README.md together — see that file.
+  E2E_CORE_REF: c65217bc9c02041078700f3a551e01235d9e123c
+
 jobs:
   frontend:
-    name: Frontend (typecheck + test + build)
+    name: Frontend (typecheck + lint + test + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +26,66 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run lint
+
       - run: npm run test
 
       - run: npm run build
 
       - run: npm run check:dist
+
+  e2e:
+    name: E2E smoke (real docforum-core)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: docforum
+          POSTGRES_PASSWORD: docforum
+          POSTGRES_DB: docforum_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U docforum -d docforum_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://docforum:docforum@localhost:5432/docforum_e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check out docforum-core at the pinned ref
+        uses: actions/checkout@v4
+        with:
+          repository: DocForum/docforum-core
+          ref: ${{ env.E2E_CORE_REF }}
+          path: docforum-core
+
+      - name: Install docforum-core backend
+        working-directory: docforum-core/backend
+        run: npm ci
+
+      - name: Generate Prisma client and migrate the throwaway database
+        working-directory: docforum-core/backend
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          npm run prisma:generate
+          npx prisma migrate deploy
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke test (starts core + Vite, no mocks)
+        env:
+          DOCFORUM_CORE_DIR: docforum-core
+        run: npm run test:e2e

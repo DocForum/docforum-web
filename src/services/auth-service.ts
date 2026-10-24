@@ -1,14 +1,14 @@
-// Auth calls to docforum-core. PROVISIONAL: these paths and payload shapes
-// are the smallest reasonable assumption from ARCHITECTURE.md §2 (JWT
-// access + refresh, role claims) — docforum-core's auth module has no
-// implemented routes yet (its backend/src/modules/auth/* is a placeholder).
-// Reconcile against the real contract once docforum-core's Phase 1 lands.
+// Auth calls to docforum-core. Matches its real Phase 1 contract — see
+// docs/api/README.md in docforum-core. `csrfToken` comes back in the body
+// and must be echoed in `X-CSRF-Token` on the two cookie-authenticated
+// routes (refresh/logout) per its Phase 8 CSRF contract.
 import { apiFetch } from './api-client';
 import type { SelfServeRole, User } from '../types/models';
 
 export interface AuthSession {
   user: User;
   accessToken: string;
+  csrfToken?: string;
 }
 
 export interface SignupInput {
@@ -31,8 +31,8 @@ export function login(input: LoginInput): Promise<AuthSession> {
   return apiFetch<AuthSession>('/auth/login', { method: 'POST', body: input });
 }
 
-export function logout(accessToken: string): Promise<void> {
-  return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
+export function logout(accessToken: string, csrfToken?: string | null): Promise<void> {
+  return apiFetch<void>('/auth/logout', { method: 'POST', accessToken, csrfToken });
 }
 
 /** Silent re-auth using docforum-core's httpOnly refresh cookie. The cookie

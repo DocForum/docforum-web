@@ -47,6 +47,7 @@ import type {
 // --- Personas (one per role the dev panel can switch to) --------------------
 
 export const MOCK_ACCESS_TOKEN = 'mock-access-token';
+export const MOCK_CSRF_TOKEN = 'mock-csrf-token';
 
 export const PATIENT_USER: User = {
   id: 'usr-patient-demo',

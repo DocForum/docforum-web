@@ -12,7 +12,7 @@ export function CalendarSubscriptionSection() {
   const [rotateConfirm, setRotateConfirm] = useState(false);
 
   const maskedUrl = feed?.icsUrl
-    ? feed.icsUrl.replace(/[^\?]/g, '*')
+    ? feed.icsUrl.replace(/[^?]/g, '*')
     : '';
 
   const handleCopy = async () => {
@@ -36,7 +36,7 @@ export function CalendarSubscriptionSection() {
       await rotateMutation.mutateAsync();
       setRotateConfirm(false);
       setRotating(false);
-    } catch (err) {
+    } catch {
       setRotating(false);
       // error will be shown by mutation
     }
