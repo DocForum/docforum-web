@@ -9,6 +9,8 @@ import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { PatientResultsPage } from './pages/PatientResultsPage';
+import { PatientResultDetailPage } from './pages/PatientResultDetailPage';
 import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
