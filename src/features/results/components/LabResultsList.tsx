@@ -38,7 +38,7 @@ export function LabResultsList() {
     <div className="card">
       <h2>Lab results</h2>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {results.map((result) => (
+        {results.map((result: LabResult) => (
           <li
             key={result.id}
             style={{ borderTop: '1px solid var(--color-border)', padding: 'var(--space-4) 0' }}
