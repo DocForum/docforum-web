@@ -10,6 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
 import { useAuthStore } from './store/auth-store';
+import { useSessionSync } from './hooks/useSessionSync';
 import App from './App';
 import './styles/global.css';
 
@@ -63,9 +64,15 @@ if (sentryDsn) {
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root element not found');
 
+function SessionSyncBridge() {
+  useSessionSync();
+  return null;
+}
+
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <SessionSyncBridge />
       <Router>
         <TimeZoneProvider>
           <App />

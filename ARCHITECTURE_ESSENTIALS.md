@@ -169,6 +169,8 @@ the cookie to be sent/received at all). One gap remains:
 
 ## Known assumptions
 
+- **Multi-tab session sync (issue #124)**: `BroadcastChannel` carries logout and acting-for profile changes only; it never carries access tokens or user data. Browsers without `BroadcastChannel` retain normal single-tab behavior. Refresh signaling/single-flight is deferred until issue #9 implements `POST /auth/refresh`.
+
 ### Patient wallet linking (issue #58)
 
 The patient-wallet flow is intentionally not implemented against an assumed
