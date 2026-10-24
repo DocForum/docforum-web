@@ -1,15 +1,15 @@
-# ARCHITECTURE_ESSENTIALS.md — docforum-web
+# ARCHITECTURE_ESSENTIALS.md -- docforum-web
 
 Frontend-only quick reference. Full product/system architecture lives in
-`docforum-core`'s `ARCHITECTURE.md` and `ARCHITECTURE_ESSENTIALS.md` — read
+`docforum-core`s `ARCHITECTURE.md` and `ARCHITECTURE_ESSENTIALS.md` -- read
 those first if you're new to the org, not just this file.
 
 ## Stack
 - React + TypeScript + Vite
 - React Query for server state, Zustand for client-only UI state
-- No localStorage/sessionStorage for anything server-derived — treat
-  `docforum-core`'s API as the source of truth, always refetch/cache via
-  React Query rather than hand-rolling persistence.
+- No localStorage/sessionStorage for anything server-derived -- treat
+ `docforum-core`s API as the source of truth, always refetch/cache via
+React Query rather than hand-rolling persistence.
 
 ## Hard rules
 1. **This repo never calls Stellar RPC, Horizon, `docforum-escrow` or any
@@ -23,10 +23,10 @@ those first if you're new to the org, not just this file.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
-   — keep this shape.
+   -- keep this shape.
 
 ## Where things live
-- `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
+- `src/services/` -- API client calls to `docforum-core`. `api-client.ts` is
   the only place fetch/base-URL/error-envelope details live.
 - `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
   mirror the same real/assumed contracts `src/services/` calls, over
@@ -95,21 +95,21 @@ land and consume `appointmentKeys.list(profileId)`.
 ## Deployment
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
-- **Connected to a live backend as of 2026-09-14** —
-  `VITE_API_BASE_URL` is set at build time to `docforum-core`'s Render
+- **Connected to a live backend as of 2026-09-14** --
+  `VITE_API_BASE_URL` is set at build time to `docforum-core`s Render
   preview deployment (`https://docforum-core-api.onrender.com`, see that
   repo's `docs/adr/0003-render-preview-deployment.md`). Signup/login
   actually work end-to-end against a real Postgres now. Still a
   **preview**, not production: the free-tier backend spins down after 15
   minutes idle (~1 minute cold-start delay on the next request), and its
-  Postgres expires 2026-10-14 unless renewed — data is disposable.
-- Router is `HashRouter`, not `BrowserRouter` — GitHub Pages has no
+  Postgres expires 2026-10-14 unless renewed -- data is disposable.
+- Router is `HashRouter`, not `BrowserRouter` -- GitHub Pages has no
   server-side rewrite for client-side routes, so a deep link like `/login`
   would 404 on refresh under history-API routing. Switch back to
   `BrowserRouter` if this ever deploys somewhere with a real rewrite rule
   (e.g. behind `docforum-core` itself, or Vercel/Netlify).
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
-  `npm run build:pages`) — plain `npm run build` still serves from `/`.
+  `npm run build:pages`) -- plain `npm run build` still serves from `/`.
 
 ## API client behaviour (issue #123)
 `src/services/api-client.ts` is the only place HTTP lives, and it now owns
@@ -146,25 +146,25 @@ the full request lifecycle — services pass options through, never wire
   apply on top.
 
 ## Known gaps against the real API (docforum-core Phase 1 landed 2026-09-14)
-`docforum-core` now has a real, tested API — see its `docs/api/README.md`.
-The original W1 assumptions here turned out correct (`POST /auth/signup`/
-`login`/`logout`, `{ user, accessToken }`, `{ message: string }` error
+`docforum-core` now has a real, tested API -- see its `docs/api/README.md`.
+The original W1 assumptions here turned out correct (`POST /auth/signup/
+/login`//logout`, `{ user, accessToken }`, `{ message: string }` error
 envelope, `fullName` is a real column, `role` restricted to `patient`/
-`doctor` at signup — server-enforced too, not just this UI).
+doctor` at signup -- server-enforced too, not just this UI).
 `credentials: 'include'` is now set on the `fetch` call in
-`api-client.ts` (fixed 2026-09-14, alongside the Render connection — the
+`api-client.ts` (fixed 2026-09-14, alongside the Render connection -- the
 real backend's refresh cookie is `SameSite=None; Secure`, cross-site
 between this repo's `github.io` domain and Render's, so it's required for
 the cookie to be sent/received at all). One gap remains:
-- **`POST /auth/refresh` exists on the backend but nothing here calls
-  it.** `auth-store.ts` still has no silent-reauth-on-reload flow — a
+- `POST /auth/refresh` exists on the backend but nothing here calls
+  it. `auth-store.ts` still has no silent-reauth-on-reload flow -- a
   page refresh loses the session even though the refresh cookie would
   still be valid. Tracked, not built (Phase W1 was scoped to
   signup/login only).
 - Local-dev-only caveat inherited from the backend: its refresh cookie is
   `sameSite: 'lax'`/`secure: false`, which may not survive true
   cross-origin (different ports) `fetch` + `credentials: 'include'` in
-  every browser — not verified end-to-end. See `docforum-core`'s
+  every browser -- not verified end-to-end. See `docforum-core`s'
   `docs/api/README.md`.
 
 ## Known assumptions
@@ -304,6 +304,27 @@ land.
 No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
+
+### Consultation message thread (docforum-core#61)
+The backend thread is a plain append-only log. The frontend treats the
+following endpoints as the contract until #61 lands:
+- `GET /consultations/:id/messages?cursor=&limit=` -> `MessagePage`
+- `POST /consultations/:id/messages` (body: `{body}`) -> `ConsultationMessage`
+- `GET /consultations/:id` -> `Consultation` (includes `status` and
+  `participants`)
+- `MessagePage` shape: `{items: ConsultationMessage[], nextCursor: string | null}`
+- `ConsultationMessage` shape: `{id, consultationId, senderProfileId,
+  senderRole: 'patient'|'doctor', body, createdAt}`
+- `Consultation` shape adds `status: 'open'|'closed'` and `participants: {
+  profileId, role, fullName }[`  in addition to the existing appointment
+  link.
+- Live updates: the notification stream is assumed to emit a
+  `message.created` event carrying the new `ConsultationMessage`. When the
+  stream is unavailable the thread falls back to polling while visible.
+- Drafts are in-memory only (Zustand, not persisted) -- messages are
+  PHI and the repo storage rule forbids localStorage/sessionStorage.
+- Message bodies are rendered as text only, with safe linkification -- no
+  `dangerouslySetInnerHTML` anywhere in the thread.
 
 #### Data export (docforum-core#40, issue #26)
 - `POST /account/data-export` (body: `{password}`) → `DataExport`

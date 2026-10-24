@@ -108,7 +108,7 @@ export interface HealthEntryInput {
   details?: string;
 }
 
-// --- Acting-for profile (Phase W2 — client-only UI state + API scoping) ----
+// --- Acting-for profile (Phase W2 — client-only UI state + API scoping) ---
 
 export interface ActingProfile {
   id: string;
@@ -168,7 +168,7 @@ export interface Order {
 }
 
 // --- Payments (Phase 5.5 in docforum-core — real, not assumed. See that
-// repo's docs/adr/0004-custodial-payments-v1.md) ---------------------------
+// repo's docs/adr/0004-custodial-payments-v1.md) ------------------------
 // Custodial v1: docforum-core holds its own Stellar identities; this repo
 // never calls Stellar/docforum-escrow directly (hard rule 1 above).
 // WalletLink is scoped to the facility (the on-chain payee), not a patient.
@@ -214,6 +214,62 @@ export interface PaymentIntent {
   sorobanContractId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- Messaging (Phase W2 — assumed, docforum-core#61 not landed yet) ---
+// Async consultation message thread between a patient and their treating
+// doctor. The backend thread is a plain append-only log; these shapes are
+// the smallest reasonable guess needed to build the thread UI and must be
+// reconciled once docforum-core#61 lands.
+// Assumed API shape (docforum-core#61 not landed): GET
+// /threads/:id/messages?cursor=&limit= returns MessagePage.
+
+export type MessageThreadStatus = 'open' | 'closed';
+
+export interface MessageThread {
+  id: string;
+  appointmentId: string;
+  patientProfileId: string;
+  doctorProfileId: string;
+  status: MessageThreadStatus;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageSenderRole = Extract<Role, 'patient' | 'doctor'>;
+
+export interface Message {
+  id: string;
+  threadId: string;
+  senderProfileId: string;
+  senderRole: MessageSenderRole;
+  // Plain text only. Never rendered as HTML — see the messaging
+  // feature's safe linkification renderer.
+  body: string;
+  createdAt: string;
+}
+
+/** Cursor-paginated page of thread history. @param nextCursor is
+ * opaque and null when there are no older messages. */
+export interface MessagePage {
+  items: Message[];
+  nextCursor: string | null;
+}
+
+export interface SendMessageInput {
+  body: string;
+}
+
+/** Optimistic send state for a message not yet confirmed by the server. */
+export type OutgoingMessageStatus = 'sending' | 'failed' | 'sent';
+
+export interface OutgoingMessage {
+  clientId: string;
+  body: string;
+  status: OutgoingMessageStatus;
+  createdAt: string;
+  error?: string;
 }
 
 // --- Data export (Phase W2, issue #26 — docforum-core#40) -------------------
