@@ -2,6 +2,8 @@ import { Button } from '../../../components/Button';
 import { REASONS, ageTone, formatAge, hoursSince } from '../queue';
 import { ReferralChain } from './ReferralChain';
 import type { StuckReferral } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './StuckReferrals.module.css';
 
 interface StuckReferralCardProps {
@@ -18,6 +20,7 @@ const TONE_CLASS = {
 };
 
 export function StuckReferralCard({ referral, now, onReassign, onCancel }: StuckReferralCardProps) {
+  const { timeZone } = useTimeZone();
   const hours = hoursSince(referral.createdAt, now);
   const reason = REASONS[referral.stuckReason];
   const headingId = `referral-${referral.id}`;
@@ -56,7 +59,7 @@ export function StuckReferralCard({ referral, now, onReassign, onCancel }: Stuck
           <dt>Referred on</dt>
           <dd>
             <time dateTime={referral.createdAt} title={referral.createdAt}>
-              {new Date(referral.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+              {formatDateTime(referral.createdAt, timeZone)}
             </time>
           </dd>
         </div>

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, RouterProvider } from 'react-router-dom';
 import { Toaster } from '../components/Toast';
 import { createMemoryAppRouter } from '../router';
+import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 
 function AllProviders({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
@@ -13,7 +14,9 @@ function AllProviders({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <TimeZoneProvider>
+        <MemoryRouter>{children}</MemoryRouter>
+      </TimeZoneProvider>
       <Toaster />
     </QueryClientProvider>
   );
@@ -39,7 +42,9 @@ export function renderRoute(path: string, existingClient?: QueryClient) {
 
   const result = rtlRender(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TimeZoneProvider>
+        <RouterProvider router={router} />
+      </TimeZoneProvider>
       <RouterLocationProbe router={router} />
       <Toaster />
     </QueryClientProvider>,

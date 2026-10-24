@@ -26,6 +26,8 @@ import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
+import * as myFlagsService from '../services/my-flags-service';
+import * as notificationsService from '../services/notification-preferences-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
@@ -40,7 +42,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 beforeEach(() => {
   resetDb();
-  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient' });
+  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
 });
 
 describe('auth', () => {
@@ -789,6 +791,67 @@ describe('admin disputes', () => {
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('feature flags', () => {
+  it('returns the mock defaults for the signed-in user', async () => {
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+    expect(evaluated.flags.realtime_updates).toBe(false);
+  });
+
+  it('lets the dev panel override a flag without touching the others', async () => {
+    useMockStore.setState({ flagOverrides: { realtime_updates: true } });
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.realtime_updates).toBe(true);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+  });
+});
+
+describe('notification preferences', () => {
+  it('returns role-appropriate defaults with locked safety-critical rows', async () => {
+    const preferences = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const critical = preferences.preferences.filter((pref) => pref.type === 'critical_lab_result');
+    expect(critical).toHaveLength(3);
+    expect(critical.every((pref) => pref.locked && pref.enabled)).toBe(true);
+
+    useMockStore.setState({ activeRole: 'facility' });
+    const facility = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const facilityOrders = facility.preferences.find(
+      (pref) => pref.type === 'order_updates' && pref.channel === 'email',
+    );
+    expect(facilityOrders?.enabled).toBe(true);
+  });
+
+  it('saves a toggle and quiet hours, and refuses to disable a locked row', async () => {
+    const updated = await notificationsService.updateNotificationPreferences(
+      { preferences: [{ type: 'appointment_reminders', channel: 'email', enabled: false }] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(
+      updated.preferences.find(
+        (pref) => pref.type === 'appointment_reminders' && pref.channel === 'email',
+      )?.enabled,
+    ).toBe(false);
+
+    const quiet = await notificationsService.updateNotificationPreferences(
+      { quietHours: { enabled: true, start: '22:00', end: '07:00', timeZone: 'Europe/London' } },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(quiet.quietHours).toEqual({
+      enabled: true,
+      start: '22:00',
+      end: '07:00',
+      timeZone: 'Europe/London',
+    });
+
+    await expect(
+      notificationsService.updateNotificationPreferences(
+        { preferences: [{ type: 'critical_lab_result', channel: 'email', enabled: false }] },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
   });
 });
 

@@ -12,6 +12,9 @@ import { REFRESH_INTERVAL_MS } from '../status';
 import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport, Role } from '../../../types/models';
 
 vi.mock('../../../services/system-health-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const MINUTE = 60_000;
 // Fixtures are built once at import, so future times get half a minute of

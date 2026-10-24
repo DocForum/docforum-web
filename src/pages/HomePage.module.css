@@ -83,7 +83,7 @@
   gap: var(--space-6);
 }
 
-.threadStep h3 {
+.threadStep h2 {
   font-size: var(--text-base);
   margin-bottom: var(--space-1);
 }

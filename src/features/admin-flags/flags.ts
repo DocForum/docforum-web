@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../i18n/time-zone';
 import type { AuditEvent, FeatureFlag, FeatureFlagKind, Role } from '../../types/models';
 
 // Audit events for flags are assumed to use the Prisma model name, like every
@@ -185,8 +186,8 @@ export function formatRelative(iso: string, now: number): string {
   return relative.format(Math.trunc(delta / size), unit);
 }
 
-export function formatTimestamp(iso: string): string {
+export function formatTimestamp(iso: string, timeZone: string): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return iso;
-  return new Date(at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  return formatDateTime(at, timeZone, { dateStyle: 'medium', timeStyle: 'short' }, 'en-GB');
 }

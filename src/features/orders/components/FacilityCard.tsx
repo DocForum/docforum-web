@@ -20,7 +20,7 @@ export function FacilityCard({ facility, isSelected = false, onSelect }: Facilit
     >
       <div className={styles.cardHeader}>
         <div>
-          <h4 className={styles.facilityName}>{facility.name}</h4>
+          <h2 className={styles.facilityName}>{facility.name}</h2>
           {facility.location && (
             <div className={styles.cardDetails}>
               {facility.location.address}, {facility.location.city}

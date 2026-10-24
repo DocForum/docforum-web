@@ -60,7 +60,7 @@ export function restoreSession(): Promise<void> {
 
   useAuthStore.setState({ isRestoring: true });
   restorePromise = authService
-    .refreshSession()
+    .refresh()
     .then((session) => useAuthStore.getState().setSession(session.user, session.accessToken))
     .catch(() => useAuthStore.getState().clearSession())
     .finally(() => {

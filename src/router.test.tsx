@@ -9,7 +9,7 @@ import type { User } from './types/models';
 
 vi.mock('./services/auth-service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./services/auth-service')>()),
-  refreshSession: vi.fn(),
+  refresh: vi.fn(),
 }));
 vi.mock('./services/dependents-service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./services/dependents-service')>()),
@@ -36,7 +36,7 @@ function signIn(user: User) {
 }
 
 beforeEach(() => {
-  vi.mocked(authService.refreshSession).mockReset();
+  vi.mocked(authService.refresh).mockReset();
   vi.mocked(dependentsService.listDependents).mockReset();
 });
 
@@ -47,7 +47,7 @@ afterEach(() => {
 describe('data-router guards', () => {
   it('waits for the boot session restore before deciding', async () => {
     let resolveRefresh!: (session: AuthSession) => void;
-    vi.mocked(authService.refreshSession).mockReturnValue(
+    vi.mocked(authService.refresh).mockReturnValue(
       new Promise<AuthSession>((resolve) => {
         resolveRefresh = resolve;
       }),
@@ -65,7 +65,7 @@ describe('data-router guards', () => {
   });
 
   it('redirects signed-out deep links to the login screen', async () => {
-    vi.mocked(authService.refreshSession).mockRejectedValue(new Error('no cookie'));
+    vi.mocked(authService.refresh).mockRejectedValue(new Error('no cookie'));
     renderRoute('/patient/dependents');
 
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();

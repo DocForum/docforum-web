@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs, RouteObject } from 'react-router-dom';
 import {
+  Outlet,
   createBrowserRouter,
   createHashRouter,
   createMemoryRouter,
@@ -8,6 +9,7 @@ import {
 import type { QueryClient } from '@tanstack/react-query';
 import { HashRedirectShim } from './components/HashRedirectShim';
 import { Layout } from './components/Layout';
+import { RequireFlag } from './components/RequireFlag';
 import { RouteError } from './components/RouteError';
 import { RouteLoading } from './components/RouteLoading';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
@@ -252,6 +254,21 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
         { path: 'signup', lazy: page(() => import('./pages/SignupPage'), 'SignupPage') },
         { path: 'claim-account', lazy: page(() => import('./pages/ClaimAccountPage'), 'ClaimAccountPage') },
         { path: 'account-deleted', lazy: page(() => import('./pages/AccountDeletedPage'), 'AccountDeletedPage') },
+        {
+          path: 'settings/notifications',
+          loader: guardedLoader(['patient', 'doctor', 'facility', 'admin']),
+          element: (
+            <RequireFlag name="notification_preferences">
+              <Outlet />
+            </RequireFlag>
+          ),
+          children: [
+            {
+              index: true,
+              lazy: page(() => import('./pages/NotificationSettingsPage'), 'NotificationSettingsPage'),
+            },
+          ],
+        },
         { path: 'privacy', lazy: page(() => import('./pages/PrivacyPage'), 'PrivacyPage') },
 
         {
@@ -372,7 +389,18 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
         {
           path: 'doctor/messages',
           loader: guardedLoader(['doctor'], prefetchInbox),
-          lazy: page(() => import('./features/messaging/components/DoctorInbox'), 'DoctorInbox'),
+          element: (
+            <div className="container">
+              <h1>Messages</h1>
+              <Outlet />
+            </div>
+          ),
+          children: [
+            {
+              index: true,
+              lazy: page(() => import('./features/messaging/components/DoctorInbox'), 'DoctorInbox'),
+            },
+          ],
         },
         {
           path: 'doctor/messages/:threadId',
