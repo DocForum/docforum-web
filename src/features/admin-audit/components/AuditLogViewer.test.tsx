@@ -11,6 +11,9 @@ import { useAuthStore } from '../../../store/auth-store';
 import type { AccessLog, AuditEvent, Role } from '../../../types/models';
 
 vi.mock('../../../services/audit-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const BOOKED: AuditEvent = {
   id: 'evt-1',

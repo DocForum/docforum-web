@@ -1,5 +1,5 @@
 // Test endpoints for api-client tests
-import { http, HttpResponse } from 'msw';
+import { http } from 'msw';
 
 // Test endpoints that hang for timeout testing
 // Matches both relative paths and full URLs (API_BASE_URL = http://localhost:4000)

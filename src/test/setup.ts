@@ -4,10 +4,11 @@ import { toHaveNoViolations } from 'jest-axe';
 import { beforeAll, afterAll, afterEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { handlers } from '../mocks/handlers';
+import { testHandlers } from '../mocks/handlers/test-handlers';
 
 expect.extend(toHaveNoViolations);
 
-const server = setupServer(...handlers);
+const server = setupServer(...handlers, ...testHandlers);
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());

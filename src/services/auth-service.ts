@@ -34,3 +34,9 @@ export function login(input: LoginInput): Promise<AuthSession> {
 export function logout(accessToken: string): Promise<void> {
   return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
 }
+
+/** Silent re-auth using docforum-core's httpOnly refresh cookie. The cookie
+ * is cross-site, so `api-client`'s `credentials: 'include'` is required. */
+export function refresh(): Promise<AuthSession> {
+  return apiFetch<AuthSession>('/auth/refresh', { method: 'POST' });
+}

@@ -1,0 +1,102 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.heading {
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.subheading {
+  font-size: var(--text-base);
+  margin: var(--space-2) 0 0;
+}
+
+/* The snapshot label is the trust anchor of the screen — it reads as a
+   stamp, not a caption. */
+.snapshotLabel {
+  margin: 0;
+  align-self: flex-start;
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.explainer {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  border-left: 3px solid var(--color-border-strong);
+  padding-left: var(--space-3);
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.metaRow {
+  display: contents;
+}
+
+.meta dt {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-faint);
+}
+
+.meta dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.symptoms {
+  list-style: disc;
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.symptom {
+  color: var(--color-text);
+}
+
+.none {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  margin: 0;
+}
+
+/* Verbatim snapshot text — pre-wrap keeps the referring doctor's wording
+   (including line breaks) exactly as frozen. */
+.quote {
+  margin: 0;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  max-width: none;
+}
+
+@media (max-width: 480px) {
+  .meta {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .metaRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}

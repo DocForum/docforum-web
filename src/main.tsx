@@ -8,6 +8,7 @@ import { phiScrubber, phiBeforeBreadcrumb } from './utils/phi-scrubber';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
+import { TimeZoneProvider } from './i18n/TimeZoneProvider';
 import { useAuthStore } from './store/auth-store';
 import App from './App';
 import './styles/global.css';
@@ -25,7 +26,7 @@ const Router = useHashRouter ? HashRouter : BrowserRouter;
 // login screen mid-boot).
 if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS === 'true') {
   const { startMockApi } = await import('./mocks/setup');
-  startMockApi();
+  await startMockApi();
 }
 
 // Enable preview session when previewRole query param is set (useful for screenshots & review)
@@ -66,7 +67,9 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <Router>
-        <App />
+        <TimeZoneProvider>
+          <App />
+        </TimeZoneProvider>
       </Router>
     </QueryClientProvider>
   </StrictMode>,

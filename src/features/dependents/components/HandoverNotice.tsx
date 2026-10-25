@@ -34,7 +34,7 @@ export function HandoverNotice({ dependent }: Props) {
 
   return (
     <div className={styles.notice}>
-      <h4 className={styles.title}>Account handover</h4>
+      <h2 className={styles.title}>Account handover</h2>
 
       {dependent.handoverStatus === 'eligible' && (
         <>
