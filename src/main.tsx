@@ -10,7 +10,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
 import { useAuthStore } from './store/auth-store';
-import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
 import App from './App';
 import './styles/global.css';
 
@@ -70,7 +69,6 @@ createRoot(rootElement).render(
       <Router>
         <TimeZoneProvider>
           <App />
-          <UpdatePromptContainer />
         </TimeZoneProvider>
       </Router>
     </QueryClientProvider>

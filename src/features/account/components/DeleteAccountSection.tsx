@@ -80,10 +80,10 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
             <span>{t('account.delete.permanentlyDeleted', 'Permanently Deleted & Anonymized')}</span>
           </div>
           <ul className={styles.policyList}>
-              {t('account.delete.policy1', 'Account credentials and password hashes')}
-              {t('account.delete.policy2', 'Profile names and personal contact information')}
-              {t('account.delete.policy3', 'Direct messaging records and notification preferences')}
-              {t('account.delete.policy4', 'Guardian and dependent authorization links')}
+              <li>{t('account.delete.policy1', 'Account credentials and password hashes')}</li>
+              <li>{t('account.delete.policy2', 'Profile names and personal contact information')}</li>
+              <li>{t('account.delete.policy3', 'Direct messaging records and notification preferences')}</li>
+              <li>{t('account.delete.policy4', 'Guardian and dependent authorization links')}</li>
             </ul>
         </div>
         <div className={styles.policyColumn}>
@@ -92,10 +92,10 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
             <span>{t('account.retained', 'Retained by Statutory Obligation')}</span>
           </div>
           <ul className={styles.policyList}>
-              {t('account.retained.policy1', 'Clinical consultation summaries and diagnosis records (7-year statutory retention)')}
-              {t('account.retained.policy2', 'Prescription and laboratory test fulfillment logs')}
-              {t('account.retained.policy3', 'Cryptographic escrow transaction hashes on the Stellar ledger')}
-              {t('account.retained.policy4', 'Anonymized compliance audit trails with identity disconnected')}
+              <li>{t('account.retained.policy1', 'Clinical consultation summaries and diagnosis records (7-year statutory retention)')}</li>
+              <li>{t('account.retained.policy2', 'Prescription and laboratory test fulfillment logs')}</li>
+              <li>{t('account.retained.policy3', 'Cryptographic escrow transaction hashes on the Stellar ledger')}</li>
+              <li>{t('account.retained.policy4', 'Anonymized compliance audit trails with identity disconnected')}</li>
             </ul>
         </div>
       </div>

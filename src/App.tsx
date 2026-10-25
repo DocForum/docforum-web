@@ -42,6 +42,7 @@ import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
+import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -303,6 +304,7 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
           </Routes>
+          <UpdatePromptContainer />
         </>
       </ErrorBoundary>
     </I18nProvider>
