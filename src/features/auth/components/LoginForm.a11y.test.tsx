@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
-import { render, screen } from '../../../test/render';
+import { render, screen, waitFor } from '../../../test/render';
 import { LoginForm } from './LoginForm';
 
 describe('LoginForm accessibility (#89)', () => {
@@ -18,7 +18,8 @@ describe('LoginForm accessibility (#89)', () => {
 
     const email = screen.getByLabelText(/email/i);
     expect(email).toHaveAttribute('aria-invalid', 'true');
-    expect(email).toHaveFocus();
+
+    await waitFor(() => expect(email).toHaveFocus());
 
     const errorId = email.getAttribute('aria-describedby');
     expect(errorId).toBeTruthy();

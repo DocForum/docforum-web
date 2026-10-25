@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
-import { render, screen } from '../../../test/render';
+import { render, screen, waitFor } from '../../../test/render';
 import { SignupForm } from './SignupForm';
 
 describe('SignupForm accessibility (#89)', () => {
@@ -22,8 +22,10 @@ describe('SignupForm accessibility (#89)', () => {
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
-    expect(screen.getByLabelText(/full name/i)).toHaveFocus();
-    expect(screen.getByLabelText(/full name/i)).toHaveAttribute('aria-invalid', 'true');
+    const fullName = screen.getByLabelText(/full name/i);
+    expect(fullName).toHaveAttribute('aria-invalid', 'true');
+
+    await waitFor(() => expect(fullName).toHaveFocus());
   });
 
   it('keeps the role choice as a labelled radio group', () => {
