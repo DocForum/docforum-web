@@ -6,6 +6,7 @@ import { dependentHandlers } from './handlers/dependents';
 import { facilityHandlers } from './handlers/facility';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { queueHandlers } from './handlers/queue';
+import { testHandlers } from './handlers/test-handlers';
 
 export const handlers = [
   ...authHandlers,
@@ -14,4 +15,5 @@ export const handlers = [
   ...healthProfileHandlers,
   ...queueHandlers,
   ...facilityHandlers,
+  ...testHandlers,
 ];
