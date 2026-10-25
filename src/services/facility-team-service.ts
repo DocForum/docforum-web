@@ -1,12 +1,20 @@
 import type { Schemas } from '@docforum/api-client';
 import { api } from './api-client';
 
-export function listFacilityMembers(facilityId: string, accessToken: string): Promise<Schemas['FacilityMember'][]> {
-  return api.facilityTeam.listMembers(facilityId, { accessToken });
+export function listFacilityMembers(
+  facilityId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['FacilityMember'][]> {
+  return api.facilityTeam.listMembers(facilityId, { accessToken, signal });
 }
 
-export function listFacilityInvites(facilityId: string, accessToken: string): Promise<Schemas['FacilityInvite'][]> {
-  return api.facilityTeam.listInvites(facilityId, { accessToken });
+export function listFacilityInvites(
+  facilityId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['FacilityInvite'][]> {
+  return api.facilityTeam.listInvites(facilityId, { accessToken, signal });
 }
 
 export function inviteFacilityMember(
@@ -44,8 +52,9 @@ export function removeFacilityMember(
 export function getFulfillmentQueue(
   facilityId: string,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<Schemas['FulfillmentQueueItem'][]> {
-  return api.facilityTeam.getFulfillmentQueue(facilityId, { accessToken });
+  return api.facilityTeam.getFulfillmentQueue(facilityId, { accessToken, signal });
 }
 
 export function updateFulfillmentItem(

@@ -3,10 +3,18 @@
 import type { Schemas } from '@docforum/api-client';
 import { api } from './api-client';
 
-export function getCareThreads(patientProfileId: string, accessToken: string): Promise<Schemas['CareThread'][]> {
-  return api.careThreads.list(patientProfileId, { accessToken });
+export function getCareThreads(
+  patientProfileId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['CareThread'][]> {
+  return api.careThreads.list(patientProfileId, { accessToken, signal });
 }
 
-export function getCareThreadById(threadId: string, accessToken: string): Promise<Schemas['CareThread']> {
-  return api.careThreads.get(threadId, { accessToken });
+export function getCareThreadById(
+  threadId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['CareThread']> {
+  return api.careThreads.get(threadId, { accessToken, signal });
 }

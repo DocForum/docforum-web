@@ -6,15 +6,20 @@
 // `amountStroops` stays a string end-to-end: BigInt values come over the wire
 // as strings and must never round-trip through a JS number.
 import type { Schemas } from '@docforum/api-client';
-import { api, apiFetch } from './api-client';
-import type { FacilityLedgerPage, PayoutAsset } from '../types/models';
+import { api, apiFetch, ApiError } from './api-client';
+import type {
+  FacilityLedgerPage,
+  PayoutAsset,
+  PaymentIntent,
+  PreparedTransaction,
+} from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<Schemas['WalletLink']> {
   return api.payments.linkWallet({ stellarPublicKey }, { accessToken });
 }
 
-export function getOwnWalletLink(accessToken: string): Promise<Schemas['WalletLink']> {
-  return api.payments.getOwnWalletLink({ accessToken });
+export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<Schemas['WalletLink']> {
+  return api.payments.getOwnWalletLink({ accessToken, signal });
 }
 
 export type CreatePaymentIntentInput = Schemas['CreatePaymentIntentInput'];
@@ -26,8 +31,35 @@ export function createPaymentIntent(
   return api.payments.createIntent(input, { accessToken });
 }
 
-export function getPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
-  return api.payments.getIntent(id, { accessToken });
+export function getPaymentIntent(
+  id: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['PaymentIntent']> {
+  return api.payments.getIntent(id, { accessToken, signal });
+}
+
+/**
+ * The payment intent for a patient's order, or `null` when the order has
+ * none (issue #61 — the panel simply hides). ASSUMED lookup: docforum-core
+ * doesn't serve intents by order yet (docforum-core#85, real FKs on
+ * PaymentIntent, is open) — see ARCHITECTURE_ESSENTIALS.md "Known
+ * assumptions — Patient order detail & payment panel". A `404` means
+ * "no intent for this order", not an error the UI should show.
+ */
+export function getPaymentIntentForOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<PaymentIntent | null> {
+  return apiFetch<PaymentIntent>(
+    `/payments/intents?orderId=${encodeURIComponent(orderId)}`,
+    { accessToken },
+  )
+    .then((intent) => intent ?? null)
+    .catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
@@ -40,6 +72,42 @@ export function releasePaymentIntent(id: string, accessToken: string): Promise<S
 
 export function refundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
   return api.payments.refundIntent(id, { accessToken });
+}
+
+// --- Pay with wallet (issue #59) -------------------------------------------
+// Assumed contracts, pending docforum-core#80 (prepare) and #81 (submit).
+// The order→intent lookup itself is issue #61's assumed contract
+// (`getPaymentIntentForOrder` above): one lookup serves the status panel
+// and this flow, so there is no second shape to keep in step.
+
+/** docforum-core#80 (assumed): builds and simulates the `create_escrow`
+ * transaction and returns unsigned XDR for the patient's wallet to sign.
+ * Patient-only, own intent; `409 WALLET_NOT_LINKED` when no verified wallet
+ * link exists. */
+export function preparePaymentIntent(id: string, accessToken: string): Promise<PreparedTransaction> {
+  return apiFetch<PreparedTransaction>(`/payments/intents/${id}/prepare`, { method: 'POST', accessToken });
+}
+
+/** docforum-core#81 (assumed): verifies the signed XDR against what it
+ * prepared, fee-bumps, submits and tracks to finality. This repo passes the
+ * wallet's signature straight through — it never inspects or rebuilds it. */
+export function submitPaymentIntent(id: string, signedXdr: string, accessToken: string): Promise<PaymentIntent> {
+  return apiFetch<PaymentIntent>(`/payments/intents/${id}/submit`, {
+    method: 'POST',
+    body: { signedXdr },
+    accessToken,
+  });
+}
+
+/** Machine code from the API's error envelope, when it carries one
+ * (e.g. `WALLET_NOT_LINKED`). Callers must degrade to the HTTP status when
+ * this is undefined. */
+export function apiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  if (typeof error.code === 'string') return error.code;
+  if (typeof error.body !== 'object' || error.body === null) return undefined;
+  const code = (error.body as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
 }
 
 /**
@@ -72,13 +140,13 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
 export function getFacilityPayoutLedger(
   facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string }
+  params?: { cursor?: string; status?: string; asset?: string },
+  signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set('cursor', params.cursor);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
   if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken });
+  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
-

@@ -1,8 +1,10 @@
 import type { Schemas } from '@docforum/api-client';
 import { api } from './api-client';
 
-export function listDependents(accessToken: string): Promise<Schemas['Dependent'][]> {
-  return api.dependents.list({ accessToken });
+export type ClaimAccountInput = Schemas['ClaimAccountInput'];
+
+export function listDependents(accessToken: string, signal?: AbortSignal): Promise<Schemas['Dependent'][]> {
+  return api.dependents.list({ accessToken, signal });
 }
 
 export function addDependent(input: Schemas['DependentInput'], accessToken: string): Promise<Schemas['Dependent']> {
@@ -29,8 +31,6 @@ export function resendHandoverInvite(dependentId: string, accessToken: string): 
   return api.dependents.resendHandoverInvite(dependentId, { accessToken });
 }
 
-export type ClaimAccountInput = Schemas['ClaimAccountInput'];
-
-export function claimAccount(input: ClaimAccountInput): Promise<void> {
+export function claimAccount(input: Schemas['ClaimAccountInput']): Promise<void> {
   return api.auth.claimAccount(input);
 }

@@ -3,8 +3,9 @@ import { render as rtlRender } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router-dom';
+import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 
-function AllProviders({ children }: { children: ReactNode }) {
+function AllProviders({ children, initialEntries }: { children: ReactNode; initialEntries?: string[] }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -14,14 +15,19 @@ function AllProviders({ children }: { children: ReactNode }) {
     // exactly like the app does before a locale chunk resolves.
     <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <TimeZoneProvider>
+          <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+        </TimeZoneProvider>
       </QueryClientProvider>
     </IntlProvider>
   );
 }
 
-export function render(ui: ReactElement) {
-  return rtlRender(ui, { wrapper: AllProviders });
+export function render(ui: ReactElement, options?: { initialEntries?: string[] }) {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <AllProviders initialEntries={options?.initialEntries}>{children}</AllProviders>
+  );
+  return rtlRender(ui, { wrapper });
 }
 
 export * from '@testing-library/react';

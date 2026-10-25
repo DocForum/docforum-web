@@ -6,6 +6,9 @@ import type { PaymentIntentStatus } from '../../../types/models';
 
 const NEXT_ACTION: Record<PaymentIntentStatus, string | null> = {
   created: 'fund',
+  // Waiting on the patient's wallet signature (docforum-core#80) — nothing
+  // an admin does here; if it expires, core returns it to `created`.
+  awaiting_signature: null,
   escrowed: 'release-or-refund',
   released: null,
   refunded: null,

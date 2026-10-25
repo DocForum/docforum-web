@@ -12,6 +12,7 @@ export interface FacilitySearchParams {
 export function getFacilities(
   params: FacilitySearchParams = {},
   accessToken?: string | null,
+  signal?: AbortSignal,
 ): Promise<Schemas['FacilityWithDistance'][]> {
-  return api.facilities.list(params, { accessToken });
+  return api.facilities.list(params, { accessToken, signal });
 }

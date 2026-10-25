@@ -38,7 +38,7 @@ export function ClaimAccountForm({ token }: Props) {
   if (claimMutation.isSuccess) {
     return (
       <div className={styles.success}>
-        <h2>{t('claim.successTitle', 'Account claimed')}</h2>
+        <h1>{t('claim.successTitle', 'Account claimed')}</h1>
         <p>{t('claim.successBody', 'Your account is set up. You can now log in with your email and password.')}</p>
       </div>
     );
@@ -46,7 +46,7 @@ export function ClaimAccountForm({ token }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      <h2 className={styles.title}>{t('claim.title', 'Claim your account')}</h2>
+      <h1 className={styles.title}>{t('claim.title', 'Claim your account')}</h1>
       <p className={styles.description}>
         {t('claim.description', 'Your guardian has invited you to take over your health record. Set up your login below.')}
       </p>

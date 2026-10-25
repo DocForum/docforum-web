@@ -3,6 +3,8 @@ import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import { useDataExport, useDownloadExport, useRequestDataExport } from '../hooks/useDataExport';
 import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
@@ -16,19 +18,8 @@ function formatBytes(bytes?: number | null): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch {
-    return iso;
-  }
-}
-
 export function DataExportSection() {
+  const { timeZone } = useTimeZone();
   const { data: exportData, isLoading, error: queryError } = useDataExport();
   const requestMutation = useRequestDataExport();
   const { download, isDownloading, downloadError } = useDownloadExport();
@@ -139,7 +130,7 @@ export function DataExportSection() {
                     : t('account.dataExport.statusFailed', 'Export failed')}
             </span>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-              Requested: {formatDate(exportData.requestedAt)}
+              Requested: {formatDateTime(exportData.requestedAt, timeZone)}
             </span>
           </div>
 
@@ -155,7 +146,7 @@ export function DataExportSection() {
           {status === 'ready' && (
             <div>
               <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sm)' }}>
-                  {t('account.dataExport.ready', 'Your data export is ready. Download it before it expires on')}{formatDate(exportData.expiresAt)}
+                  {t('account.dataExport.ready', 'Your data export is ready. Download it before it expires on')} {formatDateTime(exportData.expiresAt, timeZone)}
               </p>
               <div className={styles.metaInfo} style={{ marginBottom: 'var(--space-3)' }}>
                 <span>{t('account.dataExport.fileSize', 'File size:')} {formatBytes(exportData.fileSizeBytes)}</span>
@@ -174,7 +165,7 @@ export function DataExportSection() {
           {status === 'expired' && (
             <div>
               <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--color-danger)' }}>
-                {t('account.dataExport.expired', 'This export link expired on')} {formatDate(exportData.expiresAt)}. For privacy and security, temporary files are removed. You can generate a fresh export anytime.
+                {t('account.dataExport.expired', 'This export link expired on')} {formatDateTime(exportData.expiresAt, timeZone)}. For privacy and security, temporary files are removed. You can generate a fresh export anytime.
               </p>
               <Button type="button" onClick={handleOpenModal}>
                 Request new export

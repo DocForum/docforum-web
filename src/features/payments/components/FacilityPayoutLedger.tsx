@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
+import { transactionUrl } from '../explorer';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
@@ -10,6 +13,7 @@ interface FacilityPayoutLedgerProps {
 export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayoutLedgerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const { timeZone } = useTimeZone();
 
   const { data, isLoading, error } = useFacilityLedger(facilityId, {
     status: statusFilter,
@@ -207,7 +211,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           <span className={styles.releaserTag}>Releaser:</span> {entry.terms.releaserDescription}
                         </div>
                         <div className={styles.termsText}>
-                          <strong>Refund cutoff:</strong> {new Date(entry.terms.refundDeadline).toLocaleString()}
+                          <strong>Refund cutoff:</strong> {formatDateTime(entry.terms.refundDeadline, timeZone)}
                           {entry.status === 'held' && (
                             <span> ({entry.terms.hoursUntilRefund}h remaining)</span>
                           )}
@@ -225,7 +229,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <a
-                            href={`https://stellar.expert/explorer/testnet/tx/${entry.fundTxHash}`}
+                            href={transactionUrl(entry.fundTxHash) ?? undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.explorerLink}
@@ -235,7 +239,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           </a>
                           {entry.releaseTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.releaseTxHash}`}
+                              href={transactionUrl(entry.releaseTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}
@@ -246,7 +250,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           )}
                           {entry.refundTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.refundTxHash}`}
+                              href={transactionUrl(entry.refundTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}

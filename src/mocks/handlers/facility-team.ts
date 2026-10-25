@@ -89,17 +89,25 @@ export const facilityTeamHandlers = [
       );
       if (!item) return notFound('fulfillment item');
       const body = (await request.json().catch(() => ({}))) as {
-        action?: 'fulfilled' | 'rejected';
+        action?: 'in_progress' | 'fulfilled' | 'rejected';
         notes?: string;
       };
-      const action = body.action === 'rejected' ? 'rejected' : 'fulfilled';
+      if (!body.action || !['in_progress', 'fulfilled', 'rejected'].includes(body.action)) {
+        return conflict('action must be in_progress, fulfilled, or rejected');
+      }
+      if (item.status === 'fulfilled' || item.status === 'rejected') {
+        return conflict('this queue item is already closed');
+      }
+      const action = body.action;
       const attribution: FulfillmentActionAttribution = {
         action:
-          action === 'rejected'
-            ? 'rejected'
-            : item.orderType === 'prescription'
-              ? 'dispensed'
-              : 'sample_collected',
+          action === 'in_progress'
+            ? 'verified'
+            : action === 'rejected'
+              ? 'rejected'
+              : item.orderType === 'prescription'
+                ? 'dispensed'
+                : 'sample_collected',
         performedByUserId: FACILITY_USER.id,
         performedByName: 'Frank Facility (fake)',
         performedByEmail: FACILITY_USER.email,
@@ -108,6 +116,39 @@ export const facilityTeamHandlers = [
         notes: body.notes ?? null,
       };
       const updated: FulfillmentQueueItem = { ...item, status: action, attribution };
+      db.fulfillmentQueue = db.fulfillmentQueue.map((q) => (q.id === item.id ? updated : q));
+      return updated;
+    }),
+  ),
+
+  http.post(
+    '*/facilities/:facilityId/fulfillment-queue/:itemId/lab-result',
+    respond('json', async ({ params, request }) => {
+      const item = db.fulfillmentQueue.find((q) => q.id === paramId(params, 'itemId'));
+      if (!item) return notFound('fulfillment item');
+      if (item.orderType !== 'lab') return conflict('lab results can only be attached to lab orders');
+      if (item.status === 'rejected') return conflict('cannot attach a result to a rejected item');
+
+      const formData = await request.formData().catch(() => null);
+      const file = formData?.get('file');
+      if (!(file instanceof File)) return conflict('a lab result file is required');
+      if (file.size > 10 * 1024 * 1024) return conflict('file must be 10 MB or smaller');
+      if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+        return conflict('file must be a PDF, JPEG, or PNG');
+      }
+
+      const updated: FulfillmentQueueItem = {
+        ...item,
+        labResult: {
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedByUserId: FACILITY_USER.id,
+          storageKey: `mock/${paramId(params, 'facilityId')}/${item.id}/${file.name}`,
+          downloadUrl: null,
+        },
+      };
       db.fulfillmentQueue = db.fulfillmentQueue.map((q) => (q.id === item.id ? updated : q));
       return updated;
     }),

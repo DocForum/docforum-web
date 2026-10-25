@@ -11,6 +11,23 @@
 [data-theme="light"] {
   color-scheme: light;
 
+  /* Paired CSS/GSAP aliases preserve each runtime's original easing curve. */
+  --motion-duration-fast: 100ms;
+  --motion-duration-color-change: 150ms;
+  --motion-duration-logo-draw: 600ms;
+  --motion-duration-node-pop: 300ms;
+  --motion-duration-node-stagger: 70ms;
+  --motion-duration-hero-reveal: 500ms;
+  --motion-duration-hero-stagger: 100ms;
+  --motion-duration-hero-delay: 50ms;
+  --motion-duration-thread-line: 350ms;
+  --motion-duration-thread-hold: 1400ms;
+  --motion-duration-thread-repeat-delay: 1000ms;
+  --motion-ease-out: ease;
+  --motion-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-ease-gsap-out: power2.out;
+  --motion-ease-gsap-pop: back.out(2);
+
   /* ---- Typography ---- */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -59,21 +76,21 @@
 
   --color-text: #1c1815;
   --color-text-muted: #5e5648;
-  --color-text-faint: #8c8271;
+  --color-text-faint: #62594d;
 
   --color-accent: #1f4d3a;
   --color-accent-hover: #163829;
   --color-accent-contrast: #faf6f0;
   --color-accent-subtle: #e7eee9;
 
-  --color-accent-2: #a6763d;
+  --color-accent-2: #75501f;
   --color-accent-2-hover: #8a6132;
   --color-accent-2-contrast: #faf6f0;
   --color-accent-2-subtle: #f3e9d8;
 
   --color-success: #1f4d3a;
   --color-success-surface: #e7eee9;
-  --color-warning: #a6763d;
+  --color-warning: #75501f;
   --color-warning-surface: #f3e9d8;
   --color-danger: #9b3b2b;
   --color-danger-surface: #f7e8e3;
@@ -82,10 +99,8 @@
 }
 
 /* ---- Color: dark ---- */
-[data-theme="dark"],
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="high-contrast"]) {
-    color-scheme: dark;
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
     --color-bg: #17140f;
     --color-bg-raised: #1f1b14;
@@ -116,4 +131,146 @@
     --color-danger: #e08469;
     --color-danger-surface: #2e1c15;
 
-    --color-focus-ring: #4a
+    --color-focus-ring: #4a9b76;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 6px 20px -10px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 20px 44px -18px rgba(0, 0, 0, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+}
+
+h1 {
+  font-size: var(--text-3xl);
+}
+h2 {
+  font-size: var(--text-2xl);
+}
+h3 {
+  font-size: var(--text-lg);
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  max-width: 62ch;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+small {
+  color: var(--color-text-faint);
+  font-size: var(--text-sm);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* Reusable content container — auth/dashboard pages use this for a
+   readable measure; HomePage builds its own full-bleed sections instead. */
+.container {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-6);
+}
+
+/* Reusable elevated surface — used for the auth card and, sparingly,
+   dashboard summary panels. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-8);
+}
+
+.authContainer {
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-6);
+}
+
+.authFootnote {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Shown once a request has been pending long enough that it's probably
+   the Render free-tier backend cold-starting, not a hang — see
+   useSlowRequestHint. */
+.slowHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 0.625rem 0.875rem;
+  margin: 0 0 var(--space-4);
+}
+
+.statusPill {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2);
+  margin-bottom: var(--space-4);
+}
+
+/* Utility: hide elements that should never appear in print/PDF output
+   (interactive controls, navigation, etc.). Applied as an HTML class so
+   CSS Modules don't tree-shake it away. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

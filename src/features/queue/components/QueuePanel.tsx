@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useT } from '../../../i18n/useT';
 import {
   useQueue,
   useVisitActions,
@@ -7,13 +6,12 @@ import {
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { useT } from '../../../i18n/useT';
+import { formatTime } from '../../../i18n/time-zone';
 import styles from './QueuePanel.module.css';
-
-function formatTime(iso: string | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 function statusLabel(status: string, t: ReturnType<typeof useT>) {
   return {
@@ -25,6 +23,7 @@ function statusLabel(status: string, t: ReturnType<typeof useT>) {
 
 export function QueuePanel() {
   const t = useT();
+  const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
   const { data: delay } = useRunningDelay();
@@ -32,6 +31,7 @@ export function QueuePanel() {
 
   const [overrideMin, setOverrideMin] = useState('');
   const [undoTarget, setUndoTarget] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const byPosition = [...queue].sort((a, b) => a.queuePosition - b.queuePosition);
 
@@ -49,9 +49,9 @@ export function QueuePanel() {
   return (
     <section className={styles.panel}>
       <header className={styles.panelHeader}>
-        <h2>{t("queue.title", "Live queue")}</h2>
+        <h2>{t('queue.title', 'Live queue')}</h2>
         <div className={styles.runningDelay}>
-          <span className={styles.label}>{t("queue.runningDelay", "Running delay")}</span>
+          <span className={styles.label}>{t('queue.runningDelay', 'Running delay')}</span>
           <span className={styles.value}>
             {delay?.effectiveDelayMin == null ? '—' : `${delay.effectiveDelayMin} min`}
             {delay?.manualOverrideMin != null && delay.manualOverrideMin > 0
@@ -91,7 +91,7 @@ export function QueuePanel() {
                 <tr key={entry.appointmentId} className={styles.row}>
                   <td className={styles.pos}>{entry.queuePosition}</td>
                   <td>{entry.fullName}</td>
-                  <td>{formatTime(entry.checkedInAt)}</td>
+                  <td>{formatTime(entry.checkedInAt, timeZone)}</td>
                   <td>
                     <span className={styles.statusPill} data-status={entry.status}>
                       {statusLabel(entry.status, t)}
@@ -120,10 +120,18 @@ export function QueuePanel() {
                         disabled={isPendingAction}
                         loading={isPendingAction}
                       >
-{t('queue.complete', 'Complete')}
+                        {t('queue.complete', 'Complete')}
                       </Button>
                     )}
-                    {entry.status === 'completed' && <span className={styles.done}>{t("queue.done", "Done")}</span>}
+                    {entry.status === 'completed' && <span className={styles.done}>{t('queue.done', 'Done')}</span>}
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        navigate(`/doctor/patient-chart/${entry.patientProfileId}`);
+                      }}
+                    >
+                      Chart
+                    </Button>
                   </td>
                 </tr>
               );
@@ -133,7 +141,7 @@ export function QueuePanel() {
       )}
 
       <div className={styles.override}>
-        <label htmlFor="manual-override">{t("queue.manualOverride", "Manual override")}</label>
+        <label htmlFor="manual-override">{t('queue.manualOverride', 'Manual override')}</label>
         <input
           id="manual-override"
           type="number"

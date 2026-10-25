@@ -7,9 +7,11 @@ import { CommandPalette, CommandPaletteAction } from '../components/CommandPalet
 import { ShortcutsHelp } from '../components/ShortcutsHelp';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { QueuePanel } from '../features/queue/components/QueuePanel';
+import { TodayAppointments } from '../features/doctor-today/components/TodayAppointments';
 import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { useT } from '../i18n/useT';
+import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
 import styles from './DoctorDashboardPage.module.css';
 
 export function DoctorDashboardPage() {
@@ -78,6 +80,16 @@ export function DoctorDashboardPage() {
         navigate('/doctor/insights');
       },
     },
+    {
+      id: 'abnormal-results',
+      label: 'Results needing review',
+      category: 'navigation',
+      shortcut: 'mod+5',
+      run: () => {
+        setPaletteOpen(false);
+        // No navigation needed; we'll show the section directly
+      },
+    },
   ];
 
   return (
@@ -102,22 +114,20 @@ export function DoctorDashboardPage() {
         <QueuePanel />
       </ErrorBoundary>
 
+      <ErrorBoundary level="section">
+        <TodayAppointments />
+      </ErrorBoundary>
+
       <div className={styles.dashboardGrid}>
-        <ErrorBoundary level="section">
-          <section className={styles.card}>
-            <h2>{t('doctor.todayTitle', "Today's appointments")}</h2>
-            <p>
-              {t(
-                'doctor.todayBody',
-                'Appointments for today open in the live queue once the patient checks in.',
-              )}
-            </p>
-          </section>
-        </ErrorBoundary>
         <ErrorBoundary level="section">
           <section className={styles.card}>
             <h2>{t('doctor.messagesTitle', 'Messages')}</h2>
             <DoctorInbox />
+          </section>
+        </ErrorBoundary>
+        <ErrorBoundary level="section">
+          <section className={styles.card}>
+            <AbnormalResultsInbox />
           </section>
         </ErrorBoundary>
       </div>

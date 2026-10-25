@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useAuthStore } from '../../../store/auth-store';
 import { downloadDataExport, getDataExportStatus, requestDataExport } from '../../../services/account-service';
+import { invalidateFor } from '../../../invalidations';
+import { accountKeys } from '../../../query-keys';
 
 export function useDataExport() {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery({
-    queryKey: ['account', 'data-export'],
-    queryFn: () => getDataExportStatus(accessToken!),
+    queryKey: accountKeys.dataExport(),
+    queryFn: ({ signal }) => getDataExportStatus(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
@@ -24,8 +26,8 @@ export function useRequestDataExport() {
   return useMutation({
     mutationFn: (password: string) => requestDataExport(password, accessToken!),
     onSuccess: (data) => {
-      queryClient.setQueryData(['account', 'data-export'], data);
-      queryClient.invalidateQueries({ queryKey: ['account', 'data-export'] });
+      queryClient.setQueryData(accountKeys.dataExport(), data);
+      void invalidateFor(queryClient, 'account.data-export');
     },
   });
 }

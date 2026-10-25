@@ -5,8 +5,9 @@ export function listHealthEntries(
   patientProfileId: string,
   section: Schemas['HealthSectionKey'],
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<Schemas['HealthEntry'][]> {
-  return api.health.list(patientProfileId, section, { accessToken });
+  return api.health.list(patientProfileId, section, { accessToken, signal });
 }
 
 export function addHealthEntry(

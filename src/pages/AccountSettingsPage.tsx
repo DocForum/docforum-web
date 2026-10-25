@@ -2,6 +2,8 @@ import { useRef } from 'react';
 import { DataExportSection } from '../features/account/components/DataExportSection';
 import { DeleteAccountSection } from '../features/account/components/DeleteAccountSection';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { CalendarSubscriptionSection } from '../features/settings/components/CalendarSubscriptionSection';
+import { TimeZonePreference } from '../i18n/components/TimeZonePreference';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useT } from '../i18n/useT';
 
@@ -28,10 +30,16 @@ export function AccountSettingsPage() {
         </p>
       </div>
 
+      <TimeZonePreference />
+
       <ErrorBoundary level="section">
         <div ref={exportSectionRef}>
           <DataExportSection />
         </div>
+      </ErrorBoundary>
+
+      <ErrorBoundary level="section">
+        <CalendarSubscriptionSection />
       </ErrorBoundary>
 
       <ErrorBoundary level="section">

@@ -7,13 +7,16 @@ import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/use
 import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { Dependent, DependentInput } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate as formatZonedDate } from '../../../i18n/time-zone';
 import styles from './DependentsList.module.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+function formatDate(iso: string, timeZone: string) {
+  return formatZonedDate(iso, timeZone);
 }
 
 export function DependentsList() {
+  const { timeZone } = useTimeZone();
   const { data: dependents, isLoading, error: fetchError } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
@@ -23,13 +26,13 @@ export function DependentsList() {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  function handoverLabel(d: Dependent): string {
+  function handoverLabel(d: Dependent, timeZone: string): string {
     switch (d.handoverStatus) {
       case 'eligible':
         return t('dependents.eligible', 'Eligible for handover');
       case 'invited':
         return d.claimInviteExpiresAt
-          ? t('dependents.invitedWithExpiry', 'Invite sent (expires {date})', { date: formatDate(d.claimInviteExpiresAt) })
+          ? t('dependents.invitedWithExpiry', 'Invite sent (expires {date})', { date: formatDate(d.claimInviteExpiresAt, timeZone) })
           : t('dependents.invited', 'Invite sent');
       case 'claimed':
         return t('dependents.claimed', 'Account claimed — you no longer manage this record');
@@ -60,7 +63,7 @@ export function DependentsList() {
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h2 className={styles.title}>{t('dependents.title', 'Dependents')}</h2>
+        <h1 className={styles.title}>{t('dependents.title', 'Dependents')}</h1>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
             {t('dependents.add', 'Add dependent')}
@@ -105,10 +108,12 @@ export function DependentsList() {
                 <span className={styles.name}>{d.fullName}</span>
                 <span className={styles.relationship}>{d.relationship}</span>
               </div>
-              <span className={styles.dob}>{t('dependents.born', 'Born {date}', { date: formatDate(d.dateOfBirth) })}</span>
+              <span className={styles.dob}>
+                {t('dependents.born', 'Born {date}', { date: formatDate(d.dateOfBirth, timeZone) })}
+              </span>
               {d.handoverStatus !== 'not_eligible' && (
                 <span className={styles.handover} data-status={d.handoverStatus}>
-                  {handoverLabel(d)}
+                  {handoverLabel(d, timeZone)}
                 </span>
               )}
               {d.handoverStatus !== 'claimed' && (

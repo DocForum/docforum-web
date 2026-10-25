@@ -16,6 +16,8 @@ export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 export interface CallOptions {
   accessToken?: string | null;
   signal?: AbortSignal;
+  /** Milliseconds before the request fails with the transport's timeout error. */
+  timeoutMs?: number;
 }
 
 export interface TransportOptions {
@@ -23,6 +25,8 @@ export interface TransportOptions {
   body?: unknown;
   accessToken?: string | null;
   signal?: AbortSignal;
+  /** Milliseconds before the request fails with the transport's timeout error. */
+  timeoutMs?: number;
 }
 
 export interface ApiTransport {
