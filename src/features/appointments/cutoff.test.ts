@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { RESCHEDULE_CUTOFF_MS, formatDuration, rescheduleWindow } from './cutoff';
-import type { Appointment, AppointmentStatus } from '../../types/models';
+import type { AppointmentStatus, PatientAppointment } from '../../types/models';
 
 const START = '2026-10-20T09:00:00.000Z';
 
-function makeAppointment(overrides: Partial<Appointment> = {}): Appointment {
+function makeAppointment(overrides: Partial<PatientAppointment> = {}): PatientAppointment {
   const { availabilitySlot, ...rest } = overrides;
   return {
     id: 'appt-1',
@@ -77,7 +77,7 @@ describe('rescheduleWindow', () => {
 
   it('fails closed when the slot time cannot be parsed', () => {
     const window = rescheduleWindow(
-      makeAppointment({ availabilitySlot: { startTime: 'not-a-date' } as Appointment['availabilitySlot'] }),
+      makeAppointment({ availabilitySlot: { startTime: 'not-a-date' } as PatientAppointment['availabilitySlot'] }),
       new Date('2026-10-01T00:00:00.000Z'),
     );
 

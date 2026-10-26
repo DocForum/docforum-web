@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import type { Appointment } from '../../../types/models';
+import type { PatientAppointment } from '../../../types/models';
 import { rescheduleWindow } from '../cutoff';
 import { isSlotTaken, rescheduleErrorCopy } from '../errors';
 import { useOpenSlots } from '../hooks/useAppointments';
@@ -12,7 +12,7 @@ import styles from './RescheduleDialog.module.css';
 type Step = 'pick' | 'confirm' | 'done';
 
 interface RescheduleDialogProps {
-  appointment: Appointment;
+  appointment: PatientAppointment;
   onClose: () => void;
 }
 

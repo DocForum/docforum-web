@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../../services/api-client';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
-import type { Appointment, AvailabilitySlot } from '../../../types/models';
+import type { AvailabilitySlot, PatientAppointment } from '../../../types/models';
 import { createQueryClient, render, screen, waitFor, within } from '../../../test/render';
 import { formatDayLabel, formatSlotDateTime, formatSlotRange } from '../slots';
 import { appointmentsKeys } from '../hooks/useAppointments';
@@ -33,7 +33,7 @@ const SLOT_A = makeSlot('slot-a', 7, 9);
 const SLOT_B = makeSlot('slot-b', 7, 10);
 const SLOT_CURRENT = makeSlot('slot-current', 7, 11);
 
-function makeAppointment(startIso: string): Appointment {
+function makeAppointment(startIso: string): PatientAppointment {
   const end = new Date(Date.parse(startIso) + 30 * 60_000).toISOString();
   return {
     id: 'appt-1',
@@ -163,9 +163,9 @@ describe('RescheduleDialog', () => {
 
   it('disables the confirm button while the request is in flight', async () => {
     vi.mocked(appointmentsService.getOpenSlots).mockResolvedValue([SLOT_A]);
-    let resolveRequest!: (value: Appointment) => void;
+    let resolveRequest!: (value: PatientAppointment) => void;
     vi.mocked(appointmentsService.rescheduleAppointment).mockReturnValue(
-      new Promise<Appointment>((resolve) => {
+      new Promise<PatientAppointment>((resolve) => {
         resolveRequest = resolve;
       }),
     );

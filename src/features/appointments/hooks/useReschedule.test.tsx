@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { ApiError } from '../../../services/api-client';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
-import type { Appointment } from '../../../types/models';
+import type { PatientAppointment } from '../../../types/models';
 import { createQueryClient, render, screen, waitFor } from '../../../test/render';
-import { appointmentsKeys } from './useAppointments';
+import { APPOINTMENTS_KEY, appointmentsKeys } from './useAppointments';
 import { useReschedule } from './useReschedule';
 
 vi.mock('../../../services/appointments-service');
 
-const APPOINTMENT: Appointment = {
+const APPOINTMENT: PatientAppointment = {
   id: 'appt-1',
   patientProfileId: 'pp-1',
   doctorProfileId: 'dp-1',
@@ -30,7 +30,7 @@ const APPOINTMENT: Appointment = {
   },
 };
 
-const RESCHEDULED: Appointment = {
+const RESCHEDULED: PatientAppointment = {
   ...APPOINTMENT,
   availabilitySlotId: 'slot-2',
   availabilitySlot: {
@@ -70,6 +70,9 @@ describe('useReschedule', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Move it' }));
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: appointmentsKeys.list }));
+    // The care hub reads the list under `APPOINTMENTS_KEY`, so a reschedule
+    // must refresh that cache too or its "Coming up" card keeps the old time.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: APPOINTMENTS_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: appointmentsKeys.detail(APPOINTMENT.id) });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: appointmentsKeys.slotsRoot });
 
@@ -95,6 +98,7 @@ describe('useReschedule', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: appointmentsKeys.slotsRoot }));
 
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: APPOINTMENTS_KEY });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: appointmentsKeys.list });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: appointmentsKeys.detail(APPOINTMENT.id) });
     // The cached appointment is still there, byte for byte — no optimistic

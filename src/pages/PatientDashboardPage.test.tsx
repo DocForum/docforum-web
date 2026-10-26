@@ -58,6 +58,14 @@ function laterToday(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 50, 0);
 }
 
+/** The next calendar day at a fixed hour. `now + 26h` only lands on
+ * "tomorrow" while the clock is before 22:00 — later runs slide two days out
+ * and the card drops to a bare date instead of the label under test. */
+function tomorrow(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0);
+}
+
 function appointment(start: Date, status: PatientAppointment['status'] = 'scheduled'): PatientAppointment {
   return {
     id: 'apt-1',
@@ -215,7 +223,7 @@ describe('PatientDashboardPage care hub', () => {
   it('files a later visit under Coming up without promising check-in today', async () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
-      appointment(new Date(Date.now() + 26 * 60 * 60 * 1000)),
+      appointment(tomorrow()),
     ]);
 
     render(<PatientDashboardPage />);

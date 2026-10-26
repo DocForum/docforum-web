@@ -13,7 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { isSlotTaken } from '../errors';
-import { appointmentsKeys } from './useAppointments';
+import { APPOINTMENTS_KEY, appointmentsKeys } from './useAppointments';
 
 export interface RescheduleInput {
   newSlotId: string;
@@ -33,6 +33,10 @@ export function useReschedule(appointmentId: string) {
       if (updated?.id && updated.availabilitySlot) {
         queryClient.setQueryData(appointmentsKeys.detail(appointmentId), updated);
       }
+      // `APPOINTMENTS_KEY` is the list the page and the care hub actually read
+      // (main moved `useMyAppointments` onto it); `appointmentsKeys.list` stays
+      // covered so nothing keyed there goes stale either.
+      await queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });
       await queryClient.invalidateQueries({ queryKey: appointmentsKeys.list });
       await queryClient.invalidateQueries({ queryKey: appointmentsKeys.detail(appointmentId) });
       await queryClient.invalidateQueries({ queryKey: appointmentsKeys.slotsRoot });

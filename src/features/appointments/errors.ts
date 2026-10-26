@@ -6,10 +6,10 @@
 // the backend's atomic swap (docforum-core#55) is that a failure changes
 // nothing — the UI must say so instead of leaving the patient to infer it.
 import { ApiError } from '../../services/api-client';
-import type { Appointment } from '../../types/models';
+import type { PatientAppointment } from '../../types/models';
 import { formatSlotDateTime } from './slots';
 
-export function rescheduleErrorCopy(error: unknown, appointment: Appointment): string {
+export function rescheduleErrorCopy(error: unknown, appointment: PatientAppointment): string {
   const original = formatSlotDateTime(appointment.availabilitySlot);
 
   if (error instanceof ApiError) {

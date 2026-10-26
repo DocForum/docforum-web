@@ -127,6 +127,19 @@ export default function App() {
             </RequireAuth>
           }
         />
+        {/* Deep-linkable appointment detail (issue #14). Top-level rather than
+            nested under `patient/*` because the issue specifies the literal
+            path `/appointments/:id`; the care hub also links to its own nested
+            `/patient/appointments/:appointmentId`, and the page reads either
+            param. */}
+        <Route
+          path="appointments/:id"
+          element={
+            <RequireAuth allowedRoles={['patient']}>
+              <AppointmentDetailPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="patient/*"
           element={

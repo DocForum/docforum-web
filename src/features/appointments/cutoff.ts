@@ -7,7 +7,7 @@
 // value yet. This is the client-side gate until it does; if the server
 // disagrees at request time it answers with its own status/message, which the
 // dialog surfaces verbatim rather than overriding this window with a guess.
-import type { Appointment } from '../../types/models';
+import type { PatientAppointment } from '../../types/models';
 
 export const RESCHEDULE_CUTOFF_MS = 2 * 60 * 60 * 1000;
 
@@ -20,8 +20,10 @@ export interface RescheduleWindow {
   closesAt: string | null;
 }
 
-const STATUS_REASON: Record<Appointment['status'], string> = {
+const STATUS_REASON: Record<PatientAppointment['status'], string> = {
   scheduled: '',
+  checked_in: 'You have already checked in, so this appointment can no longer be moved.',
+  in_progress: 'This appointment is in progress, so it can no longer be moved.',
   completed: 'This appointment is complete, so it can no longer be moved.',
   cancelled: 'This appointment was cancelled, so there is nothing left to move.',
   no_show: 'This appointment was marked as a no-show, so it can no longer be moved.',
@@ -31,7 +33,7 @@ const STATUS_REASON: Record<Appointment['status'], string> = {
  * `now` is a parameter, never read from the clock inside, so the boundary
  * (exactly 2h out) is a case a test can pin down rather than approximate.
  */
-export function rescheduleWindow(appointment: Appointment, now: Date): RescheduleWindow {
+export function rescheduleWindow(appointment: PatientAppointment, now: Date): RescheduleWindow {
   if (appointment.status !== 'scheduled') {
     return { allowed: false, blockedReason: STATUS_REASON[appointment.status], closesAt: null };
   }
