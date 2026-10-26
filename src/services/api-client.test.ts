@@ -4,6 +4,7 @@ import {
   ApiTimeoutError,
   DEFAULT_TIMEOUT_MS,
   IDEMPOTENCY_HEADER,
+  NETWORK_ERROR_CODE,
   SLOW_REQUEST_TIMEOUT_MS,
   apiFetch,
   apiFetchBlob,
@@ -96,7 +97,11 @@ describe('apiFetch retry policy (#85)', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
-    await expect(apiFetch('/care-threads', { retry: noWait })).rejects.toBeInstanceOf(TypeError);
+    await expect(apiFetch('/care-threads', { retry: noWait })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      code: NETWORK_ERROR_CODE,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

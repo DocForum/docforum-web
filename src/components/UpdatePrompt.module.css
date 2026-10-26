@@ -1,0 +1,46 @@
+.banner {
+  position: fixed;
+  inset-inline: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin-inline: auto;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border-strong, #c9bda9);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--color-surface, #fffdf9);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgb(33 28 22 / 16%));
+}
+
+.text {
+  margin: 0;
+  color: var(--color-text, #241f19);
+  font-size: 0.9375rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dismiss {
+  border: 0;
+  background: none;
+  padding: 0.5rem 0.25rem;
+  color: var(--color-text-muted, #6a6154);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dismiss:hover {
+  color: var(--color-text, #241f19);
+}

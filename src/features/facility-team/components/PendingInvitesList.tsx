@@ -1,5 +1,7 @@
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
-import { useFormat } from '../../../i18n/useFormat';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate } from '../../../i18n/time-zone';
 import type { FacilityInvite } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -20,7 +22,8 @@ export function PendingInvitesList({
   isResending,
   isRevoking,
 }: PendingInvitesListProps) {
-  const { formatDate } = useFormat();
+  const t = useT();
+  const { timeZone } = useTimeZone();
 
   // If not owner, do not render pending invites (hidden for staff)
   if (!isOwner) return null;
@@ -29,15 +32,15 @@ export function PendingInvitesList({
     <section className={styles.card} aria-labelledby="invites-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="invites-heading">Pending invitations</h2>
+          <h2 id="invites-heading">{t('facilityTeam.invitesTitle', 'Pending invitations')}</h2>
           <p className={styles.headerSubtitle}>
-            Outstanding invitations awaiting acceptance by invited staff.
+            {t('facilityTeam.invitesSubtitle', 'Outstanding invitations awaiting acceptance by invited staff.')}
           </p>
         </div>
       </div>
 
       {invites.length === 0 ? (
-        <div className={styles.emptyState}>No pending invitations</div>
+        <div className={styles.emptyState}>{t('facilityTeam.noInvites', 'No pending invitations')}</div>
       ) : (
         <div className={styles.tableWrapper}>
           <table className={styles.dataTable}>
@@ -69,10 +72,10 @@ export function PendingInvitesList({
                   </td>
                   <td>{invite.invitedBy}</td>
                   <td>
-                    <time dateTime={invite.invitedAt}>{formatDate(invite.invitedAt)}</time>
+                    <time dateTime={invite.invitedAt}>{formatDate(invite.invitedAt, timeZone)}</time>
                   </td>
                   <td>
-                    <time dateTime={invite.expiresAt}>{formatDate(invite.expiresAt)}</time>
+                    <time dateTime={invite.expiresAt}>{formatDate(invite.expiresAt, timeZone)}</time>
                   </td>
                   <td className={styles.actionCell}>
                     <div className={styles.buttonGroup}>
@@ -80,19 +83,19 @@ export function PendingInvitesList({
                         variant="secondary"
                         onClick={() => onResend(invite.id)}
                         loading={isResending}
-                        aria-label={`Resend invite to ${invite.email}`}
+                        aria-label={`${t('facilityTeam.resend', 'Resend')} invite to ${invite.email}`}
                         style={{ fontSize: 'var(--text-xs)', padding: '0.2rem 0.6rem' }}
                       >
-                        Resend
+                        {t('facilityTeam.resend', 'Resend')}
                       </Button>
                       <Button
                         variant="secondary"
                         onClick={() => onRevoke(invite.id)}
                         loading={isRevoking}
-                        aria-label={`Revoke invite for ${invite.email}`}
+                        aria-label={`${t('facilityTeam.revoke', 'Revoke')} invite for ${invite.email}`}
                         style={{ fontSize: 'var(--text-xs)', padding: '0.2rem 0.6rem', color: '#b3261e' }}
                       >
-                        Revoke
+                        {t('facilityTeam.revoke', 'Revoke')}
                       </Button>
                     </div>
                   </td>

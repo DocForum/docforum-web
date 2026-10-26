@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Link } from 'react-router-dom';
 import { useMessageThreads } from '../hooks/useMessageThreads';
 import { Button } from '../../../components/Button';
@@ -26,6 +27,7 @@ export function DoctorInbox() {
   const { formatNumber } = useFormat();
   const [filter, setFilter] = useState<ThreadFilter>('all');
   const [cursor, setCursor] = useState<string | null>(null);
+  const t = useT();
 
   const {
     threads,
@@ -48,7 +50,7 @@ export function DoctorInbox() {
   return (
     <section className={styles.inbox}>
       <header className={styles.inboxHeader}>
-        <h2>Message inbox</h2>
+        <h2>{t("messaging.title", "Message inbox")}</h2>
         <span className={styles.badge} aria-label={String(totalUnread) + ' unread messages'}>
           {totalUnread}
         </span>
@@ -72,9 +74,9 @@ export function DoctorInbox() {
       </div>
 
       {isLoading && threads.length === 0 ? (
-        <p className={styles.empty}>Loading threads…</p>
+        <p className={styles.empty}>{t('messaging.loading', 'Loading threads…')}</p>
       ) : threads.length === 0 ? (
-        <p className={styles.empty}>No threads match the current filter.</p>
+        <p className={styles.empty}>{t('messaging.empty', 'No threads match the current filter.')}</p>
       ) : (
         <table className={styles.table}>
           <caption className="srOnly">
@@ -82,11 +84,11 @@ export function DoctorInbox() {
           </caption>
           <thead>
             <tr>
-              <th scope="col">Patient</th>
-              <th scope="col">Last message</th>
-              <th scope="col" className={styles.waitingCol}>Waiting</th>
-              <th scope="col" className={styles.unreadCol}>Unread</th>
-              <th scope="col" className={styles.actionCol}>Action</th>
+              <th scope="col">{t('messaging.col.patient', 'Patient')}</th>
+              <th scope="col">{t('messaging.col.lastMessage', 'Last message')}</th>
+              <th scope="col" className={styles.waitingCol}>{t('messaging.col.waiting', 'Waiting')}</th>
+              <th scope="col" className={styles.unreadCol}>{t('messaging.col.unread', 'Unread')}</th>
+              <th scope="col" className={styles.actionCol}>{t('messaging.col.action', 'Action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -116,7 +118,7 @@ export function DoctorInbox() {
                       disabled={markRead.isPending}
                       loading={markRead.isPending}
                     >
-                      Mark read
+                      {t('messaging.markRead', 'Mark read')}
                     </Button>
                   )}
                 </td>
@@ -128,10 +130,10 @@ export function DoctorInbox() {
 
       {hasMore && !isFetching && (
         <Button onClick={handleLoadMore} variant="secondary">
-          Load more
+          {t('messaging.loadMore', 'Load more')}
         </Button>
       )}
-      {isFetching && hasMore && <span className={styles.loadingMore}>Loading more…</span>}
+      {isFetching && hasMore && <span className={styles.loadingMore}>{t('messaging.loadingMore', 'Loading more…')}</span>}
     </section>
   );
 }
