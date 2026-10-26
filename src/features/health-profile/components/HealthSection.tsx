@@ -5,9 +5,9 @@ import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
-import { ApiError } from '../../../services/api-client';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDate } from '../../../i18n/time-zone';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
 
@@ -26,6 +26,7 @@ export function HealthSection({ section }: Props) {
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
   const removeMutation = useRemoveHealthEntry();
+  const errorMessage = useErrorMessage();
   const { timeZone } = useTimeZone();
 
   const [showAdd, setShowAdd] = useState(false);
@@ -100,6 +101,9 @@ export function HealthSection({ section }: Props) {
       {isLoading && (
         <div className={styles.loading}>
           <Spinner size={18} />
+          <span className="srOnly" role="status">
+            Loading {SECTION_LABELS[section].toLowerCase()}…
+          </span>
         </div>
       )}
 
@@ -108,7 +112,7 @@ export function HealthSection({ section }: Props) {
           <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
           <TextField label="Details (optional)" value={details} onChange={(e) => setDetails(e.target.value)} />
           <FormError
-            message={addMutation.error instanceof ApiError ? addMutation.error.message : addMutation.error ? 'Failed to add.' : null}
+            message={errorMessage(addMutation.error)}
           />
           <div className={styles.actions}>
             <Button type="submit" loading={addMutation.isPending}>
@@ -130,7 +134,7 @@ export function HealthSection({ section }: Props) {
               <TextField label="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
               <TextField label="Details (optional)" value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
               <FormError
-                message={updateMutation.error instanceof ApiError ? updateMutation.error.message : updateMutation.error ? 'Failed to save.' : null}
+                message={errorMessage(updateMutation.error)}
               />
               <div className={styles.actions}>
                 <Button type="submit" loading={updateMutation.isPending}>
@@ -147,7 +151,8 @@ export function HealthSection({ section }: Props) {
                 <span className={styles.entryName}>{entry.name}</span>
                 {entry.version > 1 && (
                   <span className={styles.version}>
-                    v{entry.version} — updated {formatDate(entry.updatedAt, timeZone)}
+                    v{entry.version} — updated{' '}
+                    <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt, timeZone)}</time>
                     {entry.previousValue && <span className={styles.prev}> (was: {entry.previousValue})</span>}
                   </span>
                 )}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
 import { FacilityMemberList } from './FacilityMemberList';
@@ -74,6 +75,7 @@ export function FacilityTeamView({
 }: FacilityTeamViewProps) {
   const user = useAuthStore((state) => state.user);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const t = useT();
 
   const { data: membersData, isLoading: membersLoading } = useFacilityMembers(facilityId);
 
@@ -104,6 +106,9 @@ export function FacilityTeamView({
       <div className={styles.container}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
           <Spinner size={24} />
+          <span className="srOnly" role="status">
+            Loading facility team members…
+          </span>
         </div>
       </div>
     );
@@ -138,17 +143,17 @@ export function FacilityTeamView({
   };
 
   return (
-    <div className={styles.container} aria-label="Facility team management">
+    <section className={styles.container} aria-label="Facility team management">
       <header className={styles.header}>
-        <div className={styles.headerTitle}>
-          <h1>Facility team &amp; accounts</h1>
+<div className={styles.headerTitle}>
+          <h1>{t('facilityTeam.title', 'Facility team & accounts')}</h1>
           <p className={styles.headerSubtitle}>
-            Manage staff members, roles, and invitation access for this facility.
-          </p>
+              {t('facilityTeam.subtitle', 'Manage staff members, roles, and invitation access for this facility.')}
+            </p>
         </div>
         {isOwner && (
           <Button onClick={() => setInviteModalOpen(true)}>
-            + Invite staff member
+            {t('facilityTeam.inviteButton', '+ Invite staff member')}
           </Button>
         )}
       </header>
@@ -158,14 +163,14 @@ export function FacilityTeamView({
         <div className={`${styles.roleNotice} ${styles.roleNoticeOwner}`} role="status">
           <span aria-hidden="true">🛡️</span>
           <span>
-            <strong>Facility Owner Access:</strong> You have administrative permissions to invite new members, assign roles, and revoke account access.
+            <strong>{t('facilityTeam.ownerNotice', 'Facility Owner Access:')}</strong> You have administrative permissions to invite new members, assign roles, and revoke account access.
           </span>
         </div>
       ) : (
         <div className={`${styles.roleNotice} ${styles.roleNoticeStaff}`} role="status">
           <span aria-hidden="true">ℹ️</span>
           <span>
-            <strong>Staff Member View (Read-only):</strong> You have dispensing and fulfillment access. Only facility owners can invite or remove team members.
+            <strong>{t('facilityTeam.staffNotice', 'Staff Member View (Read-only):')}</strong> You have dispensing and fulfillment access. Only facility owners can invite or remove team members.
           </span>
         </div>
       )}
@@ -198,6 +203,6 @@ export function FacilityTeamView({
         isPending={inviteMutation.isPending}
         isOwner={isOwner}
       />
-    </div>
+    </section>
   );
 }

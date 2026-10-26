@@ -3,11 +3,13 @@ import { ActingForBanner } from '../features/dependents/components/ActingForBann
 import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
+import { useT } from '../i18n/useT';
 import styles from './PatientDashboardPage.module.css';
 
 export function PatientHomePage() {
   const { cards, sources } = useCareHub();
   const sections = groupBySection(cards);
+  const t = useT();
 
   // A source that failed must not blank the hub: its section says so, the
   // others still render from the data that did arrive.
@@ -18,7 +20,7 @@ export function PatientHomePage() {
       <ActingForBanner />
 
       <div className="card">
-        <span className="statusPill">Phase W2 · in progress</span>
+        <span className="statusPill">{t('patient.phasePill', 'Phase W2 · in progress')}</span>
         <h1 className={styles.title}>What needs your attention</h1>
 
         {anyLoading && <p className={styles.loading}>Loading your care summary…</p>}
@@ -59,12 +61,12 @@ export function PatientHomePage() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
-          <Link to="dependents">Manage dependents</Link>
-          <Link to="health">Health profile</Link>
-          <Link to="/care">Care journey timeline</Link>
+          <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
+          <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
+          <Link to="/care">{t('patient.nav.care', 'Care journey timeline')}</Link>
           <Link to="orders">My prescriptions & lab orders</Link>
-          <Link to="facilities">Find pharmacies & labs</Link>
-          <Link to="settings">Account settings & privacy</Link>
+          <Link to="facilities">{t('patient.nav.facilities', 'Find pharmacies & labs')}</Link>
+          <Link to="settings">{t('patient.nav.settings', 'Account settings & privacy')}</Link>
           <Link to="/payments">Payments</Link>
           <Link to="/account/access-log">Who viewed my records</Link>
         </nav>

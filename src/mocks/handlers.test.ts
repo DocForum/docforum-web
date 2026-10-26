@@ -4,9 +4,7 @@
 // dev panel's scenario/latency switches. Runs in the node environment so
 // MSW's fetch interceptor wraps Node's global fetch.
 // @vitest-environment node
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { setupServer } from 'msw/node';
-import { handlers } from './handlers';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
@@ -36,10 +34,6 @@ import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
-const server = setupServer(...handlers);
-
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterAll(() => server.close());
 beforeEach(() => {
   resetDb();
   useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
