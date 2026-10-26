@@ -5,6 +5,7 @@ import { Spinner } from '../../../components/Spinner';
 import { ApiError } from '../../../services/api-client';
 import { useOrder } from '../hooks/useOrder';
 import { OrderQrCode } from './OrderQrCode';
+import { OrderConfirmPanel } from './OrderConfirmPanel';
 import type { OrderStatus } from '../../../types/models';
 import styles from './OrderDetail.module.css';
 
@@ -254,6 +255,15 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
             Print / Save as PDF
           </Button>
         </div>
+
+        {/* Confirm receipt / report problem panel for fulfilled orders (issue #35) */}
+        {order.status === 'fulfilled' && order.confirmationWindow && (
+          <OrderConfirmPanel
+            orderId={order.id}
+            updatedAt={order.updatedAt}
+            confirmationWindow={order.confirmationWindow}
+          />
+        )}
       </article>
     </>
   );
