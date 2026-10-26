@@ -127,7 +127,7 @@ export function PracticeInsightsView() {
   const insights: DoctorPracticeInsights = data ?? DEFAULT_MOCK_INSIGHTS;
 
   return (
-    <div className={styles.container} aria-label="Practice insights dashboard">
+    <section className={styles.container} aria-label="Practice insights dashboard">
       <header className={styles.header}>
         <div className={styles.titleRow}>
           <div>
@@ -175,6 +175,6 @@ export function PracticeInsightsView() {
         referrals={insights.referrals}
         messages={insights.messages}
       />
-    </div>
+    </section>
   );
 }

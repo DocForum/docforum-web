@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { toHaveNoViolations } from 'jest-axe';
 import { server } from './server';
 import { resetTestStores } from './render';
+
+// Accessibility assertions (`expect(await axe(container)).toHaveNoViolations()`).
+expect.extend(toHaveNoViolations);
 
 // One MSW server for the run (issue #105): start it once, reset handler
 // overrides after each test, close it at the end.

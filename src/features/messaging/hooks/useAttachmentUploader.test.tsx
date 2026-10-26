@@ -82,7 +82,7 @@ describe('useAttachmentUploader', () => {
     const file = fakeFile('rash.jpg', 'image/jpeg');
     vi.mocked(messagingService.uploadAttachment).mockImplementation((_threadId, _f, _token, options) => {
       return new Promise<MessageAttachment>((_resolve, reject) => {
-        const onAbort = () => reject(new ApiError('Upload cancelled', 0, undefined, true));
+        const onAbort = () => reject(new ApiError('Upload cancelled', 0, undefined, { cancelled: true }));
         if (options?.signal?.aborted) {
           onAbort();
           return;

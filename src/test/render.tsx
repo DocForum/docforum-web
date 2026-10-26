@@ -2,7 +2,8 @@
 //
 // `renderWithProviders` wraps a component in what the app actually needs:
 // a fresh React Query client per render (no cache leaks between tests), a
-// router starting at a chosen route, and an optional signed-in session for a
+// router starting at a chosen route, an intl provider (components read copy
+// through `useT`, which needs one), and an optional signed-in session for a
 // role. `render` stays as the plain, session-agnostic entry point the existing
 // tests use, so adopting the utilities is incremental.
 //
@@ -18,6 +19,7 @@ import {
   type RenderResult,
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router-dom';
 import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 import { useAuthStore } from '../store/auth-store';
@@ -60,6 +62,8 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   route?: string;
   /** Initial history stack (overrides `route` when given). */
   routes?: string[];
+  /** Initial history stack, matching the plain `render` signature. */
+  initialEntries?: string[];
   /** Sign in as this role before rendering. Omit for a signed-out render. */
   role?: Role;
   /** Explicit session, for tests that need a specific user id/email/token. */
@@ -79,6 +83,7 @@ export function renderWithProviders(
   const {
     route = '/',
     routes,
+    initialEntries,
     role,
     session,
     queryClient = createTestQueryClient(),
@@ -96,11 +101,15 @@ export function renderWithProviders(
 
   const result = rtlRender(ui, {
     wrapper: ({ children }) => (
-      <QueryClientProvider client={queryClient}>
-        <TimeZoneProvider>
-          <MemoryRouter initialEntries={routes ?? [route]}>{children}</MemoryRouter>
-        </TimeZoneProvider>
-      </QueryClientProvider>
+      // Empty message catalogue: components carry English `defaultMessage`s,
+      // exactly like the app does before a locale chunk resolves.
+      <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
+        <QueryClientProvider client={queryClient}>
+          <TimeZoneProvider>
+            <MemoryRouter initialEntries={initialEntries ?? routes ?? [route]}>{children}</MemoryRouter>
+          </TimeZoneProvider>
+        </QueryClientProvider>
+      </IntlProvider>
     ),
     ...rtlOptions,
   });

@@ -50,6 +50,7 @@ export function FormField<
     <TextField
       label={label}
       error={displayError}
+      hint={hint}
       value={value as unknown as string}
       onChange={onChange as unknown as React.ChangeEventHandler<HTMLInputElement>}
       onBlur={onBlur as unknown as React.FocusEventHandler<HTMLInputElement>}

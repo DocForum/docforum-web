@@ -1,0 +1,46 @@
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border, #e2d9cc);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--color-surface, #fffdf9);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgb(33 28 22 / 6%));
+}
+
+.section {
+  margin-block: 1rem;
+}
+
+.route {
+  margin: 2rem auto;
+  max-width: 34rem;
+  width: 100%;
+}
+
+.app {
+  margin: 15vh auto 0;
+  max-width: 34rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display, 'Fraunces', serif);
+  font-size: 1.25rem;
+  color: var(--color-text, #241f19);
+}
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted, #6a6154);
+  line-height: 1.55;
+}
+
+.reference {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-faint, #8c8271);
+  font-variant-numeric: tabular-nums;
+}
