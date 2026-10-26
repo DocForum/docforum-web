@@ -9,18 +9,20 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { useT } from '../../../i18n/useT';
 import { formatTime } from '../../../i18n/time-zone';
 import styles from './QueuePanel.module.css';
 
-function statusLabel(status: string) {
+function statusLabel(status: string, t: ReturnType<typeof useT>) {
   return {
-    checked_in: 'Checked in',
-    in_progress: 'In progress',
-    completed: 'Completed',
+    checked_in: t('queue.status.checkedIn', 'Checked in'),
+    in_progress: t('queue.status.inProgress', 'In progress'),
+    completed: t('queue.status.completed', 'Completed'),
   }[status] ?? status;
 }
 
 export function QueuePanel() {
+  const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
@@ -47,9 +49,9 @@ export function QueuePanel() {
   return (
     <section className={styles.panel}>
       <header className={styles.panelHeader}>
-        <h2>Live queue</h2>
+        <h2>{t('queue.title', 'Live queue')}</h2>
         <div className={styles.runningDelay}>
-          <span className={styles.label}>Running delay</span>
+          <span className={styles.label}>{t('queue.runningDelay', 'Running delay')}</span>
           <span className={styles.value}>
             {delay?.effectiveDelayMin == null ? '—' : `${delay.effectiveDelayMin} min`}
             {delay?.manualOverrideMin != null && delay.manualOverrideMin > 0
@@ -70,7 +72,7 @@ export function QueuePanel() {
       )}
 
       {byPosition.length === 0 ? (
-        <p className={styles.empty}>No checked-in patients yet.</p>
+        <p className={styles.empty}>{t('queue.empty', 'No checked-in patients yet.')}</p>
       ) : (
         <table className={styles.table}>
           <thead>
@@ -92,7 +94,7 @@ export function QueuePanel() {
                   <td>{formatTime(entry.checkedInAt, timeZone)}</td>
                   <td>
                     <span className={styles.statusPill} data-status={entry.status}>
-                      {statusLabel(entry.status)}
+                      {statusLabel(entry.status, t)}
                     </span>
                   </td>
                   <td className={styles.actionsCol}>
@@ -105,7 +107,7 @@ export function QueuePanel() {
                         disabled={isPendingAction}
                         loading={isPendingAction}
                       >
-                        Start
+                        {t('queue.start', 'Start')}
                       </Button>
                     )}
                     {entry.status === 'in_progress' && (
@@ -118,10 +120,10 @@ export function QueuePanel() {
                         disabled={isPendingAction}
                         loading={isPendingAction}
                       >
-                        Complete
+                        {t('queue.complete', 'Complete')}
                       </Button>
                     )}
-                    {entry.status === 'completed' && <span className={styles.done}>Done</span>}
+                    {entry.status === 'completed' && <span className={styles.done}>{t('queue.done', 'Done')}</span>}
                     <Button
                       variant="secondary"
                       onClick={() => {
@@ -139,11 +141,11 @@ export function QueuePanel() {
       )}
 
       <div className={styles.override}>
-        <label htmlFor="manual-override">Manual override</label>
+        <label htmlFor="manual-override">{t('queue.manualOverride', 'Manual override')}</label>
         <input
           id="manual-override"
           type="number"
-          placeholder="min"
+          placeholder={t('queue.minPlaceholder', 'min')}
           value={overrideMin}
           onChange={(e) => setOverrideMin(e.target.value)}
           className={styles.overrideInput}
@@ -153,7 +155,7 @@ export function QueuePanel() {
           disabled={updateDelay.isPending}
           loading={updateDelay.isPending}
         >
-          Set
+          {t('queue.set', 'Set')}
         </Button>
       </div>
     </section>

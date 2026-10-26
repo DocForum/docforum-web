@@ -1,6 +1,6 @@
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
-import { ApiError } from '../../../services/api-client';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { usePaymentIntent, useFundPaymentIntent, useReleasePaymentIntent, useRefundPaymentIntent } from '../hooks/usePaymentIntent';
 import type { PaymentIntentStatus } from '../../../types/models';
 
@@ -24,19 +24,18 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
   const fundMutation = useFundPaymentIntent();
   const releaseMutation = useReleasePaymentIntent();
   const refundMutation = useRefundPaymentIntent();
+  const errorMessage = useErrorMessage();
 
   if (intentQuery.isLoading) return <p>Loading…</p>;
   if (intentQuery.isError) {
-    const message = intentQuery.error instanceof ApiError ? intentQuery.error.message : 'Could not load this payment intent.';
-    return <FormError message={message} />;
+    return <FormError message={errorMessage(intentQuery.error)} />;
   }
 
   const intent = intentQuery.data;
   if (!intent) return null;
 
   const pendingError = fundMutation.error ?? releaseMutation.error ?? refundMutation.error;
-  const actionError =
-    pendingError instanceof ApiError ? pendingError.message : pendingError ? 'Something went wrong. Please try again.' : null;
+  const actionError = errorMessage(pendingError);
 
   return (
     <div className="card">

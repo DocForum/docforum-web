@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { FacilityMemberRole, InviteMemberInput } from '../../../types/models';
 import styles from './FacilityTeam.module.css';
 
@@ -23,6 +25,8 @@ export function InviteMemberModal({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<FacilityMemberRole>('staff');
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   if (!open) return null;
 
@@ -47,16 +51,16 @@ export function InviteMemberModal({
       setRole('staff');
       onClose();
     } catch (err) {
-      setError((err as Error).message || 'Failed to send invitation');
+      setError(errorMessage(err) ?? t('facilityTeam.inviteFailed', 'Failed to send invitation'));
     }
   };
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="invite-title">
       <div className={styles.modalContent}>
-        <h3 id="invite-title">Invite team member</h3>
+        <h3 id="invite-title">{t('facilityTeam.inviteTitle', 'Invite team member')}</h3>
         <p className={styles.modalDescription}>
-          Send an invitation email to a staff pharmacist or co-owner. They will receive a link to activate their account and join this facility.
+          {t("facilityTeam.inviteDescription", "Send an invitation email to a staff pharmacist or co-owner. They will receive a link to activate their account and join this facility.")}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -81,8 +85,8 @@ export function InviteMemberModal({
               className={styles.dataTable}
               style={{ padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', width: '100%' }}
             >
-              <option value="staff">Staff (Fulfillment, dispensing, read-only team)</option>
-              <option value="owner">Owner (Full administrative rights, billing, team management)</option>
+              <option value="staff">{t("facilityTeam.roleOption.staff", "Staff (Fulfillment, dispensing, read-only team)")}</option>
+              <option value="owner">{t("facilityTeam.roleOption.owner", "Owner (Full administrative rights, billing, team management)")}</option>
             </select>
           </div>
 
@@ -93,7 +97,7 @@ export function InviteMemberModal({
               Cancel
             </Button>
             <Button type="submit" loading={isPending}>
-              {isPending ? 'Sending invite…' : 'Send invite'}
+              {isPending ? t('facilityTeam.sending', 'Sending invite...') : t('facilityTeam.send', 'Send invite')}
             </Button>
           </div>
         </form>

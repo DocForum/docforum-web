@@ -291,6 +291,17 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* Responsive: mobile header actions wrap instead of overflowing */
+@media (max-width: 639px) {
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .headerActions > * {
+    min-width: 0;
+  }
+}
+
 /* Responsive: desktop */
 @media (min-width: 640px) {
   .menuToggle {

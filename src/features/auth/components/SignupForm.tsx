@@ -8,6 +8,8 @@ import { FormField } from '../../../components/form/FormField';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useSignup } from '../hooks/useSignup';
 import { z } from 'zod';
 import { ApiError } from '../../../services/api-client';
@@ -30,6 +32,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const form = useZodForm(signupSchema, { fullName: '', email: '', password: '' });
   const signupMutation = useSignup();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
+  const t = useT();
+  const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
 
   async function onSubmit(data: SignupFormData) {
@@ -46,10 +50,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           });
           return;
         }
-        setServerError(error.message ?? 'Something went wrong. Please try again.');
-      } else {
-        setServerError('Something went wrong. Please try again.');
       }
+      setServerError(errorMessage(error));
     }
   }
 
@@ -60,16 +62,20 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         {isSlow && (
           <p className="slowHint" role="status">
             <Spinner size={14} />
-            Still working — the server may be waking up after being idle. This can take up to a
-            minute.
+            {t('auth.slowHint', 'Still working — the server may be waking up after being idle. This can take up to a minute.')}
           </p>
         )}
         <RoleSelect value={role} onChange={setRole} />
-        <FormField name="fullName" label="Full name" autoComplete="name" />
-        <FormField name="email" label="Email" type="email" autoComplete="email" />
-        <FormField name="password" label="Password" type="password" autoComplete="new-password" />
+        <FormField name="fullName" label={t('auth.fullName', 'Full name')} autoComplete="name" />
+        <FormField name="email" label={t('auth.email', 'Email')} type="email" autoComplete="email" />
+        <FormField
+          name="password"
+          label={t('auth.password', 'Password')}
+          type="password"
+          autoComplete="new-password"
+        />
         <Button type="submit" loading={signupMutation.isPending}>
-          {signupMutation.isPending ? 'Creating account…' : 'Create account'}
+          {signupMutation.isPending ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create account')}
         </Button>
       </form>
     </FormProvider>
