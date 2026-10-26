@@ -1,38 +1,30 @@
-import { apiFetch } from './api-client';
-import type { HealthEntry, HealthEntryInput, HealthSectionKey } from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
 export function listHealthEntries(
   patientProfileId: string,
-  section: HealthSectionKey,
+  section: Schemas['HealthSectionKey'],
   accessToken: string,
   signal?: AbortSignal,
-): Promise<HealthEntry[]> {
-  return apiFetch<HealthEntry[]>(`/patients/${patientProfileId}/health/${section}`, { accessToken, signal });
+): Promise<Schemas['HealthEntry'][]> {
+  return api.health.list(patientProfileId, section, { accessToken, signal });
 }
 
 export function addHealthEntry(
   patientProfileId: string,
-  input: HealthEntryInput,
+  input: Schemas['HealthEntryInput'],
   accessToken: string,
-): Promise<HealthEntry> {
-  return apiFetch<HealthEntry>(`/patients/${patientProfileId}/health`, {
-    method: 'POST',
-    body: input,
-    accessToken,
-  });
+): Promise<Schemas['HealthEntry']> {
+  return api.health.add(patientProfileId, input, { accessToken });
 }
 
 export function updateHealthEntry(
   patientProfileId: string,
   entryId: string,
-  input: Omit<HealthEntryInput, 'section'>,
+  input: Schemas['HealthEntryUpdate'],
   accessToken: string,
-): Promise<HealthEntry> {
-  return apiFetch<HealthEntry>(`/patients/${patientProfileId}/health/${entryId}`, {
-    method: 'PATCH',
-    body: input,
-    accessToken,
-  });
+): Promise<Schemas['HealthEntry']> {
+  return api.health.update(patientProfileId, entryId, input, { accessToken });
 }
 
 export function removeHealthEntry(
@@ -40,8 +32,5 @@ export function removeHealthEntry(
   entryId: string,
   accessToken: string,
 ): Promise<void> {
-  return apiFetch<void>(`/patients/${patientProfileId}/health/${entryId}`, {
-    method: 'DELETE',
-    accessToken,
-  });
+  return api.health.remove(patientProfileId, entryId, { accessToken });
 }

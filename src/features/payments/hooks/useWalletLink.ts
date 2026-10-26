@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as paymentsService from '../../../services/payments-service';
 import { useAuthStore } from '../../../store/auth-store';
-import { ApiError } from '../../../services/api-client';
 import { invalidateFor } from '../../../invalidations';
 import { paymentKeys } from '../../../query-keys';
 
@@ -14,10 +13,9 @@ export function useOwnWalletLink() {
     queryKey: WALLET_LINK_QUERY_KEY,
     queryFn: ({ signal }) => paymentsService.getOwnWalletLink(accessToken!, signal),
     enabled: Boolean(accessToken),
-    // No wallet linked yet is an expected, non-error state, not a fetch
-    // failure — the endpoint 404s in that case (see docforum-core
-    // controller). Don't retry a 404 as if it were transient.
-    retry: (failureCount, error) => error instanceof ApiError && error.status === 404 ? false : failureCount < 2,
+    // Retry policy lives in apiFetch; React Query must not double-retry.
+    // A missing wallet is a 404 and is never retried there.
+    retry: false,
   });
 }
 

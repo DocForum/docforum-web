@@ -1,6 +1,7 @@
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
-import { ApiError } from '../../../services/api-client';
+import { useFormat } from '../../../i18n/useFormat';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { usePaymentIntent, useFundPaymentIntent, useReleasePaymentIntent, useRefundPaymentIntent } from '../hooks/usePaymentIntent';
 import type { PaymentIntentStatus } from '../../../types/models';
 
@@ -20,23 +21,23 @@ const NEXT_ACTION: Record<PaymentIntentStatus, string | null> = {
  * triggers a real Stellar contract call on docforum-core's side — this
  * repo never touches Stellar directly (hard rule 1). */
 export function PaymentIntentPanel({ intentId }: { intentId: string }) {
+  const { formatAssetAmount } = useFormat();
   const intentQuery = usePaymentIntent(intentId);
   const fundMutation = useFundPaymentIntent();
   const releaseMutation = useReleasePaymentIntent();
   const refundMutation = useRefundPaymentIntent();
+  const errorMessage = useErrorMessage();
 
   if (intentQuery.isLoading) return <p>Loading…</p>;
   if (intentQuery.isError) {
-    const message = intentQuery.error instanceof ApiError ? intentQuery.error.message : 'Could not load this payment intent.';
-    return <FormError message={message} />;
+    return <FormError message={errorMessage(intentQuery.error)} />;
   }
 
   const intent = intentQuery.data;
   if (!intent) return null;
 
   const pendingError = fundMutation.error ?? releaseMutation.error ?? refundMutation.error;
-  const actionError =
-    pendingError instanceof ApiError ? pendingError.message : pendingError ? 'Something went wrong. Please try again.' : null;
+  const actionError = errorMessage(pendingError);
 
   return (
     <div className="card">
@@ -49,7 +50,10 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
           {intent.orderType} · {intent.orderId}
         </dd>
         <dt>Amount</dt>
-        <dd>{intent.amountStroops} stroops</dd>
+        <dd>
+          {formatAssetAmount(intent.amountStroops, 'XLM', { decimals: 7 })}{' '}
+          <small>({intent.amountStroops} stroops)</small>
+        </dd>
         {intent.escrowId && (
           <>
             <dt>On-chain escrow id</dt>

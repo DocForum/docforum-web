@@ -1,38 +1,23 @@
-// Auth calls to docforum-core. PROVISIONAL: these paths and payload shapes
-// are the smallest reasonable assumption from ARCHITECTURE.md §2 (JWT
-// access + refresh, role claims) — docforum-core's auth module has no
-// implemented routes yet (its backend/src/modules/auth/* is a placeholder).
-// Reconcile against the real contract once docforum-core's Phase 1 lands.
-import { apiFetch } from './api-client';
-import type { SelfServeRole, User } from '../types/models';
+// Auth calls to docforum-core, routed through the generated client.
+// Paths, request bodies and response shapes come from the OpenAPI fixture in
+// packages/api-client/openapi/ — contract drift is a compile error here.
+import type { Schemas } from '@docforum/api-client';
+import { api, apiFetch } from './api-client';
 
-export interface AuthSession {
-  user: User;
-  accessToken: string;
-}
-
-export interface SignupInput {
-  role: SelfServeRole;
-  email: string;
-  password: string;
-  fullName: string;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
-}
+export type AuthSession = Schemas['AuthSession'];
+export type SignupInput = Schemas['SignupInput'];
+export type LoginInput = Schemas['LoginInput'];
 
 export function signup(input: SignupInput): Promise<AuthSession> {
-  return apiFetch<AuthSession>('/auth/signup', { method: 'POST', body: input });
+  return api.auth.signup(input);
 }
 
 export function login(input: LoginInput): Promise<AuthSession> {
-  return apiFetch<AuthSession>('/auth/login', { method: 'POST', body: input });
+  return api.auth.login(input);
 }
 
 export function logout(accessToken: string): Promise<void> {
-  return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
+  return api.auth.logout({ accessToken });
 }
 
 /** Silent re-auth using docforum-core's httpOnly refresh cookie. The cookie
