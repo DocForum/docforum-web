@@ -1,13 +1,18 @@
 // Order calls to docforum-core — assumed contract against issues #5 and #71.
 // Issue #5: orders list + facility selection (docforum-core/issues/9–16).
 // Issue #71: verifiable order tokens, PRD §8.1.6.
+// Issue #35: patient confirm receipt / report problem.
 // Endpoints and response shapes are provisional; see
 // ARCHITECTURE_ESSENTIALS.md "Known assumptions".
 import { apiFetch } from './api-client';
 import type {
+  ConfirmReceiptInput,
+  ConfirmReceiptResponse,
   Order,
   PatientOrder,
   QualifiedOrderFacility,
+  ReportProblemInput,
+  ReportProblemResponse,
   SelectOrderFacilityInput,
 } from '../types/models';
 
@@ -50,6 +55,30 @@ export function selectFulfillingFacility(
   accessToken: string,
 ): Promise<PatientOrder> {
   return apiFetch<PatientOrder>(`/orders/${orderId}/fulfillment-facility`, {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
+
+/** Patient confirms receipt of a fulfilled order (issue #35). */
+export function confirmReceipt(
+  input: ConfirmReceiptInput,
+  accessToken: string,
+): Promise<ConfirmReceiptResponse> {
+  return apiFetch<ConfirmReceiptResponse>('/orders/confirm-receipt', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
+
+/** Patient reports a problem with a fulfilled order (issue #35). */
+export function reportProblem(
+  input: ReportProblemInput,
+  accessToken: string,
+): Promise<ReportProblemResponse> {
+  return apiFetch<ReportProblemResponse>('/orders/report-problem', {
     method: 'POST',
     body: input,
     accessToken,
