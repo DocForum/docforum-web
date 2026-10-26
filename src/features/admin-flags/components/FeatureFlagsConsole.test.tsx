@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderRoute } from '../../../test/render';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { FLAGS_KEY } from '../hooks/useFeatureFlags';
 import { ApiError } from '../../../services/api-client';
@@ -547,15 +547,7 @@ describe('FeatureFlagsConsole — editing', () => {
 
 describe('/admin/flags route', () => {
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/flags']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    return renderRoute('/admin/flags');
   }
 
   it('is reachable by admins', async () => {

@@ -1,0 +1,104 @@
+.viewport {
+  position: fixed;
+  z-index: 1000;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(24rem, calc(100vw - var(--space-8)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  pointer-events: auto;
+}
+
+.success {
+  border-left-color: var(--color-success);
+}
+
+.error {
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+.info {
+  border-left-color: var(--color-accent-2);
+}
+
+.message {
+  margin: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.action {
+  min-height: 36px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--color-surface-hover);
+}
+
+.dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.action:focus-visible,
+.dismiss:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .viewport {
+    right: var(--space-2);
+    left: var(--space-2);
+    bottom: var(--space-2);
+    width: auto;
+  }
+}

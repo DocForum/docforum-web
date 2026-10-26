@@ -9,6 +9,7 @@ import {
   apiFetch,
   apiFetchBlob,
   apiFetchForm,
+  apiUploadFile,
   computeBackoffMs,
   createIdempotencyKey,
   isAbortError,
@@ -439,5 +440,136 @@ describe('multipart uploads (apiFetchForm)', () => {
     const assertion = expect(attempt).rejects.toSatisfy(isAbortError);
     controller.abort();
     await assertion;
+  });
+});
+
+class FakeXhr {
+  static instances: FakeXhr[] = [];
+  method = '';
+  url = '';
+  withCredentials = false;
+  headers: Record<string, string> = {};
+  body: FormData | null = null;
+  status = 0;
+  statusText = '';
+  responseText = '';
+  upload: { onprogress: ((event: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = {
+    onprogress: null,
+  };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+
+  constructor() {
+    FakeXhr.instances.push(this);
+  }
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+
+  setRequestHeader(key: string, value: string) {
+    this.headers[key] = value;
+  }
+
+  send(body: FormData) {
+    this.body = body;
+  }
+
+  abort() {
+    this.onabort?.();
+  }
+
+  getResponseHeader() {
+    return 'application/json';
+  }
+
+  progress(loaded: number, total: number) {
+    this.upload.onprogress?.({ lengthComputable: true, loaded, total });
+  }
+
+  finish(status: number, responseText = '{}') {
+    this.status = status;
+    this.statusText = status >= 400 ? 'Error' : 'OK';
+    this.responseText = responseText;
+    this.onload?.();
+  }
+}
+
+function lastUpload(): FakeXhr {
+  return FakeXhr.instances[FakeXhr.instances.length - 1];
+}
+
+describe('apiUploadFile', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeXhr.instances = [];
+  });
+
+  it('posts multipart form data with credentials, auth and progress', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const onProgress = vi.fn();
+    const file = new File(['data'], 'scan.pdf', { type: 'application/pdf' });
+
+    const promise = apiUploadFile<{ id: string }>('/uploads', file, {
+      accessToken: 'token-1',
+      fields: { purpose: 'lab_result' },
+      onProgress,
+    });
+
+    const request = lastUpload();
+    expect(request.method).toBe('POST');
+    expect(request.url).toContain('/uploads');
+    expect(request.withCredentials).toBe(true);
+    expect(request.headers.Authorization).toBe('Bearer token-1');
+    expect(request.body?.get('purpose')).toBe('lab_result');
+    expect((request.body?.get('file') as File).name).toBe('scan.pdf');
+
+    request.progress(45, 100);
+    expect(onProgress).toHaveBeenCalledWith({ loaded: 45, total: 100, percent: 45 });
+
+    request.finish(200, '{"id":"file-1"}');
+    await expect(promise).resolves.toEqual({ id: 'file-1' });
+  });
+
+  it('rejects with the server message and status on an error response', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const promise = apiUploadFile('/uploads', new File(['x'], 'x.png', { type: 'image/png' }));
+
+    lastUpload().finish(422, '{"message":"Unsupported file"}');
+    await expect(promise).rejects.toMatchObject({ message: 'Unsupported file', status: 422 });
+  });
+
+  it('rejects with ApiError on a network failure', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const promise = apiUploadFile('/uploads', new File(['x'], 'x.png', { type: 'image/png' }));
+
+    lastUpload().onerror?.();
+    await expect(promise).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('aborts in flight when the signal fires', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const controller = new AbortController();
+    const promise = apiUploadFile('/uploads', new File(['x'], 'x.png', { type: 'image/png' }), {
+      signal: controller.signal,
+    });
+
+    controller.abort();
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('rejects immediately when the signal is already aborted', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      apiUploadFile('/uploads', new File(['x'], 'x.png', { type: 'image/png' }), {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(FakeXhr.instances).toHaveLength(0);
   });
 });

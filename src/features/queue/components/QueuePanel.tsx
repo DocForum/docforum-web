@@ -4,7 +4,6 @@ import {
   useVisitActions,
   useRunningDelay,
   useUpdateRunningDelay,
-  UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
@@ -62,14 +61,13 @@ export function QueuePanel() {
   const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
-  const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
+  const { startVisit, completeVisit, isPending } = useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
   const { formatNumber } = useFormat();
   const { message: actionMessage, announce } = useAnnouncer();
 
   const [overrideMin, setOverrideMin] = useState('');
-  const [undoTarget, setUndoTarget] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const byPosition = useMemo(
@@ -77,31 +75,9 @@ export function QueuePanel() {
     [queue],
   );
 
-  const entryName = (appointmentId: string) =>
-    byPosition.find((entry) => entry.appointmentId === appointmentId)?.fullName ?? 'patient';
-
-  const handleUndo = () => {
-    if (undoTarget) {
-      announce(`Undid the last queue action for ${entryName(undoTarget)}.`);
-      undo(undoTarget);
-    }
-    setUndoTarget(null);
-  };
-
-  const handleStart = (entry: QueueEntry) => {
-    setUndoTarget(entry.appointmentId);
-    announce(
-      `Starting visit for ${entry.fullName}. Undo is available for ${Math.round(UNDO_WINDOW_MS / 1000)} seconds.`,
-    );
-    startVisit(entry.appointmentId);
-  };
-
-  const handleComplete = (entry: QueueEntry) => {
-    setUndoTarget(entry.appointmentId);
-    announce(`Completing visit for ${entry.fullName}. Undo is available.`);
-    completeVisit(entry.appointmentId);
-  };
-
+  // Start/complete are optimistic and defer the API call for the undo
+  // window; the undo offer comes from the shared toast system (see
+  // `useVisitActions`), which is what a caller can act on.
   const handleApplyOverride = () => {
     const value = overrideMin.trim() === '' ? null : parseInt(overrideMin, 10);
     updateDelay.mutate(
@@ -141,18 +117,6 @@ export function QueuePanel() {
         </div>
       </header>
 
-      {hasPendingUndo && undoTarget && (
-        <div className={styles.undoToast} role="group" aria-label="Undo last queue action">
-          Action applied.{' '}
-          <Button variant="secondary" onClick={handleUndo}>
-            Undo
-          </Button>
-          <span className={styles.undoHint}>
-            reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s
-          </span>
-        </div>
-      )}
-
       {byPosition.length === 0 ? (
         <p className={styles.empty}>{t('queue.empty', 'No checked-in patients yet.')}</p>
       ) : (
@@ -191,7 +155,7 @@ export function QueuePanel() {
                   <td className={styles.actionsCol}>
                     {entry.status === 'checked_in' && (
                       <Button
-                        onClick={() => handleStart(entry)}
+                        onClick={() => startVisit(entry.appointmentId)}
                         disabled={isPendingAction}
                         loading={isPendingAction}
                         aria-label={`Start visit for ${entry.fullName}`}
@@ -202,7 +166,7 @@ export function QueuePanel() {
                     {entry.status === 'in_progress' && (
                       <Button
                         variant="secondary"
-                        onClick={() => handleComplete(entry)}
+                        onClick={() => completeVisit(entry.appointmentId)}
                         disabled={isPendingAction}
                         loading={isPendingAction}
                         aria-label={`Complete visit for ${entry.fullName}`}

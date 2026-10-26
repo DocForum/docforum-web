@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderRoute } from '../../../test/render';
 import { AuditLogViewer } from './AuditLogViewer';
 import { ApiError } from '../../../services/api-client';
 import * as auditService from '../../../services/audit-service';
@@ -332,15 +332,7 @@ describe('AuditLogViewer — rows', () => {
 
 describe('/admin/audit route', () => {
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/audit']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    return renderRoute('/admin/audit');
   }
 
   it('is reachable by admins', async () => {
