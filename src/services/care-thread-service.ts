@@ -1,22 +1,20 @@
-// Care thread service (#28): aggregating booking, consultation, referral, orders, fulfillment, and payment.
-// All calls route through docforum-core's API per ARCHITECTURE_ESSENTIALS.md.
-import { apiFetch } from './api-client';
-import type { CareThread } from '../types/models';
+// Care thread service (#28): aggregating booking, consultation, referral,
+// orders, fulfillment and payment — through the generated API client.
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
 export function getCareThreads(
   patientProfileId: string,
   accessToken: string,
   signal?: AbortSignal,
-): Promise<CareThread[]> {
-  return apiFetch<CareThread[]>(`/patients/${patientProfileId}/care-threads`, {
-    accessToken,
-    signal,
-  });
+): Promise<Schemas['CareThread'][]> {
+  return api.careThreads.list(patientProfileId, { accessToken, signal });
 }
 
-export function getCareThreadById(threadId: string, accessToken: string, signal?: AbortSignal): Promise<CareThread> {
-  return apiFetch<CareThread>(`/care-threads/${threadId}`, {
-    accessToken,
-    signal,
-  });
+export function getCareThreadById(
+  threadId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['CareThread']> {
+  return api.careThreads.get(threadId, { accessToken, signal });
 }

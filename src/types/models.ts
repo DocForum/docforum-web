@@ -317,6 +317,40 @@ export interface Prescription extends OrderVersionBase {
   instructions?: string | null;
 }
 
+// --- Prescription source (Phase W2 — assumed, docforum-core#9 not landed) ---
+// The medication schedule reads `GET /patients/:id/prescriptions`, whose
+// assumed shape predates the orders contract above (`version`/`issuedAt`
+// vs `items`/`createdAt`). It gets its own name rather than widening the
+// orders `Prescription` with fields that endpoint never returns.
+
+export type PrescriptionStatus = 'issued' | 'fulfilled' | 'expired' | 'superseded';
+
+/** Mirrors core's Phase 0 `PrescriptionItem` placeholders (`drugName`,
+ * `dosage`, `frequency`, `duration` are all free-text Strings there —
+ * which is exactly why schedule derivation must degrade to showing them
+ * as-is rather than guessing). */
+export interface PrescriptionItem {
+  id: string;
+  drugName: string;
+  dosage: string;
+  /** Free text, e.g. 'every 8 hours', 'twice daily', 'as needed'. */
+  frequency: string;
+  /** Free text, e.g. '7 days', '2 weeks', 'ongoing'. */
+  duration: string;
+}
+
+export interface MedicationPrescription {
+  id: string;
+  status: PrescriptionStatus;
+  createdAt: string;
+  // Assumed relation fields — core's Prescription is `{id, status, createdAt}`
+  // with these still TODO.
+  patientProfileId: string;
+  prescribingDoctorId: string;
+  prescribingDoctorName?: string;
+  items: PrescriptionItem[];
+}
+
 export interface LabOrder extends OrderVersionBase {
   orderType: 'lab_order';
   testName: string;
@@ -856,6 +890,47 @@ export interface Referral {
 
 export type DoctorSummary = Pick<DoctorProfile, 'id' | 'fullName'>;
 
+// --- Referral inbox (Phase W3 — assumed, docforum-core#5/#7 not landed) ---
+
+/** Assumed (core `IntakeForm` is `{id, createdAt}` with `symptoms`/
+ * `freeTextNotes` still TODO). This is the *snapshot copy* taken at
+ * referral time — core's schema note is explicit that these must be copies,
+ * not live references (ARCHITECTURE.md §4.4). */
+export interface ReferralIntakeSnapshot {
+  id: string;
+  symptoms: string[];
+  freeTextNotes?: string;
+  submittedAt: string;
+}
+
+/** Minimal referring-doctor projection (assumed expansion). */
+export interface ReferringDoctor {
+  id: string;
+  fullName: string;
+}
+
+export interface ReferralSummary {
+  id: string;
+  status: ReferralStatus;
+  /** Mirrors core's real `snapshotNotes` — the referring doctor's note,
+   * frozen at referral time. */
+  snapshotNotes: string;
+  referringDoctor: ReferringDoctor;
+  targetSpecialty?: Specialty | null;
+  // Assumed: `snapshotTakenAt` is a distinct field from core's `createdAt`.
+  // If the real API only exposes `createdAt`, reconcile here.
+  snapshotTakenAt: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Mirrors core's TODO `resultingAppointmentId`. */
+  resultingAppointmentId?: string | null;
+  appointment?: SlotAppointment | null;
+}
+
+export interface ReferralDetail extends ReferralSummary {
+  intakeSnapshot: ReferralIntakeSnapshot;
+}
+
 export type StuckReferralReason = 'no_doctor' | 'doctor_inactive' | 'loop_flagged';
 
 export interface ReferralChainLink {
@@ -913,6 +988,50 @@ export interface SpecialtyClaimCredential {
   mimeType: string;
   sizeBytes: number;
   uploadedAt: string;
+}
+
+// --- Doctor verification (Phase W3 — assumed, docforum-core#52/#51 not
+// landed) ------------------------------------------------------------------
+
+export type CredentialType =
+  | 'medical_license'
+  | 'degree_certificate'
+  | 'specialty_certificate'
+  | 'identity_document'
+  | 'other';
+
+/** Items in a doctor's application are each verified individually
+ * (docforum-core#51), so this is per-document/per-specialty, not the
+ * profile-level `VerificationStatus`. */
+export type ClaimItemStatus = 'pending' | 'verified' | 'rejected';
+
+export interface DoctorCredential {
+  id: string;
+  doctorProfileId: string;
+  type: CredentialType;
+  /** Display label only. The backend stores a key behind a signed/get-on-demand
+   * URL — never a permanent public URL, and never rendered as a link here. */
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: ClaimItemStatus;
+  rejectionReason?: string | null;
+  submittedAt: string;
+  updatedAt: string;
+}
+
+/** Assumed (docforum-core#51): the doctor's own view of a specialty claim,
+ * scoped by profile. The admin queue reads `SpecialtyClaim` below, which
+ * carries the reviewer and doctor-summary projection instead. */
+export interface DoctorSpecialtyClaim {
+  id: string;
+  doctorProfileId: string;
+  specialtyId: string;
+  specialty: Specialty;
+  status: ClaimItemStatus;
+  rejectionReason?: string | null;
+  submittedAt: string;
+  updatedAt: string;
 }
 
 /** One doctor↔specialty pair awaiting review (a `DoctorSpecialty` row). */
@@ -1161,6 +1280,50 @@ export interface AvailabilitySlot {
   endTime: string;
   createdAt: string;
   updatedAt: string;
+  // Assumed: the manager needs the booked appointment behind a `booked`
+  // slot (core's `AvailabilitySlot.appointment` 1:1 relation) to show what
+  // a blocked range would take out. Not returned by the public list
+  // endpoint today. See ARCHITECTURE_ESSENTIALS.md.
+  appointment?: SlotAppointment | null;
+}
+
+/** Assumed projection of docforum-core's real `Appointment` model, scoped
+ * to what the availability calendar renders. */
+export interface SlotAppointment {
+  id: string;
+  status: AppointmentStatus;
+  // Assumed: expanded patient identity for the doctor's own calendar. The
+  // core model only carries `patientProfileId`.
+  patientFullName?: string;
+}
+
+/** Mirrors the real `POST /availability/doctors/:id/slots/generate` body —
+ * fixed-length, single-day, no recurrence (core ARCHITECTURE.md §6.3.6). */
+export interface SlotGenerationInput {
+  date: string; // 'YYYY-MM-DD'
+  startHour: number;
+  endHour: number;
+  slotLengthMinutes: number;
+}
+
+export interface SlotGenerationResult {
+  created: number;
+  skipped: number;
+  slots: AvailabilitySlot[];
+}
+
+/** Assumed (docforum-core#53 not landed): block a range. `conflicts` is the
+ * deliberate-handling list — the backend reports booked appointments inside
+ * the range rather than cancelling them. */
+export interface BlockRangeInput {
+  startTime: string;
+  endTime: string;
+  reason?: string;
+}
+
+export interface BlockRangeResult {
+  blockedSlotIds: string[];
+  conflicts: SlotAppointment[];
 }
 
 export interface PatientAppointment {
@@ -1475,4 +1638,166 @@ export interface SendMessageInput {
 export interface SignedDownloadUrl {
   url: string;
   expiresAt: string;
+}
+
+// --- Phase W4 — API keys & webhooks for facility integrations (issue #55,
+// docforum-core#125/#126) ----------------------------------------------------
+// Assumed: docforum-core#125 (API keys with HMAC signing) and #126 (signed
+// outbound webhooks) haven't landed. Shapes follow what those issues ask
+// for — prefix-only key display, one-time secret on creation, signed webhook
+// deliveries with redelivery. See ARCHITECTURE_ESSENTIALS.md "Known
+// assumptions — Phase W4".
+
+export interface FacilityApiKey {
+  id: string;
+  facilityId: string;
+  name: string;
+  /** Safe prefix shown in list, e.g. `df_live_a1b2…` — never the full secret. */
+  prefix: string;
+  /** Event scopes this key may access, e.g. `['orders.read']`. Empty = all. */
+  scopes: string[];
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+/** Returned only from the create call — the secret is never retrievable again. */
+export interface CreatedApiKey extends FacilityApiKey {
+  /** Full secret including prefix. Store nowhere client-side. */
+  secret: string;
+}
+
+export interface CreateApiKeyInput {
+  name: string;
+  scopes?: string[];
+}
+
+export type WebhookEventType =
+  | 'order.created'
+  | 'order.assigned'
+  | 'order.fulfilled'
+  | 'order.cancelled'
+  | 'payment.released'
+  | 'payment.refunded';
+
+export interface WebhookEndpoint {
+  id: string;
+  facilityId: string;
+  url: string;
+  events: WebhookEventType[];
+  /** Signing secret prefix (safe to display). Full secret shown once on create. */
+  secretPrefix: string;
+  active: boolean;
+  lastDeliveryAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Returned only from the create call — the signing secret is never retrievable again. */
+export interface CreatedWebhookEndpoint extends WebhookEndpoint {
+  /** Full HMAC signing secret. Store nowhere client-side. */
+  signingSecret: string;
+}
+
+export interface CreateWebhookInput {
+  url: string;
+  events: WebhookEventType[];
+}
+
+export type WebhookDeliveryStatus = 'pending' | 'success' | 'failed';
+
+export interface WebhookDelivery {
+  id: string;
+  endpointId: string;
+  event: WebhookEventType;
+  status: WebhookDeliveryStatus;
+  responseStatusCode: number | null;
+  /** Short error message when failed; null otherwise. */
+  errorMessage: string | null;
+  attemptCount: number;
+  deliveredAt: string | null;
+  createdAt: string;
+}
+
+export interface RedeliverResponse {
+  deliveryId: string;
+  status: WebhookDeliveryStatus;
+}
+
+// --- Phase W7 — Evaluated feature flags for the signed-in user (issue #111) --
+// Assumed shape pending docforum-core#132: `GET /me/flags` returns the
+// server-evaluated boolean for every flag that applies to this user. The
+// frontend never evaluates rollout rules itself. See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W7".
+
+export interface EvaluatedFlags {
+  /** Flag key → evaluated boolean. Unknown keys are ignored by typed UI. */
+  flags: Record<string, boolean>;
+  /** When docforum-core evaluated the flags, if it reports it. */
+  evaluatedAt?: string | null;
+}
+
+// --- Phase W7 — Notification preferences and quiet hours (issue #108) -------
+// Assumed shape pending docforum-core#99. Preferences are per notification
+// type × channel; safety-critical types are server-locked and always on.
+// See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W7".
+
+export type NotificationChannel = 'email' | 'sms' | 'in_app';
+
+export type NotificationType =
+  | 'appointment_reminders'
+  | 'appointment_changes'
+  | 'new_message'
+  | 'referral_updates'
+  | 'order_updates'
+  | 'payment_receipts'
+  | 'marketing'
+  | 'critical_lab_result'
+  | 'security_alert';
+
+export interface NotificationPreference {
+  type: NotificationType;
+  channel: NotificationChannel;
+  enabled: boolean;
+  /** Safety-critical rows can't be turned off, in the UI or the API. */
+  locked: boolean;
+  /** Why the row is locked; required when `locked` is true. */
+  lockedReason?: string | null;
+}
+
+export interface QuietHours {
+  enabled: boolean;
+  /** Local wall-clock HH:MM in `timeZone`. */
+  start: string;
+  end: string;
+  /** IANA zone the quiet-hours window is interpreted in. */
+  timeZone: string;
+}
+
+export interface NotificationPreferences {
+  preferences: NotificationPreference[];
+  quietHours: QuietHours;
+  updatedAt?: string;
+}
+
+export interface UpdateNotificationPreferencesInput {
+  preferences?: Array<Pick<NotificationPreference, 'type' | 'channel' | 'enabled'>>;
+  quietHours?: QuietHours;
+}
+
+// --- Types moved to the generated schema in the typed-client branch --------
+// Upstream declares these in the services that use them; the typed client
+// branch re-exports the generated shapes from here. Keep the local aliases so
+// both sets of imports resolve.
+export type HealthEntryUpdate = {
+  name?: string;
+  details?: string | null;
+};
+
+export interface CreatePaymentIntentInput {
+  orderType: OrderTypeForPayment;
+  orderId: string;
+  patientProfileId: string;
+  facilityId: string;
+  amountStroops: string;
 }

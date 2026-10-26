@@ -31,6 +31,10 @@ async function applyScenario(): Promise<AnyHttpResponse | null> {
   if (scenario === 'error') {
     return HttpResponse.json({ message: FORCED_ERROR_MESSAGE }, { status: 500 });
   }
+  if (scenario === 'network-once') {
+    useMockStore.getState().setScenario('normal');
+    return HttpResponse.error();
+  }
   return null;
 }
 

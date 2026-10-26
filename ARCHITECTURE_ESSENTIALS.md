@@ -5,6 +5,7 @@ Frontend-only quick reference. Full product/system architecture lives in
 those first if you're new to the org, not just this file.
 
 ## Stack
+
 - React + TypeScript + Vite
 - React Query for server state, Zustand for client-only UI state
 - No localStorage/sessionStorage for anything server-derived — treat
@@ -23,25 +24,20 @@ those first if you're new to the org, not just this file.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
-   — keep this shape.
+   — keep this shape. `src/i18n/` was added in Phase W7 for locale-aware
+   formatting and direction (issue #88); it is not a place for business
+   logic.
 
 ## Where things live
-- `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
-  the only place fetch/base-URL/error-envelope details live.
-- `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
-  mirror the same real/assumed contracts `src/services/` calls, over
-  obviously fake `example.test` fixtures. Loaded only behind the
-  `import.meta.env.DEV && VITE_ENABLE_MOCKS` guard in `main.tsx`, before
-  the first render; production bundles must never contain it — CI enforces
-  this via `npm run check:dist`. When an assumed contract in this file is
-  reconciled, update `src/mocks/` fixtures/handlers in the same PR.
-- `src/features/` — flow-specific logic (booking, referral-accept, order
-  fulfillment selection, etc.) — one feature folder per PRD core flow.
+
+- `src/services/` — API calls to `docforum-core`. `api-client.ts` is the only
+  place fetch/base-URL/credentials/auth/error-envelope details live.
+- `src/mocks/` — MSW mock API for `npm run dev:mock`. It is loaded only behind
+  the development guard in `main.tsx`; CI checks that mock code is absent from
+  production bundles.
+- `src/features/` — flow-specific logic.
 - `src/pages/` — route-level components.
-- `src/store/` — Zustand stores. `auth-store.ts` is intentionally
-  in-memory only (not persisted) — see hard rule about
-  localStorage/sessionStorage above; it applies to auth tokens too, not
-  just business data.
+- `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 
 ## Query keys & cache invalidation (issue #122)
 React Query caches everything this app fetches. Two files own the key
@@ -93,6 +89,7 @@ appointment list") until booking (#2) and the patient appointment list (#3)
 land and consume `appointmentKeys.list(profileId)`.
 
 ## Deployment
+
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
 - **Connected to a live backend as of 2026-09-14** —
@@ -181,6 +178,16 @@ endpoint paths, request/response shapes, a privacy-notice source, or wallet
 verification semantics. The boundary check in
 `scripts/check-stellar-boundary.mjs` guards the direct-network prohibition
 while that work remains outstanding.
+
+- **W7 browser suites (#91–#94)**: Playwright uses the existing `src/mocks/`
+  browser handlers and `example.test` fixtures. No new API shape is assumed.
+  Fraunces and IBM Plex Sans are served locally so visual baselines do not
+  depend on a third-party font response at test time.
+  Patient doctor search/booking/intake/appointments and doctor order issuance
+  screens are absent, so their browser journeys remain uncovered until those
+  routes exist. The existing mock payment intent uses the provisional W5
+  contract already documented below. Browser MSW startup is awaited before
+  the first React render to avoid an unmocked request race.
 
 - **Platform theming & preference storage**: Theme preferences (`light`, `dark`, or `high-contrast`) are saved in `localStorage` under the key `docforum-theme`. If no explicit choice is stored, the UI automatically falls back to system media queries (`prefers-color-scheme: dark` and `prefers-contrast: high`). A pre-hydration inline script in `index.html` inspects this state immediately to set the `data-theme` attribute on `<html>`, preventing pre-hydration white flash on load.
 
@@ -537,6 +544,33 @@ doctor account, this one decides each claimed doctor↔specialty pair.
 - `PATCH /admin/specialty-verifications/:id` (body: `{decision: 'approve' | 'reject', reason: string | null, expectedUpdatedAt}`) → the updated `SpecialtyClaim`. `reason` is **required for rejections** and shown to the doctor as what to fix or resubmit (server presumed to enforce this too — the mock does, with `422`); optional note on approval. `expectedUpdatedAt` is the claim's `updatedAt` as the admin saw it, so `409` means someone else reviewed it first. `409`/`404` close the dialog and refetch; `400`/`422` keep it open with the server's message; a network failure keeps it open and says a retry is safe (a duplicate comes back as `409`).
 - `GET /specialties` → `Specialty[]` — specialty catalog for the filter dropdown. Assumed from docforum-core#23 ("specialty catalog + `GET /doctors`"), which hasn't landed; on failure the dropdown falls back to the specialties present in the loaded claims.
 - **Out of scope by the issue's own rules:** bulk actions (each claim deserves a look). A claim with `credential: null` is still reviewable — the card calls out that approving is a judgement call and suggests asking for credentials or rejecting with what to upload.
+### Phase W7 — Notification preferences, SSE, time zones and evaluated flags
+
+These shapes back issues #108–#111. None of the corresponding backend
+contracts has landed yet (`docforum-core` #97, #99 and #132 are open), so
+everything below is assumed and mirrored in `models.ts` under "Phase W7".
+
+#### Notification preferences (issue #108, docforum-core#99)
+- `GET /notifications/preferences` (Bearer) → `NotificationPreferences` = `{preferences: NotificationPreference[], quietHours: QuietHours, updatedAt?}`. `NotificationPreference` = `{type, channel: 'email'|'sms'|'in_app', enabled, locked, lockedReason?}`. The server is expected to return the complete type × channel matrix; any missing row is filled from the role defaults in `features/notifications/preferences.ts`.
+- `PATCH /notifications/preferences` with either `{preferences: [{type, channel, enabled}]}` (only changed rows) or `{quietHours}` → the saved `NotificationPreferences`. `critical_lab_result` and `security_alert` are always on and `locked: true` on every channel; the UI cannot disable them and the API is expected to answer `422` if asked to. `marketing` defaults off.
+- `QuietHours` = `{enabled, start, end, timeZone}`, where `start`/`end` are wall-clock `HH:MM` interpreted in the IANA `timeZone`. The UI only validates the format and that start ≠ end; it does no offset arithmetic. Delivery suppression is entirely server-side.
+- Saves are optimistic. A failed save restores the previous cached snapshot and shows that it did; every outcome refetches the server state.
+
+#### Server-Sent Events (issue #109, docforum-core#97)
+- `GET /events` (`Accept: text/event-stream`, Bearer, optional `Last-Event-ID`) opens one stream per browser tab. The client uses `fetch`, not `EventSource`, because `EventSource` cannot attach the bearer token.
+- Event names routed into React Query are `notification.created`, `queue.updated`, `message.created` and `admin.alert`; `auth.expired` / `session.expired` trigger one refresh and reconnect. Unknown event names are still delivered to wildcard subscribers.
+- Heartbeat/comment lines are ignored. `id:` drives `Last-Event-ID`; `retry:` is honoured once, bounded to 30 s, then exponential backoff resumes (1 s, 2 s, … max 30 s). A transport `401` triggers one single-flight refresh; if it fails, the manager reports `error` and stops reconnecting.
+- The stream is ref-counted by subscribers and closes when the last one leaves. After the tab has been hidden for 60 s the connection is closed and re-opened on visibility. The replay cursor is held in memory only (lost on reload) and cleared when the signed-in user changes.
+
+#### Time zones (issue #110)
+- Client-only; no API contract. `TimeZoneProvider` stores an explicit IANA zone in `localStorage['docforum-time-zone']`, falling back to the browser zone and then UTC. Formatting is delegated to `Intl` through `src/i18n/time-zone.ts`; there is no manual offset arithmetic.
+- `DualZoneTime` shows a second zone only when it differs from the viewer's. `CareTimeline` reads the doctor's zone from `step.metadata.doctorTimeZone` (assumed metadata until the backend exposes it).
+- The issue names booking/appointment screens for dual-zone display, but this repo has no booking or appointment-list screen yet (see `ROADMAP.md` Phase W2), so only the reusable component and the care timeline are wired.
+
+#### Evaluated feature flags (issue #111, docforum-core#132)
+- `GET /me/flags` (Bearer) → `EvaluatedFlags` = `{flags: Record<string, boolean>, evaluatedAt?}`. Evaluation (role targeting, allowlist, percentage bucket) is entirely server-side; this repo only reads booleans.
+- The query is per user id, stale for 5 minutes. Missing, unknown or failed flags are `false`; a failed request never falls back to another user's cached values. `<Flag>` renders `loadingFallback` until the first answer and `fallback` when the flag is off/unavailable, so protected UI never flashes first.
+- Known flags are `notification_preferences` and `realtime_updates`; the backend may return more. The mock dev panel can override flags locally.
 
 ### Scan-to-verify orders with device camera (issue #52, docforum-core#71)
 - `POST /facilities/me/verify-order` (body: `{ token: string }`) → `VerifyOrderResponse`
@@ -554,6 +588,54 @@ doctor account, this one decides each claimed doctor↔specialty pair.
   - Escrow terms in plain language (releaser condition, refund deadline countdown).
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
+
+## Generated contract
+
+All API routes covered by this repository's typed client are declared in
+`packages/api-client/openapi/docforum-core.openapi.yaml`. The generated
+`@docforum/api-client` package owns the paths, request payloads, response
+schemas, error envelope shape, and BigInt-as-string payment fields. Run
+`npm run generate:api` after changing the fixture; `npm run typecheck` and
+`npm run build` run generation automatically.
+
+The following contracts are generated and are no longer frontend assumptions:
+
+- W2 dependents, health profile, data export, account deletion, care threads,
+  and facility finder.
+- W3 queue, messaging, consultation notes, and practice insights.
+- W4 facility members, invitations, and fulfillment attribution.
+- W5 custodial payment intents and wallet-link operations.
+
+`src/types/models.ts` re-exports generated schema types for compatibility with
+existing imports. Services call the generated client through
+`src/services/api-client.ts`, which remains the only owner of transport details
+and typed errors.
+
+## Known assumptions
+
+- Acting-for profile selection is frontend-only Zustand state. The selected
+  patient profile id is included in patient query keys and API calls.
+- The local OpenAPI fixture is vendored until docforum-core publishes the
+  versioned package described by docforum-core#113. CI compares its version
+  with the backend's published spec in warn-only mode.
+- Error code meanings are sourced from docforum-core#115. Unknown codes use a
+  generic localized message and request-id reference; raw server messages are
+  retained only for diagnostics.
+- W4 scan-to-verify and payout-ledger routes, plus W6 admin audit/access,
+  referral, system-health, and feature-flag routes, still have compatibility
+  types until their backend OpenAPI schemas are published. Their assumptions
+  are isolated in `src/types/models.ts` and the relevant service modules.
+- Theme preferences are stored under `docforum-theme` in local storage and
+  fall back to system media queries when unset.
+
+## Privacy and platform guarantees
+
+- `src/pwa/sw.ts` precaches only the app shell and static assets. It has no
+  runtime API caching route, so authenticated API responses never enter the
+  service-worker cache.
+- Logout clears app-owned caches while preserving static precache entries.
+- Facility-search location is transient browser memory only and is never
+  persisted to storage or URLs.
 
 ### Error monitoring (issue #100)
 

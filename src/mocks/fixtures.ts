@@ -5,6 +5,7 @@
 // shapes in src/types/models.ts (which mirror docforum-core's schema) —
 // see ARCHITECTURE_ESSENTIALS.md "Known assumptions" for which of those
 // shapes are still assumed contracts.
+import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
   Appointment,
   AuditEvent,
@@ -19,6 +20,7 @@ import type {
   DataExport,
   Dependent,
   DoctorPracticeInsights,
+  FacilityApiKey,
   FacilityInvite,
   FacilityMember,
   FacilityPerformanceInsights,
@@ -28,14 +30,18 @@ import type {
   HealthEntry,
   IntakeForm,
   DoctorMessageThread,
+  NotificationPreferences,
   PatientOrder,
   PaymentIntent,
   QualifiedOrderFacility,
+  Role,
   RunningDelay,
   SpecialtyClaim,
   User,
   VerificationStatus,
   WalletLink,
+  WebhookDelivery,
+  WebhookEndpoint,
 } from '../types/models';
 
 // --- Personas (one per role the dev panel can switch to) --------------------
@@ -101,6 +107,9 @@ export interface MockDb {
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
+  apiKeys: FacilityApiKey[];
+  webhookEndpoints: WebhookEndpoint[];
+  webhookDeliveries: WebhookDelivery[];
   patientOrders: PatientOrder[];
   orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
@@ -111,6 +120,7 @@ export interface MockDb {
   specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
   closures: Closure[];
+  notificationPreferences: Record<Role, NotificationPreferences>;
 }
 
 /** A doctor's verification application (issue #64's assumed queue/detail
@@ -218,6 +228,7 @@ export function createSeedDb(): MockDb {
           description: 'Demo fixture appointment with Dr. Ficticia Example.',
           status: 'completed',
           timestamp: '2026-10-01T09:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
         {
           id: 'st-demo-2',
@@ -261,6 +272,7 @@ export function createSeedDb(): MockDb {
           description: 'Demo fixture vaccination visit.',
           status: 'completed',
           timestamp: '2026-08-10T11:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
       ],
     },
@@ -882,6 +894,68 @@ export function createSeedDb(): MockDb {
     ],
   };
 
+  const apiKeys: FacilityApiKey[] = [
+    {
+      id: 'key-demo-1',
+      facilityId: FACILITY_ID,
+      name: 'Demo Lab Information System (fake)',
+      prefix: 'df_live_demo1234',
+      scopes: ['orders.read', 'orders.write'],
+      lastUsedAt: '2026-10-18T08:00:00.000Z',
+      revokedAt: null,
+      createdAt: '2026-09-20T09:00:00.000Z',
+    },
+    {
+      id: 'key-demo-2',
+      facilityId: FACILITY_ID,
+      name: 'Demo Inventory Sync (fake)',
+      prefix: 'df_live_demo5678',
+      scopes: [],
+      lastUsedAt: null,
+      revokedAt: null,
+      createdAt: '2026-10-01T09:00:00.000Z',
+    },
+  ];
+
+  const webhookEndpoints: WebhookEndpoint[] = [
+    {
+      id: 'whk-demo-1',
+      facilityId: FACILITY_ID,
+      url: 'https://lab.example.test/webhooks/docforum',
+      events: ['order.created', 'order.assigned', 'order.fulfilled'],
+      secretPrefix: 'whsec_demo',
+      active: true,
+      lastDeliveryAt: '2026-10-18T08:05:00.000Z',
+      createdAt: '2026-09-20T09:00:00.000Z',
+      updatedAt: '2026-10-10T09:00:00.000Z',
+    },
+  ];
+
+  const webhookDeliveries: WebhookDelivery[] = [
+    {
+      id: 'whd-demo-1',
+      endpointId: 'whk-demo-1',
+      event: 'order.created',
+      status: 'success',
+      responseStatusCode: 200,
+      errorMessage: null,
+      attemptCount: 1,
+      deliveredAt: '2026-10-18T08:05:00.000Z',
+      createdAt: '2026-10-18T08:05:00.000Z',
+    },
+    {
+      id: 'whd-demo-2',
+      endpointId: 'whk-demo-1',
+      event: 'order.fulfilled',
+      status: 'failed',
+      responseStatusCode: 500,
+      errorMessage: 'Mock API: simulated 500 from receiver',
+      attemptCount: 3,
+      deliveredAt: null,
+      createdAt: '2026-10-17T12:00:00.000Z',
+    },
+  ];
+
   const walletLink: WalletLink = {
     id: 'wln-demo-1',
     facilityId: FACILITY_ID,
@@ -889,7 +963,6 @@ export function createSeedDb(): MockDb {
     createdAt: '2026-09-20T09:00:00.000Z',
     updatedAt: '2026-09-20T09:00:00.000Z',
   };
-
   const paymentIntents: PaymentIntent[] = [
     {
       // Held in escrow — backs ord-demo-rx-102.
@@ -1425,6 +1498,13 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const notificationPreferences: Record<Role, NotificationPreferences> = {
+    patient: defaultPreferencesForRole('patient'),
+    doctor: defaultPreferencesForRole('doctor'),
+    facility: defaultPreferencesForRole('facility'),
+    admin: defaultPreferencesForRole('admin'),
+  };
+
   return {
     dependents,
     healthEntries,
@@ -1444,6 +1524,9 @@ export function createSeedDb(): MockDb {
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,
+    apiKeys,
+    webhookEndpoints,
+    webhookDeliveries,
     patientOrders,
     orderFacilities,
     walletLink,
@@ -1454,5 +1537,6 @@ export function createSeedDb(): MockDb {
     specialtyClaims,
     auditEvents,
     closures,
+    notificationPreferences,
   };
 }

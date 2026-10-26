@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../i18n/time-zone';
 import type { BackgroundJob, JobRun, OutboxSummary, ReadinessCheck, ReadinessStatus } from '../../types/models';
 
 /** Every status on the page maps onto one of these, so colours mean the same
@@ -194,11 +195,11 @@ export function formatRelative(iso: string, now: number): string {
   return relative.format(Math.trunc(delta / 60_000), 'minute');
 }
 
-/** Absolute timestamp for tooltips and `<time dateTime>`. */
-export function formatTimestamp(iso: string): string {
+/** Absolute timestamp for tooltips and `<time dateTime>`, in the user's zone. */
+export function formatTimestamp(iso: string, timeZone: string): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return iso;
-  return new Date(at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'medium' });
+  return formatDateTime(at, timeZone, { dateStyle: 'medium', timeStyle: 'medium' }, 'en-GB');
 }
 
 export function formatDuration(ms: number): string {

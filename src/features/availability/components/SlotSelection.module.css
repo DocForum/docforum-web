@@ -1,0 +1,121 @@
+.grid {
+  --slot-row-height: 1.75rem;
+  --day-header-height: 2.25rem;
+
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.dayColumn {
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 1fr);
+  column-gap: 0;
+  row-gap: 1px;
+  min-width: 5.5rem;
+  border-left: 1px solid var(--color-border);
+  padding-left: var(--space-1);
+}
+
+.dayHeader {
+  grid-row: 1;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: center;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: calc(var(--slot-row-height) - 2px);
+  padding: 0.2rem var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: grab;
+  overflow: hidden;
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+/* Status is carried by border style and a pattern glyph as well as colour. */
+.open {
+  border: 1px solid var(--color-border-strong);
+}
+
+.held {
+  border: 2px dashed var(--color-warning);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.booked {
+  border: 2px solid var(--color-accent-2);
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2-hover);
+}
+
+.selected {
+  box-shadow: 0 0 0 2px var(--color-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+.cellTime {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cellStatus {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cellPattern {
+  margin-right: 0.3rem;
+  font-weight: 700;
+}
+
+/* Day view: a single column is readable full width, stacked. */
+.grid[data-days='1'] {
+  flex-direction: column;
+  overflow-x: visible;
+}
+
+.grid[data-days='1'] .dayColumn {
+  min-width: 0;
+  flex: none;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+}
+
+@media (max-width: 700px) {
+  .grid {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .dayColumn {
+    min-width: 0;
+    flex: none;
+    width: 100%;
+    border-left: 0;
+    padding-left: 0;
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  }
+}
