@@ -6,8 +6,10 @@ import { Button } from '../components/Button';
 import { CommandPalette, CommandPaletteAction } from '../components/CommandPalette';
 import { ShortcutsHelp } from '../components/ShortcutsHelp';
 import { QueuePanel } from '../features/queue/components/QueuePanel';
+import { TodayAppointments } from '../features/doctor-today/components/TodayAppointments';
 import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
 import styles from './DoctorDashboardPage.module.css';
 
 export function DoctorDashboardPage() {
@@ -65,6 +67,26 @@ export function DoctorDashboardPage() {
         navigate('/doctor/consultation/new');
       },
     },
+    {
+      id: 'insights',
+      label: 'Open practice insights',
+      category: 'navigation',
+      shortcut: 'mod+4',
+      run: () => {
+        setPaletteOpen(false);
+        navigate('/doctor/insights');
+      },
+    },
+    {
+      id: 'abnormal-results',
+      label: 'Results needing review',
+      category: 'navigation',
+      shortcut: 'mod+5',
+      run: () => {
+        setPaletteOpen(false);
+        // No navigation needed; we'll show the section directly
+      },
+    },
   ];
 
   return (
@@ -73,6 +95,9 @@ export function DoctorDashboardPage() {
         <h1>Doctor dashboard</h1>
         <div className={styles.dashboardHeaderRight}>
           <UnreadBadge />
+          <Button variant="secondary" onClick={() => navigate('/doctor/insights')}>
+            Practice insights
+          </Button>
           <Button variant="secondary" onClick={() => setHelpOpen(true)}>
             Shortcuts (?)
           </Button>
@@ -83,15 +108,15 @@ export function DoctorDashboardPage() {
       </header>
 
       <QueuePanel />
+      <TodayAppointments />
 
       <div className={styles.dashboardGrid}>
         <section className={styles.card}>
-          <h2>Today\'s appointments</h2>
-          <p>Appointments for today open in the live queue once the patient checks in.</p>
-        </section>
-        <section className={styles.card}>
           <h2>Messages</h2>
           <DoctorInbox />
+        </section>
+        <section className={styles.card}>
+          <AbnormalResultsInbox />
         </section>
       </div>
 

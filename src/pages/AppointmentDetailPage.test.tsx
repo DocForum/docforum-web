@@ -1,17 +1,33 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { QueryClient } from '@tanstack/react-query';
 import { Link, Route, Routes } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
 import * as appointmentsService from '../services/appointments-service';
 import { useAuthStore } from '../store/auth-store';
-import type { Appointment, AvailabilitySlot, DoctorProfile } from '../types/models';
+import type { AppointmentQueue, AvailabilitySlot, DoctorProfile, PatientAppointment } from '../types/models';
 import { createQueryClient, render, screen, waitFor } from '../test/render';
 import { formatSlotDateTime } from '../features/appointments/slots';
 import { appointmentsKeys } from '../features/appointments/hooks/useAppointments';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
 
 vi.mock('../services/appointments-service');
+
+// The queue hook owns a poll timer, so the queue tests drive it directly: what
+// is being proved there is which *page states* mount a live queue at all.
+const queueHook = vi.hoisted(() => vi.fn());
+vi.mock('../features/appointments/hooks/useAppointmentQueue', () => ({
+  QUEUE_POLL_INTERVAL_MS: 15_000,
+  useAppointmentQueue: queueHook,
+  useCheckIn: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useQueueNotification: () => ({
+    permission: 'unsupported',
+    canNotify: false,
+    canRequest: false,
+    requestPermission: vi.fn(),
+    notify: vi.fn(),
+  }),
+}));
 
 function makeSlot(id: string, startIso: string): AvailabilitySlot {
   return {
@@ -25,7 +41,7 @@ function makeSlot(id: string, startIso: string): AvailabilitySlot {
   };
 }
 
-function makeAppointment(slot: AvailabilitySlot, overrides: Partial<Appointment> = {}): Appointment {
+function makeAppointment(slot: AvailabilitySlot, overrides: Partial<PatientAppointment> = {}): PatientAppointment {
   return {
     id: 'appt-1',
     patientProfileId: 'pp-1',
@@ -60,6 +76,42 @@ const ORIGINAL_TIME = formatSlotDateTime(CURRENT_SLOT);
 
 const NEW_SLOT: AvailabilitySlot = { ...makeSlot('slot-new', isoInDays(8, 14)), status: 'open' };
 
+const NOW = new Date('2026-10-16T12:00:00Z');
+
+const QUEUE: AppointmentQueue = {
+  appointmentId: 'apt-1',
+  phase: 'waiting',
+  peopleAhead: 2,
+  estimatedWaitMinutes: 9,
+  checkInOpensAt: null,
+  checkedInAt: '2026-10-16T11:40:00Z',
+};
+
+function appointment(overrides: Partial<PatientAppointment> = {}): PatientAppointment {
+  const slotStart = new Date(NOW.getTime() + 2 * 60 * 60 * 1000);
+  const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
+  return {
+    id: 'apt-1',
+    patientProfileId: 'pp-1',
+    doctorProfileId: 'dp-1',
+    availabilitySlotId: 'slot-1',
+    status: 'scheduled',
+    origin: 'direct_booking',
+    createdAt: '2026-10-13T09:00:00Z',
+    updatedAt: '2026-10-13T09:00:00Z',
+    availabilitySlot: {
+      id: 'slot-1',
+      doctorProfileId: 'dp-1',
+      status: 'booked',
+      startTime: slotStart.toISOString(),
+      endTime: slotEnd.toISOString(),
+      createdAt: '2026-10-01T09:00:00Z',
+      updatedAt: '2026-10-01T09:00:00Z',
+    },
+    ...overrides,
+  };
+}
+
 function renderPage({ queryClient }: { queryClient: QueryClient } = { queryClient: createQueryClient() }) {
   const result = render(
     <Routes>
@@ -70,6 +122,16 @@ function renderPage({ queryClient }: { queryClient: QueryClient } = { queryClien
   return { ...result, queryClient };
 }
 
+function renderAt(path: string) {
+  const queryClient = createQueryClient();
+  return render(
+    <Routes>
+      <Route path="/patient/appointments/:appointmentId" element={<AppointmentDetailPage />} />
+    </Routes>,
+    { route: path, queryClient },
+  );
+}
+
 describe('AppointmentDetailPage', () => {
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'test-token', user: null });
@@ -77,6 +139,14 @@ describe('AppointmentDetailPage', () => {
     vi.mocked(appointmentsService.getDoctorProfile).mockReset();
     vi.mocked(appointmentsService.getOpenSlots).mockReset();
     vi.mocked(appointmentsService.rescheduleAppointment).mockReset();
+    queueHook.mockReset();
+    queueHook.mockReturnValue({
+      data: QUEUE,
+      error: null,
+      isError: false,
+      isFetching: false,
+      dataUpdatedAt: Date.now(),
+    } as never);
   });
 
   it('shows the clinician, time, status, intake summary and actions', async () => {
@@ -265,5 +335,97 @@ describe('AppointmentDetailPage', () => {
     // appointment — back/forward must not leave it sitting on this one.
     expect(screen.queryByRole('heading', { name: 'Reschedule this appointment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Review change' })).not.toBeInTheDocument();
+  });
+
+  describe('visit-day queue states (care hub)', () => {
+    beforeEach(() => {
+      // The page reads the wall clock for "is this visit today", so the clock is
+      // frozen to NOW. Only Date is faked — waitFor still runs on real timers.
+      vi.useFakeTimers({ now: NOW.getTime(), toFake: ['Date'] });
+      queueHook.mockReturnValue({
+        data: QUEUE,
+        error: null,
+        isError: false,
+        isFetching: false,
+        dataUpdatedAt: NOW.getTime(),
+      } as never);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('names the day and the time of the visit', async () => {
+      vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment()]);
+
+      renderAt('/patient/appointments/apt-1');
+
+      expect(await screen.findByText(/today at \d{2}:\d{2}/i)).toBeInTheDocument();
+      expect(screen.getByText(/scheduled until/i)).toBeInTheDocument();
+    });
+
+    it('shows the live queue on the day of the visit', async () => {
+      vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment()]);
+
+      renderAt('/patient/appointments/apt-1');
+
+      expect(await screen.findByText(/2 people ahead of you/i)).toBeInTheDocument();
+      expect(screen.getByText(/about 9 min \(estimate\)/i)).toBeInTheDocument();
+    });
+
+    it.each(['checked_in', 'in_progress'] as const)(
+      'keeps the live queue visible for a visit that is %s',
+      async (status) => {
+        // The doctor-side flow added these two statuses to AppointmentStatus. A
+        // patient already in the queue must not be told there is "nothing to
+        // check in to".
+        vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment({ status })]);
+
+        renderAt('/patient/appointments/apt-1');
+
+        expect(await screen.findByText(/2 people ahead of you/i)).toBeInTheDocument();
+        expect(screen.queryByText(/nothing to check in to/i)).not.toBeInTheDocument();
+      },
+    );
+
+    it('does not start reading the queue before the day of the visit', async () => {
+      const later = appointment();
+      later.availabilitySlot.startTime = new Date(NOW.getTime() + 26 * 60 * 60 * 1000).toISOString();
+      vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([later]);
+
+      renderAt('/patient/appointments/apt-1');
+
+      expect(await screen.findByText(/check-in opens on the day of your visit/i)).toBeInTheDocument();
+      expect(queueHook).not.toHaveBeenCalled();
+    });
+
+    it('says a cancelled visit has nothing to check in to', async () => {
+      vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment({ status: 'cancelled' })]);
+
+      renderAt('/patient/appointments/apt-1');
+
+      expect(await screen.findByText(/was cancelled, so there is nothing to check in to/i)).toBeInTheDocument();
+      expect(queueHook).not.toHaveBeenCalled();
+    });
+
+    it('explains an appointment id that is not on this account', async () => {
+      vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment()]);
+
+      renderAt('/patient/appointments/apt-999');
+
+      expect(await screen.findByText(/couldn.t find that appointment/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /back to your care summary/i })).toHaveAttribute(
+        'href',
+        '/patient',
+      );
+    });
+
+    it('surfaces a failed appointments request', async () => {
+      vi.mocked(appointmentsService.listMyAppointments).mockRejectedValue(new ApiError('Appointment service is down.', 503));
+
+      renderAt('/patient/appointments/apt-1');
+
+      expect(await screen.findByText(/appointment service is down/i)).toBeInTheDocument();
+    });
   });
 });

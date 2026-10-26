@@ -1,3 +1,6 @@
+/* Union of the appointment detail styles from issue #14 (detail + reschedule)
+   and the care-hub visit view (#138): the merged page renders both sections. */
+
 .page {
   display: flex;
   flex-direction: column;
@@ -20,11 +23,33 @@
   margin: 0;
 }
 
+.title {
+  text-wrap: balance;
+}
+
+.when {
+  font-size: var(--text-base);
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
+}
+
+.until {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+}
+
+.detail {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 .loading {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
@@ -118,6 +143,21 @@
 
 .notes {
   margin: 0;
+  font-size: var(--text-sm);
+}
+
+.notice {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin: var(--space-4) 0 0;
+  max-width: none;
+}
+
+.back {
+  margin: var(--space-6) 0 0;
   font-size: var(--text-sm);
 }
 

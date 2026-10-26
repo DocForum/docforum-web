@@ -20,6 +20,33 @@ to actually do anything: run `docforum-core`'s backend yourself (see its
 `CONTRIBUTING.md`), or point `VITE_API_BASE_URL` at a hosted instance.
 `npm run dev` defaults to `http://localhost:4000`.
 
+### Run with no backend at all: the mock API
+
+`npm run dev:mock` starts the same Vite dev server with an
+[MSW](https://mswjs.io)-backed mock of every endpoint the app calls —
+no `docforum-core` needed:
+
+- **Role switcher** — jump straight into the patient, doctor, facility or
+  admin experience (seeded personas with obviously fake data, all
+  `@example.test` emails). Logging in through the real login screen works
+  too; any email logs you in as the selected role.
+- **Scenarios** — toggle empty datasets and forced 500s to see empty and
+  error states without hand-crafting backend conditions.
+- **Latency** — delay every response (0–3 s) to check loading states.
+- **Reset data** — restore the fixture database after in-session
+  mutations (nothing is persisted; fixtures reset on reload).
+
+Mock handlers live in `src/mocks/` and sit on top of the fixtures in
+`src/mocks/fixtures.ts`. The app still reaches them through the normal
+service layer (`src/services/`), so screens behave exactly as they do
+against the real API. Mock code is excluded from production builds, and
+CI fails if it ever leaks (`npm run check:dist`).
+
+**When you add a service call to a new endpoint**, add a handler and
+fixtures in `src/mocks/` in the same PR, and cover it in
+`src/mocks/handlers.test.ts` — that's what keeps `dev:mock` honest as the
+API grows.
+
 ## 2. Find something to work on
 
 Open issues are scoped, real, and tagged with a complexity/point value
@@ -48,7 +75,12 @@ scoped (and why).
   `docforum-core` contributor eventually building the real endpoint)
   knows what to match or revise.
 - If your change starts, completes, or blocks a roadmap-tracked item,
-  update `ROADMAP.md` in the same PR.
+  tick or update that item's line in `ROADMAP.md` and add a changelog
+  entry as a new file in `changelog.d/`, in the same PR. Don't append to
+  the end of `ROADMAP.md`; that is what made every PR conflict. See
+  `changelog.d/README.md`.
+- Keep doc edits to your own lines: add rows and lines, don't rewrite
+  other people's paragraphs. See `AGENTS.md` → "Shared docs".
 - Run `npm run typecheck && npm run test && npm run build` locally —
   this is exactly what CI checks.
 

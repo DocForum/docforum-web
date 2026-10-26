@@ -1,12 +1,19 @@
-// React Query keys + reads for the appointment detail page (issue #14).
+// React Query keys + reads for appointments.
 //
-// One namespace (`appointments`) so a single prefix can never drift out of
-// sync with the nested keys, and so the list, detail and slot reads can each be
-// invalidated deliberately — the reschedule flow needs exactly that control
-// (see useReschedule: list + detail on success, slots only on 409).
+// Two key families coexist deliberately:
+//  - `APPOINTMENTS_KEY` (from the shared `appointmentKeys`) is the care hub's
+//    list of every upcoming visit.
+//  - `appointmentsKeys` is the appointment detail page's namespace (issue #14):
+//    one prefix so it can never drift out of sync with the nested keys, and so
+//    the list, detail and slot reads can each be invalidated deliberately —
+//    the reschedule flow needs exactly that control (see useReschedule: list +
+//    detail on success, slots only on 409).
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { appointmentKeys } from '../../../query-keys';
+
+export const APPOINTMENTS_KEY = appointmentKeys.mine();
 
 export const appointmentsKeys = {
   all: ['appointments'] as const,
@@ -18,7 +25,7 @@ export const appointmentsKeys = {
   doctor: (doctorProfileId: string) => ['appointments', 'doctor', doctorProfileId] as const,
 };
 
-/** The real `GET /appointments/mine`.
+/** The real `GET /appointments/mine` (the care hub's "Coming up" feed).
  * `keepPreviousData`: a refetch must never flash an empty list — the patient
  * always keeps seeing the appointments they already had while a fresh read is
  * in flight (the "never zero appointments mid-reschedule" constraint). */
@@ -26,8 +33,8 @@ export function useMyAppointments() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: appointmentsKeys.list,
-    queryFn: () => appointmentsService.listMyAppointments(accessToken!),
+    queryKey: APPOINTMENTS_KEY,
+    queryFn: ({ signal }) => appointmentsService.listMyAppointments(accessToken!, signal),
     enabled: Boolean(accessToken),
     placeholderData: keepPreviousData,
   });

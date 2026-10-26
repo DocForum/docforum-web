@@ -6,13 +6,11 @@ import {
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatTime } from '../../../i18n/time-zone';
 import styles from './QueuePanel.module.css';
-
-function formatTime(iso: string | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 function statusLabel(status: string) {
   return {
@@ -23,6 +21,7 @@ function statusLabel(status: string) {
 }
 
 export function QueuePanel() {
+  const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
   const { data: delay } = useRunningDelay();
@@ -30,6 +29,7 @@ export function QueuePanel() {
 
   const [overrideMin, setOverrideMin] = useState('');
   const [undoTarget, setUndoTarget] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const byPosition = [...queue].sort((a, b) => a.queuePosition - b.queuePosition);
 
@@ -89,7 +89,7 @@ export function QueuePanel() {
                 <tr key={entry.appointmentId} className={styles.row}>
                   <td className={styles.pos}>{entry.queuePosition}</td>
                   <td>{entry.fullName}</td>
-                  <td>{formatTime(entry.checkedInAt)}</td>
+                  <td>{formatTime(entry.checkedInAt, timeZone)}</td>
                   <td>
                     <span className={styles.statusPill} data-status={entry.status}>
                       {statusLabel(entry.status)}
@@ -122,6 +122,14 @@ export function QueuePanel() {
                       </Button>
                     )}
                     {entry.status === 'completed' && <span className={styles.done}>Done</span>}
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        navigate(`/doctor/patient-chart/${entry.patientProfileId}`);
+                      }}
+                    >
+                      Chart
+                    </Button>
                   </td>
                 </tr>
               );

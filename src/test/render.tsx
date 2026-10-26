@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { render as rtlRender } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 
 /** Same defaults the app gets in tests (no retries — a rejected mock should
  * surface immediately, not after three escalating waits). Exported so a test
@@ -22,7 +23,9 @@ export interface RenderOptions {
 function AllProviders({ children, queryClient, route }: { children: ReactNode } & Required<RenderOptions>) {
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+      <TimeZoneProvider>
+        <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+      </TimeZoneProvider>
     </QueryClientProvider>
   );
 }

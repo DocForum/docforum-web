@@ -1,30 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/useConsultationNote';
+import { useAppointment } from "../../appointment/hooks/useAppointment";
+import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
 import styles from './ConsultationNote.module.css';
 
-function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const NOTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+};
 
 interface ConsultationNoteProps {
   appointmentId?: string;
 }
 
 export function ConsultationNote({ appointmentId: appointmentIdProp }: ConsultationNoteProps) {
+  const { timeZone } = useTimeZone();
   const params = useParams<{ appointmentId: string }>();
   const appointmentId = appointmentIdProp ?? params.appointmentId;
   const query = useConsultationNote(appointmentId ?? null);
   const signOff = useSignOffNote();
   const addAddendum = useAddAddendum();
+  const appointmentQuery = useAppointment(appointmentId ?? "");
+  const navigate = useNavigate();
 
   const [draft, setDraft] = useState(query.data?.content ?? '');
   const [addendumContent, setAddendumContent] = useState('');
@@ -82,14 +87,22 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   return (
     <section className={styles.note}>
       <header className={styles.noteHeader}>
-        <h2>Consultation note</h2>
+        <h1>Consultation note</h1>
         <span className={styles.status}>
           {signed ? 'Signed · locked' : 'Draft'}
         </span>
         {note.autoSignOffAt && !signed && (
           <span className={styles.deadline}>
-            Auto sign-off: {formatDateTime(note.autoSignOffAt)}
+            Auto sign-off: {formatZonedDateTime(note.autoSignOffAt, timeZone, NOTE_TIME_OPTIONS)}
           </span>
+        )}
+        {appointmentQuery.data?.patientProfileId && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/doctor/patient-chart/${appointmentQuery.data.patientProfileId}`)}
+          >
+            View patient chart
+          </Button>
         )}
       </header>
 
@@ -115,6 +128,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               {editing ? (
                 <>
                   <textarea
+                    aria-label="Consultation note draft"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}
@@ -145,9 +159,9 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
       ) : (
         <>
           <div className={styles.contentReadOnly}>{note.content}</div>
-          <div className={styles.signedBadge}>Signed {formatDateTime(note.signedAt)}</div>
+          <div className={styles.signedBadge}>Signed {formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS)}</div>
 
-          <h3 className={styles.addendaHeading}>Addenda</h3>
+          <h2 className={styles.addendaHeading}>Addenda</h2>
           <div className={styles.addendumComposer}>
             <textarea
               value={addendumContent}
@@ -169,7 +183,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
               <li key={addendum.id} className={styles.addendumItem}>
                 <p className={styles.addendumContent}>{addendum.content}</p>
                 <span className={styles.addendumMeta}>
-                  {formatDateTime(addendum.createdAt)}
+                  {formatZonedDateTime(addendum.createdAt, timeZone, NOTE_TIME_OPTIONS)}
                 </span>
               </li>
             ))}
@@ -181,6 +195,10 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
           </ul>
         </>
       )}
+
+      {appointmentId ? (
+        <ConsultationOutcomePanel appointmentId={appointmentId} notes={draft} />
+      ) : null}
     </section>
   );
 }

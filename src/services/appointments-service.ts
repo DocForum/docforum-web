@@ -1,20 +1,34 @@
-// Appointments service (Phase W2, issue #14 — detail page + atomic reschedule).
-// All calls route through docforum-core's API per ARCHITECTURE_ESSENTIALS.md
-// hard rule 1; `api-client.ts` stays the only place HTTP details live.
+// Appointments calls to docforum-core.
 //
-// Real (docforum-core Phase 1, docs/api/README.md):
-//   GET  /appointments/mine
-//   GET  /availability/doctors/:doctorProfileId/slots
-// Assumed (documented in ARCHITECTURE_ESSENTIALS.md "Known assumptions"):
-//   POST /appointments/:id/reschedule   — docforum-core#55 (open)
-//   GET  /doctors/:doctorProfileId      — docforum-core#23 (open)
+// `GET /appointments/mine` is REAL (its appointments/routes +
+// appointments/repositories, which include the availability slot). The two
+// check-in/queue calls are an assumed contract against docforum-core#129,
+// which has not landed — see ARCHITECTURE_ESSENTIALS.md "Known assumptions".
+//
+// Nothing here needs the patient's own `patientProfileId`: core scopes
+// `/appointments/mine` from the session, which is why the patient-facing
+// endpoints in #32/#34/#37 are all built as `me`-scoped calls (the frontend
+// has no way to learn that id — documented gap).
+//
+// Additional reads/writes for the appointment detail page (issue #14):
+//   GET  /availability/doctors/:doctorProfileId/slots        (real)
+//   POST /appointments/:id/reschedule                        (assumed, core#55)
+//   GET  /doctors/:doctorProfileId                           (assumed, core#23)
 import { apiFetch } from './api-client';
-import type { Appointment, AvailabilitySlot, DoctorProfile } from '../types/models';
+import type { AppointmentQueue, AvailabilitySlot, DoctorProfile, PatientAppointment } from '../types/models';
 
-/** Caller's own appointments, newest first, `availabilitySlot` included.
- * Note: the real payload carries no clinician name — see `getDoctorProfile`. */
-export function listMyAppointments(accessToken: string): Promise<Appointment[]> {
-  return apiFetch<Appointment[]>('/appointments/mine', { accessToken });
+export function listMyAppointments(accessToken: string, signal?: AbortSignal): Promise<PatientAppointment[]> {
+  return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken, signal });
+}
+
+/** assumed (core#129) */
+export function getAppointmentQueue(appointmentId: string, accessToken: string, signal?: AbortSignal): Promise<AppointmentQueue> {
+  return apiFetch<AppointmentQueue>(`/appointments/${appointmentId}/queue`, { accessToken, signal });
+}
+
+/** assumed (core#129) */
+export function checkIn(appointmentId: string, accessToken: string): Promise<AppointmentQueue> {
+  return apiFetch<AppointmentQueue>(`/appointments/${appointmentId}/check-in`, { method: 'POST', accessToken });
 }
 
 /** The same doctor's open, future slots, ascending. Public by design — the
@@ -41,8 +55,8 @@ export function rescheduleAppointment(
   appointmentId: string,
   newSlotId: string,
   accessToken: string,
-): Promise<Appointment> {
-  return apiFetch<Appointment>(`/appointments/${appointmentId}/reschedule`, {
+): Promise<PatientAppointment> {
+  return apiFetch<PatientAppointment>(`/appointments/${appointmentId}/reschedule`, {
     method: 'POST',
     body: { newSlotId },
     accessToken,
