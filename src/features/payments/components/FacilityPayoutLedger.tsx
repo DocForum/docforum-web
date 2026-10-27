@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { transactionUrl } from '../explorer';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
@@ -10,8 +15,9 @@ interface FacilityPayoutLedgerProps {
 export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayoutLedgerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const { timeZone } = useTimeZone();
 
-  const { data, isLoading, error } = useFacilityLedger(facilityId, {
+  const { data, isLoading, error, refetch } = useFacilityLedger(facilityId, {
     status: statusFilter,
     asset: assetFilter,
   });
@@ -137,16 +143,14 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
         </div>
       </div>
 
-      {isLoading && (
-        <div role="status" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-          Loading facility payout ledger…
-        </div>
-      )}
+      {isLoading && <Skeleton lines={5} height="1.5rem" label="Loading facility payout ledger" />}
 
       {error && (
-        <div role="alert" style={{ padding: 'var(--space-4)', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 'var(--radius-md)' }}>
-          Failed to load payout ledger: {error.message}
-        </div>
+        <InlineError
+          title="The payout ledger couldn't be loaded"
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {!isLoading && !error && (
@@ -207,7 +211,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           <span className={styles.releaserTag}>Releaser:</span> {entry.terms.releaserDescription}
                         </div>
                         <div className={styles.termsText}>
-                          <strong>Refund cutoff:</strong> {new Date(entry.terms.refundDeadline).toLocaleString()}
+                          <strong>Refund cutoff:</strong> {formatDateTime(entry.terms.refundDeadline, timeZone)}
                           {entry.status === 'held' && (
                             <span> ({entry.terms.hoursUntilRefund}h remaining)</span>
                           )}
@@ -225,7 +229,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <a
-                            href={`https://stellar.expert/explorer/testnet/tx/${entry.fundTxHash}`}
+                            href={transactionUrl(entry.fundTxHash) ?? undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.explorerLink}
@@ -235,7 +239,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           </a>
                           {entry.releaseTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.releaseTxHash}`}
+                              href={transactionUrl(entry.releaseTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}
@@ -246,7 +250,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           )}
                           {entry.refundTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.refundTxHash}`}
+                              href={transactionUrl(entry.refundTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}

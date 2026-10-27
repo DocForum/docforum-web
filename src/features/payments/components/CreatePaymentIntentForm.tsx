@@ -1,73 +1,97 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { TextField } from '../../../components/TextField';
+import { Controller, FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
-import { ApiError } from '../../../services/api-client';
+import { FormField } from '../../../components/form/FormField';
+import { useZodForm } from '../../../hooks/useZodForm';
+import { mapServerErrors } from '../../../utils/form';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useCreatePaymentIntent } from '../hooks/usePaymentIntent';
-import type { OrderTypeForPayment } from '../../../types/models';
+import { z } from 'zod';
+import { ApiError } from '../../../services/api-client';
 
 /**
  * v1 (docforum-core docs/adr/0004 "Consequences"): there's no
- * FulfillmentRecord yet to create a PaymentIntent automatically from, so
+ * patient-order table yet, so there's nothing to pick an intent from —
  * this is an explicit admin action with free-text order fields rather
  * than a picker over real orders — Phase 4 doesn't exist yet either.
  */
-export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: string) => void }) {
-  const [orderType, setOrderType] = useState<OrderTypeForPayment>('lab_order');
-  const [orderId, setOrderId] = useState('');
-  const [patientProfileId, setPatientProfileId] = useState('');
-  const [facilityId, setFacilityId] = useState('');
-  const [amountStroops, setAmountStroops] = useState('');
-  const createMutation = useCreatePaymentIntent();
+const createPaymentIntentSchema = z.object({
+  orderType: z.enum(['lab_order', 'prescription']),
+  orderId: z.string().trim().min(1, 'Order id is required.'),
+  patientProfileId: z.string().trim().min(1, 'Patient profile id is required.'),
+  facilityId: z.string().trim().min(1, 'Facility id is required.'),
+  amountStroops: z.string().trim().min(1, 'Amount (stroops) is required.'),
+});
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    createMutation.mutate(
-      { orderType, orderId, patientProfileId, facilityId, amountStroops },
-      { onSuccess: (intent) => onCreated(intent.id) },
-    );
+type CreatePaymentIntentFormData = z.infer<typeof createPaymentIntentSchema>;
+
+export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: string) => void }) {
+  const form = useZodForm(createPaymentIntentSchema, {
+    orderType: 'lab_order',
+    orderId: '',
+    patientProfileId: '',
+    facilityId: '',
+    amountStroops: '',
+  });
+  const createMutation = useCreatePaymentIntent();
+  const errorMessage = useErrorMessage();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  async function onSubmit(data: CreatePaymentIntentFormData) {
+    setServerError(null);
+    try {
+      const intent = await createMutation.mutateAsync(data);
+      onCreated(intent.id);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const fieldErrors = mapServerErrors(error.body);
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.entries(fieldErrors).forEach(([field, message]) => {
+            form.setError(field as keyof CreatePaymentIntentFormData, { message });
+          });
+          return;
+        }
+      }
+      setServerError(errorMessage(error));
+    }
   }
 
-  const submitError =
-    createMutation.error instanceof ApiError
-      ? createMutation.error.message
-      : createMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
-
   return (
-    <form onSubmit={handleSubmit} noValidate className="card">
-      <h2>Create payment intent</h2>
-      <FormError message={submitError} />
+    <FormProvider {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="card">
+        <h2>Create payment intent</h2>
+        <FormError message={serverError} />
 
-      <label>
-        Order type
-        <select value={orderType} onChange={(e) => setOrderType(e.target.value as OrderTypeForPayment)}>
-          <option value="lab_order">Lab order</option>
-          <option value="prescription">Prescription</option>
-        </select>
-      </label>
+        <Controller
+          control={form.control}
+          name="orderType"
+          defaultValue="lab_order"
+          render={({ field }) => (
+            <label>
+              Order type
+              <select {...field}>
+                <option value="lab_order">Lab order</option>
+                <option value="prescription">Prescription</option>
+              </select>
+            </label>
+          )}
+        />
 
-      <TextField label="Order id" value={orderId} onChange={(e) => setOrderId(e.target.value)} required />
-      <TextField
-        label="Patient profile id"
-        value={patientProfileId}
-        onChange={(e) => setPatientProfileId(e.target.value)}
-        required
-      />
-      <TextField label="Facility id" value={facilityId} onChange={(e) => setFacilityId(e.target.value)} required />
-      <TextField
-        label="Amount (stroops)"
-        inputMode="numeric"
-        value={amountStroops}
-        onChange={(e) => setAmountStroops(e.target.value)}
-        required
-      />
+        <FormField name="orderId" label="Order id" />
+        <FormField name="patientProfileId" label="Patient profile id" />
+        <FormField name="facilityId" label="Facility id" />
+        <FormField
+          name="amountStroops"
+          label="Amount (stroops)"
+          inputMode="numeric"
+          hint="Minor units, e.g. 10000000 = 1.00 XLM."
+        />
 
-      <Button type="submit" loading={createMutation.isPending}>
-        {createMutation.isPending ? 'Creating…' : 'Create'}
-      </Button>
-    </form>
+        <Button type="submit" loading={createMutation.isPending}>
+          {createMutation.isPending ? 'Creating…' : 'Create'}
+        </Button>
+      </form>
+    </FormProvider>
   );
 }

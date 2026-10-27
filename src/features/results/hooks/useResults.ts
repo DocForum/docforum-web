@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as resultsService from '../../../services/results-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { resultKeys } from '../../../query-keys';
 import type { AbnormalResult } from '../../../types/models';
 
-const PENDING_ABNORMAL_RESULTS_KEY = ['doctor', 'results', 'pending-abnormal'] as const;
+const PENDING_ABNORMAL_RESULTS_KEY = resultKeys.pendingAbnormal();
 
 export function usePendingAbnormalResults() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
     queryKey: PENDING_ABNORMAL_RESULTS_KEY,
-    queryFn: () => resultsService.listPendingAbnormalResults(accessToken!),
+    queryFn: ({ signal }) => resultsService.listPendingAbnormalResults(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: 30000,
   });

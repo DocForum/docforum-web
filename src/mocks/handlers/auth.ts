@@ -1,6 +1,6 @@
 // Auth endpoints (signup / login / logout / claim-account).
 import { http, HttpResponse } from 'msw';
-import { ADMIN_USER, DOCTOR_USER, FACILITY_USER, MOCK_ACCESS_TOKEN, PATIENT_USER } from '../fixtures';
+import { ADMIN_USER, DOCTOR_USER, FACILITY_USER, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_USER } from '../fixtures';
 import { respond } from '../helpers';
 import { useMockStore } from '../mock-store';
 import type { Role, User } from '../../types/models';
@@ -23,7 +23,13 @@ export function personaByEmail(email: string): User | undefined {
 }
 
 function sessionFor(user: User) {
-  return { user, accessToken: MOCK_ACCESS_TOKEN };
+  return { user, accessToken: MOCK_ACCESS_TOKEN, csrfToken: MOCK_CSRF_TOKEN };
+}
+
+/** Mirrors docforum-core's cookie-only refresh: returns the current mock
+ * persona session (the dev bootstrap always signs one in first). */
+export function mockSessionForRole(role: Role) {
+  return sessionFor(PERSONAS[role]);
 }
 
 export const authHandlers = [
@@ -73,7 +79,24 @@ export const authHandlers = [
   http.post('*/auth/logout', respond('void', () => null)),
 
   http.post(
+    '*/auth/refresh',
+    respond('json', () => sessionFor(PERSONAS[useMockStore.getState().activeRole])),
+  ),
+
+  http.post(
     '*/auth/claim-account',
     respond('void', () => null),
+  ),
+
+  // Session idle-timeout settings (issue #82) — role-aware like the real
+  // backend is expected to be (ARCHITECTURE_ESSENTIALS.md "Known
+  // assumptions — Session idle timeout").
+  http.get(
+    '*/auth/session-timeout',
+    respond('json', () => {
+      const role = useMockStore.getState().activeRole;
+      const idleTimeoutMinutes = role === 'admin' ? 10 : role === 'patient' ? 30 : 15;
+      return { idleTimeoutMinutes, warningSeconds: 60 };
+    }),
   ),
 ];
