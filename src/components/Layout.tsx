@@ -97,6 +97,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
       { to: '/facility/verify', label: 'Verify Order', roles: ['facility'] },
       { to: '/facility/team', label: 'Team', roles: ['facility'], messageId: 'nav.team' },
       { to: '/facility/payments', label: 'Payouts', roles: ['facility'] },
+      { to: '/facility/integrations', label: 'Integrations', roles: ['facility'] },
     );
   } else if (userRole === 'admin') {
     base.push(
