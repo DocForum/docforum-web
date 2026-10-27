@@ -584,3 +584,164 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   shipped a static-only installable PWA with prompted updates; and added
   lazy ICU locale bundles with CI validation. Full validation is recorded in
   the pull request.
+- 2026-10-20 — Contributing: changelog entries now go in `changelog.d/` (one new file per
+  PR) instead of being appended to this section, which used to put most open
+  PRs into merge conflict on every merge. Maintainers fold them in with
+  `node scripts/fold-changelog.mjs`. Also dropped the hard-coded test count
+  from the README and documented the "edit only your own lines" rule in
+  `AGENTS.md` and `CONTRIBUTING.md`. The conflict notifier now points authors
+  at `changelog.d/`.
+- 2026-10-21 — Phase W7: platform quality — data table, print/PDF, privacy-preserving
+  analytics and a configurable router
+  ([issue #116](https://github.com/DocForum/docforum-web/issues/116),
+  [#117](https://github.com/DocForum/docforum-web/issues/117),
+  [#118](https://github.com/DocForum/docforum-web/issues/118),
+  [#119](https://github.com/DocForum/docforum-web/issues/119)).
+  Generic `DataTable<T>` with URL-synced sort/filter/cursor state; `PrintLayout`
+  with lazy-loaded `jspdf`/`html2canvas` export (never in the main bundle);
+  cookieless self-hostable analytics with an event allowlist, DNT/GPC respect
+  and URL scrubbing — no PHI, no third-party tracking; `BrowserRouter` by
+  default with a `HashRouter` fallback for GitHub Pages plus a
+  `HashRedirectShim` for old `#/path` links. Routing options are compared in
+  `docs/adr/0001-routing-strategy.md`. typecheck, build and check:dist are
+  green; 50 new tests.
+- 2026-10-21 — Phase W5 pay with wallet ([issue #59](https://github.com/DocForum/docforum-web/issues/59)) and Phase W6 doctor
+  verification review queue ([issue #64](https://github.com/DocForum/docforum-web/issues/64)).
+  Pay with wallet: prepare (docforum-core) → sign (patient's wallet) → submit (docforum-core) → poll, as a stepper
+  on the order card behind a default-off `VITE_PAY_WITH_WALLET` flag; expired prepared transactions re-prepare in
+  one tap without losing the patient's place, wallet refusals land back at the start without error styling, and the
+  browser never builds/simulates/submits anything (Stellar boundary check green). New `wallet.ts` bridge
+  (injected-extension detection only), pure `wallet-pay.ts` reducer, `usePayWithWallet` poll, MSW
+  prepare/submit/order-intents handlers.
+  Verification queue: `/admin/verifications` pending queue (oldest first, submitted date, document count, 3-day/week
+  age escalation) and `/admin/verifications/:doctorProfileId` detail with credential documents opened only via
+  per-click short-lived signed URLs, decision history from the real audit trail, and approve/reject dialogs
+  requiring a 10–500 character reason with `expectedUpdatedAt` conflict handling (`409`/`404` close and reload,
+  `400`/`422` stay open). Decisions call the real `PATCH /doctors/:id/verification`; admin nav and dashboard link to
+  it; MSW fixtures/handlers cover queue, detail, documents, decisions and audit history.
+  Assumed contracts (core#80/#81 prepare/submit; queue/detail/signed-url endpoints, credential storage core#52)
+  recorded in `ARCHITECTURE_ESSENTIALS.md`.
+- 2026-10-21 — Phase W6: per-specialty verification review for admins
+  ([issue #65](https://github.com/DocForum/docforum-web/issues/65), PRD
+  §8.1.5). A new specialty claims queue at `/admin/verification` — the
+  per-doctor verification queue (#64) decides a doctor account, this one
+  decides each claimed doctor↔specialty pair, so a GP can't quietly list
+  cardiology and receive cardiology referrals. Claims are grouped by doctor
+  with the supporting credential beside each claim (opened via blob URL so
+  the bearer token never lands in a link href, and a missing document is
+  flagged as a judgement call); approve/reject per claim in one dialog,
+  with a rejection requiring a doctor-facing reason saying what to fix or
+  resubmit and an approval taking an optional audit note. No bulk actions,
+  per the issue. Specialty and claim-age filters are server-side and
+  synced to the URL; `expectedUpdatedAt` turns concurrent reviews into
+  conflicts. New service functions live alongside #64's in
+  `admin-verification-service.ts`; mock handlers serve the queue, filters,
+  decisions (a bare rejection is a `422`) and credential bytes. **Built
+  against assumed shapes:** docforum-core#51 hasn't landed; see
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
+- 2026-10-21 — Malware scan: `.vue`, `.svelte`, `.astro`, `.less`, `.sass`, `.go`,
+  `go.mod` and `go.sum` files are now scanned as code. Before this, a Vue
+  single-file component was flagged HIGH as "disguised code" (JavaScript
+  inside a file with a non-code extension), which wrongly blocked
+  docforum-core #207. The same line rules still apply to these files.
+- 2026-10-21 — Malware scan: closed three gaps found in the malicious docforum-web #137,
+  which only had three of its nine problems flagged. Code pushed off-screen by
+  leading whitespace is now flagged (`api.js` hid its payload behind 315 tabs).
+  A `package.json` script such as `dev` or `build` that now also runs
+  `node <file>` (or bun, deno, sh, bash, python) alongside its original command
+  is flagged as `script-hijack`. The `global['!'] = …` marker of the loader used
+  in escrow #163 and web #137 is flagged as `known-payload`. The whole-line
+  heuristics no longer stop the per-line rules from running on the same file.
+- 2026-10-21 — Malware scan: TLA+ specifications (`.tla`) are now scanned as text, like
+  other source files. Before this, a TLA+ spec was flagged HIGH as "disguised
+  code", which wrongly blocked docforum-escrow #225. Every line rule still
+  applies to `.tla` files.
+- 2026-10-22 — Phase W7: search across a user's own loaded records
+  ([issue #126](https://github.com/DocForum/docforum-web/issues/126)).
+  `src/features/search-records/` builds an in-memory index from only the active
+  acting-for profile's care-thread cache or the signed-in doctor's
+  appointment/message caches. Header search groups keyboard-navigable results
+  and links to the corresponding record views; logout clears React Query data
+  and profile changes discard the active query/index. `createRecordIndex` is the
+  replacement seam for a future authenticated backend search service; no new
+  API contract is assumed.
+- 2026-10-23 — Phase W7: notification preferences, real-time updates, time zones and
+  evaluated feature flags
+  ([issue #108](https://github.com/DocForum/docforum-web/issues/108),
+  [#109](https://github.com/DocForum/docforum-web/issues/109),
+  [#110](https://github.com/DocForum/docforum-web/issues/110),
+  [#111](https://github.com/DocForum/docforum-web/issues/111)).
+  Notification preferences with role defaults, locked safety-critical rows and
+  zone-aware quiet hours; a shared fetch-based SSE client with typed events,
+  backoff, auth refresh, hidden-tab pause and React Query invalidation;
+  app-wide IANA time-zone formatting with a persisted preference and dual-zone
+  care-timeline display; and a typed evaluated-flag client gating the
+  notification settings route/nav and realtime updates. API shapes for
+  `/notifications/preferences`, `/events` and `/me/flags` are assumed pending
+  docforum-core#99, #97 and #132, documented in `ARCHITECTURE_ESSENTIALS.md`
+  "Known assumptions — Phase W7". The issue's booking-screen dual-zone
+  requirement is not wired because this repo has no booking/appointment screens
+  yet.
+- 2026-10-24 — Added shared Playwright browser quality suites for #91–#94: MSW-backed routes,
+  zero-baseline axe scans, 16 desktop/mobile snapshots, role journeys and exact
+  payment call assertions. Pinned browser CI, HTML artifacts and baseline
+  workflow added. Fixed existing accessibility defects and a malformed
+  dark-theme CSS block. #93 and #94 remain open where their required product
+  screens do not yet exist.
+- 2026-10-24 — Upgraded `jspdf` 2.5.2 → 4.2.1 to clear a critical advisory (ReDoS/DoS) and the high-severity DOMPurify XSS advisories it carried (DOMPurify 3.4.17), and bumped the dev-only `vite` 6.4.3 → 6.4.5 and `source-map-js` 1.2.1 → 1.2.2. `npm audit --omit=dev` is now clean. The PDF export in `PrintLayout` uses only APIs unchanged in v4 (default export, `internal.pageSize`, `addImage`, `addPage`, `save`).
+- 2026-10-25 — Fix e2e CI failures after W7 platform quality integration
+  - Move `UpdatePromptContainer` inside `I18nProvider` (App.tsx) to resolve React Intl crash that blanked the app.
+  - Wrap Delete Account policy lists in `<li>` elements to satisfy axe `list` rule on `/patient/settings`.
+  - Update journey test to expect the new localized recoverable error message (`Something went wrong…`) instead of the raw mock message.
+  - Add responsive mobile header wrapping (≤639px) so LanguageSwitcher, ProfileSwitcher, RecordSearch, and Log out no longer overflow horizontally.
+  - Regenerate all visual snapshots (desktop + mobile) to reflect W7 UI changes (language selector, updated dashboard content, mobile header layout).
+  All 79 Playwright tests (journeys, a11y-light, a11y-reduced, visual-desktop, visual-mobile) now pass. Unit tests, typecheck, and i18n check also pass.
+- 2026-10-26 — PR #151: merged the latest `upstream/main` into the W7 platform-quality
+  branch and resolved the resulting conflicts without dropping either side.
+  Kept the W7 locale-aware formatting, offline/retry behaviour and
+  accessibility fixes (headings, table captions, live regions, focus
+  handling, dialog focus management, contrast tokens) while adopting
+  upstream's time-zone display, record search, notification preferences,
+  feature flags, SSE cache sync and mock-API coverage. Tests now run against
+  the shared MSW handlers, including hanging handlers for the api-client
+  timeout tests, so no test can fall through to a real backend.
+- 2026-10-27 — Phase W7: PR preview builds, shared test utilities + coverage gate,
+  consistent loading/empty/error states, and the notification centre
+  ([issue #104](https://github.com/DocForum/docforum-web/issues/104),
+  [#105](https://github.com/DocForum/docforum-web/issues/105),
+  [#106](https://github.com/DocForum/docforum-web/issues/106),
+  [#107](https://github.com/DocForum/docforum-web/issues/107)).
+  Every PR now gets a mock-API preview build, attached to the PR as a
+  downloadable artifact and commented by `pr-preview-comment.yml`; nothing is
+  published to GitHub Pages or any other shared origin. The build runs
+  unprivileged on `pull_request`, and the comment job resolves fork PRs from the
+  run's head SHA/branch, so fork code never sees a write token or a secret.
+  Artifacts are private and expire after 14 days, and previews are built against
+  a reserved-invalid API URL checked by `npm run check:preview` — they can never
+  reach the real backend.
+  Tests now share `renderWithProviders`, typed factories and one MSW server, and
+  CI enforces v8 coverage thresholds on `src/features/` and `src/services/`
+  (`npm run test:coverage`). `src/components/states/` provides `Skeleton`,
+  `EmptyState`, `InlineError`, `PageError` and `QueryState`, applied across the
+  query-driven views; the notification bell and `/notifications` inbox add
+  cursor pagination, per-kind deep links (generic fallback for unknown kinds),
+  mark-one/mark-all read, SSE via a single-use stream ticket and cross-tab badge
+  consistency.
+  The notification API is assumed until docforum-core#93 lands — see
+  `ARCHITECTURE_ESSENTIALS.md` → "Known assumptions (issue #107)". Preview
+  artifacts need no repository settings or secrets; see `CONTRIBUTING.md` →
+  "Preview builds".
+- 2026-10-27 — Phase W4: API keys and webhooks management for facility system integrations
+  ([issue #55](https://github.com/DocForum/docforum-web/issues/55)).
+  Added `/facility/integrations` with an API key list (prefix, created, last
+  used), create with a one-time secret (copy + warning, dropped from the
+  mutation cache and DOM when the dialog closes), and revoke with
+  confirmation. Webhook endpoints list URL and event subscriptions, create
+  with a one-time HMAC signing secret, send a test delivery, and show recent
+  deliveries with status and redelivery. Owner-only access notice, integration
+  docs link, and the facility tab nav/header nav updated. New
+  `src/features/integrations/` (components, hooks, CSS module),
+  `src/services/integrations-service.ts`, types in `models.ts`, MSW
+  handlers/fixtures and handler tests. API shapes are assumed pending
+  `docforum-core`#125/#126, recorded in `ARCHITECTURE_ESSENTIALS.md` "Known
+  assumptions — Phase W4".
