@@ -1,0 +1,63 @@
+.loading,
+.notice {
+  text-align: center;
+  padding: var(--space-6) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin-bottom: var(--space-4);
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.summaryLabel {
+  color: var(--color-text-muted);
+}
+
+.summaryValue {
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: right;
+}
+
+.roleBadge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.emailNote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.acceptActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

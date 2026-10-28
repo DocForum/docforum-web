@@ -7,6 +7,6 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: login,
-    onSuccess: (session) => setSession(session.user, session.accessToken),
+    onSuccess: (session) => setSession(session.user, session.accessToken, session.csrfToken),
   });
 }

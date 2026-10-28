@@ -1,0 +1,114 @@
+# PR preview builds (#104) — comment with the downloadable artifact.
+#
+# Triggered by `workflow_run` after "PR preview build" completes. This job has
+# a write token so it can comment, but it never checks out or executes the PR:
+# it only lists the run's artifacts and links to one. Nothing from the PR is
+# ever published to a shared origin.
+#
+# Fork PRs are resolved from the workflow run itself (head SHA / head branch)
+# because GitHub leaves `workflow_run.pull_requests` empty for them.
+name: PR preview comment
+
+on:
+  workflow_run:
+    workflows: ['PR preview build']
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: pr-preview-comment-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    name: Comment with the preview artifact
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve pull request and artifact
+        id: preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+        run: |
+          set -euo pipefail
+
+          # Same-repo PRs are in the event payload; forks are not.
+          number=$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")
+          if [ -z "$number" ]; then
+            number=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" \
+              --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
+          if [ -z "$number" ]; then
+            number=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls" \
+              -f head="${HEAD_OWNER}:${HEAD_BRANCH}" -f state=open \
+              --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
+          if [ -z "$number" ]; then
+            echo "::warning::No pull request found for this build; nothing to comment on."
+            echo "number=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Match the artifact by the PR we resolved above, not by trusting an
+          # arbitrary artifact name from the (untrusted) PR build.
+          artifact=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq "[.artifacts[] | select(.name == \"pr-preview-${number}\") | .id] | first // empty")
+          if [ -z "$artifact" ]; then
+            echo "::warning::No pr-preview-${number} artifact on run ${RUN_ID}; nothing to link."
+            echo "number=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert the preview comment
+        if: steps.preview.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.preview.outputs.number }}
+          ARTIFACT: ${{ steps.preview.outputs.artifact }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          marker='<!-- docforum-pr-preview -->'
+          artifact_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts/${ARTIFACT}"
+          short_sha="${HEAD_SHA:0:7}"
+
+          body=$(cat <<EOF
+          $marker
+          ### 🔎 Preview build (downloadable artifact)
+
+          **[Download the preview artifact](${artifact_url})** · [build log](${RUN_URL})
+
+          - Built from \`${short_sha}\`; GitHub sign-in is required to download.
+          - This build is **not published** to GitHub Pages or any other shared origin.
+          - Runs against the **mock API** only — fake seed data, no real backend, no real credentials.
+          - To view it locally: unzip the artifact, then serve the folder (for example
+            \`npx serve <folder>\`) and open the URL it prints.
+          - The artifact expires after 14 days and is replaced on every push to this PR.
+          EOF
+          )
+
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate --slurp \
+            | jq -r --arg marker "$marker" '[.[][] | select(.body | contains($marker)) | .id] | first // empty')
+
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -f body="$body" >/dev/null
+            echo "Updated preview comment $existing"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -f body="$body" >/dev/null
+            echo "Created preview comment"
+          fi

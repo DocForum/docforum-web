@@ -196,6 +196,9 @@ describe('EventStreamManager', () => {
     const requests: StreamRequest[] = [];
     const transport = vi.fn(async (request: StreamRequest) => {
       requests.push(request);
+      // A stream that never emits: it just waits for the abort, which is
+      // exactly the "connected but quiet" case under test.
+      // eslint-disable-next-line require-yield -- no events is the point
       return (async function* () {
         await new Promise<void>((resolve) => {
           request.signal.addEventListener('abort', () => resolve(), { once: true });

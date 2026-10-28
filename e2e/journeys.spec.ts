@@ -14,7 +14,7 @@ test('patient sees a recoverable server error and a delayed response', async ({ 
   await visit('/patient/facilities');
   await page.getByRole('button', { name: 'MOCK API' }).click();
   await page.getByRole('button', { name: 'errors' }).click();
-  await expect(page.getByText(/forced server error/i).first()).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: /something went wrong/i }).first()).toBeVisible();
   await page.getByRole('button', { name: 'normal', exact: true }).click();
   await expect(page.getByText('Demo Pharmacy (fake)').first()).toBeVisible();
   await page.getByLabel('Response latency').fill('1000');

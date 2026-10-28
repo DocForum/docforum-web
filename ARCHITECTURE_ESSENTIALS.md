@@ -5,6 +5,7 @@ Frontend-only quick reference. Full product/system architecture lives in
 those first if you're new to the org, not just this file.
 
 ## Stack
+
 - React + TypeScript + Vite
 - React Query for server state, Zustand for client-only UI state
 - No localStorage/sessionStorage for anything server-derived — treat
@@ -23,25 +24,20 @@ those first if you're new to the org, not just this file.
 2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
-   — keep this shape.
+   — keep this shape. `src/i18n/` was added in Phase W7 for locale-aware
+   formatting and direction (issue #88); it is not a place for business
+   logic.
 
 ## Where things live
-- `src/services/` — API client calls to `docforum-core`. `api-client.ts` is
-  the only place fetch/base-URL/error-envelope details live.
-- `src/mocks/` — MSW mock API for `npm run dev:mock` (issue #95). Handlers
-  mirror the same real/assumed contracts `src/services/` calls, over
-  obviously fake `example.test` fixtures. Loaded only behind the
-  `import.meta.env.DEV && VITE_ENABLE_MOCKS` guard in `main.tsx`, before
-  the first render; production bundles must never contain it — CI enforces
-  this via `npm run check:dist`. When an assumed contract in this file is
-  reconciled, update `src/mocks/` fixtures/handlers in the same PR.
-- `src/features/` — flow-specific logic (booking, referral-accept, order
-  fulfillment selection, etc.) — one feature folder per PRD core flow.
+
+- `src/services/` — API calls to `docforum-core`. `api-client.ts` is the only
+  place fetch/base-URL/credentials/auth/error-envelope details live.
+- `src/mocks/` — MSW mock API for `npm run dev:mock`. It is loaded only behind
+  the development guard in `main.tsx`; CI checks that mock code is absent from
+  production bundles.
+- `src/features/` — flow-specific logic.
 - `src/pages/` — route-level components.
-- `src/store/` — Zustand stores. `auth-store.ts` is intentionally
-  in-memory only (not persisted) — see hard rule about
-  localStorage/sessionStorage above; it applies to auth tokens too, not
-  just business data.
+- `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 
 ## Query keys & cache invalidation (issue #122)
 React Query caches everything this app fetches. Two files own the key
@@ -93,6 +89,7 @@ appointment list") until booking (#2) and the patient appointment list (#3)
 land and consume `appointmentKeys.list(profileId)`.
 
 ## Deployment
+
 - GitHub Pages, deployed on every push to `main` via
   `.github/workflows/deploy-pages.yml`: https://docforum.github.io/docforum-web/
 - **Connected to a live backend as of 2026-09-14** —
@@ -155,17 +152,39 @@ envelope, `fullName` is a real column, `role` restricted to `patient`/
 `api-client.ts` (fixed 2026-09-14, alongside the Render connection — the
 real backend's refresh cookie is `SameSite=None; Secure`, cross-site
 between this repo's `github.io` domain and Render's, so it's required for
-the cookie to be sent/received at all). One gap remains:
-- **`POST /auth/refresh` exists on the backend but nothing here calls
-  it.** `auth-store.ts` still has no silent-reauth-on-reload flow — a
-  page refresh loses the session even though the refresh cookie would
-  still be valid. Tracked, not built (Phase W1 was scoped to
-  signup/login only).
+the cookie to be sent/received at all). Session restore on reload landed
+2026-10-20 (issue #9):
+- The boot refresh is `POST /auth/refresh` from `src/services/session.ts`,
+  kicked off by `main.tsx` without blocking first render. `RequireAuth`
+  shows a `Restoring your session…` state while the store's `status` is
+  `resolving`, instead of bouncing a signed-in user to `/login`.
+- A `401` on an authenticated request triggers **one** refresh and one
+  retry. Concurrent 401s share the same in-flight promise in
+  `api-client.ts` (`refreshSession`), because docforum-core rotates the
+  refresh cookie on every call.
+- `docforum-core`'s Phase 8 CSRF contract means refresh/logout also need
+  the per-session `csrfToken` in `X-CSRF-Token`. That is the only value
+  persisted across reloads (first-party `docforum_csrf` cookie) — see
+  "CSRF token storage" below. Access and refresh tokens remain in memory /
+  the backend's httpOnly cookie.
 - Local-dev-only caveat inherited from the backend: its refresh cookie is
   `sameSite: 'lax'`/`secure: false`, which may not survive true
   cross-origin (different ports) `fetch` + `credentials: 'include'` in
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
+
+### CSRF token storage (issue #9, docforum-core Phase 8 #37)
+`/auth/refresh` and `/auth/logout` are cookie-authenticated, so
+docforum-core requires the session's `csrfToken` (returned in the
+login/signup/refresh body) in `X-CSRF-Token`. On reload the in-memory copy
+is gone; without persisting it, silent re-auth is impossible. The token is
+therefore kept in a first-party `docforum_csrf` cookie (`csrf-storage.ts`),
+never in localStorage/sessionStorage and never as the httpOnly refresh
+token. It is not a credential on its own: the refresh cookie is still
+required alongside it, and JS-readable CSRF tokens are the standard
+double-submit pattern. The access token stays in memory; the refresh token
+stays in docforum-core's httpOnly cookie.
+
 
 ## Known assumptions
 
@@ -405,6 +424,17 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - **Facility identity:** the auth payload does not expose a facility id yet (docforum-core#14), so the dashboard still uses an interim `fac-main` constant. Replace it with the facility context returned by the backend when account provisioning lands.
 - No hardcoded queue fallback: loading, empty, and error states are distinct, and mutation failures surface in a banner rather than mutating local demo data.
 
+### Phase W4 — Partial fulfilment (issue #54, depends on docforum-core#73)
+These shapes are **assumed** until `docforum-core#73` lands. All calls still go through `docforum-core` (hard rule 1). The UI never computes escrow releases; it renders `payment.rule` verbatim.
+
+- `GET /orders/mine` → `PatientOrder[]` and `GET /orders/:orderId` → `PatientOrder` — patient-scoped list/detail with item-level rows.
+- `OrderItem` mirrors: `{id, orderId, name, instructions?, quantityPrescribed, quantityDispensed, quantityOutstanding, unit, status: 'pending'|'partially_dispensed'|'dispensed'|'dispensed_elsewhere'|'rejected', dispensedByFacilityId?, dispensedByFacilityName?, dispensedAt?, routedToFacilityId?, routedToFacilityName?, canDispense, blockedReason?}`.
+- `PatientOrder.fulfillmentStatus` is derived by the backend from item rows: `unfulfilled` | `partially_fulfilled` | `fulfilled` | `rejected`. The frontend also has a defensive derivation helper for queue rows.
+- `GET /orders/:orderId/remaining-items/facilities?itemIds=<csv>` → `FacilityWithDistance[]` — facilities qualified for **only** the outstanding items, excluding the order's current facility.
+- `POST /orders/:orderId/route-remaining` (body: `{facilityId, itemIds}`) → `PatientOrder` — routes outstanding quantities to a second facility; the destination gets its own fulfillment queue rows. A `409` means another facility already dispensed (or another client already routed) an item.
+- `POST /facilities/:facilityId/fulfillment-queue/:itemId/dispense` (body: `{quantity}`) → `FulfillmentQueueItem` — item-level partial dispensing. The backend owns quantity validation (whole numbers, ≤ outstanding) and must return `409` for dispensed-elsewhere/already-routed items. Queue items may carry `orderItemId` to link the facility row back to the patient's order item.
+- `OrderPaymentSummary` (assumed): `{status: 'held'|'partially_released'|'released'|'refunded'|'none', heldStroops, releasedStroops, refundedStroops, rule}`. `rule` is plain language from the backend; the patient/facility UIs explain assumptions but do not decide release amounts (pending #73).
+
 ### Phase W6 — Admin audit & access log viewer (issue #71)
 
 #### State-change events — real, docforum-core#43 (see its `docs/api/README.md` "Audit trail")
@@ -469,6 +499,39 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
 - **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
 - An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+### Invitation redemption — admins & facility staff (issue #81, PRD OQ-2)
+
+Admins and facility staff never self-register; they join through an
+invite link (`/#/invite?token=…`). Everything below is ASSUMED — it
+depends on docforum-core#39 (admin invites) and docforum-core#75
+(facility staff invites), neither of which has landed. Mirrored in
+`src/types/models.ts` as `AccountInvite` / `InviteRole` /
+`AccountInviteStatus`.
+
+- `GET /auth/invites/:token` (unauthenticated — the link itself is the
+  credential) → `AccountInvite` = `{id, email, role: 'facility'|'admin',
+  organisationName, organisationType?, invitedBy?, status:
+  'pending'|'accepted'|'revoked'|'expired', invitedAt, expiresAt}`.
+  `404` = unknown token (also covers a used token the server no longer
+  returns); a recognised-but-consumed invite is assumed to come back as
+  `200` with `status: 'accepted'`.
+- `POST /auth/invites/:token/accept` (body: `{email, fullName?,
+  password?}`) → the same `{user, accessToken}` session envelope as
+  signup/login. A brand-new user sends `fullName` + `password`; an
+  existing user accepts after logging in by sending just `{email}` with
+  their `Authorization: Bearer` token. `email` must match the invite
+  (server-checked; mismatch assumed `422`).
+- **The role is NEVER in the request** — docforum-core derives it from
+  the token, so a tampered client cannot pick a role (PRD OQ-2). Covered
+  by tests, including one that appends `?role=admin` to the invite link
+  and asserts neither the shown role nor the accept payload changes.
+- Frontend behaviour: the token is read from the URL once and
+  immediately stripped (`replace`), so the credential never lingers in
+  the address bar or browser history; the log-in round trip for existing
+  users carries it in React Router state only. Nothing is written to
+  localStorage/sessionStorage (hard rule) — reloading `/invite` shows
+  the invalid-link state and the person simply reopens the link from
+  their email.
 ### Phase W6 — Fulfilment disputes (issue #76, depends on docforum-core#76)
 
 docforum-core#76 (facility-side fulfilment proof and patient receipt
@@ -592,6 +655,54 @@ everything below is assumed and mirrored in `models.ts` under "Phase W7".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+## Generated contract
+
+All API routes covered by this repository's typed client are declared in
+`packages/api-client/openapi/docforum-core.openapi.yaml`. The generated
+`@docforum/api-client` package owns the paths, request payloads, response
+schemas, error envelope shape, and BigInt-as-string payment fields. Run
+`npm run generate:api` after changing the fixture; `npm run typecheck` and
+`npm run build` run generation automatically.
+
+The following contracts are generated and are no longer frontend assumptions:
+
+- W2 dependents, health profile, data export, account deletion, care threads,
+  and facility finder.
+- W3 queue, messaging, consultation notes, and practice insights.
+- W4 facility members, invitations, and fulfillment attribution.
+- W5 custodial payment intents and wallet-link operations.
+
+`src/types/models.ts` re-exports generated schema types for compatibility with
+existing imports. Services call the generated client through
+`src/services/api-client.ts`, which remains the only owner of transport details
+and typed errors.
+
+## Known assumptions
+
+- Acting-for profile selection is frontend-only Zustand state. The selected
+  patient profile id is included in patient query keys and API calls.
+- The local OpenAPI fixture is vendored until docforum-core publishes the
+  versioned package described by docforum-core#113. CI compares its version
+  with the backend's published spec in warn-only mode.
+- Error code meanings are sourced from docforum-core#115. Unknown codes use a
+  generic localized message and request-id reference; raw server messages are
+  retained only for diagnostics.
+- W4 scan-to-verify and payout-ledger routes, plus W6 admin audit/access,
+  referral, system-health, and feature-flag routes, still have compatibility
+  types until their backend OpenAPI schemas are published. Their assumptions
+  are isolated in `src/types/models.ts` and the relevant service modules.
+- Theme preferences are stored under `docforum-theme` in local storage and
+  fall back to system media queries when unset.
+
+## Privacy and platform guarantees
+
+- `src/pwa/sw.ts` precaches only the app shell and static assets. It has no
+  runtime API caching route, so authenticated API responses never enter the
+  service-worker cache.
+- Logout clears app-owned caches while preserving static precache entries.
+- Facility-search location is transient browser memory only and is never
+  persisted to storage or URLs.
+
 ### Error monitoring (issue #100)
 
 - **SDK:** `@sentry/react` (browser SDK), initialized in `src/main.tsx:48`.
@@ -686,6 +797,110 @@ localStorage/sessionStorage); EXIF is never read or displayed here (the
 server strips it). The full thread UX (optimistic send, live updates,
 per-side layout) is #22's scope — `MessageThread` here is a minimal shared
 shell so the attachment composer/preview have a real home.
+
+## Preview builds for pull requests (issue #104)
+Every PR is built in mock-API mode and attached to the PR as a downloadable
+artifact. It is never published to GitHub Pages or any other shared origin.
+
+- **No shared-origin publishing.** A PR controls its own build (`package.json`,
+  `vite.config.ts`, the build commands), so serving its `dist/` from
+  `docforum.github.io` would let a contributor run arbitrary JavaScript on the
+  same origin as the real app. The build job uploads a private artifact
+  instead; reviewers download and serve it locally. `check:preview` is a
+  quality gate, **not** the security boundary — the PR controls that script
+  too. Not publishing the build is what makes a malicious PR harmless.
+- **Fork safety is structural, not conditional.** `pr-preview-build.yml` runs
+  on `pull_request` (read-only token, no secrets) and only produces an
+  artifact. `pr-preview-comment.yml` runs on `workflow_run` with write access
+  but never checks out or executes PR code — it lists the run's artifacts and
+  upserts one comment. It resolves the PR from the run's head SHA/branch, so
+  fork PRs work even though GitHub leaves `workflow_run.pull_requests` empty.
+- **Automatic expiry, no cleanup workflow.** Artifacts expire after 14 days,
+  so there is no `gh-pages` branch and no scheduled deletion job.
+- **Mock mode in a production build.** `main.tsx` enables the mock API for a
+  DEV build with `VITE_ENABLE_MOCKS=true` (local dev) or, outside DEV, when
+  `VITE_PREVIEW_MOCKS=true` — only the preview workflow sets the latter. A
+  normal `npm run build` still cannot contain mock code, and
+  `npm run check:dist` still proves it.
+- **Never a real backend.** Previews build with
+  `VITE_API_BASE_URL=https://mock-api.invalid` (a reserved-invalid host) and
+  `VITE_SENTRY_DSN` empty. `scripts/check-preview-dist.mjs`
+  (`npm run check:preview`) fails the build if the mock markers are missing
+  or if the real Pages/Render origins appear anywhere in `dist/`.
+- **Main deploy unchanged.** `deploy-pages.yml` keeps `contents: read` and
+  publishes main with `actions/deploy-pages`; the preview flow never touches
+  it.
+
+## Testing utilities & coverage gate (issue #105)
+- `src/test/render.tsx` — `renderWithProviders(ui, { route, role, session })`
+  wraps a component in a fresh `QueryClient` (retries off, so a failing query
+  fails the test), a `MemoryRouter` at a chosen route, and an optional
+  signed-in role. `signInAs(role)` and `resetTestStores()` are exported for
+  tests that set up state directly; `render` stays as the plain entry point
+  used by the existing suites.
+- `src/test/factories.ts` — typed factories per model. Ids come from a
+  deterministic counter and timestamps from a fixed clock, so assertions on
+  generated ids stay stable (`resetFactorySeq()` resets the counter).
+- `src/test/server.ts` — a single MSW server over `src/mocks/handlers.ts`,
+  started/reset/closed once per run in `src/test/setup.ts` with
+  `onUnhandledRequest: 'bypass'` (so the many `vi.mock(service)` tests keep
+  working). `src/mocks/handlers.test.ts` shares this server instead of
+  creating a second one — two MSW servers in one worker double-intercept
+  requests.
+- **Coverage gate:** `npm run test:coverage` (v8) measures
+  `src/features/**` and `src/services/**` and enforces the thresholds in
+  `vite.config.ts`; CI runs that instead of plain `npm test`. Thresholds are
+  the floor measured when they were last raised — raise, never lower.
+
+### Shared loading, empty and error states (issue #106)
+`src/components/states/` is the one place these live; screens do not hand-roll
+them:
+
+- `Skeleton` — placeholder bars, announced through `role="status"` with a
+  visually hidden label. The pulse stops entirely under
+  `prefers-reduced-motion: reduce` (a static outline, never a blank screen).
+- `EmptyState` — the `action` prop is **required**, so an empty state always
+  offers the next step (a link when it navigates, a button otherwise).
+- `InlineError` — a failed section inside a working screen; optional retry.
+- `PageError` — a route whose primary query failed; retry plus an optional
+  way out.
+- `QueryState` — picks skeleton / error / empty / content from a React Query
+  result. Only the **first** load shows a skeleton; a background refetch
+  keeps the previous rows on screen. `queryErrorMessage()` turns
+  `ApiError`/`ApiTimeoutError` into patient-facing copy.
+
+Empty states added in this change deliberately keep the copy existing tests
+assert on (e.g. "No open disputes…", "docforum-core has no background jobs
+registered."), so the visual change does not silently rewrite product text.
+
+## Known assumptions (issue #107) — notification centre
+Assumed contract: `docforum-core`#93 (Notification model, provider-agnostic
+dispatch interface and the in-app inbox API) has not landed. Shapes mirror
+`src/types/models.ts` ("Notification centre").
+
+- `GET /notifications?cursor=&limit=` → `{items, nextCursor, unreadCount}`,
+  newest first. `unreadCount` is the **inbox-wide** total, not the page's,
+  so the bell badge is correct before every page is loaded. The UI never
+  counts loaded rows for the badge.
+- `POST /notifications/:id/read` → the updated `Notification`.
+- `POST /notifications/read-all` → `{updated, unreadCount}`.
+- `GET /notifications/stream-ticket` → `{ticket, streamPath, expiresAt}`.
+  The SSE URL carries the **ticket, never the access token**: `EventSource`
+  cannot send an Authorization header, and a bearer token in a URL leaks into
+  logs/history/Referer. The ticket is single-use and short-lived.
+- Stream events are `notification` (`{notification, unreadCount}`) and `read`
+  (`{notificationIds, unreadCount}`). `parseStreamEvent` ignores malformed or
+  unknown messages instead of tearing down the stream, and the hook stops
+  reconnecting after two attempts so a blocked proxy cannot cause a retry
+  storm — the 60 s refetch in `useNotifications` is the fallback.
+- `Notification.kind` is open-ended: known kinds map to an icon and a
+  role-aware deep link (`notification-meta.ts`); unknown kinds render a
+  generic bell + "Update" chip and link only to a payload `link` that passes
+  `safeAppPath` (app-relative only — no protocol-relative or absolute URLs, so
+  a hostile payload cannot become an open redirect).
+- **PHI-light by design:** `title`/`body` are display strings written by the
+  backend, rendered as text only. Cross-tab broadcasts carry ids and the same
+  payload the other tab already has; nothing is persisted in localStorage.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

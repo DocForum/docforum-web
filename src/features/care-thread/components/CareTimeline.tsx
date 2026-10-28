@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
+import { useFormat } from '../../../i18n/useFormat';
 import type { CareStepStatus, CareStepType, CareThread, CareThreadStep } from '../../../types/models';
-import { useTimeZone } from '../../../i18n/TimeZoneProvider';
-import { formatDate } from '../../../i18n/time-zone';
+import { EmptyState, type EmptyStateAction } from '../../../components/states/EmptyState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { DualZoneTime } from '../../../i18n/components/ZonedTime';
 import styles from './CareTimeline.module.css';
 
 interface CareTimelineProps {
   thread?: CareThread | null;
   isLoading?: boolean;
+  /** Next step offered when there is no thread yet (#106: an empty state
+   *  always suggests one). Defaults to the patient care hub. */
+  emptyAction?: EmptyStateAction;
 }
 
 function getStepIcon(_type: CareStepType, status: CareStepStatus, index: number): string {
@@ -53,12 +57,16 @@ function formatStatus(status: CareStepStatus): string {
   }
 }
 
-export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
-  const { timeZone } = useTimeZone();
+export function CareTimeline({
+  thread,
+  isLoading = false,
+  emptyAction = { label: 'Go to your care hub', to: '/care' },
+}: CareTimelineProps) {
+  const { formatDate } = useFormat();
   if (isLoading) {
     return (
       <div className={styles.timelineContainer}>
-        <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>Loading care journey timeline…</p>
+        <Skeleton lines={5} height="1.25rem" label="Loading care journey timeline" />
       </div>
     );
   }
@@ -66,13 +74,11 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
   if (!thread || !thread.steps || thread.steps.length === 0) {
     return (
       <div className={styles.timelineContainer}>
-        <div className={styles.emptyState}>
-          <h3 style={{ margin: '0 0 var(--space-2)' }}>No care thread found</h3>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-            There are no recorded care milestones for this patient thread yet. Once you book a consultation or receive a
-            referral, your continuous care journey will appear here.
-          </p>
-        </div>
+        <EmptyState
+          title="No care thread found"
+          description="There are no recorded care milestones for this thread yet. Once a consultation is booked or a referral is received, the continuous care journey appears here."
+          action={emptyAction}
+        />
       </div>
     );
   }
@@ -85,14 +91,16 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
   const isPartialConcludedAtConsultation = hasConsultation && !hasSubsequentSteps;
 
   return (
-    <div className={styles.timelineContainer} aria-label="Care thread timeline">
+    <section className={styles.timelineContainer} aria-label="Care thread timeline">
       <div className={styles.timelineHeader}>
         <div>
           <span className={styles.statusPill}>{thread.status} care episode</span>
           <h2 className={styles.threadTitle}>{thread.title}</h2>
           <div className={styles.threadMeta}>
             <span>Doctor: {thread.doctorName} ({thread.specialty})</span>
-            <span>Started: {formatDate(thread.startedAt, timeZone)}</span>
+            <span>
+              Started: <time dateTime={thread.startedAt}>{formatDate(thread.startedAt)}</time>
+            </span>
           </div>
         </div>
       </div>
@@ -143,12 +151,12 @@ export function CareTimeline({ thread, isLoading = false }: CareTimelineProps) {
       </ol>
 
       {isPartialConcludedAtConsultation && (
-        <div className={styles.partialNotice}>
+        <div className={styles.partialNotice} role="note">
           <strong>Care Episode Concluded:</strong> Following the consultation, no specialist referrals or diagnostic
           laboratory orders were deemed necessary by {thread.doctorName}. You can review your clinical notes or book a
           follow-up if needed.
         </div>
       )}
-    </div>
+    </section>
   );
 }
