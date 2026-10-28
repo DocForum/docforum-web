@@ -88,6 +88,70 @@ describe('auth', () => {
     ).resolves.toBeNull();
   });
 
+  it('validates invite tokens and redeems them with the invite\'s own role', async () => {
+    const invite = await authService.getInvite('demo-token');
+    expect(invite.role).toBe('facility');
+    expect(invite.status).toBe('pending');
+
+    // Clear states for bad/used invites, plus the other demo statuses.
+    await expect(authService.getInvite('missing')).rejects.toMatchObject({ status: 404 });
+    await expect(authService.getInvite('expired-demo')).resolves.toMatchObject({
+      status: 'expired',
+    });
+    await expect(authService.getInvite('used-demo')).resolves.toMatchObject({
+      status: 'accepted',
+    });
+    await expect(authService.getInvite('revoked-demo')).resolves.toMatchObject({
+      status: 'revoked',
+    });
+
+    // New-account accept: the role comes from the token, not the client.
+    const created = await authService.acceptInvite({
+      token: 'demo-token',
+      email: invite.email,
+      fullName: 'New Person (fake)',
+      password: 'x',
+    });
+    expect(created.user.role).toBe('facility');
+
+    // Admin invite → admin session (PRD OQ-2: no self-serve admin signup).
+    const adminInvite = await authService.getInvite('admin-demo');
+    expect(adminInvite.role).toBe('admin');
+    const adminSession = await authService.acceptInvite({
+      token: 'admin-demo',
+      email: adminInvite.email,
+      fullName: 'New Admin (fake)',
+      password: 'x',
+    });
+    expect(adminSession.user.role).toBe('admin');
+
+    // Existing user accepts with their session and no password.
+    const accepted = await authService.acceptInvite(
+      { token: 'demo-token', email: invite.email },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(accepted.user.role).toBe('facility');
+    await expect(
+      authService.acceptInvite({ token: 'demo-token', email: invite.email }),
+    ).rejects.toMatchObject({ status: 401 });
+
+    // Email must match the invite; non-pending invites are refused.
+    await expect(
+      authService.acceptInvite(
+        { token: 'demo-token', email: 'someone.else@example.test', password: 'x' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+    await expect(
+      authService.acceptInvite({
+        token: 'expired-demo',
+        email: invite.email,
+        fullName: 'New Person (fake)',
+        password: 'x',
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
   it('serves role-aware session timeout settings (issue #82)', async () => {
     useMockStore.setState({ activeRole: 'admin' });
     await expect(

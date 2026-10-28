@@ -7,6 +7,7 @@
 // shapes are still assumed contracts.
 import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
+  AccountInvite,
   Appointment,
   AuditEvent,
   CareThread,
@@ -1851,3 +1852,29 @@ export function createSeedDb(): MockDb {
     notificationPreferences,
   };
 }
+
+// --- Invitation redemption (issue #81) --------------------------------------
+// One pending invite per demo token; handlers/auth.ts derives the other
+// statuses (expired / revoked / accepted) and the 404 from the token.
+export const ACCOUNT_INVITE: AccountInvite = {
+  id: 'inv-demo-1',
+  email: 'new.facility.staff@example.test',
+  role: 'facility',
+  organisationName: 'Example Lab (fake)',
+  organisationType: 'lab',
+  invitedBy: 'Fiona Placeholder (fake)',
+  status: 'pending',
+  invitedAt: '2026-10-17T09:00:00.000Z',
+  expiresAt: '2026-10-31T09:00:00.000Z',
+};
+
+/** An admin invite so the dev panel can demo the other invited role. */
+export const ADMIN_ACCOUNT_INVITE: AccountInvite = {
+  ...ACCOUNT_INVITE,
+  id: 'inv-demo-admin',
+  email: 'new.admin@example.test',
+  role: 'admin',
+  organisationName: 'DocForum Operations (fake)',
+  organisationType: null,
+  invitedBy: 'Alda Placeholder (fake)',
+};

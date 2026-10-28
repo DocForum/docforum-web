@@ -7,43 +7,44 @@ import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { RequireFlag } from './components/RequireFlag';
-const HomePage = lazy(() => import('./pages/HomePage').then((module) => ({ default: module.HomePage })));
-const LoginPage = lazy(() => import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })));
-const SignupPage = lazy(() => import('./pages/SignupPage').then((module) => ({ default: module.SignupPage })));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((module) => ({ default: module.PrivacyPage })));
-const PatientDashboardPage = lazy(() => import('./pages/PatientDashboardPage').then((module) => ({ default: module.PatientDashboardPage })));
-const DoctorDashboardPage = lazy(() => import('./pages/DoctorDashboardPage').then((module) => ({ default: module.DoctorDashboardPage })));
-const FacilityDashboardPage = lazy(() => import('./pages/FacilityDashboardPage').then((module) => ({ default: module.FacilityDashboardPage })));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })));
-const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then((module) => ({ default: module.OrderDetailPage })));
-const ClaimAccountPage = lazy(() => import('./pages/ClaimAccountPage').then((module) => ({ default: module.ClaimAccountPage })));
-const AccessLogPage = lazy(() => import('./pages/AccessLogPage').then((module) => ({ default: module.AccessLogPage })));
-const PaymentDetailPage = lazy(() => import('./pages/PaymentDetailPage').then((module) => ({ default: module.PaymentDetailPage })));
-const PaymentHistoryPage = lazy(() => import('./pages/PaymentHistoryPage').then((module) => ({ default: module.PaymentHistoryPage })));
-const CareThreadPage = lazy(() => import('./pages/CareThreadPage').then((module) => ({ default: module.CareThreadPage })));
-const AccountDeletedPage = lazy(() => import('./pages/AccountDeletedPage').then((module) => ({ default: module.AccountDeletedPage })));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
-const ConsultationNote = lazy(() => import('./features/consultation/components/ConsultationNote').then((module) => ({ default: module.ConsultationNote })));
-const DoctorInbox = lazy(() => import('./features/messaging/components/DoctorInbox').then((module) => ({ default: module.DoctorInbox })));
-const DoctorPracticeInsightsPage = lazy(() => import('./pages/DoctorPracticeInsightsPage').then((module) => ({ default: module.DoctorPracticeInsightsPage })));
-const FacilityTeamPage = lazy(() => import('./pages/FacilityTeamPage').then((module) => ({ default: module.FacilityTeamPage })));
-const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage').then((module) => ({ default: module.AdminAuditPage })));
-const AdminReferralsPage = lazy(() => import('./pages/AdminReferralsPage').then((module) => ({ default: module.AdminReferralsPage })));
-const AdminSystemPage = lazy(() => import('./pages/AdminSystemPage').then((module) => ({ default: module.AdminSystemPage })));
-const AdminVerificationPage = lazy(() => import('./pages/AdminVerificationPage').then((module) => ({ default: module.AdminVerificationPage })));
-const AdminFlagsPage = lazy(() => import('./pages/AdminFlagsPage').then((module) => ({ default: module.AdminFlagsPage })));
-const AdminDisputesPage = lazy(() => import('./pages/AdminDisputesPage').then((module) => ({ default: module.AdminDisputesPage })));
-const AdminDisputeDetailPage = lazy(() => import('./pages/AdminDisputeDetailPage').then((module) => ({ default: module.AdminDisputeDetailPage })));
-const AdminVerificationsPage = lazy(() => import('./pages/AdminVerificationsPage').then((module) => ({ default: module.AdminVerificationsPage })));
-const AdminVerificationDetailPage = lazy(() => import('./pages/AdminVerificationDetailPage').then((module) => ({ default: module.AdminVerificationDetailPage })));
-const OrderVerifyPage = lazy(() => import('./pages/OrderVerifyPage').then((module) => ({ default: module.OrderVerifyPage })));
-const FacilityPaymentsPage = lazy(() => import('./pages/FacilityPaymentsPage').then((module) => ({ default: module.FacilityPaymentsPage })));
-const FacilityIntegrationsPage = lazy(() => import('./pages/FacilityIntegrationsPage').then((module) => ({ default: module.FacilityIntegrationsPage })));
-const FacilityInsightsPage = lazy(() => import('./pages/FacilityInsightsPage').then((module) => ({ default: module.FacilityInsightsPage })));
-const PatientChartPage = lazy(() => import('./pages/PatientChartPage').then((module) => ({ default: module.PatientChartPage })));
-const MessageThreadPage = lazy(() => import('./pages/MessageThreadPage').then((module) => ({ default: module.MessageThreadPage })));
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
-const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage').then((module) => ({ default: module.NotificationSettingsPage })));
+import { HomePage } from './pages/HomePage';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { PatientDashboardPage } from './pages/PatientDashboardPage';
+import { DoctorDashboardPage } from './pages/DoctorDashboardPage';
+import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
+import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { InvitePage } from './pages/InvitePage';
+import { AccessLogPage } from './pages/AccessLogPage';
+import { PaymentDetailPage } from './pages/PaymentDetailPage';
+import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
+import { CareThreadPage } from './pages/CareThreadPage';
+import { AccountDeletedPage } from './pages/AccountDeletedPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { ConsultationNote } from './features/consultation/components/ConsultationNote';
+import { DoctorInbox } from './features/messaging/components/DoctorInbox';
+import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
+import { FacilityTeamPage } from './pages/FacilityTeamPage';
+import { AdminAuditPage } from './pages/AdminAuditPage';
+import { AdminReferralsPage } from './pages/AdminReferralsPage';
+import { AdminSystemPage } from './pages/AdminSystemPage';
+import { AdminVerificationPage } from './pages/AdminVerificationPage';
+import { AdminFlagsPage } from './pages/AdminFlagsPage';
+import { AdminDisputesPage } from './pages/AdminDisputesPage';
+import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
+import { AdminVerificationsPage } from './pages/AdminVerificationsPage';
+import { AdminVerificationDetailPage } from './pages/AdminVerificationDetailPage';
+import { OrderVerifyPage } from './pages/OrderVerifyPage';
+import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
+import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
+import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
+import { PatientChartPage } from "./pages/PatientChartPage";
+import { MessageThreadPage } from './pages/MessageThreadPage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="invite" element={<InvitePage />} />
         {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
             at the literal path the issues name, guarded to patients, rather
             than being folded under /patient where the hub's nested routes

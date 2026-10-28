@@ -499,6 +499,39 @@ assumed and mirrored in `models.ts` under "Phase W6 — Feature flags console".
 - **Validation (client-side, server presumed to re-check):** percentages must be whole numbers 0–100 (no decimals or exponents). Allowlist entries must be UUIDs, lower-cased and de-duplicated, at most 500. Ids already saved on the flag pass through unchecked, so an unexpected server-side id format can't block unrelated edits.
 - **Optimistic updates:** confirming writes the change into the cached list straight away, and the flag shows "Saving…" with its controls disabled until docforum-core answers. On failure only that flag is restored, and only while the cached copy still has the `updatedAt` the save started from. A list snapshot is never restored, because that would undo a save to a different flag that is in flight or already done. Every outcome then refetches the list and the audit page (without awaiting, so a cold start doesn't hold "Saving…").
 - An open dialog compares its flag's `updatedAt` with the live list. If someone else saved in the meantime, it says so, blocks confirming, and offers to start again from the latest values.
+### Invitation redemption — admins & facility staff (issue #81, PRD OQ-2)
+
+Admins and facility staff never self-register; they join through an
+invite link (`/#/invite?token=…`). Everything below is ASSUMED — it
+depends on docforum-core#39 (admin invites) and docforum-core#75
+(facility staff invites), neither of which has landed. Mirrored in
+`src/types/models.ts` as `AccountInvite` / `InviteRole` /
+`AccountInviteStatus`.
+
+- `GET /auth/invites/:token` (unauthenticated — the link itself is the
+  credential) → `AccountInvite` = `{id, email, role: 'facility'|'admin',
+  organisationName, organisationType?, invitedBy?, status:
+  'pending'|'accepted'|'revoked'|'expired', invitedAt, expiresAt}`.
+  `404` = unknown token (also covers a used token the server no longer
+  returns); a recognised-but-consumed invite is assumed to come back as
+  `200` with `status: 'accepted'`.
+- `POST /auth/invites/:token/accept` (body: `{email, fullName?,
+  password?}`) → the same `{user, accessToken}` session envelope as
+  signup/login. A brand-new user sends `fullName` + `password`; an
+  existing user accepts after logging in by sending just `{email}` with
+  their `Authorization: Bearer` token. `email` must match the invite
+  (server-checked; mismatch assumed `422`).
+- **The role is NEVER in the request** — docforum-core derives it from
+  the token, so a tampered client cannot pick a role (PRD OQ-2). Covered
+  by tests, including one that appends `?role=admin` to the invite link
+  and asserts neither the shown role nor the accept payload changes.
+- Frontend behaviour: the token is read from the URL once and
+  immediately stripped (`replace`), so the credential never lingers in
+  the address bar or browser history; the log-in round trip for existing
+  users carries it in React Router state only. Nothing is written to
+  localStorage/sessionStorage (hard rule) — reloading `/invite` shows
+  the invalid-link state and the person simply reopens the link from
+  their email.
 ### Phase W6 — Fulfilment disputes (issue #76, depends on docforum-core#76)
 
 docforum-core#76 (facility-side fulfilment proof and patient receipt
