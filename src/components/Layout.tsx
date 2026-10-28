@@ -360,7 +360,15 @@ export function Layout() {
       >
         <PageHeader title={routeTitle(location.pathname)} />
         <ErrorBoundary key={location.pathname} level="route">
-          <Outlet context={{}} />
+          <Suspense
+            fallback={
+              <div className={styles.routeLoading} role="status" aria-label="Loading page">
+                <Spinner size={24} />
+              </div>
+            }
+          >
+            <Outlet context={{}} />
+          </Suspense>
         </ErrorBoundary>
       </main>
 
