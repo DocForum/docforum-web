@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useAuthStore } from '../../../store/auth-store';
 import { downloadDataExport, getDataExportStatus, requestDataExport } from '../../../services/account-service';
+import { invalidateFor } from '../../../invalidations';
+import { accountKeys } from '../../../query-keys';
 
 export function useDataExport() {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery({
-    queryKey: ['account', 'data-export'],
-    queryFn: () => getDataExportStatus(accessToken!),
+    queryKey: accountKeys.dataExport(),
+    queryFn: ({ signal }) => getDataExportStatus(accessToken!, signal),
     enabled: Boolean(accessToken),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
@@ -24,8 +26,8 @@ export function useRequestDataExport() {
   return useMutation({
     mutationFn: (password: string) => requestDataExport(password, accessToken!),
     onSuccess: (data) => {
-      queryClient.setQueryData(['account', 'data-export'], data);
-      queryClient.invalidateQueries({ queryKey: ['account', 'data-export'] });
+      queryClient.setQueryData(accountKeys.dataExport(), data);
+      void invalidateFor(queryClient, 'account.data-export');
     },
   });
 }
@@ -33,7 +35,7 @@ export function useRequestDataExport() {
 export function useDownloadExport() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
 
   const download = async (exportId: string, filename = 'docforum-data-export.json') => {
     if (!accessToken) return;
@@ -52,7 +54,7 @@ export function useDownloadExport() {
       // Immediately revoke to prevent keeping export in memory
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Failed to download export');
+      setDownloadError(err);
     } finally {
       setIsDownloading(false);
     }

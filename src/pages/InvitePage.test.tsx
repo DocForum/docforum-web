@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { I18nProvider } from '../i18n/I18nProvider';
 import { InvitePage } from './InvitePage';
 import { LoginPage } from './LoginPage';
 import { useAuthStore } from '../store/auth-store';
@@ -55,17 +56,19 @@ function renderPage(path: string): void {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   rtlRender(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <LocationProbe />
-        <Routes>
-          <Route path="/invite" element={<InvitePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/facility" element={<div>Facility dashboard</div>} />
-          <Route path="/admin" element={<div>Admin dashboard</div>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <LocationProbe />
+          <Routes>
+            <Route path="/invite" element={<InvitePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/facility" element={<div>Facility dashboard</div>} />
+            <Route path="/admin" element={<div>Admin dashboard</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 }
 

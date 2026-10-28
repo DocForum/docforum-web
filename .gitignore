@@ -1,8 +1,14 @@
 node_modules/
 dist/
 build/
+coverage/
 *.tsbuildinfo
 .env
 .env.local
 *.log
 .DS_Store
+playwright-report/
+test-results/
+# Local docforum-core checkout used by the old e2e smoke job (and by
+# hand when running against a real backend). Never commit a backend clone.
+docforum-core/
