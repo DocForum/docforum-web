@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { Spinner } from '../../../components/Spinner';
 import { Dialog } from '../../../components/Dialog';
 import { useDataExport, useDownloadExport, useRequestDataExport } from '../hooks/useDataExport';
@@ -21,7 +23,7 @@ function formatBytes(bytes?: number | null): string {
 
 export function DataExportSection() {
   const { timeZone } = useTimeZone();
-  const { data: exportData, isLoading, error: queryError } = useDataExport();
+  const { data: exportData, isLoading, error: queryError, refetch } = useDataExport();
   const requestMutation = useRequestDataExport();
   const { download, isDownloading, downloadError } = useDownloadExport();
   const t = useT();
@@ -93,13 +95,16 @@ export function DataExportSection() {
       </div>
 
       {isLoading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--color-text-muted)' }}>
-          <Spinner size={16} />
-          <span>{t('account.dataExport.checkingStatus', 'Checking export status…')}</span>
-        </div>
+        <Skeleton lines={2} label={t('account.dataExport.checkingStatus', 'Checking export status…')} />
       )}
 
-      {queryError && <FormError message={errorMessage(queryError)} />}
+      {queryError && (
+        <InlineError
+          title="Export status couldn't be checked"
+          message={errorMessage(queryError) ?? 'Error loading export'}
+          onRetry={() => void refetch()}
+        />
+      )}
       {downloadErrorMessage && <FormError message={downloadErrorMessage} />}
 
       {!isLoading && !exportData && (

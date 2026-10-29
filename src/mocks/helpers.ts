@@ -4,6 +4,10 @@
 import { HttpResponse, type PathParams } from 'msw';
 import { useMockStore } from './mock-store';
 
+// MSW's `HttpResponse<T>` is invariant in T; `unknown` does not satisfy its
+// `DefaultBodyType` constraint and breaks every handler's return type. `any`
+// is the correct escape hatch for a response of any JSON shape here.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHttpResponse = HttpResponse<any>;
 
 export interface MockResolverArgs {

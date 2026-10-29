@@ -90,10 +90,10 @@ export interface AnalyticsEventProperties {
   booking_completed?: { isNewPatient: boolean };
   signup_completed?: { role: 'patient' | 'doctor' };
   login_completed?: { role: 'patient' | 'doctor' | 'facility' | 'admin' };
-  data_export_requested?: {};
-  consultation_signed?: {};
+  data_export_requested?: Record<string, never>;
+  consultation_signed?: Record<string, never>;
   order_created?: { orderType: 'prescription' | 'lab_order' };
-  pageview?: {};
+  pageview?: Record<string, never>;
 }
 
 // ─── Tracking ───────────────────────────────────────────────────────────

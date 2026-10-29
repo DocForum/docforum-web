@@ -5,6 +5,10 @@
 // MSW's fetch interceptor wraps Node's global fetch.
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
+// The server is started once for the whole run by src/test/setup.ts (issue
+// #105). This file used to create a second one; two MSW servers in one worker
+// double-intercept every request, so it now shares the single instance and
+// only resets the in-memory database between cases.
 import { resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
@@ -25,7 +29,8 @@ import * as insightsService from '../services/insights-service';
 import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
 import * as myFlagsService from '../services/my-flags-service';
-import * as notificationsService from '../services/notification-preferences-service';
+import * as notificationPreferencesService from '../services/notification-preferences-service';
+import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
@@ -81,6 +86,70 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('validates invite tokens and redeems them with the invite\'s own role', async () => {
+    const invite = await authService.getInvite('demo-token');
+    expect(invite.role).toBe('facility');
+    expect(invite.status).toBe('pending');
+
+    // Clear states for bad/used invites, plus the other demo statuses.
+    await expect(authService.getInvite('missing')).rejects.toMatchObject({ status: 404 });
+    await expect(authService.getInvite('expired-demo')).resolves.toMatchObject({
+      status: 'expired',
+    });
+    await expect(authService.getInvite('used-demo')).resolves.toMatchObject({
+      status: 'accepted',
+    });
+    await expect(authService.getInvite('revoked-demo')).resolves.toMatchObject({
+      status: 'revoked',
+    });
+
+    // New-account accept: the role comes from the token, not the client.
+    const created = await authService.acceptInvite({
+      token: 'demo-token',
+      email: invite.email,
+      fullName: 'New Person (fake)',
+      password: 'x',
+    });
+    expect(created.user.role).toBe('facility');
+
+    // Admin invite → admin session (PRD OQ-2: no self-serve admin signup).
+    const adminInvite = await authService.getInvite('admin-demo');
+    expect(adminInvite.role).toBe('admin');
+    const adminSession = await authService.acceptInvite({
+      token: 'admin-demo',
+      email: adminInvite.email,
+      fullName: 'New Admin (fake)',
+      password: 'x',
+    });
+    expect(adminSession.user.role).toBe('admin');
+
+    // Existing user accepts with their session and no password.
+    const accepted = await authService.acceptInvite(
+      { token: 'demo-token', email: invite.email },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(accepted.user.role).toBe('facility');
+    await expect(
+      authService.acceptInvite({ token: 'demo-token', email: invite.email }),
+    ).rejects.toMatchObject({ status: 401 });
+
+    // Email must match the invite; non-pending invites are refused.
+    await expect(
+      authService.acceptInvite(
+        { token: 'demo-token', email: 'someone.else@example.test', password: 'x' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+    await expect(
+      authService.acceptInvite({
+        token: 'expired-demo',
+        email: invite.email,
+        fullName: 'New Person (fake)',
+        password: 'x',
+      }),
+    ).rejects.toMatchObject({ status: 409 });
   });
 
   it('serves role-aware session timeout settings (issue #82)', async () => {
@@ -347,6 +416,59 @@ describe('messaging', () => {
   });
 });
 
+describe('notifications', () => {
+  it('pages newest first, reports the total unread count, and marks read', async () => {
+    // Ask for the same page size the dev-mock handler defaults to, so the
+    // second request genuinely exercises the cursor.
+    const first = await notificationsService.listNotifications(
+      { limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(first.items).toHaveLength(4);
+    expect(first.nextCursor).toBe('4');
+    expect(first.unreadCount).toBe(4);
+
+    const createdAt = first.items.map((item) => Date.parse(item.createdAt));
+    expect(createdAt).toEqual([...createdAt].sort((a, b) => b - a));
+
+    const second = await notificationsService.listNotifications(
+      { cursor: first.nextCursor, limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(second.items).toHaveLength(2);
+    expect(second.nextCursor).toBeNull();
+
+    const marked = await notificationsService.markNotificationRead(
+      first.items[0].id,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(marked.readAt).toBeTruthy();
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.unreadCount).toBe(3);
+
+    await expect(
+      notificationsService.markNotificationRead('ntf-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('marks everything read in one call', async () => {
+    const result = await notificationsService.markAllNotificationsRead(MOCK_ACCESS_TOKEN);
+    expect(result.unreadCount).toBe(0);
+    expect(result.updated).toBe(4);
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.items.every((item) => item.readAt !== null)).toBe(true);
+  });
+
+  it('issues a single-use stream ticket without exposing the access token', async () => {
+    const ticket = await notificationsService.getNotificationStreamTicket(MOCK_ACCESS_TOKEN);
+    expect(ticket.streamPath).toMatch(/^\/notifications\/stream\?ticket=/);
+    expect(ticket.streamPath).not.toContain(MOCK_ACCESS_TOKEN);
+    expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
+  });
+});
+
 describe('insights', () => {
   it('returns seeded insights and echoes the requested range', async () => {
     const insights = await insightsService.getDoctorPracticeInsights(MOCK_ACCESS_TOKEN);
@@ -374,7 +496,7 @@ describe('facility finder', () => {
       { lat: 6.5244, lng: 3.3792 },
       MOCK_ACCESS_TOKEN,
     );
-    expect(nearby[0].id).toBe('fac-demo-pharmacy');
+    expect(nearby[0].id).toBe('fac-main');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
   });
 });
@@ -449,7 +571,7 @@ describe('facility team', () => {
 
   it('fulfills queue items with attribution', async () => {
     const queue = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
-    expect(queue).toHaveLength(3);
+    expect(queue).toHaveLength(5);
 
     const updated = await facilityTeamService.updateFulfillmentItem(
       FACILITY_ID,
@@ -805,13 +927,13 @@ describe('feature flags', () => {
 
 describe('notification preferences', () => {
   it('returns role-appropriate defaults with locked safety-critical rows', async () => {
-    const preferences = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const preferences = await notificationPreferencesService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
     const critical = preferences.preferences.filter((pref) => pref.type === 'critical_lab_result');
     expect(critical).toHaveLength(3);
     expect(critical.every((pref) => pref.locked && pref.enabled)).toBe(true);
 
     useMockStore.setState({ activeRole: 'facility' });
-    const facility = await notificationsService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const facility = await notificationPreferencesService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
     const facilityOrders = facility.preferences.find(
       (pref) => pref.type === 'order_updates' && pref.channel === 'email',
     );
@@ -819,7 +941,7 @@ describe('notification preferences', () => {
   });
 
   it('saves a toggle and quiet hours, and refuses to disable a locked row', async () => {
-    const updated = await notificationsService.updateNotificationPreferences(
+    const updated = await notificationPreferencesService.updateNotificationPreferences(
       { preferences: [{ type: 'appointment_reminders', channel: 'email', enabled: false }] },
       MOCK_ACCESS_TOKEN,
     );
@@ -829,7 +951,7 @@ describe('notification preferences', () => {
       )?.enabled,
     ).toBe(false);
 
-    const quiet = await notificationsService.updateNotificationPreferences(
+    const quiet = await notificationPreferencesService.updateNotificationPreferences(
       { quietHours: { enabled: true, start: '22:00', end: '07:00', timeZone: 'Europe/London' } },
       MOCK_ACCESS_TOKEN,
     );
@@ -841,7 +963,7 @@ describe('notification preferences', () => {
     });
 
     await expect(
-      notificationsService.updateNotificationPreferences(
+      notificationPreferencesService.updateNotificationPreferences(
         { preferences: [{ type: 'critical_lab_result', channel: 'email', enabled: false }] },
         MOCK_ACCESS_TOKEN,
       ),

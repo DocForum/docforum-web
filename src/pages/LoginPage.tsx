@@ -1,11 +1,16 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
 
+interface InviteNavState {
+  inviteToken?: string;
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const signOutReason = useAuthStore((state) => state.signOutReason);
   const t = useT();
@@ -15,6 +20,19 @@ export function LoginPage() {
   // in-memory reason when a route guard's redirect strips it.
   const signedOutForIdle =
     searchParams.get('reason') === 'idle-timeout' || signOutReason === 'idle-timeout';
+
+  // Set when an existing user followed "Log in to accept this invitation"
+  // from the invite landing (issue #81) — after logging in, send them back
+  // to the invite instead of home. Carried in router state only, never the
+  // URL or storage.
+  const inviteToken = (location.state as InviteNavState | null)?.inviteToken ?? null;
+
+  function handleLoginSuccess() {
+    navigate(inviteToken ? '/invite' : '/', {
+      replace: true,
+      state: inviteToken ? { inviteToken } : undefined,
+    });
+  }
 
   return (
     <div className="authContainer">
@@ -33,7 +51,7 @@ export function LoginPage() {
             'Log in to pick up your care thread — bookings, referrals, orders, all in one place.',
           )}
         </p>
-        <LoginForm onSuccess={() => navigate('/', { replace: true })} />
+        <LoginForm onSuccess={handleLoginSuccess} />
       </div>
       <p className="authFootnote">
         {t('auth.noAccount', 'No account?')} <Link to="/signup">{t('auth.signUp', 'Sign up')}</Link>

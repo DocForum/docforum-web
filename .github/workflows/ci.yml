@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Pinned docforum-core ref for the end-to-end smoke test (#12). Bump here
+  # and in e2e/README.md together — see that file.
+  E2E_CORE_REF: c65217bc9c02041078700f3a551e01235d9e123c
+
 jobs:
   frontend:
     name: Frontend (typecheck + test + build)
@@ -27,7 +32,12 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm run test
+      - run: npm run lint
+
+      # Coverage gate (issue #105): thresholds live in vite.config.ts and fail
+      # this step when coverage on src/features/ or src/services/ drops below
+      # the recorded floor. Plain `npm test` runs the same suites uncovered.
+      - run: npm run test:coverage
 
       - run: npm run build
 

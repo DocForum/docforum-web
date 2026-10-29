@@ -17,6 +17,7 @@ import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { OfflineBanner } from './OfflineBanner';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
+import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
@@ -253,6 +254,9 @@ export function Layout() {
         <div className={styles.headerActions}>
           <LanguageSwitcher />
           <RecordSearch />
+          {/* In-app inbox (issue #107): unread badge + dropdown, then the
+              full list at /notifications. Hidden while signed out. */}
+          <NotificationBell />
           <ProfileSwitcher />
           <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
             {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}

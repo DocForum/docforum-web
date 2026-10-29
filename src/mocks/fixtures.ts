@@ -7,6 +7,7 @@
 // shapes are still assumed contracts.
 import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
+  AccountInvite,
   Appointment,
   AuditEvent,
   CareThread,
@@ -30,6 +31,7 @@ import type {
   HealthEntry,
   IntakeForm,
   DoctorMessageThread,
+  Notification,
   NotificationPreferences,
   PatientOrder,
   PaymentIntent,
@@ -47,6 +49,7 @@ import type {
 // --- Personas (one per role the dev panel can switch to) --------------------
 
 export const MOCK_ACCESS_TOKEN = 'mock-access-token';
+export const MOCK_CSRF_TOKEN = 'mock-csrf-token';
 
 export const PATIENT_USER: User = {
   id: 'usr-patient-demo',
@@ -84,7 +87,7 @@ export const ADMIN_USER: User = {
 export const PATIENT_PROFILE_ID = 'prf-patient-demo';
 export const DEPENDENT_PROFILE_ID = 'prf-dependent-demo';
 export const DOCTOR_PROFILE_ID = 'prf-doctor-demo';
-export const FACILITY_ID = 'fac-demo-pharmacy';
+export const FACILITY_ID = 'fac-main';
 
 // --- Seed database -----------------------------------------------------------
 
@@ -97,6 +100,7 @@ export interface MockDb {
   intakeForms: IntakeForm[];
   runningDelay: RunningDelay;
   messageThreads: DoctorMessageThread[];
+  notifications: Notification[];
   consultationNotes: ConsultationNote[];
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
@@ -111,6 +115,9 @@ export interface MockDb {
   webhookEndpoints: WebhookEndpoint[];
   webhookDeliveries: WebhookDelivery[];
   patientOrders: PatientOrder[];
+  // Partial-fulfilment order rows with per-item quantities (issue #54). Kept
+  // separate from `patientOrders`, which is the W2 version-record shape.
+  orders: PatientOrder[];
   orderFacilities: Record<string, QualifiedOrderFacility[]>;
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
@@ -422,6 +429,66 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Notification centre (issue #107). Covers every category, an unread and a
+  // read row, and one deliberately unknown kind so the generic rendering path
+  // is visible in `npm run dev:mock`.
+  const notifications: Notification[] = [
+    {
+      id: 'ntf-demo-1',
+      kind: 'appointment_booked',
+      title: 'Appointment confirmed',
+      body: 'Demo appointment with Dr. Ficticia Example (fake) on 18 Oct at 09:00.',
+      link: '/patient/appointments',
+      readAt: null,
+      createdAt: '2026-10-18T07:00:00.000Z',
+    },
+    {
+      id: 'ntf-demo-2',
+      kind: 'result_ready',
+      title: 'A result is ready',
+      body: 'Demo full blood count (fake) has been added to your records.',
+      link: '/patient/records',
+      readAt: null,
+      createdAt: '2026-10-18T08:10:00.000Z',
+    },
+    {
+      id: 'ntf-demo-3',
+      kind: 'payment_escrowed',
+      title: 'Payment held in escrow',
+      body: 'Your demo payment is held until the pharmacy fulfils the order (fake).',
+      link: '/payments',
+      readAt: '2026-10-17T10:06:00.000Z',
+      createdAt: '2026-10-17T10:05:00.000Z',
+    },
+    {
+      id: 'ntf-demo-4',
+      kind: 'message_received',
+      title: 'New message from Dr. Ficticia Example',
+      body: 'Demo message (fake): your test results look fine, no action needed.',
+      link: '/care',
+      readAt: null,
+      createdAt: '2026-10-17T16:20:00.000Z',
+    },
+    {
+      id: 'ntf-demo-5',
+      kind: 'system_announcement',
+      title: 'Scheduled maintenance',
+      body: 'Demo announcement (fake): the service will be unavailable for a few minutes.',
+      link: null,
+      readAt: '2026-10-16T09:00:00.000Z',
+      createdAt: '2026-10-16T08:00:00.000Z',
+    },
+    {
+      id: 'ntf-demo-6',
+      kind: 'referral_accepted',
+      title: 'Referral accepted',
+      body: 'Your demo referral to Cardiology was accepted (fake).',
+      link: '/care',
+      readAt: null,
+      createdAt: '2026-10-15T11:30:00.000Z',
+    },
+  ];
+
   const consultationAddenda: ConsultationAddendum[] = [
     {
       id: 'cad-demo-1',
@@ -667,39 +734,111 @@ export function createSeedDb(): MockDb {
       id: 'fuq-demo-1',
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
+      orderItemId: 'itm-demo-rx1-amox',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
       itemName: 'Demo Amoxicillin 500mg (fake)',
       instructions: 'Demo instructions (fake): one capsule three times daily for five days.',
+      status: 'partially_dispensed',
+      receivedAt: '2026-10-18T07:30:00.000Z',
+      quantityPrescribed: 30,
+      quantityDispensed: 20,
+      quantityOutstanding: 10,
+      unit: 'capsules',
+      canDispense: true,
+      attribution: {
+        action: 'dispensed',
+        performedByUserId: 'usr-facility-staff',
+        performedByName: 'Mo Example (fake)',
+        performedByEmail: 'mo.example@example.test',
+        performedByRole: 'staff',
+        timestamp: '2026-10-18T08:10:00.000Z',
+        notes: 'Demo partial dispense (fake): 20 of 30 capsules supplied.',
+      },
+    },
+    {
+      id: 'fuq-demo-4',
+      facilityId: FACILITY_ID,
+      orderId: 'ord-demo-rx-1',
+      orderItemId: 'itm-demo-rx1-ibu',
+      orderType: 'prescription',
+      patientName: 'Pat Placeholder',
+      patientProfileId: PATIENT_PROFILE_ID,
+      itemName: 'Demo Ibuprofen 200mg (fake)',
+      instructions: 'Demo instructions (fake): take one tablet with food as needed.',
+      status: 'fulfilled',
+      receivedAt: '2026-10-18T07:30:00.000Z',
+      quantityPrescribed: 20,
+      quantityDispensed: 20,
+      quantityOutstanding: 0,
+      unit: 'tablets',
+      canDispense: false,
+      attribution: {
+        action: 'dispensed',
+        performedByUserId: 'usr-facility-staff',
+        performedByName: 'Mo Example (fake)',
+        performedByEmail: 'mo.example@example.test',
+        performedByRole: 'staff',
+        timestamp: '2026-10-18T08:12:00.000Z',
+        notes: null,
+      },
+    },
+    {
+      id: 'fuq-demo-5',
+      facilityId: FACILITY_ID,
+      orderId: 'ord-demo-rx-1',
+      orderItemId: 'itm-demo-rx1-vit',
+      orderType: 'prescription',
+      patientName: 'Pat Placeholder',
+      patientProfileId: PATIENT_PROFILE_ID,
+      itemName: 'Demo Vitamin D 1000 IU (fake)',
+      instructions: 'Demo instructions (fake): one capsule daily.',
       status: 'pending',
       receivedAt: '2026-10-18T07:30:00.000Z',
+      quantityPrescribed: 10,
+      quantityDispensed: 0,
+      quantityOutstanding: 10,
+      unit: 'capsules',
+      canDispense: true,
       attribution: null,
     },
     {
       id: 'fuq-demo-2',
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-lab-1',
+      orderItemId: 'itm-demo-lab1-panel',
       orderType: 'lab',
-      patientName: 'Sam Example',
-      patientProfileId: 'prf-patient-2',
+      patientName: 'Pat Placeholder',
+      patientProfileId: PATIENT_PROFILE_ID,
       itemName: 'Demo blood panel (fake)',
       instructions: 'Demo instructions (fake): fasting sample required.',
       status: 'pending',
       receivedAt: '2026-10-18T08:05:00.000Z',
+      quantityPrescribed: 1,
+      quantityDispensed: 0,
+      quantityOutstanding: 1,
+      unit: 'sample',
+      canDispense: true,
       attribution: null,
     },
     {
       id: 'fuq-demo-3',
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-2',
+      orderItemId: 'itm-demo-rx2-metformin',
       orderType: 'prescription',
-      patientName: 'Quinn Example',
-      patientProfileId: 'prf-patient-3',
+      patientName: 'Pat Placeholder',
+      patientProfileId: PATIENT_PROFILE_ID,
       itemName: 'Demo Metformin 850mg (fake)',
       instructions: null,
       status: 'fulfilled',
       receivedAt: '2026-10-17T14:00:00.000Z',
+      quantityPrescribed: 30,
+      quantityDispensed: 30,
+      quantityOutstanding: 0,
+      unit: 'tablets',
+      canDispense: false,
       attribution: {
         action: 'dispensed',
         performedByUserId: 'usr-facility-staff',
@@ -826,6 +965,177 @@ export function createSeedDb(): MockDb {
       dose: 'One tablet in the morning',
       quantity: '28 tablets',
       instructions: null,
+    },
+  ];
+
+  const orders: PatientOrder[] = [
+    {
+      id: 'ord-demo-rx-1',
+      orderType: 'prescription',
+      patientProfileId: PATIENT_PROFILE_ID,
+      patientName: 'Pat Placeholder',
+      medicationOrTest: 'Demo partial prescription (fake)',
+      medication: 'Demo partial prescription (fake)',
+      dose: 'As directed',
+      instructions: 'Demo fixture — several items, only some dispensed.',
+      issuedAt: '2026-10-17T09:00:00.000Z',
+      expiresAt: '2026-11-16T09:00:00.000Z',
+      status: 'active',
+      version: 1,
+      supersedesId: null,
+      requiresFacilitySelection: false,
+      fulfillmentStatus: 'partially_fulfilled',
+      facilityId: FACILITY_ID,
+      facilityName: 'Demo Pharmacy (fake)',
+      payment: {
+        status: 'held',
+        heldStroops: '500000000',
+        releasedStroops: '0',
+        refundedStroops: '0',
+        rule: 'Escrow is released per item as each facility confirms dispensing. Undispensed items stay in escrow until they are dispensed, rerouted, or refunded.',
+      },
+      items: [
+        {
+          id: 'itm-demo-rx1-amox',
+          orderId: 'ord-demo-rx-1',
+          name: 'Demo Amoxicillin 500mg (fake)',
+          instructions: 'Demo instructions (fake): one capsule three times daily for five days.',
+          quantityPrescribed: 30,
+          quantityDispensed: 20,
+          quantityOutstanding: 10,
+          unit: 'capsules',
+          status: 'partially_dispensed',
+          dispensedByFacilityId: FACILITY_ID,
+          dispensedByFacilityName: 'Demo Pharmacy (fake)',
+          dispensedAt: '2026-10-18T08:10:00.000Z',
+          canDispense: true,
+        },
+        {
+          id: 'itm-demo-rx1-ibu',
+          orderId: 'ord-demo-rx-1',
+          name: 'Demo Ibuprofen 200mg (fake)',
+          instructions: 'Demo instructions (fake): take one tablet with food as needed.',
+          quantityPrescribed: 20,
+          quantityDispensed: 20,
+          quantityOutstanding: 0,
+          unit: 'tablets',
+          status: 'dispensed',
+          dispensedByFacilityId: FACILITY_ID,
+          dispensedByFacilityName: 'Demo Pharmacy (fake)',
+          dispensedAt: '2026-10-18T08:12:00.000Z',
+          canDispense: false,
+        },
+        {
+          id: 'itm-demo-rx1-vit',
+          orderId: 'ord-demo-rx-1',
+          name: 'Demo Vitamin D 1000 IU (fake)',
+          instructions: 'Demo instructions (fake): one capsule daily.',
+          quantityPrescribed: 10,
+          quantityDispensed: 0,
+          quantityOutstanding: 10,
+          unit: 'capsules',
+          status: 'pending',
+          canDispense: true,
+        },
+        {
+          id: 'itm-demo-rx1-cet',
+          orderId: 'ord-demo-rx-1',
+          name: 'Demo Cetirizine 10mg (fake)',
+          instructions: 'Demo instructions (fake): one tablet nightly.',
+          quantityPrescribed: 10,
+          quantityDispensed: 10,
+          quantityOutstanding: 0,
+          unit: 'tablets',
+          status: 'dispensed_elsewhere',
+          dispensedByFacilityId: 'fac-demo-pharmacy-2',
+          dispensedByFacilityName: 'Example Chemist (fake)',
+          dispensedAt: '2026-10-18T09:00:00.000Z',
+          canDispense: false,
+          blockedReason: 'This item was already dispensed at Example Chemist (fake).',
+        },
+      ],
+    },
+    {
+      id: 'ord-demo-lab-1',
+      orderType: 'lab_order',
+      patientProfileId: PATIENT_PROFILE_ID,
+      patientName: 'Pat Placeholder',
+      medicationOrTest: 'Demo fasting blood panel (fake)',
+      testName: 'Demo fasting blood panel (fake)',
+      instructions: 'Demo fixture — sample not collected yet.',
+      issuedAt: '2026-10-18T08:00:00.000Z',
+      expiresAt: '2026-11-17T08:00:00.000Z',
+      status: 'active',
+      version: 1,
+      supersedesId: null,
+      requiresFacilitySelection: false,
+      fulfillmentStatus: 'unfulfilled',
+      facilityId: FACILITY_ID,
+      facilityName: 'Demo Pharmacy (fake)',
+      payment: {
+        status: 'held',
+        heldStroops: '250000000',
+        releasedStroops: '0',
+        refundedStroops: '0',
+        rule: 'The lab order payment is held until the sample is collected. If collection cannot happen, the remaining items can be routed to another lab.',
+      },
+      items: [
+        {
+          id: 'itm-demo-lab1-panel',
+          orderId: 'ord-demo-lab-1',
+          name: 'Demo blood panel (fake)',
+          instructions: 'Demo instructions (fake): fasting sample required.',
+          quantityPrescribed: 1,
+          quantityDispensed: 0,
+          quantityOutstanding: 1,
+          unit: 'sample',
+          status: 'pending',
+          canDispense: true,
+        },
+      ],
+    },
+    {
+      id: 'ord-demo-rx-2',
+      orderType: 'prescription',
+      patientProfileId: PATIENT_PROFILE_ID,
+      patientName: 'Pat Placeholder',
+      medicationOrTest: 'Demo Metformin 850mg (fake)',
+      medication: 'Demo Metformin 850mg (fake)',
+      dose: 'As directed',
+      instructions: null,
+      issuedAt: '2026-10-15T10:00:00.000Z',
+      expiresAt: '2026-11-14T10:00:00.000Z',
+      status: 'completed',
+      version: 1,
+      supersedesId: null,
+      requiresFacilitySelection: false,
+      fulfillmentStatus: 'fulfilled',
+      facilityId: FACILITY_ID,
+      facilityName: 'Demo Pharmacy (fake)',
+      payment: {
+        status: 'released',
+        heldStroops: '0',
+        releasedStroops: '750000000',
+        refundedStroops: '0',
+        rule: 'The full escrow amount was released after the facility dispensed every item on this order.',
+      },
+      items: [
+        {
+          id: 'itm-demo-rx2-metformin',
+          orderId: 'ord-demo-rx-2',
+          name: 'Demo Metformin 850mg (fake)',
+          instructions: null,
+          quantityPrescribed: 30,
+          quantityDispensed: 30,
+          quantityOutstanding: 0,
+          unit: 'tablets',
+          status: 'dispensed',
+          dispensedByFacilityId: FACILITY_ID,
+          dispensedByFacilityName: 'Demo Pharmacy (fake)',
+          dispensedAt: '2026-10-17T14:40:00.000Z',
+          canDispense: false,
+        },
+      ],
     },
   ];
 
@@ -1514,6 +1824,7 @@ export function createSeedDb(): MockDb {
     intakeForms,
     runningDelay,
     messageThreads,
+    notifications,
     consultationNotes,
     consultationRecords: [],
     consultationReferrals: [],
@@ -1528,6 +1839,7 @@ export function createSeedDb(): MockDb {
     webhookEndpoints,
     webhookDeliveries,
     patientOrders,
+    orders,
     orderFacilities,
     walletLink,
     paymentIntents,
@@ -1540,3 +1852,29 @@ export function createSeedDb(): MockDb {
     notificationPreferences,
   };
 }
+
+// --- Invitation redemption (issue #81) --------------------------------------
+// One pending invite per demo token; handlers/auth.ts derives the other
+// statuses (expired / revoked / accepted) and the 404 from the token.
+export const ACCOUNT_INVITE: AccountInvite = {
+  id: 'inv-demo-1',
+  email: 'new.facility.staff@example.test',
+  role: 'facility',
+  organisationName: 'Example Lab (fake)',
+  organisationType: 'lab',
+  invitedBy: 'Fiona Placeholder (fake)',
+  status: 'pending',
+  invitedAt: '2026-10-17T09:00:00.000Z',
+  expiresAt: '2026-10-31T09:00:00.000Z',
+};
+
+/** An admin invite so the dev panel can demo the other invited role. */
+export const ADMIN_ACCOUNT_INVITE: AccountInvite = {
+  ...ACCOUNT_INVITE,
+  id: 'inv-demo-admin',
+  email: 'new.admin@example.test',
+  role: 'admin',
+  organisationName: 'DocForum Operations (fake)',
+  organisationType: null,
+  invitedBy: 'Alda Placeholder (fake)',
+};

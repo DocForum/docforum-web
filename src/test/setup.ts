@@ -1,15 +1,31 @@
 import '@testing-library/jest-dom/vitest';
-import { expect } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect } from 'vitest';
+import { cleanup } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
-import { beforeAll, afterAll, afterEach } from 'vitest';
-import { setupServer } from 'msw/node';
-import { handlers } from '../mocks/handlers';
-import { testHandlers } from '../mocks/handlers/test-handlers';
+import { server } from './server';
+import { resetTestStores } from './render';
 
+// Accessibility assertions (`expect(await axe(container)).toHaveNoViolations()`).
 expect.extend(toHaveNoViolations);
 
-const server = setupServer(...handlers, ...testHandlers);
+// One MSW server for the run (issue #105): start it once, reset handler
+// overrides after each test, close it at the end.
+beforeAll(() => {
+  // `bypass` keeps the ~90 tests that `vi.mock` the service layer working
+  // unchanged; tests that drive the real services hit these handlers.
+  server.listen({ onUnhandledRequest: 'bypass' });
+});
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterAll(() => server.close());
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  // `src/mocks/handlers.test.ts` runs in the node environment and mounts no
+  // React tree — RTL's cleanup needs a document.
+  if (typeof document !== 'undefined') cleanup();
+  server.resetHandlers();
+  // Stores are module singletons — a session or selected profile from one
+  // test must never be visible to the next.
+  resetTestStores();
+});
+
+afterAll(() => {
+  server.close();
+});

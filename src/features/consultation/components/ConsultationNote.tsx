@@ -5,6 +5,10 @@ import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/us
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
@@ -36,7 +40,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const t = useT();
   const [addendumContent, setAddendumContent] = useState('');
   const [confirmingSignOff, setConfirmingSignOff] = useState(false);
-  const [editing, setEditing] = useState(!Boolean(query.data?.signedAt));
+  const [editing, setEditing] = useState(!query.data?.signedAt);
 
   const note = query.data;
   const signed = Boolean(note?.signedAt);
@@ -81,9 +85,30 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
     setAddendumContent('');
   };
 
-  if (query.isLoading) return <div className={styles.loading}>{t('consultation.loading', 'Loading note…')}</div>;
-  if (query.isError || !note) {
-    return <div className={styles.empty}>{t('consultation.loadError', 'Could not load this consultation note.')}</div>;
+  if (query.isLoading) {
+    return (
+      <div className={styles.loading}>
+        <Skeleton lines={4} label={t('consultation.loading', 'Loading note…')} />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <InlineError
+        title={t('consultation.loadError', 'Could not load this consultation note.')}
+        message={queryErrorMessage(query.error)}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
+  if (!note) {
+    return (
+      <EmptyState
+        title="No consultation note for this visit yet"
+        description="Notes are written and signed off during the consultation. Start the visit to record one."
+        action={{ label: 'Back to your dashboard', to: '/doctor' }}
+      />
+    );
   }
 
   return (

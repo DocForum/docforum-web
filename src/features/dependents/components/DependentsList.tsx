@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
-import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
 import { useT } from '../../../i18n/useT';
@@ -17,7 +18,7 @@ function formatDate(iso: string, timeZone: string) {
 
 export function DependentsList() {
   const { timeZone } = useTimeZone();
-  const { data: dependents, isLoading, error: fetchError } = useDependents();
+  const { data: dependents, isLoading, error: fetchError, refetch } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
   const t = useT();
@@ -52,8 +53,7 @@ export function DependentsList() {
   if (isLoading) {
     return (
       <div className={styles.loading}>
-        <Spinner size={24} />
-        <span>{t('dependents.loading', 'Loading dependents…')}</span>
+        <Skeleton lines={3} height="1.5rem" label={t('dependents.loading', 'Loading dependents…')} />
       </div>
     );
   }
@@ -71,7 +71,13 @@ export function DependentsList() {
         )}
       </div>
 
-      <FormError message={apiError} />
+      {apiError && (
+        <InlineError
+          title="Dependents couldn't be loaded"
+          message={apiError}
+          onRetry={() => void refetch()}
+        />
+      )}
 
       <p className={styles.notice}>
         {t('dependents.notice', 'As a guardian you manage these profiles. You control their bookings and health records until they claim their own account.')}
@@ -89,7 +95,11 @@ export function DependentsList() {
       )}
 
       {dependents && dependents.length === 0 && !showAdd && (
-        <p className={styles.empty}>{t('dependents.empty', 'No dependents added yet.')}</p>
+        <EmptyState
+          title={t('dependents.empty', 'No dependents added yet.')}
+          description="Add a child or someone you care for to book and manage visits on their behalf."
+          action={{ label: 'Add your first dependent', onClick: () => setShowAdd(true) }}
+        />
       )}
 
       {dependents?.map((d) => (

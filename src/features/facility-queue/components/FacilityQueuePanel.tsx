@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type {
   FulfillmentLabResult,
   FulfillmentQueueItem,
@@ -20,7 +24,9 @@ type QueueFilter = 'all' | 'active' | 'done';
 const STATUS_LABELS: Record<FulfillmentQueueItem['status'], string> = {
   pending: 'Pending',
   in_progress: 'In progress',
+  partially_dispensed: 'Partially dispensed',
   fulfilled: 'Fulfilled',
+  dispensed_elsewhere: 'Dispensed elsewhere',
   rejected: 'Rejected',
 };
 
@@ -182,7 +188,7 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
     return (
       <section className={styles.card} aria-labelledby="facility-queue-heading">
         <h2 id="facility-queue-heading">Fulfillment queue</h2>
-        <p className={styles.muted}>Loading fulfillment queue…</p>
+        <Skeleton lines={4} height="2.25rem" label="Loading fulfillment queue" />
       </section>
     );
   }
@@ -191,12 +197,11 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
     return (
       <section className={styles.card} aria-labelledby="facility-queue-heading">
         <h2 id="facility-queue-heading">Fulfillment queue</h2>
-        <p className={styles.error} role="alert">
-          Could not load the fulfillment queue.
-        </p>
-        <Button variant="secondary" onClick={() => queueQuery.refetch()}>
-          Try again
-        </Button>
+        <InlineError
+          title="The fulfillment queue couldn't be loaded"
+          message={queryErrorMessage(queueQuery.error)}
+          onRetry={() => void queueQuery.refetch()}
+        />
       </section>
     );
   }
@@ -236,9 +241,19 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
       ) : null}
 
       {visibleItems.length === 0 ? (
-        <p className={styles.emptyState}>
-          {items.length === 0 ? 'No items in the fulfillment queue.' : 'No items match this filter.'}
-        </p>
+        <EmptyState
+          title={items.length === 0 ? 'No items in the fulfillment queue.' : 'No items match this filter.'}
+          description={
+            items.length === 0
+              ? 'Assigned prescriptions and lab orders appear here for dispensing or collection.'
+              : 'Switch the filter back to "All" to see the rest of the queue.'
+          }
+          action={
+            items.length === 0
+              ? { label: 'Refresh the queue', onClick: () => void queueQuery.refetch() }
+              : { label: 'Show all items', onClick: () => setFilter('all') }
+          }
+        />
       ) : (
         <ul className={styles.queueList}>
           {visibleItems.map((item) => {

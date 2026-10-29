@@ -307,6 +307,17 @@ interface OrderVersionBase {
   issuedByDoctorName?: string | null;
   requiresFacilitySelection: boolean;
   selectedFacility?: OrderFacilitySummary | null;
+  // --- Partial fulfilment (issue #54, docforum-core#73 assumed) -----------
+  // Optional so main's W2 order screens keep compiling; the partial-fulfilment
+  // screens in `features/orders` read these.
+  patientName?: string;
+  medicationOrTest?: string;
+  expiresAt?: string;
+  facilityId?: string | null;
+  facilityName?: string | null;
+  fulfillmentStatus?: PartialFulfillmentStatus;
+  items?: OrderItemFulfillment[];
+  payment?: OrderPaymentSummary;
 }
 
 export interface Prescription extends OrderVersionBase {
@@ -631,7 +642,13 @@ export interface RemoveMemberResponse {
 }
 
 export type FulfillmentOrderType = 'prescription' | 'lab';
-export type FulfillmentItemStatus = 'pending' | 'in_progress' | 'fulfilled' | 'rejected';
+export type FulfillmentItemStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'partially_dispensed'
+  | 'fulfilled'
+  | 'dispensed_elsewhere'
+  | 'rejected';
 
 export interface FulfillmentActionAttribution {
   action: 'dispensed' | 'sample_collected' | 'verified' | 'rejected';
@@ -662,10 +679,82 @@ export interface FulfillmentQueueItem {
   patientProfileId: string;
   itemName: string;
   instructions?: string | null;
+  /** Links this facility queue row to the patient's order item. */
+  orderItemId?: string;
   status: FulfillmentItemStatus;
   receivedAt: string;
   attribution?: FulfillmentActionAttribution | null;
   labResult?: FulfillmentLabResult | null;
+  // --- Partial fulfilment (issue #54, docforum-core#73 assumed) -----------
+  quantityPrescribed?: number;
+  quantityDispensed?: number;
+  quantityOutstanding?: number;
+  unit?: string;
+  canDispense?: boolean;
+  blockedReason?: string | null;
+  dispensedByFacilityId?: string | null;
+  dispensedByFacilityName?: string | null;
+}
+
+// --- Phase W4 — Partial fulfilment (issue #54, depends on
+// docforum-core#73) ---------------------------------------------------------
+// Assumed contract: order-level status is derived from item-level rows.
+// The exact payment-release rule is backend-owned and pending #73; the UI
+// renders `payment.rule` rather than computing/guessing a release amount.
+
+export type PartialFulfillmentStatus =
+  | 'unfulfilled'
+  | 'partially_fulfilled'
+  | 'fulfilled'
+  | 'rejected';
+
+export type OrderItemFulfillmentStatus =
+  | 'pending'
+  | 'partially_dispensed'
+  | 'dispensed'
+  | 'dispensed_elsewhere'
+  | 'rejected';
+
+/** Item-level fulfilment row for a patient order (issue #54). Named
+ * `OrderItemFulfillment` rather than `OrderItem` so it doesn't collide with
+ * `OrderItem` above, which is the plain line item on main's `Order`. */
+export interface OrderItemFulfillment {
+  id: string;
+  orderId: string;
+  name: string;
+  instructions?: string | null;
+  quantityPrescribed: number;
+  quantityDispensed: number;
+  quantityOutstanding: number;
+  unit: string;
+  status: OrderItemFulfillmentStatus;
+  dispensedByFacilityId?: string | null;
+  dispensedByFacilityName?: string | null;
+  dispensedAt?: string | null;
+  routedToFacilityId?: string | null;
+  routedToFacilityName?: string | null;
+  /** Backend-derived: false once another facility dispensed or the
+   * remaining quantity was routed elsewhere. */
+  canDispense: boolean;
+  blockedReason?: string | null;
+}
+
+export interface OrderPaymentSummary {
+  status: 'held' | 'partially_released' | 'released' | 'refunded' | 'none';
+  heldStroops: string;
+  releasedStroops: string;
+  refundedStroops: string;
+  /** Plain-language rule supplied by docforum-core, shown verbatim. */
+  rule: string;
+}
+
+export interface DispenseFulfillmentItemInput {
+  quantity: number;
+}
+
+export interface RouteRemainingItemsInput {
+  facilityId: string;
+  itemIds: string[];
 }
 
 export type FulfillmentStatusUpdate = 'in_progress' | 'fulfilled' | 'rejected';
@@ -1216,6 +1305,32 @@ export interface FeatureFlag {
   updatedAt: string;
 }
 
+// --- Invitation redemption — admins & facility staff (issue #81, PRD OQ-2) ---
+// Admins and facility staff never self-register; they join through an
+// invite link. These shapes are ASSUMED: they depend on docforum-core#39
+// (admin invites) and docforum-core#75 (facility staff invites), neither
+// of which has landed. See ARCHITECTURE_ESSENTIALS.md "Known assumptions".
+
+/** Roles an invite may grant. Never patient/doctor — those self-serve. */
+export type InviteRole = Extract<Role, 'facility' | 'admin'>;
+
+export type AccountInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface AccountInvite {
+  id: string;
+  email: string;
+  /** The role the account gets — server-side, from the invite. It is never
+   * a form field; the client cannot choose or change it. */
+  role: InviteRole;
+  organisationName: string;
+  organisationType: string | null;
+  /** Full name of the person who sent the invite, if the server exposes it. */
+  invitedBy: string | null;
+  status: AccountInviteStatus;
+  invitedAt: string;
+  expiresAt: string;
+}
+
 /** Only the fields being changed are sent. */
 export interface UpdateFeatureFlagInput {
   enabled?: boolean;
@@ -1723,6 +1838,75 @@ export interface RedeliverResponse {
   deliveryId: string;
   status: WebhookDeliveryStatus;
 }
+
+// --- Notification centre (issue #107) ---------------------------------------
+// Assumed contract: docforum-core#93 (Notification model, provider-agnostic
+// dispatch interface and the in-app inbox API) has not landed. The shapes
+// follow what that issue asks for and are recorded in
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Notification centre".
+
+/** Known notification kinds. The API may add more, so a payload's `kind` is
+ * typed as `NotificationKind | string` and unknown values render generically. */
+export type NotificationKind =
+  | 'appointment_booked'
+  | 'appointment_reminder'
+  | 'appointment_cancelled'
+  | 'referral_created'
+  | 'referral_accepted'
+  | 'order_issued'
+  | 'order_fulfilled'
+  | 'order_rejected'
+  | 'result_ready'
+  | 'payment_due'
+  | 'payment_escrowed'
+  | 'payment_released'
+  | 'payment_refunded'
+  | 'message_received'
+  | 'dispute_opened'
+  | 'dispute_resolved';
+
+/** One in-app notification. PHI-light by design: the title/body are written
+ * by docforum-core for display and must never carry clinical detail beyond
+ * what the destination screen already shows the recipient. */
+export interface Notification {
+  id: string;
+  kind: NotificationKind | string;
+  title: string;
+  /** One-line, PHI-light summary. Rendered as text only, never HTML. */
+  body: string;
+  /** App-relative deep link (`/patient/orders/ord-1`), validated before use;
+   * `null` for kinds that have no destination. */
+  link: string | null;
+  /** `null` while unread. */
+  readAt: string | null;
+  createdAt: string;
+}
+
+/** Cursor-paginated inbox page. `unreadCount` is the server's total for the
+ * whole inbox (not this page), so the bell badge is correct before every
+ * page has been loaded. */
+export interface NotificationPage {
+  items: Notification[];
+  nextCursor: string | null;
+  unreadCount: number;
+}
+
+/** Ticket for the live SSE stream. `EventSource` cannot send an Authorization
+ * header, so the short-lived ticket — never the access token — travels in the
+ * stream URL. */
+export interface NotificationStreamTicket {
+  /** Opaque, single-use, expires within a minute. */
+  ticket: string;
+  /** App-relative stream path including the ticket, e.g.
+   * `/notifications/stream?ticket=…`. */
+  streamPath: string;
+  expiresAt: string;
+}
+
+/** A live `notification` SSE event's payload. */
+export type NotificationStreamEvent =
+  | { type: 'notification'; notification: Notification; unreadCount: number }
+  | { type: 'read'; notificationIds: string[]; unreadCount: number };
 
 // --- Phase W7 — Evaluated feature flags for the signed-in user (issue #111) --
 // Assumed shape pending docforum-core#132: `GET /me/flags` returns the

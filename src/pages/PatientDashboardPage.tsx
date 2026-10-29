@@ -1,6 +1,9 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { CareCardList } from '../features/care-hub/components/CareCardList';
+import { EmptyState } from '../components/states/EmptyState';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
@@ -11,6 +14,8 @@ import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
 import { OrdersPage } from './OrdersPage';
 import { OrderDetailPage } from './OrderDetailPage';
+import { PatientOrdersPage } from './PatientOrdersPage';
+import { PatientOrderDetailPage } from './PatientOrderDetailPage';
 import { MessageThreadPage } from './MessageThreadPage';
 import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import { useT } from '../i18n/useT';
@@ -33,22 +38,26 @@ function PatientHome() {
         <span className="statusPill">{t('patient.phasePill', 'Phase W2 · in progress')}</span>
         <h1 className={styles.title}>What needs your attention</h1>
 
-        {anyLoading && <p className={styles.loading}>Loading your care summary…</p>}
+        {anyLoading && <Skeleton lines={3} label="Loading your care summary" />}
 
         <section aria-labelledby="action-needed">
           <h2 id="action-needed" className={styles.heading}>
             Action needed
           </h2>
           {sources.dependents.failed || sources.appointments.failed || sources.health.failed ? (
-            <p className={styles.sourceError} role="status">
-              Some of your information could not be loaded. Everything else below is still current — retry
-              by reloading this page.
-            </p>
+            <InlineError
+              title={null}
+              message="Some of your information could not be loaded. Everything else below is still current — retry by reloading this page."
+            />
           ) : null}
           {sections.action.length > 0 ? (
             <CareCardList cards={sections.action} />
           ) : !anyLoading ? (
-            <p className={styles.empty}>Nothing needs your attention right now.</p>
+            <EmptyState
+              title="Nothing needs your attention right now"
+              description="Bookings, handovers and recent changes show up here when they need you."
+              action={{ label: 'Update your health details', to: '/patient/health' }}
+            />
           ) : null}
         </section>
 
@@ -93,6 +102,8 @@ export function PatientDashboardPage() {
   return (
     <Routes>
       <Route index element={<PatientHome />} />
+      <Route path="orders" element={<PatientOrdersPage />} />
+      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />

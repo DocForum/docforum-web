@@ -124,7 +124,7 @@ export const consultationHandlers = [
         testName?: string;
         instructions?: string | null;
       };
-      let medicationOrTest = '';
+      let medicationOrTest: string;
       if (body.orderType === 'prescription') {
         if (!body.medication?.trim()) return conflict('medication is required');
         if (!body.dose?.trim()) return conflict('dose is required');

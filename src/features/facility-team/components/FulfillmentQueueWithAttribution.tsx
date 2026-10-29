@@ -76,7 +76,13 @@ export function FulfillmentQueueWithAttribution({
                           : styles.statusPending
                       }`}
                     >
-                      {item.status === 'fulfilled' ? 'Fulfilled / Dispensed' : item.status}
+                      {item.status === 'fulfilled'
+                        ? 'Fulfilled / Dispensed'
+                        : item.status === 'partially_dispensed'
+                        ? 'Partially dispensed'
+                        : item.status === 'dispensed_elsewhere'
+                        ? 'Dispensed elsewhere'
+                        : item.status}
                     </span>
                   </div>
                 </div>
