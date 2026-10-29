@@ -207,7 +207,7 @@ export function useMessageThread(appointmentId: string): UseMessageThreadResult 
         id: clientId,
         clientId,
         appointmentId,
-        senderId: 'me',
+        senderProfileId: 'me',
         senderRole: 'patient' as MessageSenderRole,
         body: trimmed,
         createdAt: new Date().toISOString(),

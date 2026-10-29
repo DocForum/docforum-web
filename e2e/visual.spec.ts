@@ -26,6 +26,6 @@ for (const screen of screens) {
     await expect(page.locator('#root h1, #root h2').first()).toBeVisible();
     await expect(page.getByText(screen.ready, { exact: false }).first()).toBeVisible();
     await page.mouse.move(0, 0);
-    await expect(page).toHaveScreenshot(`${screen.name}.png`);
+    await expect(page).toHaveScreenshot(`${screen.name}.png`, { animations: 'disabled' });
   });
 }

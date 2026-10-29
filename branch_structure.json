@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "main",
+    "origin",
+    "security/issue-22-phase-w2-consultation-message-thread-ui-shared"
+  ],
+  "parent": {
+    "main": null,
+    "origin": "main",
+    "security/issue-22-phase-w2-consultation-message-thread-ui-shared": "main"
+  },
+  "order": [
+    "main",
+    "origin",
+    "security/issue-22-phase-w2-consultation-message-thread-ui-shared"
+  ]
+}
