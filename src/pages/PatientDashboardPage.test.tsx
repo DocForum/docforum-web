@@ -214,9 +214,15 @@ describe('PatientDashboardPage care hub', () => {
 
   it('files a later visit under Coming up without promising check-in today', async () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
-    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
-      appointment(new Date(Date.now() + 26 * 60 * 60 * 1000)),
-    ]);
+    // "Tomorrow" in the component's own terms is the calendar day of
+    // now + 24h (formatSlotDate compares against that), so build the visit
+    // from that day. A raw now + 26h only lands on it when the run starts
+    // before 22:00 local — after that it crosses two midnights and the label
+    // falls back to a plain date. Noon keeps the slot unambiguously ahead of
+    // the patient, so the card lands under "Coming up".
+    const tomorrow = new Date(Date.now() + DAY_MS);
+    const visit = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 12, 0, 0);
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment(visit)]);
 
     render(<PatientDashboardPage />);
 
