@@ -32,6 +32,14 @@ export const queueHandlers = [
     ),
   ),
 
+  http.get(
+    '*/appointments/:id',
+    respond('json', ({ params }) => {
+      const appointment = db.appointments.find((item) => item.id === paramId(params));
+      return appointment ?? notFound('appointment');
+    }),
+  ),
+
   http.get('*/doctor/queue/today', respond('list', () => deriveQueue(db.appointments))),
 
   http.post(

@@ -300,6 +300,12 @@
   min-width: 0;
 }
 
+.routeLoading {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;

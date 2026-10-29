@@ -205,6 +205,7 @@ describe('timeouts', () => {
 
   it('uses the default timeout when none is given', async () => {
     vi.useFakeTimers();
+    hungFetch();
     const attempt = apiFetch('/anything');
     const assertion = expect(attempt).rejects.toMatchObject({
       name: 'ApiTimeoutError',
@@ -221,6 +222,7 @@ describe('timeouts', () => {
 
   it('applies the timeout to mutations too', async () => {
     vi.useFakeTimers();
+    hungFetch();
     const attempt = apiFetch('/things', { method: 'POST', body: { a: 1 }, timeoutMs: 500 });
     const assertion = expect(attempt).rejects.toBeInstanceOf(ApiTimeoutError);
     await vi.advanceTimersByTimeAsync(501);

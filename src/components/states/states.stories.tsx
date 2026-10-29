@@ -1,8 +1,9 @@
-// CSF 3 stories for the shared state components (issue #106).
-// Same stub approach as DataTable.stories.tsx: they are written in Component
-// Story Format so Storybook picks them up once #97 installs it, and they
-// typecheck today without @storybook/react.
+// CSF stories for the shared state components (issue #106). The local CSF
+// stub this file once carried is gone: @storybook/react-vite is now a
+// devDependency, so the real Meta/StoryObj types are used and the default
+// export is a static object literal Storybook's indexer can evaluate.
 import type { ReactNode } from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router-dom';
 import { EmptyState } from './EmptyState';
 import { InlineError } from './InlineError';
@@ -10,29 +11,21 @@ import { PageError } from './PageError';
 import { QueryState } from './QueryState';
 import { Skeleton } from './Skeleton';
 
-interface Meta {
-  title: string;
-  component: typeof Skeleton;
-  decorators: ((story: () => ReactNode) => ReactNode)[];
-  tags: string[];
-}
-
-type StoryObj = { render: () => ReactNode };
-
-function defineMeta(meta: Meta): Meta {
-  return meta;
-}
-
-const meta = defineMeta({
+const meta = {
   title: 'Components/States',
   component: Skeleton,
-  decorators: [(story) => <MemoryRouter>{story()}</MemoryRouter>],
+  decorators: [(story: () => ReactNode) => <MemoryRouter>{story()}</MemoryRouter>],
   tags: ['autodocs'],
-});
+} satisfies Meta<typeof Skeleton>;
 
 export default meta;
 
-export const LoadingSkeleton: StoryObj = {
+// These stories supply every prop through the render closure instead of
+// `args`, so a full StoryObj would not fit; `render` stays required while
+// any extra fields are typed against the real story type.
+type Story = { render: () => ReactNode } & Partial<StoryObj<typeof meta>>;
+
+export const LoadingSkeleton: Story = {
   render: () => (
     <div style={{ maxWidth: 480 }}>
       <Skeleton lines={4} label="Loading your orders" />
@@ -40,7 +33,7 @@ export const LoadingSkeleton: StoryObj = {
   ),
 };
 
-export const EmptyWithNextAction: StoryObj = {
+export const EmptyWithNextAction: Story = {
   render: () => (
     <EmptyState
       title="No prescriptions or lab orders yet"
@@ -50,7 +43,7 @@ export const EmptyWithNextAction: StoryObj = {
   ),
 };
 
-export const EmptyPageSize: StoryObj = {
+export const EmptyPageSize: Story = {
   render: () => (
     <EmptyState
       size="page"
@@ -61,7 +54,7 @@ export const EmptyPageSize: StoryObj = {
   ),
 };
 
-export const InlineWithRetry: StoryObj = {
+export const InlineWithRetry: Story = {
   render: () => (
     <div style={{ maxWidth: 600 }}>
       <InlineError
@@ -72,7 +65,7 @@ export const InlineWithRetry: StoryObj = {
   ),
 };
 
-export const InlineWithoutRetry: StoryObj = {
+export const InlineWithoutRetry: Story = {
   render: () => (
     <div style={{ maxWidth: 600 }}>
       <InlineError title={null} message="This isn't available any more." />
@@ -80,7 +73,7 @@ export const InlineWithoutRetry: StoryObj = {
   ),
 };
 
-export const PageLevelError: StoryObj = {
+export const PageLevelError: Story = {
   render: () => (
     <PageError
       title="Your orders couldn't be loaded"
@@ -91,7 +84,7 @@ export const PageLevelError: StoryObj = {
   ),
 };
 
-export const QueryStateLoading: StoryObj = {
+export const QueryStateLoading: Story = {
   render: () => (
     <QueryState result={{ isPending: true, isError: false, error: null, data: undefined }}>
       <p>Loaded content</p>
@@ -99,7 +92,7 @@ export const QueryStateLoading: StoryObj = {
   ),
 };
 
-export const QueryStateEmpty: StoryObj = {
+export const QueryStateEmpty: Story = {
   render: () => (
     <QueryState
       result={{ isPending: false, isError: false, error: null, data: [] as string[] }}
@@ -117,7 +110,7 @@ export const QueryStateEmpty: StoryObj = {
   ),
 };
 
-export const QueryStateError: StoryObj = {
+export const QueryStateError: Story = {
   render: () => (
     <QueryState
       result={{
