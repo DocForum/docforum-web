@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { PageError } from '../../../components/states/PageError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { queryErrorMessage } from '../../../components/states/QueryState';
 import { ApiError } from '../../../services/api-client';
 import { OrderWalletPayPanel } from '../../payments/components/OrderWalletPayPanel';
 import type { PatientOrder, QualifiedOrderFacility } from '../../../types/models';
@@ -80,14 +85,20 @@ function FacilitySelectionDialog({ order, onClose, onSelected }: FacilitySelecti
           Only facilities qualified to fulfill {orderTitle(order).toLowerCase()} are shown.
         </p>
 
-        {facilities.isLoading ? <p className={styles.muted}>Loading qualified facilities...</p> : null}
-        {facilities.isError ? (
-          <p className={styles.error} role="alert">
-            Could not load qualified facilities.
-          </p>
-        ) : null}
-        {facilities.data?.length === 0 ? (
-          <p className={styles.muted}>No qualified facilities are available for this order yet.</p>
+        {facilities.isLoading ? (
+          <Skeleton lines={3} label="Loading qualified facilities" />
+        ) : facilities.isError ? (
+          <InlineError
+            title="Couldn't load qualified facilities"
+            message={queryErrorMessage(facilities.error)}
+            onRetry={() => void facilities.refetch()}
+          />
+        ) : facilities.data?.length === 0 ? (
+          <EmptyState
+            title="No qualified facilities yet"
+            description="No pharmacy or lab is currently qualified for this order. Try again later or ask your doctor."
+            action={{ label: 'Close', onClick: onClose }}
+          />
         ) : null}
 
         <ul className={styles.facilityList}>
@@ -135,12 +146,15 @@ export function OrdersList() {
   const [selecting, setSelecting] = useState<PatientOrder | null>(null);
   const [selectedNotice, setSelectedNotice] = useState<string | null>(null);
 
-  if (orders.isLoading) return <p className={styles.muted}>Loading your orders...</p>;
+  if (orders.isLoading) return <Skeleton lines={6} height="1.5rem" label="Loading your orders" />;
   if (orders.isError) {
     return (
-      <p className={styles.error} role="alert">
-        Could not load your orders.
-      </p>
+      <PageError
+        title="Your orders couldn't be loaded"
+        message={queryErrorMessage(orders.error)}
+        onRetry={() => void orders.refetch()}
+        fallback={{ label: 'Back to your care hub', to: '/patient' }}
+      />
     );
   }
 
@@ -164,7 +178,11 @@ export function OrdersList() {
       ) : null}
 
       {entries.length === 0 ? (
-        <p className={styles.muted}>You have no prescriptions or lab orders yet.</p>
+        <EmptyState
+          title="No prescriptions or lab orders yet"
+          description="Orders issued after a consultation appear here, newest first."
+          action={{ label: 'Back to your care hub', to: '/patient' }}
+        />
       ) : (
         <ul className={styles.list}>
           {entries.map(({ order, history }) => {

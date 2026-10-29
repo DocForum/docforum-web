@@ -1,7 +1,9 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useStuckReferrals } from '../hooks/useStuckReferrals';
 import { describeQueueError } from '../errors';
 import { REASONS, STUCK_AGES, parseQueueSearch, sortByAge, toQueueSearch } from '../queue';
@@ -66,29 +68,27 @@ export function StuckReferralsConsole() {
 
   let body;
   if (queue.isLoading) {
-    body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading stuck referrals…</span>
-      </div>
-    );
+    body = <Skeleton lines={5} height="2rem" label="Loading stuck referrals" />;
   } else if (queue.error) {
     body = (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeQueueError(queue.error)}</p>
-        <Button variant="secondary" onClick={() => void queue.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title="The referral queue couldn't be loaded"
+        message={describeQueueError(queue.error)}
+        onRetry={() => void queue.refetch()}
+      />
     );
   } else if (visible.length === 0) {
     const threshold = STUCK_AGES.find((age) => age.value === filters.olderThan)?.label;
     body = (
-      <p className={styles.empty}>
-        {loaded.length === 0
-          ? `No referrals have been pending for more than ${threshold}. Nobody is stuck.`
-          : `None of the loaded referrals are flagged “${REASONS[filters.reason as StuckReferralReason].label}”.`}
-      </p>
+      <EmptyState
+        title={
+          loaded.length === 0
+            ? `No referrals have been pending for more than ${threshold}. Nobody is stuck.`
+            : `None of the loaded referrals are flagged “${REASONS[filters.reason as StuckReferralReason].label}”.`
+        }
+        description="Widen the age threshold or clear the reason filter to see more of the queue."
+        action={{ label: 'Reload the queue', onClick: () => void queue.refetch() }}
+      />
     );
   } else {
     body = (

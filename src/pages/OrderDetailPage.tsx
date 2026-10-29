@@ -5,7 +5,9 @@
 // broken page.
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
-import { Spinner } from '../components/Spinner';
+import { PageError } from '../components/states/PageError';
+import { queryErrorMessage } from '../components/states/QueryState';
+import { Skeleton } from '../components/states/Skeleton';
 import { useOrder } from '../features/orders/hooks/useOrders';
 import { useOrderPaymentIntent } from '../features/payments/hooks/useOrderPaymentIntent';
 import { OrderPaymentPanel } from '../features/payments/components/OrderPaymentPanel';
@@ -32,9 +34,7 @@ export function OrderDetailPage() {
   if (orderQuery.isPending) {
     return (
       <div className="container">
-        <p className={styles.loading} role="status">
-          <Spinner size={16} /> Loading order…
-        </p>
+        <Skeleton lines={5} height="1.5rem" label="Loading order" />
       </div>
     );
   }
@@ -44,17 +44,22 @@ export function OrderDetailPage() {
       orderQuery.error instanceof ApiError && orderQuery.error.status === 404;
     return (
       <div className="container">
-        <div className="card">
-          <h1>{notFound ? 'Order not found' : "Couldn't load this order"}</h1>
-          <p>
-            {notFound
-              ? "This order doesn't exist, or it isn't one of yours. Check the link, or ask the clinic that issued it."
-              : 'Something went wrong loading this order. Please try again.'}
-          </p>
-          <p>
-            <Link to="/patient/orders">Back to your orders</Link>
-          </p>
-        </div>
+        {notFound ? (
+          <div className="card">
+            <h1>Order not found</h1>
+            <p>
+              This order doesn't exist, or it isn't one of yours. Check the link, or ask the clinic
+              that issued it.
+            </p>
+          </div>
+        ) : (
+          <PageError
+            title="Your order couldn't be loaded"
+            message={queryErrorMessage(orderQuery.error)}
+            onRetry={() => void orderQuery.refetch()}
+            fallback={{ label: 'Back to your orders', to: '/patient/orders' }}
+          />
+        )}
       </div>
     );
   }

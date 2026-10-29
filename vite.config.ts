@@ -16,12 +16,25 @@ import { VitePWA } from 'vite-plugin-pwa';
 // The plugin injects `<meta http-equiv="Content-Security-Policy">` into
 // index.html on every dev request and on the production build output.
 
+// API origin allowed in `connect-src` — taken from VITE_API_BASE_URL when it
+// is set (the PR-preview build points it at a reserved-invalid host so the
+// preview can never reach the real backend — issue #104), and defaulting to
+// the deployed docforum-core API otherwise.
+const API_ORIGIN = (() => {
+  const raw = process.env.VITE_API_BASE_URL ?? 'https://docforum-core-api.onrender.com';
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw;
+  }
+})();
+
 const PROD_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
   "font-src 'self'",
-  "connect-src 'self' https://docforum-core-api.onrender.com",
+  `connect-src 'self' ${API_ORIGIN}`,
   "img-src 'self' data:",
   "base-uri 'self'",
   "form-action 'self'",
@@ -46,7 +59,12 @@ function cspPlugin(isProd: boolean): Plugin {
   return {
     name: 'docforum-csp',
     transformIndexHtml(html: string) {
-      return html.replace('<head>', `<head>\n    ${meta}`);
+      // index.html preconnects to the real API host; a preview build must not
+      // (issue #104), so the preconnect follows the configured API origin —
+      // the same one used in connect-src above.
+      return html
+        .replace('https://docforum-core-api.onrender.com', API_ORIGIN)
+        .replace('<head>', `<head>\n    ${meta}`);
     },
   };
 }
@@ -54,7 +72,12 @@ function cspPlugin(isProd: boolean): Plugin {
 export default defineConfig(({ command }) => {
   const isProd = command === 'build';
   return {
-    base: process.env.GITHUB_PAGES ? '/docforum-web/' : '/',
+    // `VITE_BASE_PATH` lets a static host serve the app from a subpath without
+    // touching the main Pages build. Everything else keeps the GitHub Pages /
+    // root behaviour.
+    base:
+      process.env.VITE_BASE_PATH ??
+      (process.env.GITHUB_PAGES ? '/docforum-web/' : '/'),
     plugins: [
       react(),
       cspPlugin(isProd),
@@ -110,7 +133,36 @@ export default defineConfig(({ command }) => {
       exclude: [...configDefaults.exclude, 'e2e/**'],
       environment: 'happy-dom',
       globals: true,
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
+      // Coverage gate (issue #105). Only the folders that hold product logic
+      // are measured: `pages/` and `components/` are mostly composition and
+      // were never part of the gate, and `src/mocks/` is dev-only.
+      // Thresholds are the current measured levels (see ARCHITECTURE_ESSENTIALS.md
+      // "Testing utilities & coverage gate") — they ratchet up as tests land,
+      // never down. CI runs `npm run test:coverage`, so a regression fails.
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary', 'json-summary'],
+        reportsDirectory: './coverage',
+        include: ['src/features/**/*.{ts,tsx}', 'src/services/**/*.{ts,tsx}'],
+        exclude: [
+          '**/*.test.{ts,tsx}',
+          '**/*.stories.{ts,tsx}',
+          '**/*.d.ts',
+          // Barrel/re-export only, no behaviour to cover.
+          'src/features/**/index.ts',
+        ],
+        // Floor measured when the gate was introduced (see
+        // ARCHITECTURE_ESSENTIALS.md "Testing utilities & coverage gate").
+        // Raise these when tests land; never lower them.
+        thresholds: {
+          statements: 78,
+          branches: 70,
+          functions: 77,
+          lines: 79,
+        },
+      },
     },
   };
 });

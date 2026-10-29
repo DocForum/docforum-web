@@ -3,6 +3,10 @@ import { useT } from '../../../i18n/useT';
 import { Link } from 'react-router-dom';
 import { useMessageThreads } from '../hooks/useMessageThreads';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useFormat } from '../../../i18n/useFormat';
 import styles from './DoctorInbox.module.css';
 
@@ -36,6 +40,8 @@ export function DoctorInbox() {
     nextCursor,
     isLoading,
     isFetching,
+    error,
+    refetch,
     markRead,
   } = useMessageThreads({ filter, cursor, limit: 10 });
 
@@ -74,9 +80,33 @@ export function DoctorInbox() {
       </div>
 
       {isLoading && threads.length === 0 ? (
-        <p className={styles.empty}>{t('messaging.loading', 'Loading threads…')}</p>
+        <Skeleton lines={5} height="1.25rem" label={t('messaging.loading', 'Loading threads…')} />
+      ) : error ? (
+        <InlineError
+          title="Your inbox couldn't be loaded"
+          message={queryErrorMessage(error)}
+          onRetry={() => void refetch()}
+        />
       ) : threads.length === 0 ? (
-        <p className={styles.empty}>{t('messaging.empty', 'No threads match the current filter.')}</p>
+        <EmptyState
+          title={t('messaging.empty', 'No threads match the current filter.')}
+          description={
+            filter === 'all'
+              ? 'When a patient messages you, the thread appears here with its unread count.'
+              : 'Nothing in this view right now — the other filters may have threads waiting.'
+          }
+          action={
+            filter === 'all'
+              ? { label: 'Refresh inbox', onClick: () => void refetch() }
+              : {
+                  label: 'Show all threads',
+                  onClick: () => {
+                    setFilter('all');
+                    setCursor(null);
+                  },
+                }
+          }
+        />
       ) : (
         <table className={styles.table}>
           <caption className="srOnly">

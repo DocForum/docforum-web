@@ -10,9 +10,20 @@
 // cross-site `SameSite=None; Secure` cookie (GitHub Pages and Render are
 // different domains), which `fetch` only sends/stores with this flag.
 import { createApiClient, type ApiTransport, type TransportOptions } from '@docforum/api-client';
+import { useAuthStore } from '../store/auth-store';
+import { readCsrfToken } from './csrf-storage';
+import type { AuthSession } from './auth-service';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
+/** Absolute URL for a path on docforum-core. Exported for the one client API
+ * that cannot go through `fetch`: `EventSource` (notification stream, #107)
+ * needs a full URL and cannot send an Authorization header. */
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
+/** The configured base URL, for callers that build an absolute URL themselves. */
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
@@ -118,6 +129,9 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   accessToken?: string | null;
+  /** Sent only on the cookie-authenticated routes (`/auth/refresh`,
+   * `/auth/logout`). */
+  csrfToken?: string | null;
   signal?: AbortSignal;
   /**
    * Stable key for one logical mutation attempt. Preset on POST/PATCH/DELETE
@@ -248,12 +262,65 @@ interface InflightEntry {
  * and timeout. Mutations never reach this map (see `apiFetch`). */
 const inflight = new Map<string, InflightEntry>();
 
+/** Shared single-flight refresh. Resolves to the new access token, or null
+ * when the session could not be restored. Never rejects: callers only need
+ * to know whether to retry. */
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function refreshSession(): Promise<string | null> {
+  refreshInFlight ??= performRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<string | null> {
+  const csrfToken = useAuthStore.getState().csrfToken ?? readCsrfToken();
+  try {
+    // Cookie-only body (the refresh token is httpOnly); the CSRF token is
+    // echoed in the header per docforum-core's Phase 8 contract.
+    const session = await executeOnce<AuthSession>('/auth/refresh', { method: 'POST', csrfToken }, 'json');
+    useAuthStore.getState().setSession(session.user, session.accessToken, session.csrfToken);
+    return session.accessToken;
+  } catch (error) {
+    // A rejected refresh (expired/revoked cookie, or a rejected CSRF token)
+    // means the session is genuinely gone. A network error might just be a
+    // Render cold start, so keep the local session and let the caller see
+    // the original 401; the next protected call will try again.
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      useAuthStore.getState().clearSession();
+    }
+    return null;
+  }
+}
+
+/**
+ * Run one request, and on a `401` refresh the session once and replay it
+ * with the new access token. The replay is a fresh request (new de-dup key,
+ * because the token is part of it), so it never reuses a failed response.
+ * The original `401` is rethrown when the session cannot be restored.
+ */
+async function withAuthRetry<T>(
+  options: RequestOptions,
+  run: (options: RequestOptions) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(options);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || !options.accessToken) throw error;
+    const refreshedToken = await refreshSession();
+    if (!refreshedToken) throw error;
+    return run({ ...options, accessToken: refreshedToken });
+  }
+}
+
 function buildHeaders(options: RequestOptions, parse: ParseMode, hasForm = false): Record<string, string> {
   const headers: Record<string, string> = parse === 'json' ? { Accept: 'application/json' } : {};
   // A multipart body must keep the browser-generated boundary, so it never
   // sets Content-Type here.
   if (!hasForm && options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
+  if (options.csrfToken) headers['X-CSRF-Token'] = options.csrfToken;
   if (options.idempotencyKey) headers[IDEMPOTENCY_HEADER] = options.idempotencyKey;
   return headers;
 }
@@ -497,18 +564,22 @@ async function executeDeduped<T>(path: string, options: RequestOptions, parse: P
   }
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
   // Never de-duplicate mutations: replaying a POST's response for a second
   // caller would hide the fact that two writes happened (or didn't).
-  return method === 'GET'
-    ? executeDeduped<T>(path, options, 'json')
-    : executeOnce<T>(path, options, 'json');
+  return withAuthRetry(options, (attemptOptions) =>
+    method === 'GET'
+      ? executeDeduped<T>(path, attemptOptions, 'json')
+      : executeOnce<T>(path, attemptOptions, 'json'),
+  );
 }
 
 export interface FormRequestOptions {
   method?: 'POST' | 'PATCH';
   accessToken?: string | null;
+  /** Same CSRF rules as `RequestOptions.csrfToken`. */
+  csrfToken?: string | null;
   signal?: AbortSignal;
   /** Same budget rules as `RequestOptions.timeoutMs`. */
   timeoutMs?: number;
@@ -524,14 +595,16 @@ export async function apiFetchForm<T>(
   options: FormRequestOptions = {},
 ): Promise<T> {
   const request: RequestOptions = { ...options, method: options.method ?? 'POST' };
-  return executeOnce<T>(path, request, 'json', formData);
+  return withAuthRetry(request, (attemptOptions) => executeOnce<T>(path, attemptOptions, 'json', formData));
 }
 
-export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+export function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const method = options.method ?? 'GET';
-  return method === 'GET'
-    ? executeDeduped<Blob>(path, options, 'blob')
-    : executeOnce<Blob>(path, options, 'blob');
+  return withAuthRetry(options, (attemptOptions) =>
+    method === 'GET'
+      ? executeDeduped<Blob>(path, attemptOptions, 'blob')
+      : executeOnce<Blob>(path, attemptOptions, 'blob'),
+  );
 }
 
 export interface UploadOptions {

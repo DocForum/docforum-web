@@ -1,6 +1,7 @@
 import { useId } from 'react';
-import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { describeLoadError, isNotServed } from '../errors';
 import { JobCard } from './JobCard';
 import { TimeAgo } from './TimeAgo';
@@ -20,23 +21,23 @@ export function JobsPanel({ jobs, now, onRunNow }: JobsPanelProps) {
 
   let body;
   if (jobs.isLoading) {
-    body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading background jobs…</span>
-      </div>
-    );
+    body = <Skeleton lines={3} height="2.5rem" label="Loading background jobs" />;
   } else if (jobs.error && !list) {
     body = (
-      <div className={isNotServed(jobs.error) ? styles.notServed : styles.errorBox} role="alert">
-        <p>{describeLoadError(jobs.error, 'jobs')}</p>
-        <Button variant="secondary" onClick={() => void jobs.refetch()} loading={jobs.isFetching}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title={isNotServed(jobs.error) ? 'Not exposed by docforum-core yet' : "The job list couldn't be loaded"}
+        message={describeLoadError(jobs.error, 'jobs')}
+        onRetry={() => void jobs.refetch()}
+      />
     );
   } else if (list && list.length === 0) {
-    body = <p className={styles.emptyInline}>docforum-core has no background jobs registered.</p>;
+    body = (
+      <EmptyState
+        title="docforum-core has no background jobs registered."
+        description="Scheduled jobs (expiry sweeps, reminder dispatch) appear here once the backend registers them."
+        action={{ label: 'Refresh jobs', onClick: () => void jobs.refetch() }}
+      />
+    );
   } else if (list) {
     body = (
       <ul className={styles.jobs}>

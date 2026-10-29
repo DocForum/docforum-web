@@ -1,0 +1,82 @@
+# PR preview builds (#104) — build and upload only.
+#
+# This workflow runs on `pull_request`, which for a fork PR gets a read-only
+# GITHUB_TOKEN and NO secrets. Nothing in this job needs either: it checks out
+# the PR, runs the tests, and builds the app in mock-API mode.
+#
+# The result is uploaded as a downloadable artifact. It is NEVER published to
+# GitHub Pages or any other shared origin: a PR controls its own build
+# (package.json, vite.config.ts, this workflow's commands), so serving it from
+# docforum.github.io would let a fork host its own JavaScript on the same
+# origin as the real app. Artifacts are private to the repository, expire
+# automatically, and are only ever opened by a reviewer on their own machine.
+#
+# The comment job lives in pr-preview-comment.yml. It runs on `workflow_run`
+# so it can hold a write token to comment, but it only reads the run's
+# artifact list — it never checks out or executes PR code. It resolves the PR
+# from the run's head SHA/branch, so fork PRs work even though GitHub leaves
+# workflow_run.pull_requests empty for those.
+#
+# The preview is built against the mock API only. VITE_API_BASE_URL points at a
+# reserved-invalid host so that even a request escaping MSW cannot reach a real
+# backend, and `npm run check:preview` fails the build if those guarantees are
+# not present in dist/.
+name: PR preview build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-preview-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build mock-API preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # A preview that ships a failing test suite is worse than no preview.
+      - run: npm run typecheck
+      - run: npm run test
+
+      - name: Build preview
+        run: npm run build:preview
+        env:
+          # Downloaded artifacts are served from a local root, not a Pages
+          # subpath. HashRouter keeps deep links working on any static server.
+          VITE_USE_HASH_ROUTER: 'true'
+          # Mock API mode in a production build: only this workflow sets it.
+          VITE_PREVIEW_MOCKS: 'true'
+          VITE_ENABLE_MOCKS: 'true'
+          # Reserved-invalid host: must never resolve. A request that somehow
+          # escapes MSW must fail, not reach docforum-core.
+          VITE_API_BASE_URL: https://mock-api.invalid
+          # Monitoring stays off for previews (no DSN, no replay).
+          VITE_SENTRY_DSN: ''
+
+      - name: Prove the preview is mock-only
+        run: npm run check:preview
+
+      # The PR number is part of the artifact name so the comment job can
+      # resolve it without relying on workflow_run.pull_requests (empty for
+      # fork PRs).
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-preview-${{ github.event.pull_request.number }}
+          path: dist
+          retention-days: 14

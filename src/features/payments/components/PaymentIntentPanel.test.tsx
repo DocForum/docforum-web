@@ -61,4 +61,42 @@ describe('PaymentIntentPanel', () => {
     await waitFor(() => expect(screen.getByText('released')).toBeInTheDocument());
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
+
+  it('links the transaction hash and Soroban contract to the testnet explorer', async () => {
+    vi.mocked(paymentsService.getPaymentIntent).mockResolvedValue(
+      makeIntent({
+        status: 'escrowed',
+        escrowId: '42',
+        stellarTxHash: 'abc123hash',
+        sorobanContractId: 'CCONTRACT',
+      }),
+    );
+
+    render(<PaymentIntentPanel intentId="intent-1" />);
+
+    const txLink = await screen.findByRole('link', { name: 'abc123hash' });
+    expect(txLink).toHaveAttribute(
+      'href',
+      'https://testnet.stellar.expert/explorer/public/transaction/abc123hash',
+    );
+    expect(txLink).toHaveAttribute('target', '_blank');
+    expect(txLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    const contractLink = screen.getByRole('link', { name: 'CCONTRACT' });
+    expect(contractLink).toHaveAttribute(
+      'href',
+      'https://testnet.stellar.expert/explorer/public/contract/CCONTRACT',
+    );
+    expect(contractLink).toHaveAttribute('target', '_blank');
+    expect(contractLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('renders no explorer links before a hash or contract exists', async () => {
+    vi.mocked(paymentsService.getPaymentIntent).mockResolvedValue(makeIntent({ status: 'created' }));
+
+    render(<PaymentIntentPanel intentId="intent-1" />);
+
+    expect(await screen.findByRole('button', { name: /fund escrow/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
 });

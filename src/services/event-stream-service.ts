@@ -327,7 +327,6 @@ export class EventStreamManager {
 
   private async run(controller: AbortController): Promise<void> {
     this.setState(this.attempt === 0 ? 'connecting' : 'reconnecting');
-    let refreshed = false;
 
     try {
       const stream = await this.deps.transport({
@@ -364,8 +363,9 @@ export class EventStreamManager {
     } catch (error) {
       if (controller.signal.aborted) return;
 
-      if (error instanceof ApiError && error.status === 401 && !refreshed) {
-        refreshed = true;
+      // A single `run` attempt can only fail once, so there is no retry to
+      // guard against here: a 401 is always answered with one forced refresh.
+      if (error instanceof ApiError && error.status === 401) {
         try {
           const token = await this.deps.refreshAccessToken();
           if (!token) {

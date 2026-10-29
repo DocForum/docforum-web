@@ -4,7 +4,9 @@ import { DateRangeSelector } from './DateRangeSelector';
 import { UtilisationChart } from './UtilisationChart';
 import { NoShowMetricsCard } from './NoShowMetricsCard';
 import { TurnaroundMetricsCard } from './TurnaroundMetricsCard';
-import { Spinner } from '../../../components/Spinner';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type { DateRangePreset, DoctorPracticeInsights } from '../../../types/models';
 import styles from './PracticeInsights.module.css';
 
@@ -97,7 +99,7 @@ export function PracticeInsightsView() {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string } | undefined>();
 
-  const { data, isLoading, isError } = useDoctorInsights({
+  const { data, isLoading, isError, error, refetch } = useDoctorInsights({
     preset,
     startDate: customRange?.startDate,
     endDate: customRange?.endDate,
@@ -112,16 +114,11 @@ export function PracticeInsightsView() {
     }
   };
 
-  // If query is loading and we don't have cached data yet, show spinner
+  // Nothing cached yet: outline the metrics that are about to arrive.
   if (isLoading) {
     return (
       <div className={styles.container}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
-          <Spinner size={24} />
-          <span className="srOnly" role="status">
-            Loading practice insights…
-          </span>
-        </div>
+        <Skeleton lines={6} height="2.75rem" label="Loading practice insights" />
       </div>
     );
   }
@@ -157,12 +154,11 @@ export function PracticeInsightsView() {
       </header>
 
       {isError && (
-        <div className={styles.caveatBanner} role="alert">
-          <span className={styles.caveatPill}>Notice</span>
-          <span>
-            Live metrics API returned an error or is waking up; showing practice analytics preview data.
-          </span>
-        </div>
+        <InlineError
+          title="Showing preview data"
+          message={queryErrorMessage(error)}
+          onRetry={() => void refetch()}
+        />
       )}
 
       <UtilisationChart

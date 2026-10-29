@@ -13,7 +13,12 @@ import {
   createIdempotencyKey,
   isAbortError,
   isRetryableError,
+  refreshSession,
 } from './api-client';
+import { bootstrapSession } from './session';
+import { useAuthStore } from '../store/auth-store';
+import { clearCsrfToken } from './csrf-storage';
+import type { User } from '../types/models';
 
 function jsonResponse(a: unknown, b: unknown = 200): Response {
   const statusFirst = typeof a === 'number';
@@ -175,7 +180,10 @@ function abortableHungFetch() {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
+  clearCsrfToken();
+  useAuthStore.setState({ user: null, accessToken: null, csrfToken: null, status: 'idle' });
 });
 
 describe('timeouts', () => {
@@ -439,5 +447,183 @@ describe('multipart uploads (apiFetchForm)', () => {
     const assertion = expect(attempt).rejects.toSatisfy(isAbortError);
     controller.abort();
     await assertion;
+  });
+});
+
+const patient: User = {
+  id: 'user-1',
+  email: 'patient@example.com',
+  role: 'patient',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+function jsonBody(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+// Session recovery (issue #9). These tests stub `fetch` (rather than
+// spyOn) because the refresh/retry paths are easier to assert with a
+// scripted sequence of responses.
+describe('session recovery (issue #9)', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+    clearCsrfToken();
+    useAuthStore.setState({ user: null, accessToken: null, csrfToken: null, status: 'idle' });
+  });
+
+  describe('bootstrapSession', () => {
+    it('restores the session from the refresh cookie on boot', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonBody({ user: patient, accessToken: 'fresh-token', csrfToken: 'csrf-1' }),
+      );
+
+      await bootstrapSession();
+
+      const state = useAuthStore.getState();
+      expect(state.user).toEqual(patient);
+      expect(state.accessToken).toBe('fresh-token');
+      expect(state.csrfToken).toBe('csrf-1');
+      expect(state.status).toBe('resolved');
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toContain('/auth/refresh');
+      expect(init.method).toBe('POST');
+      expect(init.credentials).toBe('include');
+    });
+
+    it('stays signed out when the refresh cookie is rejected', async () => {
+      fetchMock.mockResolvedValueOnce(jsonBody({ message: 'No refresh token provided.' }, 401));
+
+      await bootstrapSession();
+
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.accessToken).toBeNull();
+      expect(state.status).toBe('resolved');
+    });
+
+    it('marks the check resolved even when the network is down', async () => {
+      fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      await bootstrapSession();
+
+      expect(useAuthStore.getState().status).toBe('resolved');
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
+
+  describe('single-flight refresh + retry on 401', () => {
+    it('refreshes once and retries the original request with the new token', async () => {
+      useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+
+      fetchMock
+        .mockResolvedValueOnce(jsonBody({ message: 'expired' }, 401))
+        .mockResolvedValueOnce(
+          jsonBody({ user: patient, accessToken: 'fresh-token', csrfToken: 'csrf-2' }),
+        )
+        .mockResolvedValueOnce(jsonBody({ ok: true }));
+
+      await expect(apiFetch('/payments/intents', { accessToken: 'expired-token' })).resolves.toEqual({
+        ok: true,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+
+      const retryInit = fetchMock.mock.calls[2][1];
+      expect(retryInit.headers.Authorization).toBe('Bearer fresh-token');
+      expect(useAuthStore.getState().accessToken).toBe('fresh-token');
+    });
+
+    it('shares one refresh across concurrent 401s', async () => {
+      useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+
+      let refreshCalls = 0;
+      // Every first attempt 401s, every retry succeeds. Implemented with a
+      // per-token decision so URL-based routing above stays simple.
+      fetchMock.mockImplementation(async (url: string, init: RequestInit) => {
+        if (url.endsWith('/auth/refresh')) {
+          refreshCalls += 1;
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return jsonBody({ user: patient, accessToken: 'fresh-token', csrfToken: 'csrf-2' });
+        }
+        const authorization = (init.headers as Record<string, string>).Authorization;
+        if (authorization === 'Bearer expired-token') {
+          return jsonBody({ message: 'expired' }, 401);
+        }
+        return jsonBody({ ok: true });
+      });
+
+      await Promise.all([
+        apiFetch('/appointments/mine', { accessToken: 'expired-token' }),
+        apiFetch('/payments/intents', { accessToken: 'expired-token' }),
+        apiFetch('/notifications', { accessToken: 'expired-token' }),
+      ]);
+
+      expect(refreshCalls).toBe(1);
+    });
+
+    it('clears the session when the refresh also fails', async () => {
+      useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+
+      fetchMock
+        .mockResolvedValueOnce(jsonBody({ message: 'expired' }, 401))
+        .mockResolvedValueOnce(jsonBody({ message: 'No refresh token provided.' }, 401));
+
+      await expect(
+        apiFetch('/appointments/mine', { accessToken: 'expired-token' }),
+      ).rejects.toMatchObject({ status: 401 });
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().accessToken).toBeNull();
+    });
+
+    it('does not recurse when the refresh itself 401s', async () => {
+      useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+      fetchMock.mockResolvedValue(jsonBody({ message: 'No refresh token provided.' }, 401));
+
+      await expect(refreshSession()).resolves.toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries de-duplicated GETs after one shared refresh', async () => {
+      useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+
+      let refreshCalls = 0;
+      let expiredCalls = 0;
+      fetchMock.mockImplementation(async (url: string, init: RequestInit) => {
+        if (url.endsWith('/auth/refresh')) {
+          refreshCalls += 1;
+          return jsonBody({ user: patient, accessToken: 'fresh-token', csrfToken: 'csrf-2' });
+        }
+        const authorization = (init.headers as Record<string, string>).Authorization;
+        if (authorization === 'Bearer expired-token') {
+          expiredCalls += 1;
+          return jsonBody({ message: 'expired' }, 401);
+        }
+        return jsonBody({ ok: true });
+      });
+
+      // Both callers share the 401 response (one network attempt), then
+      // share the retried request as well.
+      await Promise.all([
+        apiFetch('/appointments/mine', { accessToken: 'expired-token' }),
+        apiFetch('/appointments/mine', { accessToken: 'expired-token' }),
+      ]);
+
+      expect(expiredCalls).toBe(1);
+      expect(refreshCalls).toBe(1);
+    });
+
+    it('does not refresh unauthenticated requests', async () => {
+      fetchMock.mockResolvedValueOnce(jsonBody({ message: 'Not signed in' }, 401));
+
+      await expect(apiFetch('/public')).rejects.toMatchObject({ status: 401 });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

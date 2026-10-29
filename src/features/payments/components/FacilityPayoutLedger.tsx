@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { transactionUrl } from '../explorer';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime } from '../../../i18n/time-zone';
@@ -15,7 +17,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
   const [assetFilter, setAssetFilter] = useState<string>('all');
   const { timeZone } = useTimeZone();
 
-  const { data, isLoading, error } = useFacilityLedger(facilityId, {
+  const { data, isLoading, error, refetch } = useFacilityLedger(facilityId, {
     status: statusFilter,
     asset: assetFilter,
   });
@@ -141,16 +143,14 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
         </div>
       </div>
 
-      {isLoading && (
-        <div role="status" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-          Loading facility payout ledger…
-        </div>
-      )}
+      {isLoading && <Skeleton lines={5} height="1.5rem" label="Loading facility payout ledger" />}
 
       {error && (
-        <div role="alert" style={{ padding: 'var(--space-4)', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 'var(--radius-md)' }}>
-          Failed to load payout ledger: {error.message}
-        </div>
+        <InlineError
+          title="The payout ledger couldn't be loaded"
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {!isLoading && !error && (

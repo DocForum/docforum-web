@@ -16,6 +16,7 @@ import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { InvitePage } from './pages/InvitePage';
 import { AccessLogPage } from './pages/AccessLogPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
@@ -41,6 +42,7 @@ import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
 
@@ -60,6 +62,7 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="invite" element={<InvitePage />} />
         {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
             at the literal path the issues name, guarded to patients, rather
             than being folded under /patient where the hub's nested routes
@@ -297,6 +300,15 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['admin']}>
               <AdminDashboardPage />
+            </RequireAuth>
+          }
+        />
+        {/* Notification centre (issue #107) — every signed-in role has an inbox. */}
+        <Route
+          path="notifications"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
+              <NotificationsPage />
             </RequireAuth>
           }
         />

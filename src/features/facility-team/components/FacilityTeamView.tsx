@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FacilityMemberList } from './FacilityMemberList';
 import { PendingInvitesList } from './PendingInvitesList';
 import { InviteMemberModal } from './InviteMemberModal';
@@ -104,12 +104,7 @@ export function FacilityTeamView({
   if (membersLoading) {
     return (
       <div className={styles.container}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
-          <Spinner size={24} />
-          <span className="srOnly" role="status">
-            Loading facility team members…
-          </span>
-        </div>
+        <Skeleton lines={4} height="2.25rem" label="Loading facility team members" />
       </div>
     );
   }
