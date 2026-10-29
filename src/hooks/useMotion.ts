@@ -19,13 +19,29 @@ export function useMotion<T extends Element>(
       .then(({ gsap }) => {
         if (cancelled) return;
         const media = gsap.matchMedia();
+        let setupError: unknown;
         const context = gsap.context(() => {
-          media.add('(prefers-reduced-motion: no-preference)', () => setup(gsap, scope));
+          media.add('(prefers-reduced-motion: no-preference)', () => {
+            try {
+              return setup(gsap, scope);
+            } catch (error) {
+              setupError = error;
+            }
+          });
         }, scope);
         revert = () => {
           media.revert();
           context.revert();
         };
+        // Fail open: a setup usually hides its targets (gsap.set opacity 0)
+        // before animating them in, so a setup that throws part-way would leave
+        // the content invisible. Reverting the context undoes those sets.
+        if (setupError !== undefined) {
+          console.error('Motion setup failed; showing content without animation', setupError);
+          revert();
+          revert = undefined;
+          return;
+        }
         if (cancelled) revert();
       })
       .catch((error: unknown) => {
@@ -43,7 +59,9 @@ export function motionDuration(
   token: `--motion-duration-${string}`,
 ): number {
   const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-  const match = /^(\d+(?:\.\d+)?)(ms|s)$/.exec(value);
+  // Accepts a leading dot: the production CSS minifier rewrites `100ms` as
+  // `.1s`, and rejecting that left the home page hero invisible on Pages.
+  const match = /^(\d*\.?\d+)(ms|s)$/.exec(value);
   if (!match) throw new Error(`Invalid motion duration token: ${token}`);
   const duration = Number(match[1]);
   return match[2] === 'ms' ? duration / 1000 : duration;
