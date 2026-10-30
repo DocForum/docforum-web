@@ -38,7 +38,7 @@ function restoreWindows(queryClient: ReturnType<typeof useQueryClient>, windows:
   for (const window of windows) queryClient.setQueryData(window.key, window.slots);
 }
 
-function markHeld(slots: AvailabilitySlot[], slotIds: ReadonlySet<string>): AvailabilitySlot[] {
+function markHeld(slots: AvailabilitySlot[], slotIds: ReadonlySet<string> | Set<string>): AvailabilitySlot[] {
   return slots.map((slot) => (slotIds.has(slot.id) && slot.status === 'open' ? { ...slot, status: 'held' as const } : slot));
 }
 
@@ -46,7 +46,7 @@ function markOpen(slots: AvailabilitySlot[], slotId: string): AvailabilitySlot[]
   return slots.map((slot) => (slot.id === slotId && slot.status === 'held' ? { ...slot, status: 'open' as const } : slot));
 }
 
-function dropSlots(slots: AvailabilitySlot[], slotIds: ReadonlySet<string>): AvailabilitySlot[] {
+function dropSlots(slots: AvailabilitySlot[], slotIds: ReadonlySet<string> | Set<string>): AvailabilitySlot[] {
   return slots.filter((slot) => !slotIds.has(slot.id));
 }
 
