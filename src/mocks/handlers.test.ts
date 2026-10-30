@@ -22,6 +22,7 @@ import * as disputesService from '../services/disputes-service';
 import * as dependentsService from '../services/dependents-service';
 import * as doctorTodayService from '../services/doctor-today-service';
 import * as facilityService from '../services/facility-service';
+import * as facilitySettingsService from '../services/facility-settings-service';
 import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
@@ -715,6 +716,125 @@ describe('integrations (API keys & webhooks)', () => {
     await expect(
       integrationsService.listWebhookDeliveries(FACILITY_ID, 'whk-demo-1', MOCK_ACCESS_TOKEN),
     ).resolves.toEqual([]);
+  });
+});
+
+describe('facility settings and prices', () => {
+  it('loads and updates location, contact and opening hours', async () => {
+    const settings = await facilitySettingsService.getFacilitySettings(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(settings.facilityId).toBe(FACILITY_ID);
+    expect(settings.openingHours).toHaveLength(7);
+
+    const updated = await facilitySettingsService.updateFacilitySettings(
+      FACILITY_ID,
+      {
+        address: '9 Updated Fixture Road',
+        city: 'Sampleton',
+        latitude: 6.53,
+        longitude: 3.38,
+        phone: '+000 000 0099',
+        email: null,
+        openingHours: settings.openingHours,
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.address).toBe('9 Updated Fixture Road');
+    expect(updated.latitude).toBe(6.53);
+  });
+
+  it('rejects invalid coordinates and missing required settings fields', async () => {
+    const settings = await facilitySettingsService.getFacilitySettings(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    const validInput = {
+      address: settings.address,
+      city: settings.city,
+      latitude: 6.5,
+      longitude: 3.3,
+      phone: settings.phone,
+      email: null,
+      openingHours: settings.openingHours,
+    };
+
+    await expect(
+      facilitySettingsService.updateFacilitySettings(
+        FACILITY_ID,
+        { ...validInput, latitude: 200 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      facilitySettingsService.updateFacilitySettings(
+        FACILITY_ID,
+        { ...validInput, address: '   ' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('searches the catalog by name or code', async () => {
+    const byName = await facilitySettingsService.searchCatalogItems('amoxicillin', MOCK_ACCESS_TOKEN);
+    expect(byName.map((item) => item.code)).toEqual(['MED-AMOX-500']);
+
+    const byCode = await facilitySettingsService.searchCatalogItems('LAB-', MOCK_ACCESS_TOKEN);
+    expect(byCode).toHaveLength(2);
+
+    const all = await facilitySettingsService.searchCatalogItems('', MOCK_ACCESS_TOKEN);
+    expect(all).toHaveLength(5);
+  });
+
+  it('returns version history and appends a new price version', async () => {
+    const before = await facilitySettingsService.listFacilityPrices(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(before).toHaveLength(6);
+
+    const created = await facilitySettingsService.createFacilityPrice(
+      FACILITY_ID,
+      {
+        catalogItemCode: 'MED-AMOX-500',
+        asset: 'XLM',
+        amountStroops: '300000000',
+        effectiveFrom: '2026-12-01T09:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.amountStroops).toBe('300000000');
+    expect(created.catalogItemName).toContain('Amoxicillin');
+
+    const after = await facilitySettingsService.listFacilityPrices(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(after).toHaveLength(7);
+  });
+
+  it('rejects non-stroop amounts and unknown catalog items', async () => {
+    await expect(
+      facilitySettingsService.createFacilityPrice(
+        FACILITY_ID,
+        {
+          catalogItemCode: 'MED-AMOX-500',
+          asset: 'XLM',
+          amountStroops: '1.5',
+          effectiveFrom: '2026-12-01T09:00:00.000Z',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      facilitySettingsService.createFacilityPrice(
+        FACILITY_ID,
+        {
+          catalogItemCode: 'NOT-IN-CATALOG',
+          asset: 'XLM',
+          amountStroops: '100',
+          effectiveFrom: '2026-12-01T09:00:00.000Z',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 
