@@ -188,6 +188,13 @@ stays in docforum-core's httpOnly cookie.
 
 ## Known assumptions
 
+- **Admin user management (W6, assumed shapes pending docforum-core#39):**
+  - `GET /admin/users?search&role&status&page&pageSize` returns `{ items, total, page, pageSize }`.
+  - `GET /admin/users/:id` returns the user plus `sessionsCount`, `deactivatedAt`, `deactivationReason`.
+  - `POST /admin/users/:id/deactivate` and `/reactivate` take `{ reason }`.
+  - `GET /admin/invites`, `POST /admin/invites { email }`, `DELETE /admin/invites/:id`.
+  - Deactivating the last admin is refused with HTTP 409 and code `LAST_ADMIN`; the UI also treats a 409 whose message contains "last admin" as this error.
+
 ### Patient wallet linking (issue #58)
 
 The patient-wallet flow is intentionally not implemented against an assumed
