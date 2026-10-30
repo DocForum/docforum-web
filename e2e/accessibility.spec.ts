@@ -19,6 +19,7 @@ for (const { path, role } of routes) {
       writeFileSync(`${process.env.AXE_DUMP_DIR}/${encodeURIComponent(path)}.json`, JSON.stringify(violations));
     }
     const known = allowlist.filter((entry) => entry.route === path);
+    expect(known, `Allowlist entries for ${path} must reference a tracked issue`).toEqual(known.filter((entry) => /^https:\/\/github\.com\/DocForum\/docforum-web\/issues\/\d+$/.test(entry.issue)));
     const newViolations = violations.filter((violation) => !known.some((entry) =>
       entry.rule === violation.rule && entry.target === violation.target && /^https:\/\/github\.com\/DocForum\/docforum-web\/issues\/\d+$/.test(entry.issue),
     ));

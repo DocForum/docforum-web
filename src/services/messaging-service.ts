@@ -1,4 +1,5 @@
-import { api, apiFetch, apiUpload } from './api-client';
+import { apiClient, apiFetch, apiUpload } from './api-client';
+import { api } from './api-client';
 import type {
   DoctorMessageThread,
   Message,
@@ -16,6 +17,13 @@ import type { UploadOptions } from './api-client';
 // ARCHITECTURE_ESSENTIALS.md "Known assumptions". Everything still flows
 // through api-client, per hard rule 1.
 
+export interface ListMessagesParams {
+  cursor?: string;
+  limit?: number;
+}
+
+export type SendMessageResult = Message;
+
 export interface ListThreadsInput {
   filter?: 'all' | 'unread' | 'closing_soon';
   cursor?: string | null;
@@ -26,6 +34,37 @@ export interface ListThreadsResult {
   threads: DoctorMessageThread[];
   nextCursor: string | null;
 }
+
+export const messagingService = {
+  async getThread(appointmentId: string): Promise<MessageThread> {
+    return apiClient.get<MessageThread>(
+      `/appointments/${encodeURIComponent(appointmentId)}/message-thread`,
+    );
+  },
+
+  async listMessages(
+    appointmentId: string,
+    params: ListMessagesParams = {},
+  ): Promise<MessagePage> {
+    const search = new URLSearchParams();
+    if (params.cursor) search.set('cursor', params.cursor);
+    if (params.limit !== undefined) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return apiClient.get<MessagePage>(
+      `/appointments/${encodeURIComponent(appointmentId)}/messages${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  async sendMessage(
+    appointmentId: string,
+    input: SendMessageInput,
+  ): Promise<Message> {
+    return apiClient.post<Message>(
+      `/appointments/${encodeURIComponent(appointmentId)}/messages`,
+      { body: input.body },
+    );
+  },
+};
 
 export function listThreads(
   input: ListThreadsInput,

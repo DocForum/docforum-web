@@ -1,7 +1,7 @@
 # ROADMAP.md — docforum-web
 
-> Update this file on every contribution that starts/completes/blocks an
-> item below — same rule as the rest of the org, see `AGENTS.md`.
+> Update this file on every contribution that starts/completes/blocks
+> an item below — same rule as the rest of the org, see `AGENTS.md`.
 
 **Status: Phase W1 complete and connected to a live backend.** The deployed
 Pages preview (https://docforum.github.io/docforum-web/) points at
@@ -13,18 +13,18 @@ API" for the one documented local-dev cookie caveat.
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React
   Query, Zustand. `npm run dev`/`build`/`test` all work (verified).
 - [x] API client service layer pointing at `docforum-core`
-  (`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
-  documented assumption, not confirmed**, since `docforum-core` has no
-  implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
-  assumptions."
+(`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
+documented assumption, not confirmed**, since `docforum-core` has no
+implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
+assumptions."
 - [x] Signup/login screens, corrected to **patient/doctor only** for
   self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
   there is deliberately no facility option in the signup UI. Login works
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
-- [x] Invite landing + redemption for admins and facility staff. Tracked
-  as [issue #81](https://github.com/DocForum/docforum-web/issues/81)
+- [x] Invite landing + redemption for admins and facility staff. Tracked as
+  [issue #81](https://github.com/DocForum/docforum-web/issues/81)
   (High, 200 pts) — `InvitePage` at `/invite?token=` +
   `src/features/invite/`. Validates the token, shows the inviting
   organisation, role and inviter, and creates the account with the
@@ -36,8 +36,7 @@ API" for the one documented local-dev cookie caveat.
   assumed shapes:** docforum-core#39 (admin invites) and #75 (facility
   staff invites) haven't landed — see `ARCHITECTURE_ESSENTIALS.md`
   "Known assumptions".
-- [x] Idle timeout & automatic sign-out for shared devices. Tracked as
-  [issue #82](https://github.com/DocForum/docforum-web/issues/82)
+- [x] Idle timeout & automatic sign-out for shared devices. Tracked as [issue #82](https://github.com/DocForum/docforum-web/issues/82)
   (High, 200 pts) — `src/hooks/idle-timeout.ts` (pure timestamp logic) +
   `src/hooks/useIdleTimeout.ts`, `SessionTimeoutWarning` /
   `SessionTimeoutController` mounted in `Layout`. Timestamp-based
@@ -48,17 +47,16 @@ API" for the one documented local-dev cookie caveat.
   15 min, admin 10 min) with a backend value taking precedence when
   served. On timeout: API logout, ALL client state cleared, then
   `/login?reason=idle-timeout` with an explanation. Unsaved form data is
-  flagged in the modal via `useUnsavedChangesWarning`. **Built against
-  assumed shape:** `GET /auth/session-timeout` (not in docforum-core) —
+  flagged in the modal via `useUnsavedChangesWarning`. **Built against assumed shape:** `GET /auth/session-timeout` (not in docforum-core) —
   see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
 - [x] ESLint + lint step in CI. Tracked as [issue #11](https://github.com/DocForum/docforum-web/issues/11) (Trivial, 100 pts).
 - [x] Deployed as a UI preview to GitHub Pages on every push to `main`
-  (`.github/workflows/deploy-pages.yml`) — see `ARCHITECTURE_ESSENTIALS.md`
-  "Deployment". Not a production deploy decision for the org; scoped to
-  this repo's static frontend only.
+(`.github/workflows/deploy-pages.yml`) — see `ARCHITECTURE_ESSENTIALS.md`
+"Deployment". Not a production deploy decision for the org; scoped to
+this repo's static frontend only.
 
 ## Phase W2 — Patient core flow
 **Fully scoped into issues #1–#5, #18–#23, #26–#29, plus the follow-on patient issues #32–#34 and #37.**
@@ -66,7 +64,8 @@ API" for the one documented local-dev cookie caveat.
 - [x] Symptom-based doctor search with accessible autocomplete. Tracked as [issue #30](https://github.com/DocForum/docforum-web/issues/30) (High, 200 pts) — WAI-ARIA combobox against `docforum-core`'s controlled symptom vocabulary (docforum-core#60), debounced with in-flight requests cancelled on new keystrokes, "Showing doctors in X and Y" mapping line, availability filter combined with the symptom and kept in the URL, and a no-match state that always offers a way forward.
 - [ ] Booking + intake form. Tracked as [issue #2](https://github.com/DocForum/docforum-web/issues/2) (High, 200 pts) — must handle the `409` slot-taken response from `docforum-core`'s real booking-concurrency guarantee explicitly, not as a generic error.
 - [ ] My appointments list. Tracked as [issue #3](https://github.com/DocForum/docforum-web/issues/3) (Trivial, 100 pts) — calls `docforum-core`'s real, already-implemented `GET /appointments/mine`, no assumption involved.
-- [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–#8, not yet merged there.
+- [ ] Referral accept/decline screen. Tracked as [issue #4](https://github.com/DocForum/docforum-web/issues/4) (Medium, 150 pts) — assumed contract against `docforum-core` issues #5–8, not yet merged there.
+- [x] Consultation message thread UI (shared by patients and doctors). Tracked as [issue #22](https://github.com/DocForum/docforum-web/issues/22) (High, 200 pts) — `MessageThread` feature with cursor-paginated history, optimistic send with failed/retry state, live updates via notification stream with polling fallback, and closed-thread state. Built against a documented assumed API shape (see `ARCHITECTURE_ESSENTIALS.md`) pending `docforum-core` issue #61. Fixed duplicate `identifier` declarations (`MessageThreadStatus`, `MessageSenderRole`) in `src/types/models.ts` flagged by the local syntax check before push.
 - [x] Orders list + facility-selection screen. Tracked as [issue #5](https://github.com/DocForum/docforum-web/issues/5) (Medium, 150 pts) — `src/features/orders/`, `OrdersPage` at `/patient/orders`. Lists every current prescription/lab order with superseded-version history derived from the supersedes chain (never "first record wins"), and lets the patient choose a fulfilling facility from only the capability-matched options docforum-core returns. Built against an assumed contract; see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W2".
 - [x] Order detail with verifiable QR code and print-friendly view. Tracked as [issue #25](https://github.com/DocForum/docforum-web/issues/25) (High, 200 pts) — **implemented**: `src/features/orders/`, `src/pages/OrderDetailPage.tsx`, routed at `/patient/orders/:orderId`. Built against an assumed `GET /orders/:id` + `GET /orders/mine` contract (docforum-core issue #71). See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
 - [x] Health profile editor: allergies, conditions and current medications. Tracked as [issue #18](https://github.com/DocForum/docforum-web/issues/18) (High, 200 pts) — assumed contract against `docforum-core` issue #59.
@@ -222,7 +221,7 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   skill name that doesn't actually exist in either repo, disregarded).
   Read its critique checklist and found the design pass above hit several
   of its named "generic AI-design" tells almost exactly: an ALL-CAPS
-  eyebrow label, gradient-highlighted single words in the headline, a
+  eyebrow label, gradient-highlighted single words in the headline, a 
   monospace face used decoratively on small badges, and a 3-card grid for
   content that's actually a sequence. Revised: dropped the eyebrow and the
   headline word-highlighting, replaced the feature-card grid with a
@@ -242,7 +241,7 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 
   Applied that skill's process (brief inference → dials → solid palette →
   typography → layout) to a full redesign, per explicit direction: no
-  gradients, solid colors, web3 × **hospitality** (not medical this
+  gradients, solid colors, web3× **hospitality** (not medical this
   time — read as warmth/welcome, not clinical). New palette is solid pine
   green (`--color-accent`, trust/value) + warm brass (`--color-accent-2`,
   hospitality metal + web3 store-of-value) over warm porcelain/espresso
@@ -539,6 +538,18 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   (`/doctor/consultation/:id`, `/doctor/messages`). Updated
   `ARCHITECTURE_ESSENTIALS.md` "Known assumptions" with the Phase W3
   assumed API shapes. Typecheck, build, and all non-pre-existing tests pass.
+- 2026-09-15 — Consultation message thread UI (issue #22, Phase W2 —
+  Patient core flow) implemented: new `src/features/messaging/` feature
+  (`MessageThread`, `MessageList`, `MessageComposer`, `MessageBubble`,
+  `MessageThreadClosedBanner`), `useMessageThread` hook for cursor-
+  paginated history + optimistic append + failed/retry state, and a
+  `messaging-service.ts` service layer calling the assumed `docforum-core`
+  thread endpoints. Live updates prefer the notification stream and fall
+  back to polling while the thread is visible. Message bodies are
+  rendered as text only with safe linkification (no HTML); drafts are
+  in-memory only (PHI, no localStorage). Fixed duplicate `identifier`
+  declarations (`MessageThreadStatus`, `MessageSenderRole`) in
+  `src/types/models.ts` flagged by the local syntax check before push.
 - 2026-10-18 — Built Phase W3 Doctor practice insights (#50) and Phase W4 Facility staff accounts with fulfillment attribution (#51):
   - `#50 Doctor practice insights`: private insights page (`/doctor/insights`) with weekly slot utilisation, no-show and late-cancellation rates, referral acceptance turnaround, and messages response time. Includes SVG charts paired with accessible semantic `<table>` alternatives, date range selector (presets + custom), clearly labelled small-sample caveats, and strict peer-comparison suppression (doctor's own confidential data only). Wired into `DoctorDashboardPage`, command palette (`⌘K`), and navigation.
   - `#51 Facility staff accounts & fulfillment attribution`: dedicated team management page (`/facility/team`) with member list, role assignment (`owner` vs `staff`), email invitations, resend/revoke pending invites, member removal with backend session revocation warning, and last-owner deletion protection. Enforced read-only view and action suppression for staff members. In the fulfillment queue (`/facility`), added action attribution display showing which staff member dispensed/fulfilled each order for PRD §7 audit trail.
