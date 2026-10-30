@@ -51,6 +51,44 @@ function inviteForToken(token: string): AccountInvite | null {
   return base;
 }
 
+// Mock active sessions (issue #79). Coarse device/location only, matching the
+// assumed contract — never an IP address, not even a fake one.
+function seedSessions(): ActiveSession[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'sess-current',
+      device: 'Chrome on Linux',
+      approximateLocation: 'Lagos, Nigeria',
+      lastActiveAt: new Date(now).toISOString(),
+      createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: true,
+    },
+    {
+      id: 'sess-kiosk',
+      device: 'Clinic kiosk · Firefox',
+      approximateLocation: 'Abuja, Nigeria',
+      lastActiveAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: false,
+    },
+    {
+      id: 'sess-phone',
+      device: 'iPhone · Safari',
+      approximateLocation: null,
+      lastActiveAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      isCurrent: false,
+    },
+  ];
+}
+
+let mockSessions: ActiveSession[] = seedSessions();
+
+export function resetMockSessions(): void {
+  mockSessions = seedSessions();
+}
+
 export const authHandlers = [
   http.post(
     '*/auth/signup',

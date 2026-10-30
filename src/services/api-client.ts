@@ -14,6 +14,8 @@ import { useAuthStore } from '../store/auth-store';
 import { readCsrfToken } from './csrf-storage';
 import type { AuthSession } from './auth-service';
 
+import { notifyRateLimit } from '../store/rate-limit-store';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 /** Absolute URL for a path on docforum-core. Exported for the one client API

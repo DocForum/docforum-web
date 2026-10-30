@@ -11,7 +11,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLogin } from '../hooks/useLogin';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -46,8 +48,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setServerError(null);
     try {
       await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout: show a countdown and keep submit disabled until it ends.
+      // The message is account-agnostic on purpose — it must not reveal
+      // whether the email exists (issue #80).
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {

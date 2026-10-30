@@ -12,7 +12,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useSignup } from '../hooks/useSignup';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 import type { SelfServeRole } from '../../../types/models';
 
 const signupSchema = z.object({
@@ -50,8 +52,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     setServerError(null);
     try {
       await signupMutation.mutateAsync({ role, ...data });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout (issue #80): countdown + disabled submit, same as login.
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
