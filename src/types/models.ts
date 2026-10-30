@@ -382,6 +382,74 @@ export interface SelectOrderFacilityInput {
   expectedVersion: number;
 }
 
+// --- Phase W4 — Facility settings & price lists (issue #56) -----------------
+// Assumed contracts pending docforum-core#74 (facility location) and
+// docforum-core#127 (versioned facility price lists). See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W4".
+
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface FacilityOpeningHours {
+  day: Weekday;
+  closed: boolean;
+  /** 24-hour `HH:mm`, or null when the facility is closed that day. */
+  opensAt: string | null;
+  closesAt: string | null;
+}
+
+export interface FacilitySettings {
+  facilityId: string;
+  name: string;
+  type: FacilityType;
+  address: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string;
+  email: string | null;
+  openingHours: FacilityOpeningHours[];
+  updatedAt: string;
+}
+
+export interface FacilitySettingsInput {
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  email: string | null;
+  openingHours: FacilityOpeningHours[];
+}
+
+export interface CatalogItem {
+  /** Stable catalog code stored on a FacilityPrice. */
+  code: string;
+  name: string;
+  type: FacilityType;
+  description?: string | null;
+}
+
+/** One immutable version of a facility price. The row effective latest on or
+ * before now is the current price; future rows are scheduled changes. */
+export interface FacilityPrice {
+  id: string;
+  facilityId: string;
+  catalogItemCode: string;
+  catalogItemName: string;
+  asset: PayoutAsset;
+  /** BigInt-safe raw stroops — 1 XLM/USDC = 10,000,000 stroops. */
+  amountStroops: string;
+  effectiveFrom: string;
+  createdAt: string;
+}
+
+export interface FacilityPriceInput {
+  catalogItemCode: string;
+  asset: PayoutAsset;
+  amountStroops: string;
+  effectiveFrom: string;
+}
+
 // --- Phase W3 — Doctor core flow (assumed, docforum-core issues #61/#129 not
 // landed yet) ---------------------------------------------------------------
 // These shapes mirror the smallest contract needed to build the doctor's
@@ -1340,6 +1408,41 @@ export interface UpdateFeatureFlagInput {
    * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
 }
+
+// --- Phase W2 — Doctor search & symptom-based search (issue #30, builds on
+// issue #1) ---------------------------------------------------------------
+// Both endpoints are assumed: docforum-core#23 (doctor list) and
+// docforum-core#60 (symptom → specialty mapping, controlled vocabulary,
+// no ML) haven't landed. See ARCHITECTURE_ESSENTIALS.md "Known
+// assumptions — Phase W2 — doctor & symptom search".
+
+/** Patient-facing availability filter for doctor search. `week` means a
+ * slot in the next 7 days; `today` means a slot before midnight today. */
+export type AvailabilityFilter = 'any' | 'week' | 'today';
+
+/** One entry of the backend's controlled symptom vocabulary. Patients pick
+ * from these — free-text is never sent to a doctor-search endpoint. */
+export interface SymptomSuggestion {
+  slug: string;
+  term: string;
+}
+
+/** Which specialties treat a vocabulary symptom (docforum-core#60). */
+export interface SymptomSpecialtyMapping {
+  slug: string;
+  term: string;
+  specialties: Specialty[];
+}
+
+export interface DoctorSearchQuery {
+  specialtyIds?: string[];
+  availability?: AvailabilityFilter;
+}
+
+/** A doctor as offered to a patient searching by specialty/symptom. Same
+ * shape the admin referral console uses (`DoctorAvailability`) — one
+ * entity, one shape, per ARCHITECTURE_ESSENTIALS.md hard rule 2. */
+export type DoctorSearchResult = DoctorAvailability;
 
 export interface AbnormalResult {
   id: string;

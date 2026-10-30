@@ -12,6 +12,7 @@ import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
 import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
+import { DoctorSearchPage } from './DoctorSearchPage';
 import { OrdersPage } from './OrdersPage';
 import { OrderDetailPage } from './OrderDetailPage';
 import { PatientOrdersPage } from './PatientOrdersPage';
@@ -80,6 +81,7 @@ function PatientHome() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
+          <Link to="search">{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
           <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
           <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
           <Link to="/care">{t('patient.nav.care', 'Care journey timeline')}</Link>
@@ -102,6 +104,7 @@ export function PatientDashboardPage() {
   return (
     <Routes>
       <Route index element={<PatientHome />} />
+      <Route path="search" element={<DoctorSearchPage />} />
       <Route path="orders" element={<PatientOrdersPage />} />
       <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />

@@ -355,6 +355,12 @@ store). Every patient API call and React Query key includes the selected
 - OpenStreetMap tiles with attribution.
 - Patient location is requested with transparent consent, kept strictly in transient memory, and NEVER persisted to storage or URLs.
 
+#### Doctor search & symptom-based search (issues #1/#30; docforum-core#23 and #60 not landed)
+- `GET /symptoms?q=<text>&limit=<n>` → `SymptomSuggestion[]` — autocomplete against a curated, backend-owned symptom vocabulary (substring match, case-insensitive). `SymptomSuggestion` = `{slug, term}`. Free text never reaches the doctor-search endpoint — the patient picks a vocabulary entry (docforum-core#60: controlled vocabulary, no ML). The UI debounces typing (250 ms) and cancels superseded in-flight requests.
+- `GET /symptoms/:slug` → `SymptomSpecialtyMapping` = `{slug, term, specialties: Specialty[]}` — which specialties treat the symptom. `404` for a slug that has left the vocabulary; the UI explains this and offers to clear rather than showing a generic error.
+- `GET /doctors?specialtyIds=<id,id>&availability=<week|today>` → `DoctorSearchResult[]` — doctors practising in ANY of the listed specialties (a symptom can map to several), soonest `nextAvailableAt` first, verified doctors only. Omitting `availability` (the UI's `any` value) means no availability filtering; `week` = an open slot within 7 days, `today` = an open slot within the patient's current day (the mock approximates it as the next 24 h). `DoctorSearchResult` deliberately reuses the `DoctorAvailability` shape (`{id, fullName, verificationStatus, specialties, openSlotCount, nextAvailableAt}`) — same entity, one shape (hard rule 2).
+- Frontend behaviour: the applied symptom slug and the availability filter live in the URL (`?symptom=<slug>&availability=week`); invalid URL values are dropped with a visible notice, never sent to the backend. No symptom applied ⇒ no doctor request is fired (an unfiltered "every doctor" request doesn't exist), and a no-match result always offers a concrete way forward (widen availability, try another symptom).
+
 #### Orders list and facility selection (docforum-core#11/#14, issue #5)
 - `GET /orders/mine` → `PatientOrder[]` — every version of the patient's prescriptions and lab orders, not only the current one. `PatientOrder` is a discriminated union on `orderType`:
   - prescription: `{id, patientProfileId, orderType: 'prescription', version, supersedesId, status, issuedAt, issuedByDoctorName?, requiresFacilitySelection, selectedFacility?, medication, dose, quantity?, instructions?}`

@@ -80,6 +80,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 
   if (userRole === 'patient') {
     base.push(
+      { to: '/patient/search', label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
       { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
       { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
       { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
