@@ -74,7 +74,7 @@ describe('SignupForm', () => {
       new RateLimitError('Too many attempts', 30),
     );
     const user = userEvent.setup();
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     await user.type(screen.getByLabelText(/full name/i), 'Jane');
     await user.type(screen.getByLabelText(/email/i), 'a@b.com');

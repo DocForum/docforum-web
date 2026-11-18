@@ -40,6 +40,10 @@ export function AccountSettingsPage() {
       </ErrorBoundary>
 
       <ErrorBoundary level="section">
+        <SessionsSection />
+      </ErrorBoundary>
+
+      <ErrorBoundary level="section">
         <CalendarSubscriptionSection />
       </ErrorBoundary>
 

@@ -13,7 +13,6 @@ import { createApiClient, type ApiTransport, type TransportOptions } from '@docf
 import { useAuthStore } from '../store/auth-store';
 import { readCsrfToken } from './csrf-storage';
 import type { AuthSession } from './auth-service';
-
 import { notifyRateLimit } from '../store/rate-limit-store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
@@ -97,6 +96,50 @@ export class ApiError extends Error {
     this.requestId = extra.requestId ?? null;
     this.cancelled = extra.cancelled ?? false;
   }
+}
+
+/** Fallback when a 429 arrives without a usable `Retry-After` header. */
+export const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
+/**
+ * A `429 Too Many Requests` from docforum-core, carrying the wait the server
+ * asked for. Every surface derives its countdown from `retryAfterSeconds` so
+ * nothing retries sooner than `Retry-After` allows (issue #80).
+ */
+export class RateLimitError extends ApiError {
+  constructor(
+    message: string,
+    public readonly retryAfterSeconds: number,
+    body?: unknown,
+    extra: ConstructorParameters<typeof ApiError>[3] = {},
+  ) {
+    super(message, 429, body, extra);
+    this.name = 'RateLimitError';
+  }
+
+  get retryAfterMs(): number {
+    return this.retryAfterSeconds * 1000;
+  }
+}
+
+/**
+ * Parse a `Retry-After` header (delta-seconds or an HTTP date) into whole
+ * seconds. Returns `null` when the header is absent or unusable, so callers
+ * can fall back to `DEFAULT_RETRY_AFTER_SECONDS`.
+ */
+export function parseRetryAfter(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const value = header.trim();
+  if (value === '') return null;
+
+  if (/^\d+$/.test(value)) {
+    const seconds = Number(value);
+    return Number.isSafeInteger(seconds) ? seconds : null;
+  }
+
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return null;
+  return Math.max(0, Math.ceil((date - now) / 1000));
 }
 
 /** Error code used when the request never reached the backend. */
@@ -185,6 +228,9 @@ export function isAbortError(error: unknown): boolean {
 /** Network failures and retryable HTTP statuses. 4xx is never retried. */
 export function isRetryableError(error: unknown): boolean {
   if (isAbortError(error)) return false;
+  // A 429 must wait for its Retry-After; the transport's short backoff would
+  // retry too early. React Query's retryDelay (query-client.ts) honours it.
+  if (error instanceof RateLimitError) return false;
   // Transport failures are wrapped as `NETWORK_ERROR` ApiErrors (see
   // `fetchResponse`), so treat that code like a bare fetch TypeError.
   if (error instanceof ApiError) {
@@ -362,17 +408,25 @@ async function throwForResponse(response: Response): Promise<never> {
   // partially-rolled-out backend still surfaces a usable code.
   const nested = (envelope as { error?: ApiErrorEnvelope }).error;
   const source = nested && typeof nested === 'object' ? nested : envelope;
+  const extra = {
+    code: asString(source.code),
+    details: source.details,
+    requestId: asString(source.requestId) ?? asString(headerRequestId),
+  };
 
-  throw new ApiError(
-    asString(source.message) ?? response.statusText,
-    response.status,
-    payload,
-    {
-      code: asString(source.code),
-      details: source.details,
-      requestId: asString(source.requestId) ?? asString(headerRequestId),
-    },
-  );
+  if (response.status === 429) {
+    const seconds = parseRetryAfter(response.headers.get('Retry-After')) ?? DEFAULT_RETRY_AFTER_SECONDS;
+    // One global, non-blocking notice regardless of which caller hit the limit.
+    notifyRateLimit(seconds);
+    throw new RateLimitError(
+      asString(source.message) ?? 'Too many requests. Please try again shortly.',
+      seconds,
+      payload,
+      extra,
+    );
+  }
+
+  throw new ApiError(asString(source.message) ?? response.statusText, response.status, payload, extra);
 }
 
 async function parseResponse<T>(response: Response, parse: ParseMode): Promise<T> {

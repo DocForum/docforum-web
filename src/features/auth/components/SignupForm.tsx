@@ -33,6 +33,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [role, setRole] = useState<SelfServeRole>('patient');
   const form = useZodForm(signupSchema, { fullName: '', email: '', password: '' });
   const signupMutation = useSignup();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
@@ -77,6 +78,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     <FormProvider {...form}>
       <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
         {signupMutation.isPending && (
           <p className="srOnly" role="status">
             Creating your account. Please wait.
@@ -98,7 +100,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           autoComplete="new-password"
           hint={t('auth.passwordHint', 'At least 8 characters.')}
         />
-        <Button type="submit" loading={signupMutation.isPending}>
+        <Button type="submit" loading={signupMutation.isPending} disabled={lockout.isLockedOut}>
           {signupMutation.isPending ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create account')}
         </Button>
       </form>

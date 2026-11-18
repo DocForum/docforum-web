@@ -16,6 +16,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { OfflineBanner } from './OfflineBanner';
+import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
@@ -191,6 +192,8 @@ export function Layout() {
       </a>
 
       <OfflineBanner />
+      {/* Global, non-blocking 429 notice (issue #80). */}
+      <RateLimitNotice />
 
       <header className={styles.header} role="banner">
         <div className={styles.brandBar}>

@@ -29,6 +29,7 @@ export interface LoginFormProps {
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const form = useZodForm(loginSchema, { email: '', password: '' });
   const loginMutation = useLogin();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
@@ -75,6 +76,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     <FormProvider {...form}>
       <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
         {loginMutation.isPending && (
           <p className="srOnly" role="status">
             Logging in. Please wait.
@@ -93,7 +95,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
         />
-        <Button type="submit" loading={loginMutation.isPending}>
+        <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
           {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
         </Button>
       </form>

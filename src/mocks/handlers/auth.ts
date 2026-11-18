@@ -1,4 +1,4 @@
-// Auth endpoints (signup / login / logout / claim-account / invite redemption).
+// Auth endpoints (signup / login / logout / claim-account / invite redemption / sessions).
 import { http, HttpResponse } from 'msw';
 import {
   ACCOUNT_INVITE,
@@ -51,39 +51,45 @@ function inviteForToken(token: string): AccountInvite | null {
   return base;
 }
 
-// Mock active sessions (issue #79). Coarse device/location only, matching the
-// assumed contract — never an IP address, not even a fake one.
-function seedSessions(): ActiveSession[] {
+// Mock active sessions (issue #79), in docforum-core's wire shape
+// (`GET /auth/sessions`). auth-service maps it to the UI model and drops the
+// IP, so the mock carries none.
+interface MockCoreSession {
+  id: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  userAgent: string | null;
+  current: boolean;
+}
+
+function seedSessions(): MockCoreSession[] {
   const now = Date.now();
   return [
     {
       id: 'sess-current',
-      device: 'Chrome on Linux',
-      approximateLocation: 'Lagos, Nigeria',
-      lastActiveAt: new Date(now).toISOString(),
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      lastUsedAt: new Date(now).toISOString(),
       createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      isCurrent: true,
+      current: true,
     },
     {
       id: 'sess-kiosk',
-      device: 'Clinic kiosk · Firefox',
-      approximateLocation: 'Abuja, Nigeria',
-      lastActiveAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+      lastUsedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      isCurrent: false,
+      current: false,
     },
     {
       id: 'sess-phone',
-      device: 'iPhone · Safari',
-      approximateLocation: null,
-      lastActiveAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      lastUsedAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
-      isCurrent: false,
+      current: false,
     },
   ];
 }
 
-let mockSessions: ActiveSession[] = seedSessions();
+let mockSessions: MockCoreSession[] = seedSessions();
 
 export function resetMockSessions(): void {
   mockSessions = seedSessions();
@@ -213,6 +219,29 @@ export const authHandlers = [
       const role = useMockStore.getState().activeRole;
       const idleTimeoutMinutes = role === 'admin' ? 10 : role === 'patient' ? 30 : 15;
       return { idleTimeoutMinutes, warningSeconds: 60 };
+    }),
+  ),
+
+  // Active sessions (issue #79), matching docforum-core's routes.
+  http.get('*/auth/sessions', respond('list', () => mockSessions)),
+
+  http.delete(
+    '*/auth/sessions',
+    respond('json', () => {
+      const revoked = mockSessions.filter((session) => !session.current).length;
+      mockSessions = mockSessions.filter((session) => session.current);
+      return { revoked };
+    }),
+  ),
+
+  http.delete(
+    '*/auth/sessions/:sessionId',
+    respond('void', ({ params }) => {
+      const id = String(params.sessionId);
+      const index = mockSessions.findIndex((session) => session.id === id);
+      if (index === -1) return notFound('session');
+      mockSessions.splice(index, 1);
+      return null;
     }),
   ),
 ];
