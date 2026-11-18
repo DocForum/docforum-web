@@ -42,6 +42,7 @@ import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
 import { FacilitySettingsPage } from './pages/FacilitySettingsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { AdminCatalogsPage } from './pages/AdminCatalogsPage';
 import { MessageThreadPage } from './pages/MessageThreadPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
@@ -311,6 +312,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="admin/catalogs" element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
         <Route
           path="admin/*"
           element={
