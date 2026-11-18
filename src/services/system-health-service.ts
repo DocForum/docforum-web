@@ -14,7 +14,7 @@ function isReadinessReport(body: unknown): body is ReadinessReport {
  * when not ready, same body either way. */
 export async function getReadiness(accessToken: string, signal?: AbortSignal): Promise<ReadinessReport> {
   try {
-    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal });
+    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal, retry: false });
   } catch (error) {
     if (error instanceof ApiError && error.status === 503 && isReadinessReport(error.body)) return error.body;
     throw error;

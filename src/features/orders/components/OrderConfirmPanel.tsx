@@ -24,22 +24,23 @@ function formatDeadline(deadlineAt: string): string {
   const deadline = new Date(deadlineAt);
   const now = new Date();
   const diffMs = deadline.getTime() - now.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
+  const hourMs = 1000 * 60 * 60;
 
   if (diffMs < 0) {
     return 'The confirmation window has closed.';
   }
+  if (diffMs < hourMs) {
+    return 'Less than 1 hour remaining';
+  }
 
+  // Round to the nearest hour so "24 hours from now" (minus render time)
+  // reads as 1 day, not 23 hours.
+  const diffHours = Math.round(diffMs / hourMs);
+  const diffDays = Math.floor(diffHours / 24);
   if (diffDays > 0) {
     return `${diffDays} day${diffDays > 1 ? 's' : ''} remaining`;
   }
-
-  if (diffHours > 0) {
-    return `${diffHours} hour${diffHours > 1 ? 's' : ''} remaining`;
-  }
-
-  return 'Less than 1 hour remaining';
+  return `${diffHours} hour${diffHours > 1 ? 's' : ''} remaining`;
 }
 
 function inactionDescription(consequence: OrderConfirmationWindow['inactionConsequence']): string {
@@ -160,7 +161,7 @@ export function OrderConfirmPanel({
           </Button>
         </div>
 
-        {error && <FormError message={error} />}
+        {error && !showReportDialog && <FormError message={error} />}
       </section>
 
       {showReportDialog && (
@@ -232,7 +233,7 @@ export function OrderConfirmPanel({
               <Button
                 variant="primary"
                 onClick={handleReport}
-                disabled={reportMutation.isPending || !reportReason}
+                disabled={reportMutation.isPending}
               >
                 {reportMutation.isPending ? <Spinner size={16} /> : 'Submit report'}
               </Button>

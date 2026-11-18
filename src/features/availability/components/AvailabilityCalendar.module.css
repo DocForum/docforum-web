@@ -1,0 +1,198 @@
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.zone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.zone strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.zonePrefix {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.4rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.legendItem {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+}
+
+.open {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.held {
+  border: 2px dashed var(--color-warning);
+  background: var(--color-surface-alt);
+}
+
+.booked {
+  border: 2px solid var(--color-accent-2);
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2-hover);
+}
+
+.board {
+  --day-header-height: 2.25rem;
+  --slot-row-height: 1.75rem;
+
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.gutter {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  text-align: right;
+  padding-right: var(--space-1);
+}
+
+.gutter li {
+  align-self: start;
+  white-space: nowrap;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}
+
+.errorState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.actionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shortcuts {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.shortcuts summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.shortcuts dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+}
+
+.shortcuts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.shortcuts dd {
+  margin: 0;
+}
+
+.dragNote {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 700px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stacked days are labelled by each cell's own time, so the hour scale is
+     dropped rather than left misaligned. */
+  .gutter {
+    display: none;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtons {
+    width: 100%;
+  }
+}

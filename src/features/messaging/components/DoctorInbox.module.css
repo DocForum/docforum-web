@@ -20,7 +20,7 @@
 }
 
 .badge {
-  margin-left: auto;
+  margin-inline-start: auto;
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-full);
   background: var(--color-accent);
@@ -47,8 +47,14 @@
   font-size: var(--text-sm);
 }
 
+.table tbody th {
+  background: transparent;
+  text-align: start;
+  font-weight: 600;
+}
+
 .table th {
-  text-align: left;
+  text-align: start;
   color: var(--color-text-muted);
   font-weight: 600;
   padding: var(--space-3) var(--space-4);
@@ -79,7 +85,7 @@
 .waitingCol,
 .unreadCol,
 .actionCol {
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 }
 

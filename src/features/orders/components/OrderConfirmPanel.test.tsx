@@ -56,7 +56,7 @@ describe('OrderConfirmPanel', () => {
     const reportButton = screen.getByText('Report a problem');
     fireEvent.click(reportButton);
 
-    expect(screen.getByText('Report a problem')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Report a problem' })).toBeInTheDocument();
     expect(screen.getByText('Reason *')).toBeInTheDocument();
     expect(screen.getByText('Details *')).toBeInTheDocument();
   });
@@ -116,7 +116,7 @@ describe('OrderConfirmPanel', () => {
     const descriptionTextarea = screen.getByLabelText('Details *');
     fireEvent.change(descriptionTextarea, { target: { value: 'test description' } });
 
-    expect(screen.getByText('15 / 500 characters')).toBeInTheDocument();
+    expect(screen.getByText('16 / 500 characters')).toBeInTheDocument();
   });
 
   it('displays different inaction consequences', () => {

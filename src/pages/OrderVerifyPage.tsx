@@ -18,11 +18,14 @@ export function OrderVerifyPage() {
         <Link to="/facility/payments" className={styles.tabLink}>
           Payouts &amp; Escrow
         </Link>
-        <Link to="/facility/insights" className={styles.tabLink}>
-          Performance
+        <Link to="/facility/integrations" className={styles.tabLink}>
+          Integrations
         </Link>
         <Link to="/facility/insights" className={styles.tabLink}>
           Performance
+        </Link>
+        <Link to="/facility/settings" className={styles.tabLink}>
+          Settings
         </Link>
       </nav>
 

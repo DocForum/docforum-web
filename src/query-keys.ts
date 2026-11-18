@@ -202,8 +202,25 @@ export const insightKeys = {
   params: (params: unknown) => ['doctor', 'insights', params] as const,
 };
 
+/** In-app notification inbox (issue #107). One list key per page size — the
+ * cursor lives in the infinite query, never in the key (a cursor in the key
+ * would create a cache entry per page and break invalidation). */
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  list: (limit: number) => ['notifications', 'list', limit] as const,
+  streamTicket: () => ['notifications', 'stream-ticket'] as const,
+};
+
 export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+};
+
+/** First-run onboarding summary (#121). One key per role: the server scopes
+ * the response to the session, so there is nothing else to key on. */
+export const onboardingKeys = {
+  all: ['onboarding'] as const,
+  patient: () => ['onboarding', 'patient'] as const,
+  doctor: () => ['onboarding', 'doctor'] as const,
 };

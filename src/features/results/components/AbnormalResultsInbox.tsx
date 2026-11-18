@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { usePendingAbnormalResults, useAcknowledgeAbnormalResult } from '../hooks/useResults';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type { AbnormalResult } from '../../../types/models';
 import styles from './AbnormalResultsInbox.module.css';
 
 export function AbnormalResultsInbox() {
-  const { data: results = [], isLoading, error } = usePendingAbnormalResults();
+  const { data: results = [], isLoading, error, refetch } = usePendingAbnormalResults();
   const acknowledgeMutation = useAcknowledgeAbnormalResult();
   const [acknowledgeOpen, setAcknowledgeOpen] = useState<{ id: string; patientName: string } | null>(null);
   const [acknowledgeNote, setAcknowledgeNote] = useState('');
@@ -33,8 +37,16 @@ export function AbnormalResultsInbox() {
     setAcknowledgeOpen(null);
   };
 
-  if (isLoading) return <p>Loading results...</p>;
-  if (error) return <p>Error loading results.</p>;
+  if (isLoading) return <Skeleton lines={4} height="1.5rem" label="Loading results" />;
+  if (error) {
+    return (
+      <InlineError
+        title="Results couldn't be loaded"
+        message={queryErrorMessage(error)}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
 
   const criticalCount = results.filter(r => r.isCritical).length;
   const totalCount = results.length;
@@ -76,7 +88,11 @@ export function AbnormalResultsInbox() {
       )}
 
       {sortedResults.length === 0 && !acknowledgeOpen ? (
-        <p className={styles.empty}>No results awaiting review.</p>
+        <EmptyState
+          title="No results awaiting review"
+          description="Abnormal and critical results appear here as soon as docforum-core issues them, newest first."
+          action={{ label: 'Refresh inbox', onClick: () => void refetch() }}
+        />
       ) : (
         <table className={styles.table}>
           <thead>
