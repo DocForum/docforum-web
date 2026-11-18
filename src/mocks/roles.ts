@@ -2,7 +2,7 @@
 // app's real auth/profile stores and routes to that role's home screen.
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
-import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
+import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
 import type { Role } from '../types/models';
@@ -26,7 +26,7 @@ export function activateMockRole(
   const { navigate = true } = options;
   useMockStore.getState().setActiveRole(role);
   const persona = personaForRole(role);
-  useAuthStore.getState().setSession(persona, MOCK_ACCESS_TOKEN);
+  useAuthStore.getState().setSession(persona, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN);
   useProfileStore.getState().setProfiles(
     role === 'patient'
       ? [

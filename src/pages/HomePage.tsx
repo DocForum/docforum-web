@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { gsap } from 'gsap';
+import { motionDuration, motionEase, useMotion } from '../hooks/useMotion';
 import { useAuthStore } from '../store/auth-store';
+import { useT } from '../i18n/useT';
 import styles from './HomePage.module.css';
 
 const DASHBOARD_BY_ROLE: Record<string, string> = {
@@ -14,126 +15,161 @@ const DASHBOARD_BY_ROLE: Record<string, string> = {
 // an order leads to escrow-settled fulfillment — so a connected path, not
 // a grid of interchangeable cards, is the honest structural device here.
 const THREAD = [
-  { label: 'Book', body: 'Real availability, held with a database-level lock — never double-booked.' },
-  { label: 'Refer', body: 'Intake and notes travel with the referral. Nothing re-explained at the next desk.' },
-  { label: 'Order', body: 'Structured prescriptions and lab orders a pharmacy or lab can act on unambiguously.' },
-  { label: 'Settle', body: 'Facility payment sits in a Soroban escrow contract, released on confirmed fulfillment.' },
+  {
+    key: 'book',
+    labelDefault: 'Book',
+    bodyDefault: 'Real availability, held with a database-level lock — never double-booked.',
+  },
+  {
+    key: 'refer',
+    labelDefault: 'Refer',
+    bodyDefault: 'Intake and notes travel with the referral. Nothing re-explained at the next desk.',
+  },
+  {
+    key: 'order',
+    labelDefault: 'Order',
+    bodyDefault: 'Structured prescriptions and lab orders a pharmacy or lab can act on unambiguously.',
+  },
+  {
+    key: 'settle',
+    labelDefault: 'Settle',
+    bodyDefault: 'Facility payment sits in a Soroban escrow contract, released on confirmed fulfillment.',
+  },
 ];
 
 export function HomePage() {
   const user = useAuthStore((state) => state.user);
+  const t = useT();
 
   const heroRef = useRef<HTMLElement>(null);
   const threadSectionRef = useRef<HTMLElement>(null);
   const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
   const lineRefs = useRef<(SVGLineElement | null)[]>([]);
 
-  // Hero: one orchestrated entrance on mount — headline, then subhead, then
-  // the CTAs. A single reveal, not per-section scroll effects scattered
-  // down the page.
-  useEffect(() => {
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const targets = hero.querySelectorAll('[data-reveal]');
-        gsap.set(targets, { opacity: 0, y: 14 });
-        gsap.to(targets, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.05 });
-      });
-      return () => mm.revert();
-    }, hero);
-
-    return () => ctx.revert();
+  const animateHero = useCallback((gsap: typeof import('gsap').gsap, hero: HTMLElement) => {
+    const targets = hero.querySelectorAll('[data-reveal]');
+    gsap.set(targets, { opacity: 0, y: 14 });
+    gsap.to(targets, {
+      opacity: 1,
+      y: 0,
+      duration: motionDuration('--motion-duration-hero-reveal'),
+      stagger: motionDuration('--motion-duration-hero-stagger'),
+      ease: motionEase('--motion-ease-gsap-out'),
+      delay: motionDuration('--motion-duration-hero-delay'),
+    });
   }, []);
+  useMotion(heroRef, animateHero);
 
-  // Thread: each connector line draws itself in, left to right, and the
-  // node at its far end pops as it arrives — the diagram extends the way
-  // the thread it represents does. Then it holds, draws itself back out,
-  // and repeats — a continuous, gentle loop (draw ~1.7s, hold ~1.4s, undraw
-  // ~1.7s, pause ~1s) rather than a one-shot reveal. Runs only while the
-  // section is actually on screen (an IntersectionObserver play()/pause()s
-  // the timeline) so it doesn't spend cycles animating off-screen — core
-  // GSAP only, no ScrollTrigger plugin installed.
-  useEffect(() => {
-    const section = threadSectionRef.current;
-    if (!section) return;
+  // The observer keeps the repeating diagram paused while it is off-screen.
+  const animateThread = useCallback((gsap: typeof import('gsap').gsap, section: HTMLElement) => {
+    const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
+    const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    const duration = (token: `--motion-duration-${string}`) => motionDuration(token);
 
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        const dots = dotRefs.current.filter((el): el is SVGCircleElement => el !== null);
-        const lines = lineRefs.current.filter((el): el is SVGLineElement => el !== null);
+    gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
+    lines.forEach((line) => {
+      const length = line.getTotalLength();
+      gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+    });
 
-        gsap.set(dots, { scale: 0, transformOrigin: '50% 50%' });
-        lines.forEach((line) => {
-          const length = line.getTotalLength();
-          gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
-        });
-
-        const tl = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 1, yoyo: true });
-        tl.to(dots[0], { scale: 1, duration: 0.3, ease: 'back.out(2)' });
-        lines.forEach((line, i) => {
-          tl.to(line, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' });
-          tl.to(dots[i + 1], { scale: 1, duration: 0.3, ease: 'back.out(2)' }, '-=0.15');
-        });
-        tl.to({}, { duration: 1.4 }); // hold fully-drawn before undrawing
-
-        const observer = new IntersectionObserver(
-          (entries) => {
-            if (entries[0]?.isIntersecting) tl.play();
-            else tl.pause();
-          },
-          { threshold: 0.3 },
-        );
-        observer.observe(section);
-
-        return () => {
-          observer.disconnect();
-          tl.kill();
-        };
+    const tl = gsap.timeline({
+      paused: true,
+      repeat: -1,
+      repeatDelay: duration('--motion-duration-thread-repeat-delay'),
+      yoyo: true,
+    });
+    tl.to(dots[0], {
+      scale: 1,
+      duration: duration('--motion-duration-node-pop'),
+      ease: motionEase('--motion-ease-gsap-pop'),
+    });
+    lines.forEach((line, i) => {
+      tl.to(line, {
+        strokeDashoffset: 0,
+        duration: duration('--motion-duration-thread-line'),
+        ease: motionEase('--motion-ease-gsap-out'),
       });
-      return () => mm.revert();
-    }, section);
+      tl.to(
+        dots[i + 1],
+        {
+          scale: 1,
+          duration: duration('--motion-duration-node-pop'),
+          ease: motionEase('--motion-ease-gsap-pop'),
+        },
+        `-=${duration('--motion-duration-node-pop') / 2}`,
+      );
+    });
+    tl.to({}, { duration: duration('--motion-duration-thread-hold') });
 
-    return () => ctx.revert();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) tl.play();
+        else tl.pause();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+      tl.kill();
+    };
   }, []);
+  useMotion(threadSectionRef, animateThread);
 
   if (user) {
     const destination = DASHBOARD_BY_ROLE[user.role];
     if (destination) return <Navigate to={destination} replace />;
   }
 
+  const steps = THREAD.map((step) => ({
+    key: step.key,
+    label: t(`home.step.${step.key}.label`, step.labelDefault),
+    body: t(`home.step.${step.key}.body`, step.bodyDefault),
+  }));
+
   return (
     <div>
       <section className={styles.hero} ref={heroRef}>
         <h1 className={styles.headline} data-reveal>
-          The hospital visit, collapsed into one thread.
+          {t('home.headline', 'The hospital visit, collapsed into one thread.')}
         </h1>
         <p className={styles.subhead} data-reveal>
-          A symptom becomes a booking, a referral, a structured order, and a settled fulfillment —
-          without the patient repeating themselves at every desk, and without a facility getting
-          paid until the work is actually confirmed done.
+          {t(
+            'home.subhead',
+            'A symptom becomes a booking, a referral, a structured order, and a settled fulfillment — without the patient repeating themselves at every desk, and without a facility getting paid until the work is actually confirmed done.',
+          )}
         </p>
         <div className={styles.ctaRow} data-reveal>
           <Link to="/signup" className={styles.ctaPrimary}>
-            Get started
+            {t('home.getStarted', 'Get started')}
           </Link>
           <Link to="/login" className={styles.ctaSecondary}>
-            Log in
+            {t('home.logIn', 'Log in')}
           </Link>
         </div>
       </section>
 
-      <section className={styles.thread} aria-label="How a visit flows through DocForum" ref={threadSectionRef}>
+      <section
+        className={styles.thread}
+        aria-label={t('home.threadAria', 'How a visit flows through DocForum')}
+        ref={threadSectionRef}
+      >
+        <h2 className="srOnly">{t('home.threadHeading', 'The care thread')}</h2>
         <ol className={styles.threadList}>
-          {THREAD.map((step, i) => {
-            const isFinal = i === THREAD.length - 1;
+          {steps.map((step, i) => {
+            const isFinal = i === steps.length - 1;
             return (
-              <li key={step.label} className={styles.threadStep}>
+              <li key={step.key} className={styles.threadStep}>
                 <div className={styles.threadNode}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" className={styles.threadDotSvg}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    className={styles.threadDotSvg}
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <circle
                       ref={(el) => {
                         dotRefs.current[i] = el;
@@ -145,7 +181,13 @@ export function HomePage() {
                     />
                   </svg>
                   {!isFinal && (
-                    <svg className={styles.threadLineSvg} height="2" preserveAspectRatio="none">
+                    <svg
+                      className={styles.threadLineSvg}
+                      height="2"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
                       <line
                         ref={(el) => {
                           lineRefs.current[i] = el;
@@ -160,7 +202,7 @@ export function HomePage() {
                     </svg>
                   )}
                 </div>
-                <h3>{step.label}</h3>
+                <h2>{step.label}</h2>
                 <p>{step.body}</p>
               </li>
             );

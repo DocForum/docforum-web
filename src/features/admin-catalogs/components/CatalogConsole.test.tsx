@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '../../../test/render';
 import { CatalogConsole } from './CatalogConsole';
 import * as service from '../../../services/admin-catalogs-service';
 import { useAuthStore } from '../../../store/auth-store';
-import type { CatalogKind, CatalogPage } from '../../../types/models';
+import type { CatalogKind, AdminCatalogPage } from '../../../types/models';
 
 vi.mock('../../../services/admin-catalogs-service');
-const page: CatalogPage = { items: [], total: 0, page: 1, pageSize: 10 };
+const page: AdminCatalogPage = { items: [], total: 0, page: 1, pageSize: 10 };
 const kinds: CatalogKind[] = ['specialties', 'symptoms', 'medications', 'lab-tests'];
 
 beforeEach(() => {

@@ -92,8 +92,9 @@ npm run dev        # → http://localhost:5173
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
-| `npm test` | Runs the vitest suite (21 tests today) |
+| `npm test` | Runs the vitest suite |
 | `npm run typecheck` | `tsc -b --noEmit` only |
+| `npm run test:e2e` | Playwright smoke test against a real `docforum-core` — see [`e2e/README.md`](e2e/README.md) |
 
 All four are real and verified working — the app shell, routing, and
 Phase W1 auth screens render and build cleanly.

@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/Spinner';
 import { useAuthStore } from '../../../store/auth-store';
 import { catalogKeys } from '../../../query-keys';
 import * as service from '../../../services/admin-catalogs-service';
-import type { CatalogInput, CatalogItem, CatalogKind } from '../../../types/models';
+import type { AdminCatalogInput, AdminCatalogItem, CatalogKind } from '../../../types/models';
 import styles from './CatalogConsole.module.css';
 
 const TABS: { key: CatalogKind | 'mappings'; label: string }[] = [
@@ -21,9 +21,9 @@ export function CatalogConsole() {
   const [tab, setTab] = useState<CatalogKind | 'mappings'>('specialties');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [draft, setDraft] = useState<CatalogInput>(blank);
-  const [editing, setEditing] = useState<CatalogItem | null>(null);
-  const [retiring, setRetiring] = useState<CatalogItem | null>(null);
+  const [draft, setDraft] = useState<AdminCatalogInput>(blank);
+  const [editing, setEditing] = useState<AdminCatalogItem | null>(null);
+  const [retiring, setRetiring] = useState<AdminCatalogItem | null>(null);
   const [notice, setNotice] = useState('');
   const catalog = tab === 'mappings' ? 'symptoms' : tab;
   const query = useQuery({ queryKey: catalogKeys.page(catalog, search, page, PAGE_SIZE), queryFn: ({ signal }) => service.listCatalog(catalog, { search, page, pageSize: PAGE_SIZE }, token, signal) });
@@ -31,7 +31,7 @@ export function CatalogConsole() {
   const refresh = () => client.invalidateQueries({ queryKey: catalogKeys.all });
   const save = useMutation({ mutationFn: () => editing ? service.updateCatalogItem(catalog, editing.id, draft, token) : service.createCatalogItem(catalog, draft, token), onSuccess: () => { setDraft(blank); setEditing(null); setNotice('Catalog item saved.'); void refresh(); } });
   const retire = useMutation({ mutationFn: () => service.retireCatalogItem(catalog, retiring!.id, token), onSuccess: () => { setRetiring(null); setNotice('Item retired. Existing records keep their saved snapshots.'); void refresh(); } });
-  const startEdit = (item: CatalogItem) => { setEditing(item); setDraft({ name: item.name, slug: item.slug, description: item.description ?? '' }); };
+  const startEdit = (item: AdminCatalogItem) => { setEditing(item); setDraft({ name: item.name, slug: item.slug, description: item.description ?? '' }); };
 
   return <main className={styles.page}>
     <header><p className={styles.eyebrow}>ADMIN · PHASE W6</p><h1>Catalog management</h1><p>Curate the controlled vocabularies used for search, routing and fulfilment.</p></header>
@@ -47,7 +47,7 @@ export function CatalogConsole() {
   </main>;
 }
 
-function MappingEditor({ symptom, token, onSaved }: { symptom: CatalogItem; token: string; onSaved: () => void }) {
+function MappingEditor({ symptom, token, onSaved }: { symptom: AdminCatalogItem; token: string; onSaved: () => void }) {
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [added, setAdded] = useState<string[]>([]);
   const mappings = useQuery({ queryKey: catalogKeys.mappings(symptom.id), queryFn: ({ signal }) => service.listSymptomMappings(symptom.id, token, signal) });

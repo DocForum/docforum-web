@@ -11,6 +11,9 @@ import { useAuthStore } from '../../../store/auth-store';
 import type { DoctorAvailability, Role, Specialty, StuckReferral } from '../../../types/models';
 
 vi.mock('../../../services/admin-referrals-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const HOUR = 60 * 60 * 1000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();

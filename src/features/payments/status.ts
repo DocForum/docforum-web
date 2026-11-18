@@ -3,6 +3,7 @@ import type { OrderTypeForPayment, PaymentIntentStatus } from '../../types/model
 
 export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
   created: 'Not funded',
+  awaiting_signature: 'Waiting for your signature',
   escrowed: 'Held in escrow',
   released: 'Released',
   refunded: 'Refunded',
@@ -14,6 +15,8 @@ export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
  * `undefined`. */
 export const STATUS_COPY: Record<PaymentIntentStatus, string> = {
   created: 'This payment was set up but never funded. Nothing has left you and nothing is on-chain.',
+  awaiting_signature:
+    'A transaction was prepared for your wallet to sign. Nothing is on-chain until you sign and it is submitted — if it expires, preparing a new one is free and normal.',
   escrowed: 'DocForum is holding this money in escrow. The facility has not been paid yet — that is the protection escrow exists for.',
   released: 'The money was released to the facility. This payment is complete.',
   refunded: 'The money came back out of escrow and is no longer held for the facility.',

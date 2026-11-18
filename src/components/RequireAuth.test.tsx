@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { RequireAuth } from './RequireAuth';
 import { useAuthStore } from '../store/auth-store';
 import type { User } from '../types/models';
@@ -34,12 +34,32 @@ function renderGuarded(initialPath: string) {
 
 describe('RequireAuth', () => {
   afterEach(() => {
-    useAuthStore.getState().clearSession();
+    act(() => useAuthStore.getState().clearSession());
   });
 
   it('redirects to /login when no user is signed in', () => {
     renderGuarded('/patient');
     expect(screen.getByText('Login page')).toBeInTheDocument();
+  });
+
+  it('waits for the boot refresh instead of redirecting to /login', () => {
+    act(() => useAuthStore.setState({ status: 'resolving' }));
+    renderGuarded('/patient');
+
+    expect(screen.getByText(/restoring your session/i)).toBeInTheDocument();
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
+  });
+
+  it('shows the protected route once the boot refresh signs the user in', () => {
+    act(() => useAuthStore.setState({ status: 'resolving' }));
+    renderGuarded('/patient');
+    expect(screen.getByText(/restoring your session/i)).toBeInTheDocument();
+
+    act(() => {
+      useAuthStore.getState().setSession(patient, 'token', 'csrf-token');
+    });
+
+    expect(screen.getByText('Patient dashboard')).toBeInTheDocument();
   });
 
   it('renders the protected content for an allowed role', () => {

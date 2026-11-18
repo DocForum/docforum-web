@@ -21,14 +21,17 @@ import {
   accountKeys,
   catalogKeys,
   appointmentKeys,
+  auditKeys,
   dependentKeys,
   facilityKeys,
   flagKeys,
   healthKeys,
+  orderKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
   systemKeys,
+  verificationKeys,
 } from './query-keys';
 import type { HealthSectionKey } from './types/models';
 
@@ -63,8 +66,24 @@ export const invalidations = {
     paymentKeys.ledgers(),
   ],
   'payments.wallet-link': () => [paymentKeys.walletLink()],
+  /** Prepare/submit during pay-with-wallet moves the intent's status and the
+   * order panel's copy of it — both, never the ledgers (no money has moved
+   * until the intent settles; when it does, `payments.intent-action` fires). */
+  'payments.wallet-pay': (orderId: string, intentId: string) => [
+    paymentKeys.orderIntent(orderId),
+    paymentKeys.intent(intentId),
+  ],
+  /** A verification decision leaves the pending queue and writes an audit
+   * event — the decision history is rendered from that trail. */
+  'admin.verification.decision': (doctorProfileId: string) => [
+    verificationKeys.detail(doctorProfileId),
+    verificationKeys.list(),
+    auditKeys.all,
+  ],
   /** A requested export changes the status card (and its polling cadence). */
   'account.data-export': () => [accountKeys.dataExport()],
+  /** Confirm receipt or report problem: the order detail and the patient's order list. */
+  'order.confirm-action': (orderId: string) => [orderKeys.detail(orderId), orderKeys.mine()],
 };
 
 export type InvalidationKey = keyof typeof invalidations;

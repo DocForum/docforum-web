@@ -1,36 +1,29 @@
-import { apiFetch } from './api-client';
-import type { Appointment, QueueEntry, RunningDelay, UpdateRunningDelayInput } from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
-export function listTodayAppointments(accessToken: string, signal?: AbortSignal): Promise<Appointment[]> {
-  return apiFetch<Appointment[]>('/doctor/appointments/today', { accessToken, signal });
+export function listTodayAppointments(accessToken: string, signal?: AbortSignal): Promise<Schemas['Appointment'][]> {
+  return api.queue.listTodayAppointments({ accessToken, signal });
 }
 
-export function listQueue(accessToken: string, signal?: AbortSignal): Promise<QueueEntry[]> {
-  return apiFetch<QueueEntry[]>('/doctor/queue/today', { accessToken, signal });
+export function listQueue(accessToken: string, signal?: AbortSignal): Promise<Schemas['QueueEntry'][]> {
+  return api.queue.list({ accessToken, signal });
 }
 
-export function startVisit(appointmentId: string, accessToken: string): Promise<Appointment> {
-  return apiFetch<Appointment>(`/appointments/${appointmentId}/start`, {
-    method: 'POST',
-    accessToken,
-  });
+export function startVisit(appointmentId: string, accessToken: string): Promise<Schemas['Appointment']> {
+  return api.queue.startVisit(appointmentId, { accessToken });
 }
 
-export function completeVisit(appointmentId: string, accessToken: string): Promise<Appointment> {
-  return apiFetch<Appointment>(`/appointments/${appointmentId}/complete`, {
-    method: 'POST',
-    accessToken,
-  });
+export function completeVisit(appointmentId: string, accessToken: string): Promise<Schemas['Appointment']> {
+  return api.queue.completeVisit(appointmentId, { accessToken });
 }
 
-export function getRunningDelay(accessToken: string, signal?: AbortSignal): Promise<RunningDelay> {
-  return apiFetch<RunningDelay>('/doctor/queue/running-delay', { accessToken, signal });
+export function getRunningDelay(accessToken: string, signal?: AbortSignal): Promise<Schemas['RunningDelay']> {
+  return api.queue.getRunningDelay({ accessToken, signal });
 }
 
-export function updateRunningDelay(input: UpdateRunningDelayInput, accessToken: string): Promise<RunningDelay> {
-  return apiFetch<RunningDelay>('/doctor/queue/running-delay', {
-    method: 'PATCH',
-    body: input,
-    accessToken,
-  });
+export function updateRunningDelay(
+  input: Schemas['UpdateRunningDelayInput'],
+  accessToken: string,
+): Promise<Schemas['RunningDelay']> {
+  return api.queue.updateRunningDelay(input, { accessToken });
 }

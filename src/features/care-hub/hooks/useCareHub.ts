@@ -1,6 +1,7 @@
 import { useDependents } from '../../dependents/hooks/useDependents';
 import { useHealthEntries } from '../../health-profile/hooks/useHealthEntries';
 import { useMyAppointments } from '../../appointments/hooks/useAppointments';
+import { useMyOrders } from '../../orders/hooks/useOrders';
 import { formatSlotDate, formatSlotTime, isOnSlotDay, isUpcoming } from '../../appointments/slot';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
@@ -18,7 +19,7 @@ export interface SourceStatus {
 
 export interface CareHub {
   cards: CareCard[];
-  sources: { dependents: SourceStatus; health: SourceStatus; appointments: SourceStatus };
+  sources: { dependents: SourceStatus; health: SourceStatus; appointments: SourceStatus; orders: SourceStatus };
 }
 
 /** A handover invite with no expiry sent by the backend is not the same thing
@@ -32,6 +33,7 @@ export function useCareHub(now: Date = new Date()): CareHub {
   const profileId = useProfileStore((state) => state.selectedProfileId);
   const dependents = useDependents();
   const appointments = useMyAppointments();
+  const orders = useMyOrders();
   const allergies = useHealthEntries('allergies');
   const conditions = useHealthEntries('conditions');
   const medications = useHealthEntries('medications');
@@ -39,6 +41,7 @@ export function useCareHub(now: Date = new Date()): CareHub {
 
   const dependentsUnavailable = !accessToken;
   const appointmentsUnavailable = !accessToken;
+  const ordersUnavailable = !accessToken;
   const healthUnavailable = !accessToken || !profileId;
 
   const healthEntries = healthQueries.flatMap((query) => query.data ?? []);
@@ -89,6 +92,23 @@ export function useCareHub(now: Date = new Date()): CareHub {
     });
   }
 
+  // Fulfilled orders that need confirmation (issue #35).
+  for (const order of orders.data ?? []) {
+    if (order.status !== 'completed' || !order.confirmationWindow) continue;
+    const deadline = new Date(order.confirmationWindow.deadlineAt);
+    if (deadline < now) continue; // Expired window - no action needed
+    const itemLabel = order.orderType === 'prescription' ? order.medication : order.testName;
+    cards.push({
+      id: `confirm-order-${order.id}`,
+      section: 'action',
+      priority: PRIORITY.needsYou,
+      title: `Confirm receipt of ${itemLabel}`,
+      detail: `Your order was fulfilled. Please confirm you received it or report a problem.`,
+      to: `/patient/orders/${order.id}`,
+      badge: 'Action needed',
+    });
+  }
+
   // Only claim the profile is empty once every section answered successfully —
   // a failed request would otherwise be reported to the patient as missing care
   // data they may well have already entered.
@@ -130,6 +150,11 @@ export function useCareHub(now: Date = new Date()): CareHub {
         isLoading: !appointmentsUnavailable && appointments.isPending,
         failed: !appointmentsUnavailable && appointments.isError,
         unavailable: appointmentsUnavailable,
+      },
+      orders: {
+        isLoading: !ordersUnavailable && orders.isPending,
+        failed: !ordersUnavailable && orders.isError,
+        unavailable: ordersUnavailable,
       },
       health: {
         isLoading: !healthUnavailable && healthQueries.some((query) => query.isPending),

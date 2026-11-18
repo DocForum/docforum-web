@@ -1,3 +1,20 @@
+.skipLink {
+  position: absolute;
+  inset-inline-start: var(--space-4);
+  top: -100px;
+  z-index: 200;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.skipLink:focus {
+  top: var(--space-2);
+  text-decoration: none;
+}
+
 .shell {
   min-height: 100vh;
   display: flex;
@@ -284,11 +301,27 @@
 }
 
 .footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
   padding: var(--space-6);
   text-align: center;
   font-size: var(--text-xs);
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   border-top: 1px solid var(--color-border);
+}
+
+/* Responsive: mobile header actions wrap instead of overflowing */
+@media (max-width: 639px) {
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .headerActions > * {
+    min-width: 0;
+  }
 }
 
 /* Responsive: desktop */

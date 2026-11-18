@@ -1,39 +1,36 @@
-import { apiFetch } from './api-client';
-import type { Dependent, DependentInput } from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api } from './api-client';
 
-export function listDependents(accessToken: string, signal?: AbortSignal): Promise<Dependent[]> {
-  return apiFetch<Dependent[]>('/patients/me/dependents', { accessToken, signal });
+export type ClaimAccountInput = Schemas['ClaimAccountInput'];
+
+export function listDependents(accessToken: string, signal?: AbortSignal): Promise<Schemas['Dependent'][]> {
+  return api.dependents.list({ accessToken, signal });
 }
 
-export function addDependent(input: DependentInput, accessToken: string): Promise<Dependent> {
-  return apiFetch<Dependent>('/patients/me/dependents', { method: 'POST', body: input, accessToken });
+export function addDependent(input: Schemas['DependentInput'], accessToken: string): Promise<Schemas['Dependent']> {
+  return api.dependents.add(input, { accessToken });
 }
 
-export function updateDependent(id: string, input: DependentInput, accessToken: string): Promise<Dependent> {
-  return apiFetch<Dependent>(`/patients/me/dependents/${id}`, { method: 'PATCH', body: input, accessToken });
+export function updateDependent(
+  id: string,
+  input: Schemas['DependentInput'],
+  accessToken: string,
+): Promise<Schemas['Dependent']> {
+  return api.dependents.update(id, input, { accessToken });
 }
 
-export function sendHandoverInvite(dependentId: string, email: string, accessToken: string): Promise<Dependent> {
-  return apiFetch<Dependent>(`/patients/me/dependents/${dependentId}/handover-invite`, {
-    method: 'POST',
-    body: { email },
-    accessToken,
-  });
+export function sendHandoverInvite(
+  dependentId: string,
+  email: string,
+  accessToken: string,
+): Promise<Schemas['Dependent']> {
+  return api.dependents.sendHandoverInvite(dependentId, { email }, { accessToken });
 }
 
-export function resendHandoverInvite(dependentId: string, accessToken: string): Promise<Dependent> {
-  return apiFetch<Dependent>(`/patients/me/dependents/${dependentId}/handover-invite/resend`, {
-    method: 'POST',
-    accessToken,
-  });
+export function resendHandoverInvite(dependentId: string, accessToken: string): Promise<Schemas['Dependent']> {
+  return api.dependents.resendHandoverInvite(dependentId, { accessToken });
 }
 
-export interface ClaimAccountInput {
-  token: string;
-  email: string;
-  password: string;
-}
-
-export function claimAccount(input: ClaimAccountInput): Promise<void> {
-  return apiFetch<void>('/auth/claim-account', { method: 'POST', body: input });
+export function claimAccount(input: Schemas['ClaimAccountInput']): Promise<void> {
+  return api.auth.claimAccount(input);
 }
