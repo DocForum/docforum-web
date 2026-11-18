@@ -21,11 +21,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       selectedProfileId: stillValid ? current : profiles.find((p) => p.isSelf)?.id ?? profiles[0]?.id ?? null,
     });
   },
-  selectProfile: (id) => {
-    if (get().profiles.some((profile) => profile.id === id)) {
-      set({ selectedProfileId: id });
-    }
-  },
+  selectProfile: (id) => set({ selectedProfileId: id }),
   clearProfiles: () => set({ profiles: [], selectedProfileId: null }),
   selectedProfile: () => {
     const state = get();
