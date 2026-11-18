@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
-import { FormError } from '../../../components/FormError';
-import { Spinner } from '../../../components/Spinner';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import { useOrder } from '../hooks/useOrder';
 import { OrderQrCode } from './OrderQrCode';
@@ -78,8 +78,8 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
 
   if (orderQuery.isLoading) {
     return (
-      <div className={styles.centred} aria-label="Loading order…">
-        <Spinner />
+      <div className={styles.centred}>
+        <Skeleton lines={4} height="1.5rem" label="Loading order" />
       </div>
     );
   }
@@ -89,7 +89,13 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
       orderQuery.error instanceof ApiError
         ? orderQuery.error.message
         : 'Could not load this order.';
-    return <FormError message={message} />;
+    return (
+      <InlineError
+        title="This order couldn't be loaded"
+        message={message}
+        onRetry={() => void orderQuery.refetch()}
+      />
+    );
   }
 
   const order = orderQuery.data;

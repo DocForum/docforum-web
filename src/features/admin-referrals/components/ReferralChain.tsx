@@ -1,15 +1,20 @@
 import { loopReturnIndexes } from '../queue';
 import type { ReferralChainLink } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate } from '../../../i18n/time-zone';
 import styles from './StuckReferrals.module.css';
 
-function shortDate(value: string): string {
+function shortDate(value: string, timeZone: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return Number.isNaN(date.getTime())
+    ? value
+    : formatDate(value, timeZone, { day: 'numeric', month: 'short' });
 }
 
 /** The hops a loop-flagged referral took, oldest first, with the hop that
  * closed the loop called out. */
 export function ReferralChain({ chain, currentId }: { chain: ReferralChainLink[]; currentId: string }) {
+  const { timeZone } = useTimeZone();
   const returns = loopReturnIndexes(chain);
 
   return (
@@ -29,7 +34,7 @@ export function ReferralChain({ chain, currentId }: { chain: ReferralChainLink[]
                 {link.targetDoctor && ` (${link.targetDoctor.fullName})`}
               </span>
               <span className={styles.chainMeta}>
-                {shortDate(link.createdAt)} · {isCurrent ? 'this referral' : link.status}
+                {shortDate(link.createdAt, timeZone)} · {isCurrent ? 'this referral' : link.status}
                 {returns.has(index) && <strong className={styles.chainReturnLabel}> · returns to an earlier hop</strong>}
               </span>
             </li>

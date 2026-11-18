@@ -7,6 +7,6 @@ export function useSignup() {
 
   return useMutation({
     mutationFn: signup,
-    onSuccess: (session) => setSession(session.user, session.accessToken),
+    onSuccess: (session) => setSession(session.user, session.accessToken, session.csrfToken),
   });
 }

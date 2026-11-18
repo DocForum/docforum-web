@@ -35,7 +35,7 @@ export function useRequestDataExport() {
 export function useDownloadExport() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
 
   const download = async (exportId: string, filename = 'docforum-data-export.json') => {
     if (!accessToken) return;
@@ -54,7 +54,7 @@ export function useDownloadExport() {
       // Immediately revoke to prevent keeping export in memory
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Failed to download export');
+      setDownloadError(err);
     } finally {
       setIsDownloading(false);
     }

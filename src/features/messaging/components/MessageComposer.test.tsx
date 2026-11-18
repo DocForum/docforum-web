@@ -107,7 +107,7 @@ describe('MessageComposer', () => {
   it('lets a stalled upload be cancelled and retried', async () => {
     vi.mocked(messagingService.uploadAttachment).mockImplementation((_threadId, _file, _token, options) => {
       return new Promise<MessageAttachment>((_resolve, reject) => {
-        options?.signal?.addEventListener('abort', () => reject(new ApiError('Upload cancelled', 0, undefined, true)));
+        options?.signal?.addEventListener('abort', () => reject(new ApiError('Upload cancelled', 0, undefined, { cancelled: true })));
       });
     });
     const user = userEvent.setup();
