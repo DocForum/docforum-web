@@ -10,6 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
 import { useAuthStore } from './store/auth-store';
+import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import App from './App';
@@ -96,6 +97,16 @@ async function boot(): Promise<void> {
 
   const rootElement = document.getElementById('root');
   if (!rootElement) throw new Error('#root element not found');
+
+  // Public information pages are prerendered at real, path-based URLs so
+  // crawlers see them (issue #120), but the app routes on the hash. Move a
+  // prerendered path to the equivalent hash route before React Router reads
+  // the location — same page, no reload.
+  restorePublicPathIntoHash(
+    window.location,
+    (url) => window.history.replaceState(null, '', url),
+    import.meta.env.BASE_URL,
+  );
 
   createRoot(rootElement).render(
     <StrictMode>

@@ -46,6 +46,7 @@ import { MessageThreadPage } from './pages/MessageThreadPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
+import { PUBLIC_CONTENT_ROUTES } from './pages/public-page-map';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -60,6 +61,12 @@ export default function App() {
           <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
+        {/* Public information pages (issue #120) — no auth guard, and each
+            one is prerendered to static HTML at build time; see
+            `src/pages/public-routes.ts` and `scripts/prerender.mjs`. */}
+        {PUBLIC_CONTENT_ROUTES.map(({ path, Component }) => (
+          <Route key={path} path={path} element={<Component />} />
+        ))}
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
@@ -321,7 +328,7 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="privacy/analytics" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
           </Routes>

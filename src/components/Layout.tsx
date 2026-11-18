@@ -20,6 +20,7 @@ import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
+import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
@@ -133,6 +134,7 @@ export function Layout() {
   const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -261,10 +263,14 @@ export function Layout() {
           {/* In-app inbox (issue #107): unread badge + dropdown, then the
               full list at /notifications. Hidden while signed out. */}
           <NotificationBell />
-          <ProfileSwitcher />
-          <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
-            {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
-          </Button>
+          {user && (
+            <>
+              <ProfileSwitcher />
+              <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -361,7 +367,9 @@ export function Layout() {
         role="main"
         tabIndex={-1}
       >
-        <PageHeader title={routeTitle(location.pathname)} />
+        {/* Public information pages (#120) render their own <header>/<h1>;
+            the app shell must not add a second one. */}
+        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>

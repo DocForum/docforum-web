@@ -8,6 +8,13 @@ import { UpdatePrompt } from '../components/UpdatePrompt';
  * tested without the PWA virtual module.
  */
 export function UpdatePromptContainer() {
+  // Build-time prerendering (issue #120) renders the app without a browser;
+  // the service worker only exists client-side.
+  if (typeof navigator === 'undefined') return null;
+  return <RegisteredUpdatePrompt />;
+}
+
+function RegisteredUpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
   const {
     offlineReady: [offlineReady, setOfflineReady],

@@ -132,6 +132,19 @@ export default defineConfig(({ command }) => {
     test: {
       exclude: [...configDefaults.exclude, 'e2e/**'],
       environment: 'happy-dom',
+      // Tests parse the real index.html template, which references the
+      // self-hosted /fonts/fonts.css and /loading-shell.css — happy-dom must
+      // not try to fetch them during a run (network noise, and a hidden CI
+      // dependency). The link then reports a normal 'load' instead of
+      // erroring on every parse.
+      environmentOptions: {
+        happyDOM: {
+          settings: {
+            disableCSSFileLoading: true,
+            handleDisabledFileLoadingAsSuccess: true,
+          },
+        },
+      },
       globals: true,
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
