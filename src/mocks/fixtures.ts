@@ -10,6 +10,7 @@ import type {
   AccountInvite,
   Appointment,
   AuditEvent,
+  CatalogItem,
   CareThread,
   Closure,
   ConsultationAddendum,
@@ -21,10 +22,14 @@ import type {
   DataExport,
   Dependent,
   DoctorPracticeInsights,
+  DoctorSearchResult,
   FacilityApiKey,
   FacilityInvite,
   FacilityMember,
+  FacilityOpeningHours,
   FacilityPerformanceInsights,
+  FacilityPrice,
+  FacilitySettings,
   FacilityWithDistance,
   FulfillmentDispute,
   FulfillmentQueueItem,
@@ -38,6 +43,7 @@ import type {
   QualifiedOrderFacility,
   Role,
   RunningDelay,
+  Specialty,
   SpecialtyClaim,
   User,
   VerificationStatus,
@@ -89,6 +95,45 @@ export const DEPENDENT_PROFILE_ID = 'prf-dependent-demo';
 export const DOCTOR_PROFILE_ID = 'prf-doctor-demo';
 export const FACILITY_ID = 'fac-main';
 
+// --- Doctor & symptom search (issues #1/#30) -------------------------------
+
+export const SPECIALTIES: Specialty[] = [
+  { id: 'spc-derm', name: 'Dermatology', slug: 'dermatology' },
+  { id: 'spc-allergy', name: 'Allergy & immunology', slug: 'allergy-immunology' },
+  { id: 'spc-cardio', name: 'Cardiology', slug: 'cardiology' },
+  { id: 'spc-gp', name: 'General practice', slug: 'general-practice' },
+  { id: 'spc-peds', name: 'Paediatrics', slug: 'paediatrics' },
+  { id: 'spc-neuro', name: 'Neurology', slug: 'neurology' },
+];
+
+/** One entry of the mock's controlled symptom vocabulary (docforum-core#60). */
+export interface MockSymptom {
+  slug: string;
+  term: string;
+  specialtyIds: string[];
+}
+
+export const SYMPTOM_VOCABULARY: MockSymptom[] = [
+  { slug: 'rash', term: 'Rash', specialtyIds: ['spc-derm', 'spc-allergy'] },
+  { slug: 'itchy-skin', term: 'Itchy skin', specialtyIds: ['spc-derm', 'spc-allergy'] },
+  { slug: 'chest-pain', term: 'Chest pain', specialtyIds: ['spc-cardio', 'spc-gp'] },
+  { slug: 'palpitations', term: 'Heart palpitations', specialtyIds: ['spc-cardio'] },
+  { slug: 'headache', term: 'Headache', specialtyIds: ['spc-neuro', 'spc-gp'] },
+  { slug: 'sore-throat', term: 'Sore throat', specialtyIds: ['spc-gp'] },
+  { slug: 'cough', term: 'Cough', specialtyIds: ['spc-gp'] },
+  { slug: 'fever', term: 'Fever', specialtyIds: ['spc-gp', 'spc-peds'] },
+  { slug: 'stomach-pain', term: 'Stomach pain', specialtyIds: ['spc-gp'] },
+  { slug: 'ear-pain', term: 'Ear pain', specialtyIds: ['spc-peds', 'spc-gp'] },
+];
+
+const HOUR_MS = 3_600_000;
+
+/** Relative to seed time so the mock availability filter keeps making
+ * sense whenever the dev server is actually run. */
+function inHours(hours: number): string {
+  return new Date(Date.now() + hours * HOUR_MS).toISOString();
+}
+
 // --- Seed database -----------------------------------------------------------
 
 export interface MockDb {
@@ -108,6 +153,9 @@ export interface MockDb {
   insights: DoctorPracticeInsights;
   facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
+  facilitySettings: FacilitySettings[];
+  catalogItems: CatalogItem[];
+  facilityPrices: FacilityPrice[];
   facilityMembers: FacilityMember[];
   facilityInvites: FacilityInvite[];
   fulfillmentQueue: FulfillmentQueueItem[];
@@ -123,6 +171,9 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  specialties: Specialty[];
+  doctors: DoctorSearchResult[];
+  symptoms: MockSymptom[];
   verifications: MockVerification[];
   specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
@@ -692,6 +743,131 @@ export function createSeedDb(): MockDb {
       rating: 3.9,
     },
   ];
+
+  const openingHours: FacilityOpeningHours[] = [
+    { day: 'monday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'tuesday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'wednesday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'thursday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'friday', closed: false, opensAt: '09:00', closesAt: '18:00' },
+    { day: 'saturday', closed: false, opensAt: '10:00', closesAt: '16:00' },
+    { day: 'sunday', closed: true, opensAt: null, closesAt: null },
+  ];
+
+  const facilitySettings: FacilitySettings[] = [
+    {
+      facilityId: FACILITY_ID,
+      name: 'Demo Pharmacy (fake)',
+      type: 'pharmacy',
+      address: '1 Fixture Lane',
+      city: 'Sampleton',
+      latitude: 6.5244,
+      longitude: 3.3792,
+      phone: '+000 000 0001',
+      email: 'demo.pharmacy@example.test',
+      openingHours,
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+    {
+      facilityId: 'fac-main',
+      name: 'Central Pharmacy & Diagnostic Center (fake)',
+      type: 'pharmacy',
+      address: '12 Fixture High Street',
+      city: 'Sampleton',
+      latitude: 6.5244,
+      longitude: 3.3792,
+      phone: '+000 000 0012',
+      email: 'central.pharmacy@example.test',
+      openingHours,
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    },
+  ];
+
+  const catalogItems: CatalogItem[] = [
+    {
+      code: 'MED-AMOX-500',
+      name: 'Amoxicillin 500mg (30 capsules) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'MED-METF-850',
+      name: 'Metformin 850mg (60 tablets) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'MED-VITD-1000',
+      name: 'Vitamin D 1000 IU (30 tablets) (fake)',
+      type: 'pharmacy',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'LAB-FBC',
+      name: 'Full blood count (fake)',
+      type: 'lab',
+      description: 'Demo catalog fixture',
+    },
+    {
+      code: 'LAB-LIPID',
+      name: 'Fasting lipid panel (fake)',
+      type: 'lab',
+      description: 'Demo catalog fixture',
+    },
+  ];
+
+  const priceSeeds: Array<{
+    code: string;
+    name: string;
+    asset: FacilityPrice['asset'];
+    versions: Array<{ amountStroops: string; effectiveFrom: string }>;
+  }> = [
+    {
+      code: 'MED-AMOX-500',
+      name: 'Amoxicillin 500mg (30 capsules) (fake)',
+      asset: 'XLM',
+      versions: [
+        { amountStroops: '250000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
+        { amountStroops: '275000000', effectiveFrom: '2026-10-15T00:00:00.000Z' },
+      ],
+    },
+    {
+      code: 'MED-METF-850',
+      name: 'Metformin 850mg (60 tablets) (fake)',
+      asset: 'XLM',
+      versions: [
+        { amountStroops: '180000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
+        { amountStroops: '190000000', effectiveFrom: '2026-11-01T00:00:00.000Z' },
+      ],
+    },
+    {
+      code: 'LAB-FBC',
+      name: 'Full blood count (fake)',
+      asset: 'XLM',
+      versions: [{ amountStroops: '120000000', effectiveFrom: '2026-09-15T00:00:00.000Z' }],
+    },
+    {
+      code: 'LAB-LIPID',
+      name: 'Fasting lipid panel (fake)',
+      asset: 'USDC',
+      versions: [{ amountStroops: '20000000', effectiveFrom: '2026-09-15T00:00:00.000Z' }],
+    },
+  ];
+
+  const facilityPrices: FacilityPrice[] = [...new Set([FACILITY_ID, 'fac-main'])].flatMap((facilityId) =>
+    priceSeeds.flatMap((seed) =>
+      seed.versions.map((version, index) => ({
+        id: `prc-${facilityId}-${seed.code}-${index}`,
+        facilityId,
+        catalogItemCode: seed.code,
+        catalogItemName: seed.name,
+        asset: seed.asset,
+        amountStroops: version.amountStroops,
+        effectiveFrom: version.effectiveFrom,
+        createdAt: version.effectiveFrom,
+      })),
+    ),
+  );
 
   const facilityMembers: FacilityMember[] = [
     {
@@ -1397,6 +1573,63 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Patient-facing doctors (issue #1/#30). Availability windows are
+  // relative to seed time: Dana within a few hours (inside the "today"
+  // window), Cora later today, Pia tomorrow (inside the week), Nils and
+  // Bea beyond a week, Ravi fully booked (null). Cora practises cardiology
+  // only, so a general-practice symptom like "fever" has no doctor inside
+  // the "today" window — the dev panel can show a real no-match state.
+  const doctors: DoctorSearchResult[] = [
+    {
+      id: 'doc-demo-derm-1',
+      fullName: 'Dr. Dana Placeholder (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[0], SPECIALTIES[1]],
+      openSlotCount: 4,
+      nextAvailableAt: inHours(3),
+    },
+    {
+      id: 'doc-demo-derm-2',
+      fullName: 'Dr. Ravi Example (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[0]],
+      openSlotCount: 0,
+      nextAvailableAt: null,
+    },
+    {
+      id: 'doc-demo-cardio-1',
+      fullName: 'Dr. Cora Sample (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[2]],
+      openSlotCount: 2,
+      nextAvailableAt: inHours(8),
+    },
+    {
+      id: 'doc-demo-cardio-2',
+      fullName: 'Dr. Bea Demo (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[2]],
+      openSlotCount: 1,
+      nextAvailableAt: inHours(10 * 24),
+    },
+    {
+      id: 'doc-demo-gp-1',
+      fullName: 'Dr. Pia Fiction (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[3], SPECIALTIES[4]],
+      openSlotCount: 3,
+      nextAvailableAt: inHours(26),
+    },
+    {
+      id: 'doc-demo-neuro-1',
+      fullName: 'Dr. Nils Madeup (fake)',
+      verificationStatus: 'verified',
+      specialties: [SPECIALTIES[5]],
+      openSlotCount: 2,
+      nextAvailableAt: inHours(9 * 24),
+    },
+  ];
+
   // Fulfilment disputes (issue #76). Every row is fake; the amounts match the
   // escrowed intents above so the detail's payment panel links somewhere real.
   const disputes: FulfillmentDispute[] = [
@@ -1832,6 +2065,9 @@ export function createSeedDb(): MockDb {
     insights,
     facilityInsights,
     facilities,
+    facilitySettings,
+    catalogItems,
+    facilityPrices,
     facilityMembers,
     facilityInvites,
     fulfillmentQueue,
@@ -1845,6 +2081,9 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    specialties: SPECIALTIES.map((specialty) => ({ ...specialty })),
+    doctors,
+    symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),
     verifications,
     specialtyClaims,
     auditEvents,

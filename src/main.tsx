@@ -10,6 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
 import { useAuthStore } from './store/auth-store';
+import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import App from './App';
 import './styles/global.css';
@@ -40,6 +41,12 @@ const mocksEnabled = import.meta.env.DEV
 // targets browsers without top-level await support, so the dynamic import
 // lives inside an async function. The first render still waits for the mock
 // API, so the persona session exists when route guards evaluate.
+// Cross-tab logout and acting-profile sync (issue #124).
+function SessionSyncBridge() {
+  useSessionSync();
+  return null;
+}
+
 async function boot(): Promise<void> {
   if (mocksEnabled) {
     const { startMockApi } = await import('./mocks/setup');
@@ -93,6 +100,7 @@ async function boot(): Promise<void> {
   createRoot(rootElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
+        <SessionSyncBridge />
         <Router>
           <TimeZoneProvider>
             <App />

@@ -1,0 +1,237 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  color: var(--color-text);
+}
+
+.subheading {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent-2-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.notice {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.searchCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.appliedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.appliedText {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.appliedText strong {
+  color: var(--color-accent);
+}
+
+.availabilityFilter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.filterLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.filterTabs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tabButton {
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tabButton:hover {
+  border-color: var(--color-accent);
+}
+
+.tabActive {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 120px;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.resultCount {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.doctorList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.doctorCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease;
+}
+
+.doctorCard:hover {
+  border-color: var(--color-accent);
+}
+
+.doctorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.doctorName {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.verifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.doctorSpecialties {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.doctorAvailability {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-6);
+  background: var(--color-surface-alt);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+.emptyBody {
+  margin: 0;
+  max-width: 64ch;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.guidanceList {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+@media (max-width: 640px) {
+  .searchCard {
+    padding: var(--space-4);
+  }
+
+  .availabilityFilter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}

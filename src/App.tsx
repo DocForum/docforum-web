@@ -40,6 +40,7 @@ import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
+import { FacilitySettingsPage } from './pages/FacilitySettingsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
 import { MessageThreadPage } from './pages/MessageThreadPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -212,6 +213,14 @@ export default function App() {
           element={
             <RequireAuth allowedRoles={['facility']}>
               <FacilityInsightsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="facility/settings"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilitySettingsPage />
             </RequireAuth>
           }
         />

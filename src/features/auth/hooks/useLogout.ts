@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { logout } from '../../../services/auth-service';
+import { broadcastLogout } from '../../../hooks/useSessionSync';
 import { useAuthStore } from '../../../store/auth-store';
+import { useProfileStore } from '../../../store/profile-store';
 import { clearCachedUserData } from '../../../pwa/caches';
 
 export function useLogout() {
@@ -16,6 +18,9 @@ export function useLogout() {
     // a logged-in-looking UI.
     onSettled: async () => {
       clearSession();
+      useProfileStore.getState().clearProfiles();
+      // Tell other open tabs to drop their session too (issue #124).
+      broadcastLogout();
       // No server-derived data survives logout: React Query's in-memory cache
       // is dropped, and any app-owned service-worker cache is purged. The
       // precache (hashed static shell only) is intentionally kept so the
