@@ -42,6 +42,15 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
+/** No retries, but default cache lifetime: for tests that inspect the cache
+ * after the component unmounts or a mutation settles (issue #14, e.g. "the
+ * appointment is still there after a 409"). */
+export function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+}
+
 /** Sign the auth store in as `role` (or as a specific user/token). */
 export function signInAs(role: Role, overrides: Partial<User> = {}) {
   const user = makeUser({ ...overrides, role });
