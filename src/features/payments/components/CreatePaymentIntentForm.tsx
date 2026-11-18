@@ -5,13 +5,14 @@ import { FormError } from '../../../components/FormError';
 import { FormField } from '../../../components/form/FormField';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { mapServerErrors } from '../../../utils/form';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useCreatePaymentIntent } from '../hooks/usePaymentIntent';
 import { z } from 'zod';
 import { ApiError } from '../../../services/api-client';
 
 /**
  * v1 (docforum-core docs/adr/0004 "Consequences"): there's no
- * FulfillmentRecord yet to create a PaymentIntent automatically from, so
+ * patient-order table yet, so there's nothing to pick an intent from —
  * this is an explicit admin action with free-text order fields rather
  * than a picker over real orders — Phase 4 doesn't exist yet either.
  */
@@ -34,6 +35,7 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
     amountStroops: '',
   });
   const createMutation = useCreatePaymentIntent();
+  const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
 
   async function onSubmit(data: CreatePaymentIntentFormData) {
@@ -50,10 +52,8 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
           });
           return;
         }
-        setServerError(error.message ?? 'Something went wrong. Please try again.');
-      } else {
-        setServerError('Something went wrong. Please try again.');
       }
+      setServerError(errorMessage(error));
     }
   }
 
@@ -81,7 +81,12 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
         <FormField name="orderId" label="Order id" />
         <FormField name="patientProfileId" label="Patient profile id" />
         <FormField name="facilityId" label="Facility id" />
-        <FormField name="amountStroops" label="Amount (stroops)" inputMode="numeric" />
+        <FormField
+          name="amountStroops"
+          label="Amount (stroops)"
+          inputMode="numeric"
+          hint="Minor units, e.g. 10000000 = 1.00 XLM."
+        />
 
         <Button type="submit" loading={createMutation.isPending}>
           {createMutation.isPending ? 'Creating…' : 'Create'}

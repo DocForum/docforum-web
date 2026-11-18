@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dialog } from './Dialog';
 import styles from './CommandPalette.module.css';
 
 export interface CommandPaletteAction {
@@ -32,11 +33,7 @@ export function CommandPalette({ actions, open, onClose }: CommandPaletteProps) 
     if (!open) {
       setQuery('');
       setFocusedIndex(-1);
-      return;
     }
-    setFocusedIndex(-1);
-    const input = document.getElementById('command-palette-input');
-    input?.focus();
   }, [open]);
 
   const highlighted = filtered[focusedIndex];
@@ -86,66 +83,74 @@ export function CommandPalette({ actions, open, onClose }: CommandPaletteProps) 
     [onClose],
   );
 
-  if (!open) return null;
-
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.panel} role="dialog" aria-modal="true" aria-labelledby="command-palette-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="command-palette-title" className={styles.title}>
-          Command palette
-        </h2>
-        <input
-          id="command-palette-input"
-          role="combobox"
-          aria-controls="command-palette-listbox"
-          aria-activedescendant={focusedIndex >= 0 ? `command-palette-option-${focusedIndex}` : undefined}
-          autoComplete="off"
-          spellCheck={false}
-          value={query}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Search patients, open chart, sign note…"
-          className={styles.input}
-        />
-        <ul
-          ref={listboxRef}
-          id="command-palette-listbox"
-          role="listbox"
-          aria-label="Actions"
-        >
-          {filtered.length === 0 ? (
-            <li role="none" className={styles.empty}>
-              No matching actions
-            </li>
-          ) : (
-            filtered.map((action, index) => {
-              const isFocused = index === focusedIndex;
-              return (
-                <li
-                  key={action.id}
-                  role="option"
-                  id={`command-palette-option-${index}`}
-                  aria-selected={isFocused}
-                  className={`${styles.option} ${isFocused ? styles.focused : ''}`}
-                  onClick={() => selectAction(action)}
-                  onMouseMove={() => setFocusedIndex(index)}
-                >
-                  <span className={styles.label}>{action.label}</span>
-                  {action.category === 'context' && (
-                    <span className={styles.kind}>context</span>
-                  )}
-                  {action.shortcut && (
-                    <span className={styles.shortcut}>{action.shortcut}</span>
-                  )}
-                </li>
-              );
-            })
-          )}
-        </ul>
-        <p className={styles.hint}>
-          ↑/↓ to navigate · Enter to run · Esc to close
-        </p>
-      </div>
-    </div>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      labelledBy="command-palette-title"
+      describedBy="command-palette-hint"
+      overlayClassName={styles.backdrop}
+      panelClassName={styles.panel}
+    >
+      <h2 id="command-palette-title" className={styles.title}>
+        Command palette
+      </h2>
+      <label htmlFor="command-palette-input" className="srOnly">
+        Search commands and patients
+      </label>
+      <input
+        id="command-palette-input"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="command-palette-listbox"
+        aria-autocomplete="list"
+        aria-activedescendant={focusedIndex >= 0 ? `command-palette-option-${focusedIndex}` : undefined}
+        autoComplete="off"
+        spellCheck={false}
+        value={query}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        placeholder="Search patients, open chart, sign note…"
+        className={styles.input}
+      />
+      <ul
+        ref={listboxRef}
+        id="command-palette-listbox"
+        role="listbox"
+        aria-label="Actions"
+      >
+        {filtered.length === 0 ? (
+          <li role="none" className={styles.empty}>
+            No matching actions
+          </li>
+        ) : (
+          filtered.map((action, index) => {
+            const isFocused = index === focusedIndex;
+            return (
+              <li
+                key={action.id}
+                role="option"
+                id={`command-palette-option-${index}`}
+                aria-selected={isFocused}
+                className={`${styles.option} ${isFocused ? styles.focused : ''}`}
+                onClick={() => selectAction(action)}
+                onMouseMove={() => setFocusedIndex(index)}
+              >
+                <span className={styles.label}>{action.label}</span>
+                {action.category === 'context' && (
+                  <span className={styles.kind}>context</span>
+                )}
+                {action.shortcut && (
+                  <span className={styles.shortcut}>{action.shortcut}</span>
+                )}
+              </li>
+            );
+          })
+        )}
+      </ul>
+      <p id="command-palette-hint" className={styles.hint}>
+        ↑/↓ to navigate · Enter to run · Esc to close
+      </p>
+    </Dialog>
   );
 }

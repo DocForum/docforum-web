@@ -6,6 +6,7 @@ interface ProfileState {
   selectedProfileId: string | null;
   setProfiles: (profiles: ActingProfile[]) => void;
   selectProfile: (id: string) => void;
+  clearProfiles: () => void;
   selectedProfile: () => ActingProfile | null;
 }
 
@@ -21,6 +22,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     });
   },
   selectProfile: (id) => set({ selectedProfileId: id }),
+  clearProfiles: () => set({ profiles: [], selectedProfileId: null }),
   selectedProfile: () => {
     const state = get();
     return state.profiles.find((p) => p.id === state.selectedProfileId) ?? null;

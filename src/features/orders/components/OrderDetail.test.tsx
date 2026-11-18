@@ -41,10 +41,12 @@ describe('OrderDetail', () => {
     vi.mocked(ordersService.getOrder).mockReset();
   });
 
-  it('shows a loading spinner while fetching', () => {
+  it('shows a loading skeleton while fetching', () => {
     vi.mocked(ordersService.getOrder).mockReturnValue(new Promise(() => {}));
     render(<OrderDetail orderId="ord-abc12345" />);
-    expect(screen.getByLabelText('Loading order…')).toBeInTheDocument();
+    // Issue #106: query-driven views use the shared Skeleton, whose label is
+    // announced through role="status".
+    expect(screen.getByRole('status')).toHaveTextContent('Loading order');
   });
 
   it('renders QR code canvas for an active order', async () => {

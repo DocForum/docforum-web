@@ -7,13 +7,22 @@ import {
   Outlet,
 } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
+import { useT } from '../i18n/useT';
+import { ErrorBoundary } from './ErrorBoundary';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { OfflineBanner } from './OfflineBanner';
+import { RateLimitNotice } from './RateLimitNotice';
+import { RecordSearch } from '../features/search-records/components/RecordSearch';
+import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
 import { PUBLIC_PAGES } from '../pages/public-routes';
+import { Flag } from './Flag';
+import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
@@ -52,6 +61,8 @@ interface NavItem {
   /** Roles allowed to see this item. Omit for unauthenticated items. */
   roles?: Role[];
   badge?: number;
+  /** Existing i18n id for the visible label; English `label` is the fallback. */
+  messageId?: string;
 }
 
 /**
@@ -62,8 +73,8 @@ interface NavItem {
 function roleNavItems(userRole: Role | null): NavItem[] {
   if (!userRole) {
     return [
-      { to: '/login', label: 'Log in', roles: [] },
-      { to: '/signup', label: 'Sign up', roles: [] },
+      { to: '/login', label: 'Log in', roles: [], messageId: 'nav.logIn' },
+      { to: '/signup', label: 'Sign up', roles: [], messageId: 'nav.signUp' },
     ];
   }
 
@@ -71,24 +82,26 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 
   if (userRole === 'patient') {
     base.push(
-      { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'] },
+      { to: '/patient/search', label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
+      { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
       { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
       { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
       { to: '/patient/facilities', label: 'Facilities', roles: ['patient'] },
-      { to: '/patient/settings', label: 'Settings', roles: ['patient'] },
+      { to: '/patient/settings', label: 'Settings', roles: ['patient'], messageId: 'nav.settings' },
     );
   } else if (userRole === 'doctor') {
     base.push(
-      { to: '/doctor', label: 'Dashboard', roles: ['doctor'] },
+      { to: '/doctor', label: 'Dashboard', roles: ['doctor'], messageId: 'nav.dashboard' },
       { to: '/doctor/messages', label: 'Messages', roles: ['doctor'], badge: 0 },
-      { to: '/doctor/insights', label: 'Insights', roles: ['doctor'] },
+      { to: '/doctor/insights', label: 'Insights', roles: ['doctor'], messageId: 'nav.insights' },
     );
   } else if (userRole === 'facility') {
     base.push(
-      { to: '/facility', label: 'Queue', roles: ['facility'] },
+      { to: '/facility', label: 'Queue', roles: ['facility'], messageId: 'nav.queue' },
       { to: '/facility/verify', label: 'Verify Order', roles: ['facility'] },
-      { to: '/facility/team', label: 'Team', roles: ['facility'] },
+      { to: '/facility/team', label: 'Team', roles: ['facility'], messageId: 'nav.team' },
       { to: '/facility/payments', label: 'Payouts', roles: ['facility'] },
+      { to: '/facility/integrations', label: 'Integrations', roles: ['facility'] },
     );
   } else if (userRole === 'admin') {
     base.push(
@@ -107,14 +120,18 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 }
 
 export function Layout() {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const logoutMutation = useLogout();
+  useRealtimeCacheSync();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
   const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
@@ -122,6 +139,17 @@ export function Layout() {
   // Close the drawer on route change.
   useEffect(() => {
     setDrawerOpen(false);
+  }, [location.pathname]);
+
+  // SPA route changes otherwise leave focus on the clicked link. Move it
+  // to the main landmark so keyboard/screen-reader users start at the new
+  // content, without stealing focus on first paint.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus();
   }, [location.pathname]);
 
   const closeDrawer = useCallback(() => {
@@ -165,6 +193,10 @@ export function Layout() {
         Skip to content
       </a>
 
+      <OfflineBanner />
+      {/* Global, non-blocking 429 notice (issue #80). */}
+      <RateLimitNotice />
+
       <header className={styles.header} role="banner">
         <div className={styles.brandBar}>
           <button
@@ -195,7 +227,7 @@ export function Layout() {
               }
               end={item.to === '/'}
             >
-              {item.label}
+              {item.messageId ? t(item.messageId, item.label) : item.label}
               {item.badge != null && item.badge > 0 && (
                 <span className={styles.badge} aria-label={`${item.label}, ${item.badge} new`}>
                   {item.badge > 99 ? '99+' : item.badge}
@@ -204,23 +236,42 @@ export function Layout() {
             </RRNavLink>
           ))}
           {user && (
+            <Flag name="notification_preferences">
+              <RRNavLink
+                to="/settings/notifications"
+                className={({ isActive }) =>
+                  styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+                }
+              >
+                Notifications
+              </RRNavLink>
+            </Flag>
+          )}
+          {user && (
             <>
               {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
-                {user.email} <span className={styles.roleBadge} data-role={user.role}>{user.role}</span>
+                {user.email} <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               </span>
             </>
           )}
         </nav>
 
-        {user && (
-          <div className={styles.headerActions}>
-            <ProfileSwitcher />
-            <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
-              {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
-            </Button>
-          </div>
-        )}
+        <div className={styles.headerActions}>
+          <LanguageSwitcher />
+          <RecordSearch />
+          {/* In-app inbox (issue #107): unread badge + dropdown, then the
+              full list at /notifications. Hidden while signed out. */}
+          <NotificationBell />
+          {user && (
+            <>
+              <ProfileSwitcher />
+              <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
+              </Button>
+            </>
+          )}
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -258,9 +309,21 @@ export function Layout() {
                   end={item.to === '/'}
                   onClick={closeDrawer}
                 >
-                  {item.label}
+                  {item.messageId ? t(item.messageId, item.label) : item.label}
                 </RRNavLink>
               ))}
+              <Flag name="notification_preferences">
+                <RRNavLink
+                  to="/settings/notifications"
+                  className={({ isActive }) =>
+                    styles.drawerLink +
+                    (isActive ? ` ${styles.drawerLinkActive}` : '')
+                  }
+                  onClick={closeDrawer}
+                >
+                  Notifications
+                </RRNavLink>
+              </Flag>
             </nav>
             <div className={styles.drawerUser}>
               <span className={styles.drawerEmail}>{user.email}</span>
@@ -284,7 +347,7 @@ export function Layout() {
                   end={item.to === '/'}
                   onClick={closeDrawer}
                 >
-                  {item.label}
+                  {item.messageId ? t(item.messageId, item.label) : item.label}
                 </RRNavLink>
               ))}
             </nav>
@@ -297,15 +360,26 @@ export function Layout() {
         <div className={styles.drawerOverlay} onClick={closeDrawer} aria-hidden="true" />
       )}
 
-      <main className={styles.main} id="main-content" role="main">
+      <main
+        ref={mainRef}
+        className={styles.main}
+        id="main-content"
+        role="main"
+        tabIndex={-1}
+      >
         {/* Public information pages (#120) render their own <header>/<h1>;
             the app shell must not add a second one. */}
         {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
-        <Outlet context={{}} />
+        <ErrorBoundary key={location.pathname} level="route">
+          <Outlet context={{}} />
+        </ErrorBoundary>
       </main>
 
       <footer className={styles.footer} role="contentinfo">
-        <span>DocForum — care continuity, escrow-secured fulfillment.</span>
+        <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
+        <Link to="/accessibility" className={styles.navLink}>
+          {t('app.accessibility', 'Accessibility')}
+        </Link>
         <a href="/privacy" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Privacy &amp; analytics</a>
       </footer>
     </div>

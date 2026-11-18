@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomePage } from './HomePage';
-import { render, screen } from '../test/render';
+import { render, screen, waitFor } from '../test/render';
 
 // GSAP is mocked so animation setup can be made to fail deterministically:
 // the requirement issue #120 puts on the landing page is that animation is
@@ -92,12 +92,14 @@ describe('HomePage progressive enhancement', () => {
     }
   });
 
-  it('animates hero copy to fully visible when GSAP works', () => {
+  it('leaves hero copy fully visible when GSAP works', async () => {
     mock.state.failTo = false;
     const { container } = render(<HomePage />);
 
     const headline = container.querySelector('[data-reveal]') as HTMLElement;
-    expect(headline.style.opacity).toBe('1');
+    // useMotion loads GSAP lazily and may skip animating (e.g. reduced
+    // motion); either way the copy must end fully visible, never at 0.
+    await waitFor(() => expect(['', '1']).toContain(headline.style.opacity));
     expect(headline).toBeVisible();
   });
 });

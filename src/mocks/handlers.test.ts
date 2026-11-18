@@ -4,9 +4,11 @@
 // dev panel's scenario/latency switches. Runs in the node environment so
 // MSW's fetch interceptor wraps Node's global fetch.
 // @vitest-environment node
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { setupServer } from 'msw/node';
-import { handlers } from './handlers';
+import { beforeEach, describe, expect, it } from 'vitest';
+// The server is started once for the whole run by src/test/setup.ts (issue
+// #105). This file used to create a second one; two MSW servers in one worker
+// double-intercept every request, so it now shares the single instance and
+// only resets the in-memory database between cases.
 import { resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
@@ -20,26 +22,28 @@ import * as disputesService from '../services/disputes-service';
 import * as dependentsService from '../services/dependents-service';
 import * as doctorTodayService from '../services/doctor-today-service';
 import * as facilityService from '../services/facility-service';
+import * as facilitySettingsService from '../services/facility-settings-service';
 import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
+import * as myFlagsService from '../services/my-flags-service';
+import * as notificationPreferencesService from '../services/notification-preferences-service';
+import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as searchService from '../services/search-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
-const server = setupServer(...handlers);
-
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterAll(() => server.close());
 beforeEach(() => {
   resetDb();
-  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient' });
+  useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
 });
 
 describe('auth', () => {
@@ -84,6 +88,70 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('validates invite tokens and redeems them with the invite\'s own role', async () => {
+    const invite = await authService.getInvite('demo-token');
+    expect(invite.role).toBe('facility');
+    expect(invite.status).toBe('pending');
+
+    // Clear states for bad/used invites, plus the other demo statuses.
+    await expect(authService.getInvite('missing')).rejects.toMatchObject({ status: 404 });
+    await expect(authService.getInvite('expired-demo')).resolves.toMatchObject({
+      status: 'expired',
+    });
+    await expect(authService.getInvite('used-demo')).resolves.toMatchObject({
+      status: 'accepted',
+    });
+    await expect(authService.getInvite('revoked-demo')).resolves.toMatchObject({
+      status: 'revoked',
+    });
+
+    // New-account accept: the role comes from the token, not the client.
+    const created = await authService.acceptInvite({
+      token: 'demo-token',
+      email: invite.email,
+      fullName: 'New Person (fake)',
+      password: 'x',
+    });
+    expect(created.user.role).toBe('facility');
+
+    // Admin invite → admin session (PRD OQ-2: no self-serve admin signup).
+    const adminInvite = await authService.getInvite('admin-demo');
+    expect(adminInvite.role).toBe('admin');
+    const adminSession = await authService.acceptInvite({
+      token: 'admin-demo',
+      email: adminInvite.email,
+      fullName: 'New Admin (fake)',
+      password: 'x',
+    });
+    expect(adminSession.user.role).toBe('admin');
+
+    // Existing user accepts with their session and no password.
+    const accepted = await authService.acceptInvite(
+      { token: 'demo-token', email: invite.email },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(accepted.user.role).toBe('facility');
+    await expect(
+      authService.acceptInvite({ token: 'demo-token', email: invite.email }),
+    ).rejects.toMatchObject({ status: 401 });
+
+    // Email must match the invite; non-pending invites are refused.
+    await expect(
+      authService.acceptInvite(
+        { token: 'demo-token', email: 'someone.else@example.test', password: 'x' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+    await expect(
+      authService.acceptInvite({
+        token: 'expired-demo',
+        email: invite.email,
+        fullName: 'New Person (fake)',
+        password: 'x',
+      }),
+    ).rejects.toMatchObject({ status: 409 });
   });
 
   it('serves role-aware session timeout settings (issue #82)', async () => {
@@ -350,6 +418,59 @@ describe('messaging', () => {
   });
 });
 
+describe('notifications', () => {
+  it('pages newest first, reports the total unread count, and marks read', async () => {
+    // Ask for the same page size the dev-mock handler defaults to, so the
+    // second request genuinely exercises the cursor.
+    const first = await notificationsService.listNotifications(
+      { limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(first.items).toHaveLength(4);
+    expect(first.nextCursor).toBe('4');
+    expect(first.unreadCount).toBe(4);
+
+    const createdAt = first.items.map((item) => Date.parse(item.createdAt));
+    expect(createdAt).toEqual([...createdAt].sort((a, b) => b - a));
+
+    const second = await notificationsService.listNotifications(
+      { cursor: first.nextCursor, limit: 4 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(second.items).toHaveLength(2);
+    expect(second.nextCursor).toBeNull();
+
+    const marked = await notificationsService.markNotificationRead(
+      first.items[0].id,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(marked.readAt).toBeTruthy();
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.unreadCount).toBe(3);
+
+    await expect(
+      notificationsService.markNotificationRead('ntf-missing', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('marks everything read in one call', async () => {
+    const result = await notificationsService.markAllNotificationsRead(MOCK_ACCESS_TOKEN);
+    expect(result.unreadCount).toBe(0);
+    expect(result.updated).toBe(4);
+
+    const after = await notificationsService.listNotifications({}, MOCK_ACCESS_TOKEN);
+    expect(after.items.every((item) => item.readAt !== null)).toBe(true);
+  });
+
+  it('issues a single-use stream ticket without exposing the access token', async () => {
+    const ticket = await notificationsService.getNotificationStreamTicket(MOCK_ACCESS_TOKEN);
+    expect(ticket.streamPath).toMatch(/^\/notifications\/stream\?ticket=/);
+    expect(ticket.streamPath).not.toContain(MOCK_ACCESS_TOKEN);
+    expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
+  });
+});
+
 describe('insights', () => {
   it('returns seeded insights and echoes the requested range', async () => {
     const insights = await insightsService.getDoctorPracticeInsights(MOCK_ACCESS_TOKEN);
@@ -377,7 +498,7 @@ describe('facility finder', () => {
       { lat: 6.5244, lng: 3.3792 },
       MOCK_ACCESS_TOKEN,
     );
-    expect(nearby[0].id).toBe('fac-demo-pharmacy');
+    expect(nearby[0].id).toBe('fac-main');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
   });
 });
@@ -452,7 +573,7 @@ describe('facility team', () => {
 
   it('fulfills queue items with attribution', async () => {
     const queue = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
-    expect(queue).toHaveLength(3);
+    expect(queue).toHaveLength(5);
 
     const updated = await facilityTeamService.updateFulfillmentItem(
       FACILITY_ID,
@@ -510,6 +631,213 @@ describe('facility fulfillment queue', () => {
   });
 });
 
+describe('integrations (API keys & webhooks)', () => {
+  it('creates an API key with a one-time secret not returned by list', async () => {
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys).toHaveLength(2);
+
+    const created = await integrationsService.createApiKey(
+      FACILITY_ID,
+      { name: 'Test key (fake)', scopes: ['orders.read'] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.secret).toMatch(/^df_live_/);
+    expect(created.name).toBe('Test key (fake)');
+
+    const after = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(after).toHaveLength(3);
+    expect(after.some((k) => 'secret' in k)).toBe(false);
+  });
+
+  it('revokes an API key and keeps it in the list as revoked', async () => {
+    const revoked = await integrationsService.revokeApiKey(
+      FACILITY_ID,
+      'key-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(revoked.success).toBe(true);
+
+    const keys = await integrationsService.listApiKeys(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(keys.find((k) => k.id === 'key-demo-1')?.revokedAt).not.toBeNull();
+  });
+
+  it('creates a webhook endpoint with a one-time signing secret', async () => {
+    const created = await integrationsService.createWebhookEndpoint(
+      FACILITY_ID,
+      {
+        url: 'https://new.example.test/webhook',
+        events: ['order.created', 'order.fulfilled'],
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.signingSecret).toMatch(/^whsec_/);
+
+    const endpoints = await integrationsService.listWebhookEndpoints(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(endpoints.some((e) => 'signingSecret' in e)).toBe(false);
+    expect(endpoints.find((e) => e.id === created.id)?.url).toBe(
+      'https://new.example.test/webhook',
+    );
+  });
+
+  it('sends a test delivery and redelivers a failed one', async () => {
+    const delivery = await integrationsService.sendTestDelivery(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(delivery.status).toBe('success');
+
+    const deliveries = await integrationsService.listWebhookDeliveries(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(deliveries.some((d) => d.status === 'failed')).toBe(true);
+
+    const redelivered = await integrationsService.redeliverWebhook(
+      FACILITY_ID,
+      'whk-demo-1',
+      'whd-demo-2',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(redelivered.status).toBe('success');
+  });
+
+  it('deletes an endpoint and its deliveries', async () => {
+    const result = await integrationsService.deleteWebhookEndpoint(
+      FACILITY_ID,
+      'whk-demo-1',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(result.success).toBe(true);
+    await expect(
+      integrationsService.listWebhookDeliveries(FACILITY_ID, 'whk-demo-1', MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
+  });
+});
+
+describe('facility settings and prices', () => {
+  it('loads and updates location, contact and opening hours', async () => {
+    const settings = await facilitySettingsService.getFacilitySettings(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(settings.facilityId).toBe(FACILITY_ID);
+    expect(settings.openingHours).toHaveLength(7);
+
+    const updated = await facilitySettingsService.updateFacilitySettings(
+      FACILITY_ID,
+      {
+        address: '9 Updated Fixture Road',
+        city: 'Sampleton',
+        latitude: 6.53,
+        longitude: 3.38,
+        phone: '+000 000 0099',
+        email: null,
+        openingHours: settings.openingHours,
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.address).toBe('9 Updated Fixture Road');
+    expect(updated.latitude).toBe(6.53);
+  });
+
+  it('rejects invalid coordinates and missing required settings fields', async () => {
+    const settings = await facilitySettingsService.getFacilitySettings(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+    );
+    const validInput = {
+      address: settings.address,
+      city: settings.city,
+      latitude: 6.5,
+      longitude: 3.3,
+      phone: settings.phone,
+      email: null,
+      openingHours: settings.openingHours,
+    };
+
+    await expect(
+      facilitySettingsService.updateFacilitySettings(
+        FACILITY_ID,
+        { ...validInput, latitude: 200 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      facilitySettingsService.updateFacilitySettings(
+        FACILITY_ID,
+        { ...validInput, address: '   ' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('searches the catalog by name or code', async () => {
+    const byName = await facilitySettingsService.searchCatalogItems('amoxicillin', MOCK_ACCESS_TOKEN);
+    expect(byName.map((item) => item.code)).toEqual(['MED-AMOX-500']);
+
+    const byCode = await facilitySettingsService.searchCatalogItems('LAB-', MOCK_ACCESS_TOKEN);
+    expect(byCode).toHaveLength(2);
+
+    const all = await facilitySettingsService.searchCatalogItems('', MOCK_ACCESS_TOKEN);
+    expect(all).toHaveLength(5);
+  });
+
+  it('returns version history and appends a new price version', async () => {
+    const before = await facilitySettingsService.listFacilityPrices(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(before).toHaveLength(6);
+
+    const created = await facilitySettingsService.createFacilityPrice(
+      FACILITY_ID,
+      {
+        catalogItemCode: 'MED-AMOX-500',
+        asset: 'XLM',
+        amountStroops: '300000000',
+        effectiveFrom: '2026-12-01T09:00:00.000Z',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.amountStroops).toBe('300000000');
+    expect(created.catalogItemName).toContain('Amoxicillin');
+
+    const after = await facilitySettingsService.listFacilityPrices(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(after).toHaveLength(7);
+  });
+
+  it('rejects non-stroop amounts and unknown catalog items', async () => {
+    await expect(
+      facilitySettingsService.createFacilityPrice(
+        FACILITY_ID,
+        {
+          catalogItemCode: 'MED-AMOX-500',
+          asset: 'XLM',
+          amountStroops: '1.5',
+          effectiveFrom: '2026-12-01T09:00:00.000Z',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      facilitySettingsService.createFacilityPrice(
+        FACILITY_ID,
+        {
+          catalogItemCode: 'NOT-IN-CATALOG',
+          asset: 'XLM',
+          amountStroops: '100',
+          effectiveFrom: '2026-12-01T09:00:00.000Z',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
 describe('payments', () => {
   it('links a wallet and drives an intent through fund → release', async () => {
     const wallet = await paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN);
@@ -540,6 +868,85 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('doctor & symptom search', () => {
+  it('autocomplete-suggests controlled-vocabulary symptoms', async () => {
+    const matches = await searchService.searchSymptoms('chest', MOCK_ACCESS_TOKEN);
+    expect(matches).toEqual([{ slug: 'chest-pain', term: 'Chest pain' }]);
+
+    // Case-insensitive substring match, not just a prefix.
+    const shouted = await searchService.searchSymptoms('RASH', MOCK_ACCESS_TOKEN);
+    expect(shouted.map((s) => s.slug)).toContain('rash');
+
+    // Honours the requested limit.
+    const limited = await searchService.searchSymptoms('a', MOCK_ACCESS_TOKEN);
+    const capped = await fetch(
+      `http://localhost:4000/symptoms?q=a&limit=2`,
+    ).then((r) => r.json() as Promise<Array<{ slug: string }>>);
+    expect(limited.length).toBeGreaterThan(capped.length);
+    expect(capped).toHaveLength(2);
+
+    await expect(searchService.searchSymptoms('zzz', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
+  });
+
+  it('maps a symptom to its specialties and 404s on unknown slugs', async () => {
+    const mapping = await searchService.getSymptomMapping('rash', MOCK_ACCESS_TOKEN);
+    expect(mapping.term).toBe('Rash');
+    expect(mapping.specialties.map((s) => s.slug)).toEqual(['dermatology', 'allergy-immunology']);
+
+    await expect(
+      searchService.getSymptomMapping('not-a-symptom', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('searches doctors by specialty (OR) and availability', async () => {
+    const derm = await searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN);
+    expect(derm.map((d) => d.id)).toEqual(['doc-demo-derm-1', 'doc-demo-derm-2']);
+
+    // "Chest pain" maps to Cardiology + General practice — doctors in
+    // either specialty come back, soonest available first.
+    const chestPain = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(chestPain.map((d) => d.id)).toEqual([
+      'doc-demo-cardio-1', // +8h
+      'doc-demo-gp-1', // +26h
+      'doc-demo-cardio-2', // +10d
+    ]);
+
+    const today = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(today.map((d) => d.id)).toEqual(['doc-demo-cardio-1']);
+
+    const week = await searchService.searchDoctors(
+      { specialtyIds: ['spc-cardio', 'spc-gp'], availability: 'week' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(week.map((d) => d.id)).toEqual(['doc-demo-cardio-1', 'doc-demo-gp-1']);
+
+    // Unbookable doctors drop out of every availability window.
+    const dermToday = await searchService.searchDoctors(
+      { specialtyIds: ['spc-derm'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(dermToday.map((d) => d.id)).toEqual(['doc-demo-derm-1']);
+
+    // "Fever" maps to General practice + Paediatrics; nobody in either has
+    // a slot inside the "today" window, so the list is genuinely empty.
+    const feverToday = await searchService.searchDoctors(
+      { specialtyIds: ['spc-gp', 'spc-peds'], availability: 'today' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(feverToday).toEqual([]);
+
+    await expect(
+      searchService.searchDoctors({ specialtyIds: ['spc-none'] }, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
   });
 });
 
@@ -703,6 +1110,67 @@ describe('admin disputes', () => {
   });
 });
 
+describe('feature flags', () => {
+  it('returns the mock defaults for the signed-in user', async () => {
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+    expect(evaluated.flags.realtime_updates).toBe(false);
+  });
+
+  it('lets the dev panel override a flag without touching the others', async () => {
+    useMockStore.setState({ flagOverrides: { realtime_updates: true } });
+    const evaluated = await myFlagsService.getMyFlags(MOCK_ACCESS_TOKEN);
+    expect(evaluated.flags.realtime_updates).toBe(true);
+    expect(evaluated.flags.notification_preferences).toBe(true);
+  });
+});
+
+describe('notification preferences', () => {
+  it('returns role-appropriate defaults with locked safety-critical rows', async () => {
+    const preferences = await notificationPreferencesService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const critical = preferences.preferences.filter((pref) => pref.type === 'critical_lab_result');
+    expect(critical).toHaveLength(3);
+    expect(critical.every((pref) => pref.locked && pref.enabled)).toBe(true);
+
+    useMockStore.setState({ activeRole: 'facility' });
+    const facility = await notificationPreferencesService.getNotificationPreferences(MOCK_ACCESS_TOKEN);
+    const facilityOrders = facility.preferences.find(
+      (pref) => pref.type === 'order_updates' && pref.channel === 'email',
+    );
+    expect(facilityOrders?.enabled).toBe(true);
+  });
+
+  it('saves a toggle and quiet hours, and refuses to disable a locked row', async () => {
+    const updated = await notificationPreferencesService.updateNotificationPreferences(
+      { preferences: [{ type: 'appointment_reminders', channel: 'email', enabled: false }] },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(
+      updated.preferences.find(
+        (pref) => pref.type === 'appointment_reminders' && pref.channel === 'email',
+      )?.enabled,
+    ).toBe(false);
+
+    const quiet = await notificationPreferencesService.updateNotificationPreferences(
+      { quietHours: { enabled: true, start: '22:00', end: '07:00', timeZone: 'Europe/London' } },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(quiet.quietHours).toEqual({
+      enabled: true,
+      start: '22:00',
+      end: '07:00',
+      timeZone: 'Europe/London',
+    });
+
+    await expect(
+      notificationPreferencesService.updateNotificationPreferences(
+        { preferences: [{ type: 'critical_lab_result', channel: 'email', enabled: false }] },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+});
+
 describe('dev panel scenarios', () => {
   it('forces 500s in the "error" scenario', async () => {
     useMockStore.setState({ scenario: 'error' });
@@ -726,6 +1194,10 @@ describe('dev panel scenarios', () => {
     ).resolves.toEqual([]);
     await expect(accountService.getDataExportStatus(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
+    await expect(searchService.searchSymptoms('rash', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
+    await expect(
+      searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual([]);
   });
 
   it('delays responses by the configured latency', async () => {

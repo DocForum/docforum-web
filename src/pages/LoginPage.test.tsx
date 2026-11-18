@@ -1,22 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen } from '../test/render';
 import { LoginPage } from './LoginPage';
 import { useAuthStore } from '../store/auth-store';
 import type { User } from '../types/models';
 
 function renderAt(path: string) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <LoginPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  render(<LoginPage />, { initialEntries: [path] });
 }
 
 describe('LoginPage', () => {

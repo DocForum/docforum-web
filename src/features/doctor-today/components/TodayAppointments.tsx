@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import type { Appointment, IntakeForm } from '../../../types/models';
 import { useAppointmentIntake, useTodayAppointments } from '../hooks/useDoctorToday';
@@ -58,15 +62,17 @@ function IntakeSummary({ intake }: { intake: IntakeForm }) {
 function IntakeSection({ appointmentId }: { appointmentId: string }) {
   const intake = useAppointmentIntake(appointmentId, true);
 
-  if (intake.isLoading) return <p className={styles.muted}>Loading intake...</p>;
+  if (intake.isLoading) return <Skeleton lines={2} label="Loading intake" />;
   if (intake.isError) {
     if (intake.error instanceof ApiError && intake.error.status === 404) {
       return <p className={styles.muted}>No intake was submitted for this appointment.</p>;
     }
     return (
-      <p className={styles.error} role="alert">
-        Could not load this intake.
-      </p>
+      <InlineError
+        title="Could not load this intake"
+        message={queryErrorMessage(intake.error)}
+        onRetry={() => void intake.refetch()}
+      />
     );
   }
   if (!intake.data) return <p className={styles.muted}>No intake was submitted for this appointment.</p>;
@@ -121,14 +127,20 @@ export function TodayAppointments() {
         <span className={styles.count}>{sorted.length} scheduled</span>
       </header>
 
-      {appointments.isLoading ? <p className={styles.muted}>Loading today's appointments...</p> : null}
+      {appointments.isLoading ? <Skeleton lines={4} label="Loading today's appointments" /> : null}
       {appointments.isError ? (
-        <p className={styles.error} role="alert">
-          Could not load today's appointments.
-        </p>
+        <InlineError
+          title="Today's appointments couldn't be loaded"
+          message={queryErrorMessage(appointments.error)}
+          onRetry={() => void appointments.refetch()}
+        />
       ) : null}
       {!appointments.isLoading && !appointments.isError && sorted.length === 0 ? (
-        <p className={styles.muted}>No appointments are scheduled for today.</p>
+        <EmptyState
+          title="No appointments are scheduled for today"
+          description="Booked visits appear here on the day, with the patient's intake form attached."
+          action={{ label: 'Review your messages', to: '/doctor/messages' }}
+        />
       ) : null}
 
       {sorted.length > 0 ? (

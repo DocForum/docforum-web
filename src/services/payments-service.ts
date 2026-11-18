@@ -1,44 +1,46 @@
-// Payments calls to docforum-core — real endpoints (Phase 5.5, that
-// repo's docs/adr/0004-custodial-payments-v1.md), not assumed. This repo
-// never calls Stellar/docforum-escrow directly (hard rule 1,
-// ARCHITECTURE_ESSENTIALS.md) — everything here goes through
-// docforum-core's API.
-import { apiFetch, ApiError } from './api-client';
+// Payments calls to docforum-core — real endpoints (Phase 5.5, that repo's
+// docs/adr/0004-custodial-payments-v1.md). This repo never calls
+// Stellar/docforum-escrow directly (hard rule 1) — everything goes through
+// docforum-core's API, typed by the generated client.
+//
+// `amountStroops` stays a string end-to-end: BigInt values come over the wire
+// as strings and must never round-trip through a JS number.
+import type { Schemas } from '@docforum/api-client';
+import { api, apiFetch, ApiError, createIdempotencyKey } from './api-client';
 import type {
-  OrderTypeForPayment,
+  FacilityLedgerPage,
+  PayoutAsset,
   PaymentIntent,
   PreparedTransaction,
-  WalletLink,
-  PayoutAsset,
-  FacilityLedgerPage,
 } from '../types/models';
 
-export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<WalletLink> {
-  return apiFetch<WalletLink>('/payments/wallet-link', {
-    method: 'POST',
-    body: { stellarPublicKey },
-    accessToken,
-  });
+export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<Schemas['WalletLink']> {
+  return api.payments.linkWallet(
+    { stellarPublicKey },
+    // One key per user action; api-client reuses it across network retries.
+    { accessToken, idempotencyKey: createIdempotencyKey() },
+  );
 }
 
-export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<WalletLink> {
-  return apiFetch<WalletLink>('/payments/wallet-link', { accessToken, signal });
+export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<Schemas['WalletLink']> {
+  return api.payments.getOwnWalletLink({ accessToken, signal });
 }
 
-export interface CreatePaymentIntentInput {
-  orderType: OrderTypeForPayment;
-  orderId: string;
-  patientProfileId: string;
-  facilityId: string;
-  amountStroops: string;
+export type CreatePaymentIntentInput = Schemas['CreatePaymentIntentInput'];
+
+export function createPaymentIntent(
+  input: CreatePaymentIntentInput,
+  accessToken: string,
+): Promise<Schemas['PaymentIntent']> {
+  return api.payments.createIntent(input, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
-export function createPaymentIntent(input: CreatePaymentIntentInput, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>('/payments/intents', { method: 'POST', body: input, accessToken });
-}
-
-export function getPaymentIntent(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}`, { accessToken, signal });
+export function getPaymentIntent(
+  id: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['PaymentIntent']> {
+  return api.payments.getIntent(id, { accessToken, signal });
 }
 
 /**
@@ -64,16 +66,16 @@ export function getPaymentIntentForOrder(
     });
 }
 
-export function fundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/fund`, { method: 'POST', accessToken });
+export function fundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
+  return api.payments.fundIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
-export function releasePaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/release`, { method: 'POST', accessToken });
+export function releasePaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
+  return api.payments.releaseIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
-export function refundPaymentIntent(id: string, accessToken: string): Promise<PaymentIntent> {
-  return apiFetch<PaymentIntent>(`/payments/intents/${id}/refund`, { method: 'POST', accessToken });
+export function refundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
+  return api.payments.refundIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
 // --- Pay with wallet (issue #59) -------------------------------------------
@@ -101,11 +103,13 @@ export function submitPaymentIntent(id: string, signedXdr: string, accessToken: 
   });
 }
 
-/** Machine code from the API's error body, when the envelope carries one
- * (e.g. `WALLET_NOT_LINKED`). The `{message}` envelope is provisional, so
- * callers must degrade to the HTTP status when this is undefined. */
+/** Machine code from the API's error envelope, when it carries one
+ * (e.g. `WALLET_NOT_LINKED`). Callers must degrade to the HTTP status when
+ * this is undefined. */
 export function apiErrorCode(error: unknown): string | undefined {
-  if (!(error instanceof ApiError) || typeof error.body !== 'object' || error.body === null) return undefined;
+  if (!(error instanceof ApiError)) return undefined;
+  if (typeof error.code === 'string') return error.code;
+  if (typeof error.body !== 'object' || error.body === null) return undefined;
   const code = (error.body as { code?: unknown }).code;
   return typeof code === 'string' ? code : undefined;
 }
@@ -150,4 +154,3 @@ export function getFacilityPayoutLedger(
   const qs = query.toString() ? `?${query.toString()}` : '';
   return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
-

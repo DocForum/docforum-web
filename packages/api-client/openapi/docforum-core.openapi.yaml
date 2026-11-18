@@ -1,0 +1,1499 @@
+# OpenAPI contract fixture for docforum-core's HTTP API.
+#
+# This file is the *only* hand-maintained description of the backend
+# contract in this repo. `@docforum/api-client` generates its TypeScript
+# types from it (`npm run generate:api`), and every call in
+# `src/services/` is typed against those generated types — so a change
+# here that doesn't match the frontend becomes a compile error instead of
+# a runtime surprise.
+#
+# Source of truth: docforum-core's own spec (docforum-core#113). Until
+# that issue publishes `openapi.json` + the `@docforum/api-client`
+# release tarball, this vendored fixture stands in for it: it documents
+# the endpoints/shapes this repo actually calls, and
+# `scripts/check-api-client-version.mjs` compares our version against the
+# live backend's spec (warn-only for now). When docforum-core#113 lands,
+# swap the dependency in package.json for the published tarball and keep
+# this file as the local fixture used by tests.
+openapi: 3.0.3
+info:
+  title: docforum-core API
+  description: Endpoints consumed by docforum-web. Contract fixture (see header).
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000
+  - url: https://docforum-core-api.onrender.com
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+  - name: account
+  - name: dependents
+  - name: health
+  - name: care-threads
+  - name: facilities
+  - name: facility-team
+  - name: queue
+  - name: messaging
+  - name: consultation
+  - name: insights
+  - name: payments
+
+paths:
+  /auth/signup:
+    post:
+      tags: [auth]
+      operationId: signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupInput' }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      responses:
+        '204': { description: Session revoked }
+
+  /auth/claim-account:
+    post:
+      tags: [auth]
+      operationId: claimAccount
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimAccountInput' }
+      responses:
+        '204': { description: Guardian link claimed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410': { $ref: '#/components/responses/Gone' }
+
+  /account/data-export:
+    get:
+      tags: [account]
+      operationId: getDataExportStatus
+      responses:
+        '200':
+          description: Latest export, or null when none exists
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
+                allOf:
+                  - $ref: '#/components/schemas/DataExport'
+    post:
+      tags: [account]
+      operationId: requestDataExport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RequestDataExportInput' }
+      responses:
+        '202':
+          description: Export queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /account/data-export/{exportId}/download:
+    get:
+      tags: [account]
+      operationId: downloadDataExport
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: Export archive
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /account/delete:
+    post:
+      tags: [account]
+      operationId: deleteAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteAccountInput' }
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteAccountResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /patients/me/dependents:
+    get:
+      tags: [dependents]
+      operationId: listDependents
+      responses:
+        '200':
+          description: Dependents of the signed-in guardian
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Dependent' }
+    post:
+      tags: [dependents]
+      operationId: addDependent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DependentInput' }
+      responses:
+        '201':
+          description: Dependent created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dependent' }
+
+  /patients/me/dependents/{dependentId}:
+    patch:
+      tags: [dependents]
+      operationId: updateDependent
+      parameters:
+        - $ref: '#/components/parameters/DependentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DependentInput' }
+      responses:
+        '200':
+          description: Dependent updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dependent' }
+
+  /patients/me/dependents/{dependentId}/handover-invite:
+    post:
+      tags: [dependents]
+      operationId: sendHandoverInvite
+      parameters:
+        - $ref: '#/components/parameters/DependentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HandoverInviteInput' }
+      responses:
+        '200':
+          description: Invite sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dependent' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /patients/me/dependents/{dependentId}/handover-invite/resend:
+    post:
+      tags: [dependents]
+      operationId: resendHandoverInvite
+      parameters:
+        - $ref: '#/components/parameters/DependentId'
+      responses:
+        '200':
+          description: Invite re-sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dependent' }
+
+  /patients/{patientProfileId}/health/{section}:
+    get:
+      tags: [health]
+      operationId: listHealthEntries
+      parameters:
+        - $ref: '#/components/parameters/PatientProfileId'
+        - $ref: '#/components/parameters/HealthSection'
+      responses:
+        '200':
+          description: Entries for one health section
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HealthEntry' }
+
+  /patients/{patientProfileId}/health:
+    post:
+      tags: [health]
+      operationId: addHealthEntry
+      parameters:
+        - $ref: '#/components/parameters/PatientProfileId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HealthEntryInput' }
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthEntry' }
+
+  /patients/{patientProfileId}/health/{entryId}:
+    patch:
+      tags: [health]
+      operationId: updateHealthEntry
+      parameters:
+        - $ref: '#/components/parameters/PatientProfileId'
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HealthEntryUpdate' }
+      responses:
+        '200':
+          description: Entry updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthEntry' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [health]
+      operationId: removeHealthEntry
+      parameters:
+        - $ref: '#/components/parameters/PatientProfileId'
+        - $ref: '#/components/parameters/EntryId'
+      responses:
+        '204': { description: Entry removed }
+
+  /patients/{patientProfileId}/care-threads:
+    get:
+      tags: [care-threads]
+      operationId: listCareThreads
+      parameters:
+        - $ref: '#/components/parameters/PatientProfileId'
+      responses:
+        '200':
+          description: Care threads for a patient
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CareThread' }
+
+  /care-threads/{threadId}:
+    get:
+      tags: [care-threads]
+      operationId: getCareThread
+      parameters:
+        - $ref: '#/components/parameters/ThreadId'
+      responses:
+        '200':
+          description: One care thread
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CareThread' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /facilities:
+    get:
+      tags: [facilities]
+      operationId: listFacilities
+      security: []
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [lab, pharmacy] }
+        - name: lat
+          in: query
+          schema: { type: number }
+        - name: lng
+          in: query
+          schema: { type: number }
+        - name: query
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Facilities, distance-sorted when lat/lng are given
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FacilityWithDistance' }
+
+  /facilities/{facilityId}/members:
+    get:
+      tags: [facility-team]
+      operationId: listFacilityMembers
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+      responses:
+        '200':
+          description: Facility members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FacilityMember' }
+
+  /facilities/{facilityId}/members/{memberId}:
+    delete:
+      tags: [facility-team]
+      operationId: removeFacilityMember
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '200':
+          description: Member removed, sessions revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemoveMemberResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /facilities/{facilityId}/invites:
+    get:
+      tags: [facility-team]
+      operationId: listFacilityInvites
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+      responses:
+        '200':
+          description: Pending invites (owner only)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FacilityInvite' }
+    post:
+      tags: [facility-team]
+      operationId: inviteFacilityMember
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteMemberInput' }
+      responses:
+        '201':
+          description: Invite created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FacilityInvite' }
+
+  /facilities/{facilityId}/invites/{inviteId}:
+    delete:
+      tags: [facility-team]
+      operationId: revokeFacilityInvite
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+        - $ref: '#/components/parameters/InviteId'
+      responses:
+        '200':
+          description: Invite revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success: { type: boolean }
+
+  /facilities/{facilityId}/invites/{inviteId}/resend:
+    post:
+      tags: [facility-team]
+      operationId: resendFacilityInvite
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+        - $ref: '#/components/parameters/InviteId'
+      responses:
+        '200':
+          description: Invite re-sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FacilityInvite' }
+
+  /facilities/{facilityId}/fulfillment-queue:
+    get:
+      tags: [facility-team]
+      operationId: getFulfillmentQueue
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+      responses:
+        '200':
+          description: Fulfillment queue with action attribution
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FulfillmentQueueItem' }
+
+  /facilities/{facilityId}/fulfillment-queue/{itemId}/action:
+    post:
+      tags: [facility-team]
+      operationId: updateFulfillmentItem
+      parameters:
+        - $ref: '#/components/parameters/FacilityId'
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FulfillmentActionInput' }
+      responses:
+        '200':
+          description: Queue item updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FulfillmentQueueItem' }
+
+  /doctor/appointments/today:
+    get:
+      tags: [queue]
+      operationId: listTodayAppointments
+      responses:
+        '200':
+          description: Today's appointments for the signed-in doctor
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Appointment' }
+
+  /doctor/queue/today:
+    get:
+      tags: [queue]
+      operationId: listQueue
+      responses:
+        '200':
+          description: Checked-in patients in queue order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/QueueEntry' }
+
+  /appointments/{appointmentId}/start:
+    post:
+      tags: [queue]
+      operationId: startVisit
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Visit started (idempotent)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /appointments/{appointmentId}/complete:
+    post:
+      tags: [queue]
+      operationId: completeVisit
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Visit completed (idempotent)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /doctor/queue/running-delay:
+    get:
+      tags: [queue]
+      operationId: getRunningDelay
+      responses:
+        '200':
+          description: Current running delay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunningDelay' }
+    patch:
+      tags: [queue]
+      operationId: updateRunningDelay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRunningDelayInput' }
+      responses:
+        '200':
+          description: Running delay updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunningDelay' }
+
+  /doctor/messages/threads:
+    get:
+      tags: [messaging]
+      operationId: listMessageThreads
+      parameters:
+        - name: filter
+          in: query
+          schema: { type: string, enum: [all, unread, closing_soon] }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Paginated threads, oldest unanswered first by default
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListThreadsResult' }
+
+  /message-threads/{threadId}/read:
+    post:
+      tags: [messaging]
+      operationId: markMessageThreadRead
+      parameters:
+        - $ref: '#/components/parameters/ThreadId'
+      responses:
+        '204': { description: Thread marked read }
+
+  /consultation-notes/{appointmentId}:
+    get:
+      tags: [consultation]
+      operationId: getConsultationNote
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Consultation note for an appointment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsultationNote' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /consultation-notes/{noteId}/sign-off:
+    post:
+      tags: [consultation]
+      operationId: signOffConsultationNote
+      parameters:
+        - $ref: '#/components/parameters/NoteId'
+      responses:
+        '200':
+          description: Note signed off and made immutable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsultationNote' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /consultation-notes/{noteId}/addenda:
+    post:
+      tags: [consultation]
+      operationId: addConsultationAddendum
+      parameters:
+        - $ref: '#/components/parameters/NoteId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddAddendumInput' }
+      responses:
+        '201':
+          description: Append-only addendum created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsultationAddendum' }
+
+  /doctor/insights:
+    get:
+      tags: [insights]
+      operationId: getDoctorPracticeInsights
+      parameters:
+        - name: preset
+          in: query
+          schema: { type: string, enum: [7d, 30d, 90d, custom] }
+        - name: startDate
+          in: query
+          schema: { type: string }
+        - name: endDate
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Authenticated doctor's own practice insights
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DoctorPracticeInsights' }
+
+  /payments/wallet-link:
+    get:
+      tags: [payments]
+      operationId: getOwnWalletLink
+      responses:
+        '200':
+          description: Wallet link for the signed-in facility
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletLink' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [payments]
+      operationId: linkWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LinkWalletInput' }
+      responses:
+        '200':
+          description: Wallet linked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletLink' }
+
+  /payments/intents:
+    post:
+      tags: [payments]
+      operationId: createPaymentIntent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentIntentInput' }
+      responses:
+        '201':
+          description: Payment intent created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+
+  /payments/intents/{id}:
+    get:
+      tags: [payments]
+      operationId: getPaymentIntent
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+      responses:
+        '200':
+          description: Payment intent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /payments/intents/{id}/fund:
+    post:
+      tags: [payments]
+      operationId: fundPaymentIntent
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+      responses:
+        '200':
+          description: Intent funded into escrow
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /payments/intents/{id}/release:
+    post:
+      tags: [payments]
+      operationId: releasePaymentIntent
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+      responses:
+        '200':
+          description: Escrow released to the facility
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /payments/intents/{id}/refund:
+    post:
+      tags: [payments]
+      operationId: refundPaymentIntent
+      parameters:
+        - $ref: '#/components/parameters/PaymentIntentId'
+      responses:
+        '200':
+          description: Escrow refunded to the patient
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PatientProfileId:
+      name: patientProfileId
+      in: path
+      required: true
+      schema: { type: string }
+    DependentId:
+      name: dependentId
+      in: path
+      required: true
+      schema: { type: string }
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      schema: { type: string }
+    ThreadId:
+      name: threadId
+      in: path
+      required: true
+      schema: { type: string }
+    FacilityId:
+      name: facilityId
+      in: path
+      required: true
+      schema: { type: string }
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema: { type: string }
+    InviteId:
+      name: inviteId
+      in: path
+      required: true
+      schema: { type: string }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string }
+    AppointmentId:
+      name: appointmentId
+      in: path
+      required: true
+      schema: { type: string }
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      schema: { type: string }
+    ExportId:
+      name: exportId
+      in: path
+      required: true
+      schema: { type: string }
+    PaymentIntentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    HealthSection:
+      name: section
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/HealthSectionKey' }
+
+  responses:
+    BadRequest:
+      description: Invalid input (machine-readable error code included)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Missing or expired credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: Request conflicts with current state
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Gone:
+      description: Resource is no longer available (e.g. expired invite)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Human-readable summary. Never rendered verbatim by the UI — see error-catalogue.ts.
+        code:
+          type: string
+          description: Machine-readable error code from docforum-core's catalogue.
+          example: SLOT_TAKEN
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          description: Support reference for unknown/unexpected errors.
+
+    Role:
+      type: string
+      enum: [patient, doctor, facility, admin]
+    SelfServeRole:
+      type: string
+      enum: [patient, doctor]
+    VerificationStatus:
+      type: string
+      enum: [pending, verified, rejected]
+
+    User:
+      type: object
+      required: [id, email, role, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AuthSession:
+      type: object
+      required: [user, accessToken]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        accessToken: { type: string }
+
+    SignupInput:
+      type: object
+      required: [role, email, password, fullName]
+      properties:
+        role: { $ref: '#/components/schemas/SelfServeRole' }
+        email: { type: string }
+        password: { type: string }
+        fullName: { type: string }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    ClaimAccountInput:
+      type: object
+      required: [token, email, password]
+      properties:
+        token: { type: string }
+        email: { type: string }
+        password: { type: string }
+
+    PatientProfile:
+      type: object
+      required: [id, userId, fullName]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        fullName: { type: string }
+        dateOfBirth: { type: string }
+
+    DoctorProfile:
+      type: object
+      required: [id, userId, fullName, verificationStatus]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        fullName: { type: string }
+        verificationStatus: { $ref: '#/components/schemas/VerificationStatus' }
+
+    FacilityType:
+      type: string
+      enum: [lab, pharmacy]
+
+    FacilityProfile:
+      type: object
+      required: [id, userId, name, type]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        type: { $ref: '#/components/schemas/FacilityType' }
+
+    FacilityLocation:
+      type: object
+      required: [address, city, latitude, longitude]
+      properties:
+        address: { type: string }
+        city: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+
+    FacilityWithDistance:
+      allOf:
+        - $ref: '#/components/schemas/FacilityProfile'
+        - type: object
+          properties:
+            location: { $ref: '#/components/schemas/FacilityLocation' }
+            distanceKm:
+              type: number
+              nullable: true
+            isOpen: { type: boolean }
+            phone: { type: string }
+            rating: { type: number }
+
+    Relationship:
+      type: string
+      enum: [parent, guardian, carer]
+    HandoverStatus:
+      type: string
+      enum: [not_eligible, eligible, invited, claimed]
+
+    Dependent:
+      type: object
+      required:
+        [id, guardianProfileId, fullName, dateOfBirth, relationship, handoverStatus, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        guardianProfileId: { type: string }
+        fullName: { type: string }
+        dateOfBirth: { type: string }
+        relationship: { $ref: '#/components/schemas/Relationship' }
+        handoverStatus: { $ref: '#/components/schemas/HandoverStatus' }
+        claimEmail: { type: string }
+        claimInviteExpiresAt: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DependentInput:
+      type: object
+      required: [fullName, dateOfBirth, relationship]
+      properties:
+        fullName: { type: string }
+        dateOfBirth: { type: string }
+        relationship: { $ref: '#/components/schemas/Relationship' }
+
+    HandoverInviteInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+
+    HealthSectionKey:
+      type: string
+      enum: [allergies, conditions, medications]
+
+    HealthEntry:
+      type: object
+      required:
+        [id, patientProfileId, section, name, version, updatedAt, createdAt]
+      properties:
+        id: { type: string }
+        patientProfileId: { type: string }
+        section: { $ref: '#/components/schemas/HealthSectionKey' }
+        name: { type: string }
+        details: { type: string }
+        version: { type: integer }
+        previousValue: { type: string }
+        updatedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    HealthEntryInput:
+      type: object
+      required: [section, name]
+      properties:
+        section: { $ref: '#/components/schemas/HealthSectionKey' }
+        name: { type: string }
+        details: { type: string }
+
+    HealthEntryUpdate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        details: { type: string }
+
+    DataExportStatus:
+      type: string
+      enum: [pending, processing, ready, expired, failed]
+
+    DataExport:
+      type: object
+      required: [id, patientProfileId, status, requestedAt]
+      properties:
+        id: { type: string }
+        patientProfileId: { type: string }
+        status: { $ref: '#/components/schemas/DataExportStatus' }
+        requestedAt: { type: string, format: date-time }
+        readyAt: { type: string, nullable: true }
+        expiresAt: { type: string, nullable: true }
+        fileSizeBytes: { type: integer, nullable: true }
+        downloadUrl: { type: string, nullable: true }
+        errorMessage: { type: string, nullable: true }
+
+    RequestDataExportInput:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string }
+
+    DeleteAccountInput:
+      type: object
+      required: [password, confirmation]
+      properties:
+        password: { type: string }
+        confirmation: { type: string }
+
+    DeleteAccountResponse:
+      type: object
+      required: [success, message, deletedAt]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        deletedAt: { type: string, format: date-time }
+
+    CareStepType:
+      type: string
+      enum: [appointment, consultation, referral, order, fulfillment, payment]
+    CareStepStatus:
+      type: string
+      enum: [completed, in_progress, action_required, pending, skipped]
+
+    CareThreadStep:
+      type: object
+      required: [id, stepType, title, description, status]
+      properties:
+        id: { type: string }
+        stepType: { $ref: '#/components/schemas/CareStepType' }
+        title: { type: string }
+        description: { type: string }
+        status: { $ref: '#/components/schemas/CareStepStatus' }
+        timestamp: { type: string, nullable: true }
+        actionLabel: { type: string, nullable: true }
+        actionUrl: { type: string, nullable: true }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CareThread:
+      type: object
+      required:
+        [id, patientProfileId, title, doctorName, specialty, startedAt, updatedAt, status, steps]
+      properties:
+        id: { type: string }
+        patientProfileId: { type: string }
+        title: { type: string }
+        doctorName: { type: string }
+        specialty: { type: string }
+        startedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/CareThreadStep' }
+
+    AppointmentStatus:
+      type: string
+      enum: [scheduled, checked_in, in_progress, completed, cancelled, no_show]
+
+    Appointment:
+      type: object
+      required:
+        [id, doctorProfileId, patientProfileId, patientName, startsAt, endsAt, status]
+      properties:
+        id: { type: string }
+        doctorProfileId: { type: string }
+        patientProfileId: { type: string }
+        patientName: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/AppointmentStatus' }
+        reason: { type: string, nullable: true }
+        checkInAt: { type: string, nullable: true }
+        startedAt: { type: string, nullable: true }
+        completedAt: { type: string, nullable: true }
+
+    QueueEntry:
+      type: object
+      required:
+        [appointmentId, patientProfileId, fullName, checkedInAt, queuePosition, status]
+      properties:
+        appointmentId: { type: string }
+        patientProfileId: { type: string }
+        fullName: { type: string }
+        checkedInAt: { type: string, format: date-time }
+        queuePosition: { type: integer }
+        status:
+          type: string
+          enum: [checked_in, in_progress, completed]
+
+    RunningDelay:
+      type: object
+      required: [computedDelayMin, manualOverrideMin, effectiveDelayMin]
+      properties:
+        computedDelayMin: { type: integer }
+        manualOverrideMin:
+          type: integer
+          nullable: true
+        effectiveDelayMin: { type: integer }
+
+    UpdateRunningDelayInput:
+      type: object
+      required: [manualOverrideMin]
+      properties:
+        manualOverrideMin:
+          type: integer
+          nullable: true
+
+    MessageThread:
+      type: object
+      required:
+        [id, patientProfileId, patientName, lastMessageAt, unreadCount]
+      properties:
+        id: { type: string }
+        patientProfileId: { type: string }
+        patientName: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        unreadCount: { type: integer }
+        lastPreview: { type: string, nullable: true }
+        waitingMinutes:
+          type: integer
+          nullable: true
+        closingSoon: { type: boolean }
+
+    ListThreadsResult:
+      type: object
+      required: [threads, nextCursor]
+      properties:
+        threads:
+          type: array
+          items: { $ref: '#/components/schemas/MessageThread' }
+        nextCursor:
+          type: string
+          nullable: true
+
+    ConsultationAddendum:
+      type: object
+      required: [id, noteId, content, createdAt]
+      properties:
+        id: { type: string }
+        noteId: { type: string }
+        content: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ConsultationNote:
+      type: object
+      required: [id, appointmentId, content, addenda]
+      properties:
+        id: { type: string }
+        appointmentId: { type: string }
+        content: { type: string }
+        signedAt: { type: string, nullable: true }
+        signedBy: { type: string, nullable: true }
+        autoSignOffAt: { type: string, nullable: true }
+        addenda:
+          type: array
+          items: { $ref: '#/components/schemas/ConsultationAddendum' }
+
+    AddAddendumInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string }
+
+    DateRangePreset:
+      type: string
+      enum: [7d, 30d, 90d, custom]
+
+    DateRange:
+      type: object
+      required: [preset, startDate, endDate]
+      properties:
+        preset: { $ref: '#/components/schemas/DateRangePreset' }
+        startDate: { type: string }
+        endDate: { type: string }
+
+    UtilisationWeek:
+      type: object
+      required:
+        [weekLabel, startDate, endDate, offeredSlots, bookedSlots, completedSlots, utilisationRate]
+      properties:
+        weekLabel: { type: string }
+        startDate: { type: string }
+        endDate: { type: string }
+        offeredSlots: { type: integer }
+        bookedSlots: { type: integer }
+        completedSlots: { type: integer }
+        utilisationRate: { type: number }
+
+    NoShowMetrics:
+      type: object
+      required:
+        [totalScheduled, completedVisits, noShows, lateCancellations, onTimeCancellations, noShowRate, lateCancelRate, sampleSizeWarning]
+      properties:
+        totalScheduled: { type: integer }
+        completedVisits: { type: integer }
+        noShows: { type: integer }
+        lateCancellations: { type: integer }
+        onTimeCancellations: { type: integer }
+        noShowRate: { type: number }
+        lateCancelRate: { type: number }
+        sampleSizeWarning: { type: boolean }
+
+    ReferralTurnaroundMetrics:
+      type: object
+      required:
+        [totalSent, totalAccepted, totalPending, averageAcceptanceHours, medianAcceptanceHours, breakdownUnder24h, breakdown24to48h, breakdownOver48h, sampleSizeWarning]
+      properties:
+        totalSent: { type: integer }
+        totalAccepted: { type: integer }
+        totalPending: { type: integer }
+        averageAcceptanceHours: { type: number }
+        medianAcceptanceHours: { type: number }
+        breakdownUnder24h: { type: integer }
+        breakdown24to48h: { type: integer }
+        breakdownOver48h: { type: integer }
+        sampleSizeWarning: { type: boolean }
+
+    MessageResponseMetrics:
+      type: object
+      required:
+        [totalThreads, averageFirstResponseMinutes, medianFirstResponseMinutes, respondedWithin2hCount, respondedWithin24hCount, rateWithin2h, sampleSizeWarning]
+      properties:
+        totalThreads: { type: integer }
+        averageFirstResponseMinutes: { type: number }
+        medianFirstResponseMinutes: { type: number }
+        respondedWithin2hCount: { type: integer }
+        respondedWithin24hCount: { type: integer }
+        rateWithin2h: { type: number }
+        sampleSizeWarning: { type: boolean }
+
+    DoctorPracticeInsights:
+      type: object
+      required: [doctorProfileId, range, generatedAt, utilisation, noShows, referrals, messages]
+      properties:
+        doctorProfileId: { type: string }
+        range: { $ref: '#/components/schemas/DateRange' }
+        generatedAt: { type: string, format: date-time }
+        utilisation:
+          type: object
+          required:
+            [weeks, overallOfferedSlots, overallBookedSlots, overallUtilisationRate, sampleSizeWarning]
+          properties:
+            weeks:
+              type: array
+              items: { $ref: '#/components/schemas/UtilisationWeek' }
+            overallOfferedSlots: { type: integer }
+            overallBookedSlots: { type: integer }
+            overallUtilisationRate: { type: number }
+            sampleSizeWarning: { type: boolean }
+        noShows: { $ref: '#/components/schemas/NoShowMetrics' }
+        referrals: { $ref: '#/components/schemas/ReferralTurnaroundMetrics' }
+        messages: { $ref: '#/components/schemas/MessageResponseMetrics' }
+
+    FacilityMemberRole:
+      type: string
+      enum: [owner, staff]
+
+    FacilityMember:
+      type: object
+      required: [id, facilityId, userId, fullName, email, role, joinedAt]
+      properties:
+        id: { type: string }
+        facilityId: { type: string }
+        userId: { type: string }
+        fullName: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/FacilityMemberRole' }
+        joinedAt: { type: string, format: date-time }
+        isCurrentUser: { type: boolean }
+
+    InviteStatus:
+      type: string
+      enum: [pending, accepted, revoked, expired]
+
+    FacilityInvite:
+      type: object
+      required: [id, facilityId, email, role, invitedBy, invitedAt, expiresAt, status]
+      properties:
+        id: { type: string }
+        facilityId: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/FacilityMemberRole' }
+        invitedBy: { type: string }
+        invitedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/InviteStatus' }
+
+    InviteMemberInput:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string }
+        role: { $ref: '#/components/schemas/FacilityMemberRole' }
+
+    RemoveMemberResponse:
+      type: object
+      required: [success, memberId, sessionsRevoked, message]
+      properties:
+        success: { type: boolean }
+        memberId: { type: string }
+        sessionsRevoked: { type: boolean }
+        message: { type: string }
+
+    FulfillmentOrderType:
+      type: string
+      enum: [prescription, lab]
+    FulfillmentItemStatus:
+      type: string
+      enum: [pending, in_progress, fulfilled, rejected]
+
+    FulfillmentActionAttribution:
+      type: object
+      required:
+        [action, performedByUserId, performedByName, performedByEmail, performedByRole, timestamp]
+      properties:
+        action:
+          type: string
+          enum: [dispensed, sample_collected, verified, rejected]
+        performedByUserId: { type: string }
+        performedByName: { type: string }
+        performedByEmail: { type: string }
+        performedByRole: { $ref: '#/components/schemas/FacilityMemberRole' }
+        timestamp: { type: string, format: date-time }
+        notes:
+          type: string
+          nullable: true
+
+    FulfillmentQueueItem:
+      type: object
+      required:
+        [id, facilityId, orderId, orderType, patientName, patientProfileId, itemName, status, receivedAt]
+      properties:
+        id: { type: string }
+        facilityId: { type: string }
+        orderId: { type: string }
+        orderType: { $ref: '#/components/schemas/FulfillmentOrderType' }
+        patientName: { type: string }
+        patientProfileId: { type: string }
+        itemName: { type: string }
+        instructions:
+          type: string
+          nullable: true
+        status: { $ref: '#/components/schemas/FulfillmentItemStatus' }
+        receivedAt: { type: string, format: date-time }
+        attribution:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FulfillmentActionAttribution'
+
+    FulfillmentActionInput:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [fulfilled, rejected]
+        notes: { type: string }
+
+    WalletLink:
+      type: object
+      required: [id, facilityId, stellarPublicKey, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        facilityId: { type: string }
+        stellarPublicKey: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LinkWalletInput:
+      type: object
+      required: [stellarPublicKey]
+      properties:
+        stellarPublicKey: { type: string }
+
+    OrderTypeForPayment:
+      type: string
+      enum: [prescription, lab_order]
+
+    PaymentIntentStatus:
+      type: string
+      enum: [created, escrowed, released, refunded, failed]
+
+    PaymentIntent:
+      type: object
+      required:
+        [id, orderType, orderId, status, patientProfileId, facilityId, amountStroops, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        orderType: { $ref: '#/components/schemas/OrderTypeForPayment' }
+        orderId: { type: string }
+        status: { $ref: '#/components/schemas/PaymentIntentStatus' }
+        patientProfileId: { type: string }
+        facilityId: { type: string }
+        amountStroops:
+          type: string
+          description: BigInt serialised as a decimal string — never parsed into a JS number.
+        escrowId:
+          type: string
+          nullable: true
+        stellarTxHash:
+          type: string
+          nullable: true
+        sorobanContractId:
+          type: string
+          nullable: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreatePaymentIntentInput:
+      type: object
+      required: [orderType, orderId, patientProfileId, facilityId, amountStroops]
+      properties:
+        orderType: { $ref: '#/components/schemas/OrderTypeForPayment' }
+        orderId: { type: string }
+        patientProfileId: { type: string }
+        facilityId: { type: string }
+        amountStroops: { type: string }

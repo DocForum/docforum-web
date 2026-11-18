@@ -56,8 +56,9 @@ function buildTimeline(intent: PaymentIntent): TimelineEntry[] {
 
   switch (intent.status) {
     case 'created':
-    // Prepared and waiting for the patient's wallet to sign (issue #59's
-    // assumed status, core#80) — still unfunded, so the same timeline.
+      // Prepared and waiting for the patient's wallet to sign (issue #59's
+      // assumed status, core#80) — still unfunded, so the same timeline.
+      // falls through
     case 'awaiting_signature':
       return [
         initiated,

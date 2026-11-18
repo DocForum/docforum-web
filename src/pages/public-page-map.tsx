@@ -3,7 +3,7 @@ import { HomePage } from './HomePage';
 import { HowItWorksPage } from './HowItWorksPage';
 import { ForDoctorsPage } from './ForDoctorsPage';
 import { ForFacilitiesPage } from './ForFacilitiesPage';
-import { PrivacyPage } from './PrivacyPage';
+import { PublicPrivacyPage } from './PublicPrivacyPage';
 import { AccessibilityPage } from './AccessibilityPage';
 import { FaqPage } from './FaqPage';
 import { PUBLIC_PAGES } from './public-routes';
@@ -19,7 +19,7 @@ const COMPONENT_BY_PATH: Record<string, ComponentType> = {
   '/how-it-works': HowItWorksPage,
   '/for-doctors': ForDoctorsPage,
   '/for-facilities': ForFacilitiesPage,
-  '/privacy': PrivacyPage,
+  '/privacy': PublicPrivacyPage,
   '/accessibility': AccessibilityPage,
   '/faq': FaqPage,
 };

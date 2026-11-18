@@ -35,6 +35,9 @@ export function renderMetaTag(tag: MetaTag): string {
 export function applyHeadMeta(template: string, def: PublicPageDef): string {
   const titleTag = `<title>${escapeHtml(def.title)}</title>`;
   let html = template.replace(/<title>[^<]*<\/title>/, titleTag);
+  // The page supplies its own description; drop the template's generic one
+  // so crawlers (and querySelector) see exactly one.
+  html = html.replace(/[ \t]*<meta\s+name="description"[^>]*>\n?/i, '');
   if (!html.includes(titleTag)) {
     throw new Error(`Template has no <title> element to replace (page ${def.path})`);
   }
