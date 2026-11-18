@@ -11,7 +11,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLogin } from '../hooks/useLogin';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -27,6 +29,7 @@ export interface LoginFormProps {
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const form = useZodForm(loginSchema, { email: '', password: '' });
   const loginMutation = useLogin();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
@@ -46,8 +49,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setServerError(null);
     try {
       await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout: show a countdown and keep submit disabled until it ends.
+      // The message is account-agnostic on purpose — it must not reveal
+      // whether the email exists (issue #80).
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -65,6 +76,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     <FormProvider {...form}>
       <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
         {loginMutation.isPending && (
           <p className="srOnly" role="status">
             Logging in. Please wait.
@@ -83,7 +95,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
         />
-        <Button type="submit" loading={loginMutation.isPending}>
+        <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
           {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
         </Button>
       </form>

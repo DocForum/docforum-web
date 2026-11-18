@@ -3,7 +3,7 @@
 // packages/api-client/openapi/ — contract drift is a compile error here.
 import type { Schemas } from '@docforum/api-client';
 import { api, apiFetch } from './api-client';
-import type { AccountInvite } from '../types/models';
+import type { AccountInvite, ActiveSession, RevokeOtherSessionsResult } from '../types/models';
 
 export type AuthSession = Schemas['AuthSession'] & { csrfToken?: string };
 export type SignupInput = Schemas['SignupInput'];
@@ -75,4 +75,63 @@ export function acceptInvite(
     body,
     accessToken,
   });
+}
+
+// --- Active sessions and devices (issue #79) --------------------------------
+// docforum-core: GET /auth/sessions, DELETE /auth/sessions/:id and
+// DELETE /auth/sessions (every session except the current one).
+
+/** Shape docforum-core returns for one refresh session. */
+interface CoreSessionSummary {
+  id: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  userAgent: string | null;
+  ip?: string | null;
+  current: boolean;
+}
+
+/** Coarse "OS · Browser" label. Deliberately coarse: no versions, no IP. */
+export function describeDevice(userAgent: string | null | undefined): string {
+  if (!userAgent) return 'Unknown device';
+  const os =
+    /iPhone/.test(userAgent) ? 'iPhone'
+    : /iPad/.test(userAgent) ? 'iPad'
+    : /Android/.test(userAgent) ? 'Android'
+    : /Mac OS X|Macintosh/.test(userAgent) ? 'Mac'
+    : /Windows/.test(userAgent) ? 'Windows'
+    : /Linux/.test(userAgent) ? 'Linux'
+    : null;
+  const browser =
+    /Edg\//.test(userAgent) ? 'Edge'
+    : /Firefox\//.test(userAgent) ? 'Firefox'
+    : /Chrome\//.test(userAgent) ? 'Chrome'
+    : /Safari\//.test(userAgent) ? 'Safari'
+    : null;
+  return [os, browser].filter(Boolean).join(' · ') || 'Unknown device';
+}
+
+export async function listSessions(accessToken: string): Promise<ActiveSession[]> {
+  const sessions = await apiFetch<CoreSessionSummary[]>('/auth/sessions', { accessToken });
+  // The API also returns the IP address; it is intentionally dropped here.
+  return sessions.map((session) => ({
+    id: session.id,
+    device: describeDevice(session.userAgent),
+    approximateLocation: null,
+    lastActiveAt: session.lastUsedAt ?? session.createdAt,
+    createdAt: session.createdAt,
+    isCurrent: session.current,
+  }));
+}
+
+export function revokeSession(sessionId: string, accessToken: string): Promise<void> {
+  return apiFetch<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    accessToken,
+  });
+}
+
+export async function revokeOtherSessions(accessToken: string): Promise<RevokeOtherSessionsResult> {
+  const result = await apiFetch<{ revoked: number }>('/auth/sessions', { method: 'DELETE', accessToken });
+  return { revokedCount: result.revoked };
 }

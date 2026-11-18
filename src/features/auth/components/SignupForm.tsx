@@ -12,7 +12,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useSignup } from '../hooks/useSignup';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 import type { SelfServeRole } from '../../../types/models';
 
 const signupSchema = z.object({
@@ -31,6 +33,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [role, setRole] = useState<SelfServeRole>('patient');
   const form = useZodForm(signupSchema, { fullName: '', email: '', password: '' });
   const signupMutation = useSignup();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
@@ -50,8 +53,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     setServerError(null);
     try {
       await signupMutation.mutateAsync({ role, ...data });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout (issue #80): countdown + disabled submit, same as login.
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -69,6 +78,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     <FormProvider {...form}>
       <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
         {signupMutation.isPending && (
           <p className="srOnly" role="status">
             Creating your account. Please wait.
@@ -90,7 +100,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           autoComplete="new-password"
           hint={t('auth.passwordHint', 'At least 8 characters.')}
         />
-        <Button type="submit" loading={signupMutation.isPending}>
+        <Button type="submit" loading={signupMutation.isPending} disabled={lockout.isLockedOut}>
           {signupMutation.isPending ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create account')}
         </Button>
       </form>
