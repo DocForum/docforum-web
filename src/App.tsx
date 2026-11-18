@@ -16,6 +16,7 @@ import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ClaimAccountPage } from './pages/ClaimAccountPage';
+import { InvitePage } from './pages/InvitePage';
 import { AccessLogPage } from './pages/AccessLogPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
@@ -40,10 +41,14 @@ import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { FacilityIntegrationsPage } from './pages/FacilityIntegrationsPage';
 import { FacilityInsightsPage } from './pages/FacilityInsightsPage';
+import { FacilitySettingsPage } from './pages/FacilitySettingsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { AdminCatalogsPage } from './pages/AdminCatalogsPage';
 import { MessageThreadPage } from './pages/MessageThreadPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
+import { PUBLIC_CONTENT_ROUTES } from './pages/public-page-map';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
@@ -58,9 +63,16 @@ export default function App() {
           <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
+        {/* Public information pages (issue #120) — no auth guard, and each
+            one is prerendered to static HTML at build time; see
+            `src/pages/public-routes.ts` and `scripts/prerender.mjs`. */}
+        {PUBLIC_CONTENT_ROUTES.map(({ path, Component }) => (
+          <Route key={path} path={path} element={<Component />} />
+        ))}
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route path="invite" element={<InvitePage />} />
         {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
             at the literal path the issues name, guarded to patients, rather
             than being folded under /patient where the hub's nested routes
@@ -227,6 +239,14 @@ export default function App() {
           }
         />
         <Route
+          path="facility/settings"
+          element={
+            <RequireAuth allowedRoles={['facility']}>
+              <FacilitySettingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="facility/*"
           element={
             <RequireAuth allowedRoles={['facility']}>
@@ -306,6 +326,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="admin/catalogs" element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
         <Route
           path="admin/*"
           element={
@@ -314,7 +335,16 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="privacy" element={<PrivacyPage />} />
+        {/* Notification centre (issue #107) — every signed-in role has an inbox. */}
+        <Route
+          path="notifications"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
+              <NotificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="privacy/analytics" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
           </Routes>

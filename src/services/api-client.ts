@@ -1,6 +1,6 @@
 // Transport for docforum-core's API — the *only* place base URL, credentials,
-// auth headers, timeouts, cancellation, GET de-duplication and the error
-// envelope live. Feature services call the typed client from
+// auth headers, retry policy, timeouts, cancellation, GET de-duplication and
+// the error envelope live. Feature services call the typed client from
 // `@docforum/api-client` (see packages/api-client/) through the `api` export
 // below, or the compatibility `apiFetch*` helpers for routes that are not yet
 // in the vendored OpenAPI fixture. Neither feature code nor the generated
@@ -10,9 +10,21 @@
 // cross-site `SameSite=None; Secure` cookie (GitHub Pages and Render are
 // different domains), which `fetch` only sends/stores with this flag.
 import { createApiClient, type ApiTransport, type TransportOptions } from '@docforum/api-client';
+import { useAuthStore } from '../store/auth-store';
+import { readCsrfToken } from './csrf-storage';
+import type { AuthSession } from './auth-service';
+import { notifyRateLimit } from '../store/rate-limit-store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
+/** Absolute URL for a path on docforum-core. Exported for the one client API
+ * that cannot go through `fetch`: `EventSource` (notification stream, #107)
+ * needs a full URL and cannot send an Authorization header. */
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
+/** The configured base URL, for callers that build an absolute URL themselves. */
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
@@ -86,6 +98,50 @@ export class ApiError extends Error {
   }
 }
 
+/** Fallback when a 429 arrives without a usable `Retry-After` header. */
+export const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
+/**
+ * A `429 Too Many Requests` from docforum-core, carrying the wait the server
+ * asked for. Every surface derives its countdown from `retryAfterSeconds` so
+ * nothing retries sooner than `Retry-After` allows (issue #80).
+ */
+export class RateLimitError extends ApiError {
+  constructor(
+    message: string,
+    public readonly retryAfterSeconds: number,
+    body?: unknown,
+    extra: ConstructorParameters<typeof ApiError>[3] = {},
+  ) {
+    super(message, 429, body, extra);
+    this.name = 'RateLimitError';
+  }
+
+  get retryAfterMs(): number {
+    return this.retryAfterSeconds * 1000;
+  }
+}
+
+/**
+ * Parse a `Retry-After` header (delta-seconds or an HTTP date) into whole
+ * seconds. Returns `null` when the header is absent or unusable, so callers
+ * can fall back to `DEFAULT_RETRY_AFTER_SECONDS`.
+ */
+export function parseRetryAfter(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const value = header.trim();
+  if (value === '') return null;
+
+  if (/^\d+$/.test(value)) {
+    const seconds = Number(value);
+    return Number.isSafeInteger(seconds) ? seconds : null;
+  }
+
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return null;
+  return Math.max(0, Math.ceil((date - now) / 1000));
+}
+
 /** Error code used when the request never reached the backend. */
 export const NETWORK_ERROR_CODE = 'NETWORK_ERROR';
 
@@ -104,15 +160,61 @@ export class ApiTimeoutError extends Error {
   }
 }
 
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+
+/** Retry tuning for a single request. Inject `sleep` in tests. */
+export interface RetryOptions {
+  maxAttempts?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   accessToken?: string | null;
+  /** Sent only on the cookie-authenticated routes (`/auth/refresh`,
+   * `/auth/logout`). */
+  csrfToken?: string | null;
   signal?: AbortSignal;
+  /**
+   * Stable key for one logical mutation attempt. Preset on POST/PATCH/DELETE
+   * requests that are safe to retry: the same key is sent on every retry so
+   * docforum-core can deduplicate (docforum-core#48).
+   */
+  idempotencyKey?: string;
+  /** `false` disables retries entirely. */
+  retry?: RetryOptions | false;
   /** Milliseconds before the request fails with `ApiTimeoutError`.
    * Defaults to `DEFAULT_TIMEOUT_MS`; slow endpoints use
    * `SLOW_REQUEST_TIMEOUT_MS`. `0` disables the timeout (tests only). */
   timeoutMs?: number;
+}
+
+const DEFAULT_READ_ATTEMPTS = 3;
+/** Retried only when the caller supplied an Idempotency-Key. */
+const DEFAULT_IDEMPOTENT_MUTATION_ATTEMPTS = 2;
+const DEFAULT_BASE_DELAY_MS = 300;
+const DEFAULT_MAX_DELAY_MS = 4_000;
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function createIdempotencyKey(): string {
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+  // Non-secure-context fallback (crypto.randomUUID needs a secure context
+  // in some browsers). Still unique enough per attempt, and never reused
+  // across attempts because the caller creates it once.
+  return `df-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+export function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
 }
 
 /** True when `error` is a caller-initiated cancellation (React Query
@@ -121,6 +223,76 @@ export interface RequestOptions {
 export function isAbortError(error: unknown): boolean {
   if (error instanceof ApiTimeoutError || error instanceof ApiError) return false;
   return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError';
+}
+
+/** Network failures and retryable HTTP statuses. 4xx is never retried. */
+export function isRetryableError(error: unknown): boolean {
+  if (isAbortError(error)) return false;
+  // A 429 must wait for its Retry-After; the transport's short backoff would
+  // retry too early. React Query's retryDelay (query-client.ts) honours it.
+  if (error instanceof RateLimitError) return false;
+  // Transport failures are wrapped as `NETWORK_ERROR` ApiErrors (see
+  // `fetchResponse`), so treat that code like a bare fetch TypeError.
+  if (error instanceof ApiError) {
+    return error.code === NETWORK_ERROR_CODE || isRetryableStatus(error.status);
+  }
+  // fetch() rejects with TypeError on network failure (offline, DNS, CORS).
+  return error instanceof TypeError;
+}
+
+export function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/** Exponential backoff with jitter, capped at `maxDelayMs`. */
+export function computeBackoffMs(
+  attempt: number,
+  baseDelayMs = DEFAULT_BASE_DELAY_MS,
+  maxDelayMs = DEFAULT_MAX_DELAY_MS,
+  random: () => number = Math.random,
+): number {
+  const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(0, attempt - 1));
+  return Math.round(exponential * (0.5 + random() * 0.5));
+}
+
+function resolveMaxAttempts(options: RequestOptions, method: string): number {
+  if (options.retry === false) return 1;
+  if (options.retry?.maxAttempts !== undefined) return Math.max(1, options.retry.maxAttempts);
+  if (method === 'GET') return DEFAULT_READ_ATTEMPTS;
+  // Hard rule: a mutation without an Idempotency-Key is never retried
+  // automatically — a flaky connection must not become a double booking.
+  return options.idempotencyKey ? DEFAULT_IDEMPOTENT_MUTATION_ATTEMPTS : 1;
+}
+
+async function withRetry<T>(
+  options: RequestOptions,
+  method: string,
+  run: () => Promise<T>,
+  controller?: AbortController,
+): Promise<T> {
+  const maxAttempts = resolveMaxAttempts(options, method);
+  const retry = options.retry === false ? {} : (options.retry ?? {});
+  const sleep = retry.sleep ?? defaultSleep;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      const canRetry =
+        attempt < maxAttempts &&
+        isRetryableError(error) &&
+        !isOffline() &&
+        options.signal?.aborted !== true &&
+        controller?.signal.aborted !== true;
+      if (!canRetry) throw error;
+      await sleep(
+        computeBackoffMs(attempt, retry.baseDelayMs ?? DEFAULT_BASE_DELAY_MS, retry.maxDelayMs ?? DEFAULT_MAX_DELAY_MS),
+      );
+    }
+  }
+  throw lastError;
 }
 
 type ParseMode = 'json' | 'blob';
@@ -138,12 +310,66 @@ interface InflightEntry {
  * and timeout. Mutations never reach this map (see `apiFetch`). */
 const inflight = new Map<string, InflightEntry>();
 
+/** Shared single-flight refresh. Resolves to the new access token, or null
+ * when the session could not be restored. Never rejects: callers only need
+ * to know whether to retry. */
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function refreshSession(): Promise<string | null> {
+  refreshInFlight ??= performRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<string | null> {
+  const csrfToken = useAuthStore.getState().csrfToken ?? readCsrfToken();
+  try {
+    // Cookie-only body (the refresh token is httpOnly); the CSRF token is
+    // echoed in the header per docforum-core's Phase 8 contract.
+    const session = await executeOnce<AuthSession>('/auth/refresh', { method: 'POST', csrfToken }, 'json');
+    useAuthStore.getState().setSession(session.user, session.accessToken, session.csrfToken);
+    return session.accessToken;
+  } catch (error) {
+    // A rejected refresh (expired/revoked cookie, or a rejected CSRF token)
+    // means the session is genuinely gone. A network error might just be a
+    // Render cold start, so keep the local session and let the caller see
+    // the original 401; the next protected call will try again.
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      useAuthStore.getState().clearSession();
+    }
+    return null;
+  }
+}
+
+/**
+ * Run one request, and on a `401` refresh the session once and replay it
+ * with the new access token. The replay is a fresh request (new de-dup key,
+ * because the token is part of it), so it never reuses a failed response.
+ * The original `401` is rethrown when the session cannot be restored.
+ */
+async function withAuthRetry<T>(
+  options: RequestOptions,
+  run: (options: RequestOptions) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(options);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || !options.accessToken) throw error;
+    const refreshedToken = await refreshSession();
+    if (!refreshedToken) throw error;
+    return run({ ...options, accessToken: refreshedToken });
+  }
+}
+
 function buildHeaders(options: RequestOptions, parse: ParseMode, hasForm = false): Record<string, string> {
   const headers: Record<string, string> = parse === 'json' ? { Accept: 'application/json' } : {};
   // A multipart body must keep the browser-generated boundary, so it never
   // sets Content-Type here.
   if (!hasForm && options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
+  if (options.csrfToken) headers['X-CSRF-Token'] = options.csrfToken;
+  if (options.idempotencyKey) headers[IDEMPOTENCY_HEADER] = options.idempotencyKey;
   return headers;
 }
 
@@ -182,17 +408,25 @@ async function throwForResponse(response: Response): Promise<never> {
   // partially-rolled-out backend still surfaces a usable code.
   const nested = (envelope as { error?: ApiErrorEnvelope }).error;
   const source = nested && typeof nested === 'object' ? nested : envelope;
+  const extra = {
+    code: asString(source.code),
+    details: source.details,
+    requestId: asString(source.requestId) ?? asString(headerRequestId),
+  };
 
-  throw new ApiError(
-    asString(source.message) ?? response.statusText,
-    response.status,
-    payload,
-    {
-      code: asString(source.code),
-      details: source.details,
-      requestId: asString(source.requestId) ?? asString(headerRequestId),
-    },
-  );
+  if (response.status === 429) {
+    const seconds = parseRetryAfter(response.headers.get('Retry-After')) ?? DEFAULT_RETRY_AFTER_SECONDS;
+    // One global, non-blocking notice regardless of which caller hit the limit.
+    notifyRateLimit(seconds);
+    throw new RateLimitError(
+      asString(source.message) ?? 'Too many requests. Please try again shortly.',
+      seconds,
+      payload,
+      extra,
+    );
+  }
+
+  throw new ApiError(asString(source.message) ?? response.statusText, response.status, payload, extra);
 }
 
 async function parseResponse<T>(response: Response, parse: ParseMode): Promise<T> {
@@ -308,7 +542,12 @@ async function executeOnce<T>(
       credentials: 'include',
       body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
     };
-    return await runFetch<T>(`${API_BASE_URL}${path}`, init, path, timeoutMs, controller, parse);
+    return await withRetry(
+      options,
+      method,
+      () => runFetch<T>(`${API_BASE_URL}${path}`, init, path, timeoutMs, controller, parse),
+      controller,
+    );
   } finally {
     unlink();
   }
@@ -344,7 +583,12 @@ async function executeDeduped<T>(path: string, options: RequestOptions, parse: P
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     };
     const created: InflightEntry = { controller, refs: 0, promise: Promise.resolve() };
-    created.promise = runFetch<T>(`${API_BASE_URL}${path}`, init, path, timeoutMs, controller, parse).finally(() => {
+    created.promise = withRetry(
+      options,
+      'GET',
+      () => runFetch<T>(`${API_BASE_URL}${path}`, init, path, timeoutMs, controller, parse),
+      controller,
+    ).finally(() => {
       if (inflight.get(key) === created) inflight.delete(key);
     });
     inflight.set(key, created);
@@ -376,21 +620,27 @@ async function executeDeduped<T>(path: string, options: RequestOptions, parse: P
   }
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
   // Never de-duplicate mutations: replaying a POST's response for a second
   // caller would hide the fact that two writes happened (or didn't).
-  return method === 'GET'
-    ? executeDeduped<T>(path, options, 'json')
-    : executeOnce<T>(path, options, 'json');
+  return withAuthRetry(options, (attemptOptions) =>
+    method === 'GET'
+      ? executeDeduped<T>(path, attemptOptions, 'json')
+      : executeOnce<T>(path, attemptOptions, 'json'),
+  );
 }
 
 export interface FormRequestOptions {
   method?: 'POST' | 'PATCH';
   accessToken?: string | null;
+  /** Same CSRF rules as `RequestOptions.csrfToken`. */
+  csrfToken?: string | null;
   signal?: AbortSignal;
   /** Same budget rules as `RequestOptions.timeoutMs`. */
   timeoutMs?: number;
+  idempotencyKey?: string;
+  retry?: RetryOptions | false;
 }
 
 /** Multipart upload. Always a mutation, so it is never de-duplicated, and
@@ -401,14 +651,16 @@ export async function apiFetchForm<T>(
   options: FormRequestOptions = {},
 ): Promise<T> {
   const request: RequestOptions = { ...options, method: options.method ?? 'POST' };
-  return executeOnce<T>(path, request, 'json', formData);
+  return withAuthRetry(request, (attemptOptions) => executeOnce<T>(path, attemptOptions, 'json', formData));
 }
 
-export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+export function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const method = options.method ?? 'GET';
-  return method === 'GET'
-    ? executeDeduped<Blob>(path, options, 'blob')
-    : executeOnce<Blob>(path, options, 'blob');
+  return withAuthRetry(options, (attemptOptions) =>
+    method === 'GET'
+      ? executeDeduped<Blob>(path, attemptOptions, 'blob')
+      : executeOnce<Blob>(path, attemptOptions, 'blob'),
+  );
 }
 
 export interface UploadOptions {
@@ -501,6 +753,7 @@ const transport: ApiTransport = {
       accessToken: options.accessToken,
       signal: options.signal,
       timeoutMs: options.timeoutMs,
+      idempotencyKey: options.idempotencyKey,
     };
     return apiFetch<T>(path, request);
   },

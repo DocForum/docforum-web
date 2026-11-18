@@ -81,7 +81,12 @@ export function CreatePaymentIntentForm({ onCreated }: { onCreated: (intentId: s
         <FormField name="orderId" label="Order id" />
         <FormField name="patientProfileId" label="Patient profile id" />
         <FormField name="facilityId" label="Facility id" />
-        <FormField name="amountStroops" label="Amount (stroops)" inputMode="numeric" />
+        <FormField
+          name="amountStroops"
+          label="Amount (stroops)"
+          inputMode="numeric"
+          hint="Minor units, e.g. 10000000 = 1.00 XLM."
+        />
 
         <Button type="submit" loading={createMutation.isPending}>
           {createMutation.isPending ? 'Creating…' : 'Create'}

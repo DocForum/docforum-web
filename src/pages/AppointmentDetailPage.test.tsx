@@ -156,7 +156,8 @@ describe('AppointmentDetailPage', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Your appointment' })).toBeInTheDocument();
-    expect(screen.getByText(DOCTOR.fullName)).toBeInTheDocument();
+    // The clinician lookup resolves after the appointment itself.
+    expect(await screen.findByText(DOCTOR.fullName)).toBeInTheDocument();
     expect(screen.getByText(ORIGINAL_TIME)).toBeInTheDocument();
     expect(screen.getByText('Scheduled')).toBeInTheDocument();
     expect(screen.getByText('Confirmed — this appointment is going ahead.')).toBeInTheDocument();

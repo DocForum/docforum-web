@@ -5,8 +5,11 @@ import { FacilityTurnaroundCard } from './FacilityTurnaroundCard';
 import { FacilityVolumeChart } from './FacilityVolumeChart';
 import { FacilityRejectionReasonsCard } from './FacilityRejectionReasonsCard';
 import { FacilityDisputeCard } from './FacilityDisputeCard';
-import { Spinner } from '../../../components/Spinner';
 import { Button } from '../../../components/Button';
+import { InlineError } from '../../../components/states/InlineError';
+import { PageError } from '../../../components/states/PageError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useAuthStore } from '../../../store/auth-store';
 import { csvFilename, downloadCsv, facilityInsightsToCsv } from '../facility-insights';
 import type { DateRangePreset, FacilityPerformanceInsights } from '../../../types/models';
@@ -48,12 +51,10 @@ export function FacilityInsightsView({
 
   const insights = initialData ?? query.data;
 
-  if (!insights && (query.isLoading || !accessToken)) {
+  if (!initialData && (query.isLoading || !accessToken)) {
     return (
       <div className={styles.container}>
-        <div className={styles.loadingRow} role="status">
-          <Spinner size={24} /> Loading facility performance insights…
-        </div>
+        <Skeleton lines={6} height="2.75rem" label="Loading facility performance insights" />
       </div>
     );
   }
@@ -61,10 +62,12 @@ export function FacilityInsightsView({
   if (!insights) {
     return (
       <div className={styles.container}>
-        <div className={styles.errorBox} role="alert">
-          Could not load facility performance insights
-          {query.error ? `: ${query.error.message}` : '.'}
-        </div>
+        <PageError
+          title="Could not load facility performance insights"
+          message={queryErrorMessage(query.error)}
+          onRetry={() => void query.refetch()}
+          fallback={{ label: 'Back to the queue', to: '/facility' }}
+        />
       </div>
     );
   }
@@ -102,12 +105,11 @@ export function FacilityInsightsView({
       </header>
 
       {query.isError && (
-        <div className={styles.caveatBanner} role="alert">
-          <span className={styles.caveatPill}>Notice</span>
-          <span>
-            Live insights API returned an error; showing the last data loaded for this range.
-          </span>
-        </div>
+        <InlineError
+          title="Showing the last data loaded"
+          message={queryErrorMessage(query.error)}
+          onRetry={() => void query.refetch()}
+        />
       )}
 
       <FacilityTurnaroundCard metrics={insights.turnaround} />

@@ -5,9 +5,13 @@ import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/us
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
-import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
+import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
 
 const NOTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
@@ -36,7 +40,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const t = useT();
   const [addendumContent, setAddendumContent] = useState('');
   const [confirmingSignOff, setConfirmingSignOff] = useState(false);
-  const [editing, setEditing] = useState(!Boolean(query.data?.signedAt));
+  const [editing, setEditing] = useState(!query.data?.signedAt);
 
   const note = query.data;
   const signed = Boolean(note?.signedAt);
@@ -81,9 +85,30 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
     setAddendumContent('');
   };
 
-  if (query.isLoading) return <div className={styles.loading}>{t('consultation.loading', 'Loading note…')}</div>;
-  if (query.isError || !note) {
-    return <div className={styles.empty}>{t('consultation.loadError', 'Could not load this consultation note.')}</div>;
+  if (query.isLoading) {
+    return (
+      <div className={styles.loading}>
+        <Skeleton lines={4} label={t('consultation.loading', 'Loading note…')} />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <InlineError
+        title={t('consultation.loadError', 'Could not load this consultation note.')}
+        message={queryErrorMessage(query.error)}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
+  if (!note) {
+    return (
+      <EmptyState
+        title="No consultation note for this visit yet"
+        description="Notes are written and signed off during the consultation. Start the visit to record one."
+        action={{ label: 'Back to your dashboard', to: '/doctor' }}
+      />
+    );
   }
 
   return (
@@ -131,8 +156,11 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
             <>
               {editing ? (
                 <>
+                  <label htmlFor="consultation-note-content" className="srOnly">
+                    Consultation note content
+                  </label>
                   <textarea
-                    aria-label="Consultation note draft"
+                    id="consultation-note-content"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     className={styles.content}
@@ -163,14 +191,22 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
       ) : (
         <>
           <div className={styles.contentReadOnly}>{note.content}</div>
-          <div className={styles.signedBadge}>Signed {formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS)}</div>
+          <div className={styles.signedBadge}>
+            {t('consultation.signedAt', 'Signed {date}', {
+              date: formatZonedDateTime(note.signedAt, timeZone, NOTE_TIME_OPTIONS),
+            })}
+          </div>
 
-          <h2 className={styles.addendaHeading}>Addenda</h2>
+          <h2 className={styles.addendaHeading}>{t('consultation.addenda', 'Addenda')}</h2>
           <div className={styles.addendumComposer}>
+            <label htmlFor="consultation-addendum" className="srOnly">
+              Addendum content
+            </label>
             <textarea
+              id="consultation-addendum"
               value={addendumContent}
               onChange={(e) => setAddendumContent(e.target.value)}
-              placeholder='{t("consultation.addendumPlaceholder", "Add an addendum…")}'
+              placeholder={t('consultation.addendumPlaceholder', 'Add an addendum…')}
               className={styles.addendumInput}
               spellCheck={false}
             />

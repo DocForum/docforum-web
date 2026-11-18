@@ -15,6 +15,12 @@
 
 import type { HealthSectionKey } from './types/models';
 
+export const orderKeys = {
+  all: ['orders'] as const,
+  mine: () => ['orders', 'mine'] as const,
+  detail: (orderId: string) => ['orders', 'detail', orderId] as const,
+};
+
 /**
  * Appointments. `today()` is the doctor's live view for the dashboard and
  * queue panel; `list(profileId)` is the patient-facing list that issue #3
@@ -124,6 +130,14 @@ export const flagKeys = {
   history: () => ['admin', 'flags', 'history'] as const,
 };
 
+export const catalogKeys = {
+  all: ['admin', 'catalogs'] as const,
+  page: (catalog: string, search: string, page: number, pageSize: number) =>
+    ['admin', 'catalogs', catalog, search, page, pageSize] as const,
+  usage: (catalog: string, id: string) => ['admin', 'catalogs', catalog, id, 'usage'] as const,
+  mappings: (symptomId: string) => ['admin', 'catalogs', 'symptoms', symptomId, 'specialties'] as const,
+};
+
 export const accountKeys = {
   all: ['account'] as const,
   dataExport: () => ['account', 'data-export'] as const,
@@ -196,8 +210,25 @@ export const insightKeys = {
   params: (params: unknown) => ['doctor', 'insights', params] as const,
 };
 
+/** In-app notification inbox (issue #107). One list key per page size — the
+ * cursor lives in the infinite query, never in the key (a cursor in the key
+ * would create a cache entry per page and break invalidation). */
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  list: (limit: number) => ['notifications', 'list', limit] as const,
+  streamTicket: () => ['notifications', 'stream-ticket'] as const,
+};
+
 export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+};
+
+/** First-run onboarding summary (#121). One key per role: the server scopes
+ * the response to the session, so there is nothing else to key on. */
+export const onboardingKeys = {
+  all: ['onboarding'] as const,
+  patient: () => ['onboarding', 'patient'] as const,
+  doctor: () => ['onboarding', 'doctor'] as const,
 };

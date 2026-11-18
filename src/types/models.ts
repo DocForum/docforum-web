@@ -11,6 +11,47 @@
 
 export type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
+// --- Admin controlled vocabularies (Phase W6, issue #67; provisional until
+// docforum-core catalog contracts land) -----------------------------------
+export type CatalogKind = 'specialties' | 'symptoms' | 'medications' | 'lab-tests';
+
+export interface AdminCatalogItem {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  active: boolean;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminCatalogPage {
+  items: AdminCatalogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AdminCatalogInput {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface AdminSymptomSpecialtyMapping {
+  id: string;
+  symptomId: string;
+  specialtyId: string;
+  specialtyName: string;
+  weight: number;
+}
+
+export interface AdminSymptomMappingInput {
+  specialtyId: string;
+  weight: number;
+}
+
 // --- Session idle timeout (issue #82) — ASSUMED, not yet in docforum-core --
 // Shared clinical devices: the backend is expected to be able to push its
 // own per-role idle timeout, which takes precedence over the frontend
@@ -163,6 +204,8 @@ export interface Order {
   /** The facility the patient chose (null if not yet assigned). */
   facilityName: string | null; // assumed — not yet in schema.prisma
   patientProfileId: string;
+  /** Confirmation window for fulfilled orders (issue #35). */
+  confirmationWindow?: OrderConfirmationWindow | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -326,6 +369,19 @@ interface OrderVersionBase {
   issuedByDoctorName?: string | null;
   requiresFacilitySelection: boolean;
   selectedFacility?: OrderFacilitySummary | null;
+  // --- Partial fulfilment (issue #54, docforum-core#73 assumed) -----------
+  // Optional so main's W2 order screens keep compiling; the partial-fulfilment
+  // screens in `features/orders` read these.
+  patientName?: string;
+  medicationOrTest?: string;
+  expiresAt?: string;
+  facilityId?: string | null;
+  facilityName?: string | null;
+  fulfillmentStatus?: PartialFulfillmentStatus;
+  items?: OrderItemFulfillment[];
+  payment?: OrderPaymentSummary;
+  /** Confirmation window for fulfilled orders (issue #35). */
+  confirmationWindow?: OrderConfirmationWindow | null;
 }
 
 export interface Prescription extends OrderVersionBase {
@@ -388,6 +444,74 @@ export interface QualifiedOrderFacility extends FacilityProfile {
 export interface SelectOrderFacilityInput {
   facilityId: string;
   expectedVersion: number;
+}
+
+// --- Phase W4 — Facility settings & price lists (issue #56) -----------------
+// Assumed contracts pending docforum-core#74 (facility location) and
+// docforum-core#127 (versioned facility price lists). See
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W4".
+
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface FacilityOpeningHours {
+  day: Weekday;
+  closed: boolean;
+  /** 24-hour `HH:mm`, or null when the facility is closed that day. */
+  opensAt: string | null;
+  closesAt: string | null;
+}
+
+export interface FacilitySettings {
+  facilityId: string;
+  name: string;
+  type: FacilityType;
+  address: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string;
+  email: string | null;
+  openingHours: FacilityOpeningHours[];
+  updatedAt: string;
+}
+
+export interface FacilitySettingsInput {
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  email: string | null;
+  openingHours: FacilityOpeningHours[];
+}
+
+export interface CatalogItem {
+  /** Stable catalog code stored on a FacilityPrice. */
+  code: string;
+  name: string;
+  type: FacilityType;
+  description?: string | null;
+}
+
+/** One immutable version of a facility price. The row effective latest on or
+ * before now is the current price; future rows are scheduled changes. */
+export interface FacilityPrice {
+  id: string;
+  facilityId: string;
+  catalogItemCode: string;
+  catalogItemName: string;
+  asset: PayoutAsset;
+  /** BigInt-safe raw stroops — 1 XLM/USDC = 10,000,000 stroops. */
+  amountStroops: string;
+  effectiveFrom: string;
+  createdAt: string;
+}
+
+export interface FacilityPriceInput {
+  catalogItemCode: string;
+  asset: PayoutAsset;
+  amountStroops: string;
+  effectiveFrom: string;
 }
 
 // --- Phase W3 — Doctor core flow (assumed, docforum-core issues #61/#129 not
@@ -650,7 +774,13 @@ export interface RemoveMemberResponse {
 }
 
 export type FulfillmentOrderType = 'prescription' | 'lab';
-export type FulfillmentItemStatus = 'pending' | 'in_progress' | 'fulfilled' | 'rejected';
+export type FulfillmentItemStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'partially_dispensed'
+  | 'fulfilled'
+  | 'dispensed_elsewhere'
+  | 'rejected';
 
 export interface FulfillmentActionAttribution {
   action: 'dispensed' | 'sample_collected' | 'verified' | 'rejected';
@@ -681,10 +811,82 @@ export interface FulfillmentQueueItem {
   patientProfileId: string;
   itemName: string;
   instructions?: string | null;
+  /** Links this facility queue row to the patient's order item. */
+  orderItemId?: string;
   status: FulfillmentItemStatus;
   receivedAt: string;
   attribution?: FulfillmentActionAttribution | null;
   labResult?: FulfillmentLabResult | null;
+  // --- Partial fulfilment (issue #54, docforum-core#73 assumed) -----------
+  quantityPrescribed?: number;
+  quantityDispensed?: number;
+  quantityOutstanding?: number;
+  unit?: string;
+  canDispense?: boolean;
+  blockedReason?: string | null;
+  dispensedByFacilityId?: string | null;
+  dispensedByFacilityName?: string | null;
+}
+
+// --- Phase W4 — Partial fulfilment (issue #54, depends on
+// docforum-core#73) ---------------------------------------------------------
+// Assumed contract: order-level status is derived from item-level rows.
+// The exact payment-release rule is backend-owned and pending #73; the UI
+// renders `payment.rule` rather than computing/guessing a release amount.
+
+export type PartialFulfillmentStatus =
+  | 'unfulfilled'
+  | 'partially_fulfilled'
+  | 'fulfilled'
+  | 'rejected';
+
+export type OrderItemFulfillmentStatus =
+  | 'pending'
+  | 'partially_dispensed'
+  | 'dispensed'
+  | 'dispensed_elsewhere'
+  | 'rejected';
+
+/** Item-level fulfilment row for a patient order (issue #54). Named
+ * `OrderItemFulfillment` rather than `OrderItem` so it doesn't collide with
+ * `OrderItem` above, which is the plain line item on main's `Order`. */
+export interface OrderItemFulfillment {
+  id: string;
+  orderId: string;
+  name: string;
+  instructions?: string | null;
+  quantityPrescribed: number;
+  quantityDispensed: number;
+  quantityOutstanding: number;
+  unit: string;
+  status: OrderItemFulfillmentStatus;
+  dispensedByFacilityId?: string | null;
+  dispensedByFacilityName?: string | null;
+  dispensedAt?: string | null;
+  routedToFacilityId?: string | null;
+  routedToFacilityName?: string | null;
+  /** Backend-derived: false once another facility dispensed or the
+   * remaining quantity was routed elsewhere. */
+  canDispense: boolean;
+  blockedReason?: string | null;
+}
+
+export interface OrderPaymentSummary {
+  status: 'held' | 'partially_released' | 'released' | 'refunded' | 'none';
+  heldStroops: string;
+  releasedStroops: string;
+  refundedStroops: string;
+  /** Plain-language rule supplied by docforum-core, shown verbatim. */
+  rule: string;
+}
+
+export interface DispenseFulfillmentItemInput {
+  quantity: number;
+}
+
+export interface RouteRemainingItemsInput {
+  facilityId: string;
+  itemIds: string[];
 }
 
 export type FulfillmentStatusUpdate = 'in_progress' | 'fulfilled' | 'rejected';
@@ -1235,6 +1437,32 @@ export interface FeatureFlag {
   updatedAt: string;
 }
 
+// --- Invitation redemption — admins & facility staff (issue #81, PRD OQ-2) ---
+// Admins and facility staff never self-register; they join through an
+// invite link. These shapes are ASSUMED: they depend on docforum-core#39
+// (admin invites) and docforum-core#75 (facility staff invites), neither
+// of which has landed. See ARCHITECTURE_ESSENTIALS.md "Known assumptions".
+
+/** Roles an invite may grant. Never patient/doctor — those self-serve. */
+export type InviteRole = Extract<Role, 'facility' | 'admin'>;
+
+export type AccountInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface AccountInvite {
+  id: string;
+  email: string;
+  /** The role the account gets — server-side, from the invite. It is never
+   * a form field; the client cannot choose or change it. */
+  role: InviteRole;
+  organisationName: string;
+  organisationType: string | null;
+  /** Full name of the person who sent the invite, if the server exposes it. */
+  invitedBy: string | null;
+  status: AccountInviteStatus;
+  invitedAt: string;
+  expiresAt: string;
+}
+
 /** Only the fields being changed are sent. */
 export interface UpdateFeatureFlagInput {
   enabled?: boolean;
@@ -1244,6 +1472,41 @@ export interface UpdateFeatureFlagInput {
    * someone else changed the flag in the meantime. */
   expectedUpdatedAt: string;
 }
+
+// --- Phase W2 — Doctor search & symptom-based search (issue #30, builds on
+// issue #1) ---------------------------------------------------------------
+// Both endpoints are assumed: docforum-core#23 (doctor list) and
+// docforum-core#60 (symptom → specialty mapping, controlled vocabulary,
+// no ML) haven't landed. See ARCHITECTURE_ESSENTIALS.md "Known
+// assumptions — Phase W2 — doctor & symptom search".
+
+/** Patient-facing availability filter for doctor search. `week` means a
+ * slot in the next 7 days; `today` means a slot before midnight today. */
+export type AvailabilityFilter = 'any' | 'week' | 'today';
+
+/** One entry of the backend's controlled symptom vocabulary. Patients pick
+ * from these — free-text is never sent to a doctor-search endpoint. */
+export interface SymptomSuggestion {
+  slug: string;
+  term: string;
+}
+
+/** Which specialties treat a vocabulary symptom (docforum-core#60). */
+export interface SymptomSpecialtyMapping {
+  slug: string;
+  term: string;
+  specialties: Specialty[];
+}
+
+export interface DoctorSearchQuery {
+  specialtyIds?: string[];
+  availability?: AvailabilityFilter;
+}
+
+/** A doctor as offered to a patient searching by specialty/symptom. Same
+ * shape the admin referral console uses (`DoctorAvailability`) — one
+ * entity, one shape, per ARCHITECTURE_ESSENTIALS.md hard rule 2. */
+export type DoctorSearchResult = DoctorAvailability;
 
 export interface AbnormalResult {
   id: string;
@@ -1420,6 +1683,28 @@ export interface PaymentHistoryPage {
   nextCursor: string | null;
 }
 
+// --- First-run onboarding (#121) --------------------------------------------
+// Assumed shape: docforum-core has no onboarding summary endpoint yet. Each
+// flag is computed by the server from real records — never from a browser
+// flag — so the checklist is correct on a new device:
+//   patient: profile fields, at least one health entry, at least one past
+//            facility/symptom search;
+//   doctor:  verification documents submitted, at least one specialty
+//            registered, at least one open availability slot.
+// See ARCHITECTURE_ESSENTIALS.md "Known assumptions — First-run onboarding".
+
+export interface PatientOnboardingStatus {
+  profileComplete: boolean;
+  healthProfileComplete: boolean;
+  firstSearchComplete: boolean;
+}
+
+export interface DoctorOnboardingStatus {
+  documentsComplete: boolean;
+  specialtiesComplete: boolean;
+  availabilityComplete: boolean;
+}
+
 // --- Phase W6 — Fulfilment disputes (issue #76) -----------------------------
 // Assumed contract: docforum-core#76 (facility fulfilment proof + patient
 // receipt confirmation/dispute) has not landed. Endpoint paths and shapes are
@@ -1519,6 +1804,58 @@ export interface ResolveDisputeInput {
 export interface DisputeAttachmentUrl {
   url: string;
   expiresAt: string;
+}
+
+// --- Phase W2 — Patient confirm receipt / report problem (issue #35) ---------
+// Assumed contract: patient-side dispute initiation endpoints not yet in
+// docforum-core. The patient can confirm receipt of a fulfilled order or
+// report a problem within a time window. See ARCHITECTURE_ESSENTIALS.md
+// "Known assumptions".
+
+/** The confirmation window for a fulfilled order — the patient must confirm
+ * or dispute within this time. */
+export interface OrderConfirmationWindow {
+  /** ISO timestamp when the window closes. */
+  deadlineAt: string;
+  /** What happens if the patient takes no action. */
+  inactionConsequence: 'auto_confirm' | 'escrow_held' | 'refund_pending';
+}
+
+/** Patient confirms they received the order correctly. */
+export interface ConfirmReceiptInput {
+  /** The order the patient is confirming. */
+  orderId: string;
+  /** The `updatedAt` the patient saw — a 409 means someone else acted. */
+  expectedUpdatedAt: string;
+}
+
+/** Patient reports a problem with the order fulfillment. */
+export interface ReportProblemInput {
+  /** The order the patient is disputing. */
+  orderId: string;
+  /** Why the patient is reporting a problem. */
+  reason: DisputeReason;
+  /** Additional details about the problem. */
+  description: string;
+  /** The `updatedAt` the patient saw — a 409 means someone else acted. */
+  expectedUpdatedAt: string;
+}
+
+/** Response from confirming receipt — the updated order. */
+export interface ConfirmReceiptResponse {
+  orderId: string;
+  status: OrderStatus;
+  confirmedAt: string;
+  updatedAt: string;
+}
+
+/** Response from reporting a problem — the created dispute. */
+export interface ReportProblemResponse {
+  disputeId: string;
+  orderId: string;
+  status: DisputeStatus;
+  submittedAt: string;
+  updatedAt: string;
 }
 
 // --- Phase W5 — Pay with wallet (issue #59) ---------------------------------
@@ -1749,6 +2086,75 @@ export interface RedeliverResponse {
   status: WebhookDeliveryStatus;
 }
 
+// --- Notification centre (issue #107) ---------------------------------------
+// Assumed contract: docforum-core#93 (Notification model, provider-agnostic
+// dispatch interface and the in-app inbox API) has not landed. The shapes
+// follow what that issue asks for and are recorded in
+// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Notification centre".
+
+/** Known notification kinds. The API may add more, so a payload's `kind` is
+ * typed as `NotificationKind | string` and unknown values render generically. */
+export type NotificationKind =
+  | 'appointment_booked'
+  | 'appointment_reminder'
+  | 'appointment_cancelled'
+  | 'referral_created'
+  | 'referral_accepted'
+  | 'order_issued'
+  | 'order_fulfilled'
+  | 'order_rejected'
+  | 'result_ready'
+  | 'payment_due'
+  | 'payment_escrowed'
+  | 'payment_released'
+  | 'payment_refunded'
+  | 'message_received'
+  | 'dispute_opened'
+  | 'dispute_resolved';
+
+/** One in-app notification. PHI-light by design: the title/body are written
+ * by docforum-core for display and must never carry clinical detail beyond
+ * what the destination screen already shows the recipient. */
+export interface Notification {
+  id: string;
+  kind: NotificationKind | string;
+  title: string;
+  /** One-line, PHI-light summary. Rendered as text only, never HTML. */
+  body: string;
+  /** App-relative deep link (`/patient/orders/ord-1`), validated before use;
+   * `null` for kinds that have no destination. */
+  link: string | null;
+  /** `null` while unread. */
+  readAt: string | null;
+  createdAt: string;
+}
+
+/** Cursor-paginated inbox page. `unreadCount` is the server's total for the
+ * whole inbox (not this page), so the bell badge is correct before every
+ * page has been loaded. */
+export interface NotificationPage {
+  items: Notification[];
+  nextCursor: string | null;
+  unreadCount: number;
+}
+
+/** Ticket for the live SSE stream. `EventSource` cannot send an Authorization
+ * header, so the short-lived ticket — never the access token — travels in the
+ * stream URL. */
+export interface NotificationStreamTicket {
+  /** Opaque, single-use, expires within a minute. */
+  ticket: string;
+  /** App-relative stream path including the ticket, e.g.
+   * `/notifications/stream?ticket=…`. */
+  streamPath: string;
+  expiresAt: string;
+}
+
+/** A live `notification` SSE event's payload. */
+export type NotificationStreamEvent =
+  | { type: 'notification'; notification: Notification; unreadCount: number }
+  | { type: 'read'; notificationIds: string[]; unreadCount: number };
+
 // --- Phase W7 — Evaluated feature flags for the signed-in user (issue #111) --
 // Assumed shape pending docforum-core#132: `GET /me/flags` returns the
 // server-evaluated boolean for every flag that applies to this user. The
@@ -1825,4 +2231,23 @@ export interface CreatePaymentIntentInput {
   patientProfileId: string;
   facilityId: string;
   amountStroops: string;
+}
+
+// --- Active sessions and devices (#79) ---------------------------------------
+// Mapped from docforum-core's `GET /auth/sessions` in auth-service.ts. Coarse
+// device only: the UI never shows the IP address the API returns.
+
+export interface ActiveSession {
+  id: string;
+  /** Coarse label derived from the user agent, e.g. "iPhone · Safari". */
+  device: string;
+  /** Coarse city/country, or null when unknown (core doesn't report one yet). */
+  approximateLocation: string | null;
+  lastActiveAt: string;
+  createdAt: string;
+  isCurrent: boolean;
+}
+
+export interface RevokeOtherSessionsResult {
+  revokedCount: number;
 }

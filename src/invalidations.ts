@@ -19,12 +19,14 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import {
   accountKeys,
+  catalogKeys,
   appointmentKeys,
   auditKeys,
   dependentKeys,
   facilityKeys,
   flagKeys,
   healthKeys,
+  orderKeys,
   paymentKeys,
   queueKeys,
   referralKeys,
@@ -53,6 +55,7 @@ export const invalidations = {
   'admin.run-job': () => [systemKeys.all],
   /** Flag writes update the list and its "last changed by…" audit lookup. */
   'admin.feature-flags.write': () => [flagKeys.all],
+  'admin.catalog.write': () => [catalogKeys.all],
   /** Reassignment/cancellation moved the stuck queue we're showing. */
   'admin.referral.settled': () => [referralKeys.stuckRoot()],
   /** A 422 means the picker's candidate list is stale, not the queue. */
@@ -79,6 +82,8 @@ export const invalidations = {
   ],
   /** A requested export changes the status card (and its polling cadence). */
   'account.data-export': () => [accountKeys.dataExport()],
+  /** Confirm receipt or report problem: the order detail and the patient's order list. */
+  'order.confirm-action': (orderId: string) => [orderKeys.detail(orderId), orderKeys.mine()],
 };
 
 export type InvalidationKey = keyof typeof invalidations;

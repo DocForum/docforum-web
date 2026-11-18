@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/auth-store';
 import { CreatePaymentIntentForm } from '../features/payments/components/CreatePaymentIntentForm';
 import { PaymentIntentPanel } from '../features/payments/components/PaymentIntentPanel';
 import { TextField } from '../components/TextField';
+import { Button } from '../components/Button';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useT } from '../i18n/useT';
 
@@ -51,6 +52,7 @@ export function AdminDashboardPage() {
         <p>
           <Link to="/admin/flags">Manage feature flags</Link> to stage rollouts like wallet payments or 2FA enforcement.
         </p>
+        <p><Link to="/admin/catalogs">Manage catalogs</Link> to curate specialties, symptom routing, medications and lab tests.</p>
         <p>
           <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
         </p>
@@ -60,17 +62,26 @@ export function AdminDashboardPage() {
         <CreatePaymentIntentForm onCreated={setSelectedIntentId} />
       </ErrorBoundary>
 
-      <div className="card">
-        <h2>{t('admin.lookupTitle', 'Look up an existing payment intent')}</h2>
-        <TextField
-          label={t('admin.paymentIntentId', 'Payment intent id')}
-          value={lookupId}
-          onChange={(e) => setLookupId(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setSelectedIntentId(lookupId);
+      <section className="card" aria-labelledby="lookup-heading">
+        <h2 id="lookup-heading">{t('admin.lookupTitle', 'Look up an existing payment intent')}</h2>
+        <form
+          aria-label={t('admin.lookupTitle', 'Look up an existing payment intent')}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (lookupId.trim()) setSelectedIntentId(lookupId.trim());
           }}
-        />
-      </div>
+        >
+          <TextField
+            label={t('admin.paymentIntentId', 'Payment intent id')}
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+            hint={t('admin.paymentIntentIdHint', 'Paste the id returned when the intent was created.')}
+          />
+          <Button type="submit" variant="secondary">
+            {t('admin.lookup', 'Look up')}
+          </Button>
+        </form>
+      </section>
 
       {selectedIntentId && (
         <ErrorBoundary level="section">

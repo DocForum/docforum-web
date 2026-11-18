@@ -18,6 +18,8 @@ export interface CallOptions {
   signal?: AbortSignal;
   /** Milliseconds before the request fails with the transport's timeout error. */
   timeoutMs?: number;
+  /** Stable key for one logical mutation attempt. Safe to retry. */
+  idempotencyKey?: string;
 }
 
 export interface TransportOptions {
@@ -27,6 +29,8 @@ export interface TransportOptions {
   signal?: AbortSignal;
   /** Milliseconds before the request fails with the transport's timeout error. */
   timeoutMs?: number;
+  /** Stable key for one logical mutation attempt. Safe to retry. */
+  idempotencyKey?: string;
 }
 
 export interface ApiTransport {

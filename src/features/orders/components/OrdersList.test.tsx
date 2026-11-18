@@ -1,69 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '../../../test/render';
-import { useAuthStore } from '../../../store/auth-store';
+import { renderWithProviders, screen, waitFor } from '../../../test/render';
+import {
+  makeLabOrder,
+  makePrescriptionOrder,
+  makeQualifiedOrderFacility,
+} from '../../../test/factories';
 import * as ordersService from '../../../services/orders-service';
-import type { PatientOrder, QualifiedOrderFacility } from '../../../types/models';
 import { OrdersList } from './OrdersList';
 
 vi.mock('../../../services/orders-service');
 
-const ORDERS: PatientOrder[] = [
-  {
+// Built with the shared factories (#105) instead of hand-written objects: the
+// test states only the fields it asserts on, and factory output always matches
+// `src/types/models.ts`.
+const ORDERS = [
+  makePrescriptionOrder({
     id: 'rx-v2',
-    patientProfileId: 'pat-1',
-    orderType: 'prescription',
     version: 2,
     supersedesId: 'rx-v1',
-    status: 'active',
-    issuedAt: '2026-10-03T09:00:00Z',
-    requiresFacilitySelection: true,
-    selectedFacility: null,
     medication: 'Corrected medicine (fake)',
-    dose: 'One tablet daily',
-  },
-  {
+    issuedAt: '2026-10-03T09:00:00Z',
+  }),
+  makePrescriptionOrder({
     id: 'rx-v1',
-    patientProfileId: 'pat-1',
-    orderType: 'prescription',
     version: 1,
-    supersedesId: null,
     status: 'superseded',
-    issuedAt: '2026-10-01T09:00:00Z',
-    requiresFacilitySelection: true,
-    selectedFacility: null,
     medication: 'Original medicine (fake)',
-    dose: 'One tablet daily',
-  },
-  {
+    issuedAt: '2026-10-01T09:00:00Z',
+  }),
+  makeLabOrder({
     id: 'lab-1',
-    patientProfileId: 'pat-1',
-    orderType: 'lab_order',
-    version: 1,
-    supersedesId: null,
-    status: 'active',
-    issuedAt: '2026-10-04T09:00:00Z',
-    requiresFacilitySelection: true,
-    selectedFacility: null,
     testName: 'Demo blood panel (fake)',
-    fastingRequired: true,
-  },
+    issuedAt: '2026-10-04T09:00:00Z',
+  }),
 ];
 
-const FACILITIES: QualifiedOrderFacility[] = [
-  {
-    id: 'fac-lab',
-    userId: 'usr-lab',
-    name: 'Demo Lab (fake)',
-    type: 'lab',
-    isOpen: true,
-    capabilities: ['Sample collection'],
-    location: { address: '2 Fixture Lane', city: 'Sampleton', latitude: 0, longitude: 0 },
-  },
-];
+const FACILITIES = [makeQualifiedOrderFacility({ id: 'fac-lab', name: 'Demo Lab (fake)' })];
 
 beforeEach(() => {
-  useAuthStore.setState({ accessToken: 'test-token', user: null });
   vi.mocked(ordersService.listMyOrders).mockResolvedValue(ORDERS);
   vi.mocked(ordersService.listQualifiedFacilities).mockResolvedValue(FACILITIES);
   vi.mocked(ordersService.selectFulfillingFacility).mockResolvedValue({
@@ -74,7 +49,7 @@ beforeEach(() => {
 
 describe('OrdersList', () => {
   it('links each current order to its detail page (issue #61)', async () => {
-    render(<OrdersList />);
+    renderWithProviders(<OrdersList />, { role: 'patient' });
 
     expect(await screen.findByRole('heading', { name: 'Your orders' })).toBeInTheDocument();
     // Only current versions are listed, so the superseded rx-v1 has no link.
@@ -86,7 +61,7 @@ describe('OrdersList', () => {
   });
 
   it('shows only the current version of a superseded order', async () => {
-    render(<OrdersList />);
+    renderWithProviders(<OrdersList />, { role: 'patient' });
 
     expect(await screen.findByText('Corrected medicine (fake)')).toBeInTheDocument();
     expect(screen.queryByText('Original medicine (fake)')).not.toBeInTheDocument();
@@ -96,7 +71,7 @@ describe('OrdersList', () => {
 
   it('loads qualified facilities and records the selected facility', async () => {
     const user = userEvent.setup();
-    render(<OrdersList />);
+    renderWithProviders(<OrdersList />, { role: 'patient' });
 
     await screen.findByText('Demo blood panel (fake)');
     const chooseButtons = screen.getAllByRole('button', { name: /choose facility/i });
@@ -106,7 +81,7 @@ describe('OrdersList', () => {
     expect(screen.getByText('Demo Lab (fake)')).toBeInTheDocument();
     expect(ordersService.listQualifiedFacilities).toHaveBeenCalledWith(
         'lab-1',
-        'test-token',
+        'test-patient-token',
         expect.any(AbortSignal),
       );
 
@@ -116,7 +91,7 @@ describe('OrdersList', () => {
       expect(ordersService.selectFulfillingFacility).toHaveBeenCalledWith(
         'lab-1',
         { facilityId: 'fac-lab', expectedVersion: 1 },
-        'test-token',
+        'test-patient-token',
       );
     });
     expect(await screen.findByText(/will be fulfilled by demo lab/i)).toBeInTheDocument();

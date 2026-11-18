@@ -47,7 +47,7 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   margin: 0;
-  padding-left: var(--space-5);
+  padding-inline-start: var(--space-5);
 }
 
 .accessList li {

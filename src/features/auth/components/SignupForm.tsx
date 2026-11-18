@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -12,7 +12,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useSignup } from '../hooks/useSignup';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 import type { SelfServeRole } from '../../../types/models';
 
 const signupSchema = z.object({
@@ -31,17 +33,34 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [role, setRole] = useState<SelfServeRole>('patient');
   const form = useZodForm(signupSchema, { fullName: '', email: '', password: '' });
   const signupMutation = useSignup();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(signupMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { errors } = form.formState;
+
+  // Move focus to the first problem after a failed submit so keyboard and
+  // screen-reader users do not have to hunt through the form.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   async function onSubmit(data: SignupFormData) {
     setServerError(null);
     try {
       await signupMutation.mutateAsync({ role, ...data });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout (issue #80): countdown + disabled submit, same as login.
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -57,8 +76,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+      <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
+        {signupMutation.isPending && (
+          <p className="srOnly" role="status">
+            Creating your account. Please wait.
+          </p>
+        )}
         {isSlow && (
           <p className="slowHint" role="status">
             <Spinner size={14} />
@@ -73,8 +98,9 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           label={t('auth.password', 'Password')}
           type="password"
           autoComplete="new-password"
+          hint={t('auth.passwordHint', 'At least 8 characters.')}
         />
-        <Button type="submit" loading={signupMutation.isPending}>
+        <Button type="submit" loading={signupMutation.isPending} disabled={lockout.isLockedOut}>
           {signupMutation.isPending ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create account')}
         </Button>
       </form>

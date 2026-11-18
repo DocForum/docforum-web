@@ -107,7 +107,7 @@
 .threadLineSvg {
   flex: 1;
   width: 100%;
-  margin-left: var(--space-2);
+  margin-inline-start: var(--space-2);
   overflow: visible;
 }
 

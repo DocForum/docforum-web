@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime } from '../../../i18n/time-zone';
@@ -150,29 +152,18 @@ export function AuditResults(props: AuditResultsProps) {
   const { tab, isLoading, isFetching, isPlaceholderData, error, pageCount, visibleCount, nextCursor } = props;
 
   if (isLoading) {
-    return (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading {NOUNS[tab]}…</span>
-      </div>
-    );
+    return <Skeleton lines={6} height="1.75rem" label={`Loading ${NOUNS[tab]}`} />;
   }
 
   if (error) {
     const { message, staleCursor } = describeAuditError(error, tab);
     return (
-      <div className={styles.errorBox} role="alert">
-        <p>{message}</p>
-        {staleCursor ? (
-          <Button variant="secondary" onClick={props.onNewest}>
-            Back to newest
-          </Button>
-        ) : (
-          <Button variant="secondary" onClick={props.onRetry}>
-            Try again
-          </Button>
-        )}
-      </div>
+      <InlineError
+        title="This page couldn't be loaded"
+        message={message}
+        onRetry={staleCursor ? props.onNewest : props.onRetry}
+        retryLabel={staleCursor ? 'Back to newest' : 'Try again'}
+      />
     );
   }
 
@@ -201,7 +192,11 @@ export function AuditResults(props: AuditResultsProps) {
       </div>
 
       {visibleCount === 0 ? (
-        <p className={styles.empty}>{props.emptyMessage}</p>
+        <EmptyState
+          title={props.emptyMessage}
+          description="Adjust the filters above, or jump back to the newest entries."
+          action={{ label: 'Back to newest', onClick: props.onNewest }}
+        />
       ) : (
         <div className={`${styles.tableWrapper} ${isPlaceholderData ? styles.stale : ''}`}>{props.children}</div>
       )}

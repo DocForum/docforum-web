@@ -14,7 +14,11 @@ export function FacilityDashboardPage() {
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
       <nav className={styles.tabsNav} aria-label={t('facility.tabsNavAria', 'Facility navigation')}>
-        <Link to="/facility" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
+        <Link
+          to="/facility"
+          className={`${styles.tabLink} ${styles.tabLinkActive}`}
+          aria-current="page"
+        >
           {t('facility.tabQueue', 'Fulfillment Queue')}
         </Link>
         <Link to="/facility/verify" className={styles.tabLink}>
@@ -31,6 +35,9 @@ export function FacilityDashboardPage() {
         </Link>
         <Link to="/facility/insights" className={styles.tabLink}>
           Performance
+        </Link>
+        <Link to="/facility/settings" className={styles.tabLink}>
+          Settings
         </Link>
       </nav>
 

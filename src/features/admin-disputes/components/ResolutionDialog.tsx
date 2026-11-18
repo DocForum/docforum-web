@@ -91,7 +91,6 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
       previous?.focus();
     };
     // Focus is set once on open; the dialog owns focus until it closes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function close() {

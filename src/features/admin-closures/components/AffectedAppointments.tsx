@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
+import type { AffectedAppointment } from '../../../types/models';
 
 interface AffectedAppointmentsProps {
   closureId: string;
-  data?: any[];
+  data?: AffectedAppointment[];
 }
 
 export function AffectedAppointments({ closureId, data }: AffectedAppointmentsProps) {

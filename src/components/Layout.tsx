@@ -15,8 +15,12 @@ import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitch
 import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { OfflineBanner } from './OfflineBanner';
+import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
+import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
+import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
@@ -78,6 +82,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 
   if (userRole === 'patient') {
     base.push(
+      { to: '/patient/search', label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
       { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
       { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
       { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
@@ -96,6 +101,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
       { to: '/facility/verify', label: 'Verify Order', roles: ['facility'] },
       { to: '/facility/team', label: 'Team', roles: ['facility'], messageId: 'nav.team' },
       { to: '/facility/payments', label: 'Payouts', roles: ['facility'] },
+      { to: '/facility/integrations', label: 'Integrations', roles: ['facility'] },
     );
   } else if (userRole === 'admin') {
     base.push(
@@ -106,6 +112,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
       { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
       { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },
       { to: '/admin/flags', label: 'Flags', roles: ['admin'] },
+      { to: '/admin/catalogs', label: 'Catalogs', roles: ['admin'] },
       { to: '/admin/system', label: 'System', roles: ['admin'] },
     );
   }
@@ -124,12 +131,26 @@ export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
 
   // Close the drawer on route change.
   useEffect(() => {
     setDrawerOpen(false);
+  }, [location.pathname]);
+
+  // SPA route changes otherwise leave focus on the clicked link. Move it
+  // to the main landmark so keyboard/screen-reader users start at the new
+  // content, without stealing focus on first paint.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus();
   }, [location.pathname]);
 
   const closeDrawer = useCallback(() => {
@@ -172,6 +193,10 @@ export function Layout() {
       <a href="#main-content" className={styles.skipLink}>
         Skip to content
       </a>
+
+      <OfflineBanner />
+      {/* Global, non-blocking 429 notice (issue #80). */}
+      <RateLimitNotice />
 
       <header className={styles.header} role="banner">
         <div className={styles.brandBar}>
@@ -236,10 +261,17 @@ export function Layout() {
         <div className={styles.headerActions}>
           <LanguageSwitcher />
           <RecordSearch />
-          <ProfileSwitcher />
-          <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
-            {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
-          </Button>
+          {/* In-app inbox (issue #107): unread badge + dropdown, then the
+              full list at /notifications. Hidden while signed out. */}
+          <NotificationBell />
+          {user && (
+            <>
+              <ProfileSwitcher />
+              <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -329,8 +361,16 @@ export function Layout() {
         <div className={styles.drawerOverlay} onClick={closeDrawer} aria-hidden="true" />
       )}
 
-      <main className={styles.main} id="main-content" role="main">
-        <PageHeader title={routeTitle(location.pathname)} />
+      <main
+        ref={mainRef}
+        className={styles.main}
+        id="main-content"
+        role="main"
+        tabIndex={-1}
+      >
+        {/* Public information pages (#120) render their own <header>/<h1>;
+            the app shell must not add a second one. */}
+        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>
@@ -338,6 +378,9 @@ export function Layout() {
 
       <footer className={styles.footer} role="contentinfo">
         <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
+        <Link to="/accessibility" className={styles.navLink}>
+          {t('app.accessibility', 'Accessibility')}
+        </Link>
         <a href="/privacy" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Privacy &amp; analytics</a>
       </footer>
     </div>

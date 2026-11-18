@@ -6,7 +6,7 @@
 // `amountStroops` stays a string end-to-end: BigInt values come over the wire
 // as strings and must never round-trip through a JS number.
 import type { Schemas } from '@docforum/api-client';
-import { api, apiFetch, ApiError } from './api-client';
+import { api, apiFetch, ApiError, createIdempotencyKey } from './api-client';
 import type {
   FacilityLedgerPage,
   PayoutAsset,
@@ -15,7 +15,11 @@ import type {
 } from '../types/models';
 
 export function linkWallet(stellarPublicKey: string, accessToken: string): Promise<Schemas['WalletLink']> {
-  return api.payments.linkWallet({ stellarPublicKey }, { accessToken });
+  return api.payments.linkWallet(
+    { stellarPublicKey },
+    // One key per user action; api-client reuses it across network retries.
+    { accessToken, idempotencyKey: createIdempotencyKey() },
+  );
 }
 
 export function getOwnWalletLink(accessToken: string, signal?: AbortSignal): Promise<Schemas['WalletLink']> {
@@ -28,7 +32,7 @@ export function createPaymentIntent(
   input: CreatePaymentIntentInput,
   accessToken: string,
 ): Promise<Schemas['PaymentIntent']> {
-  return api.payments.createIntent(input, { accessToken });
+  return api.payments.createIntent(input, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
 export function getPaymentIntent(
@@ -63,15 +67,15 @@ export function getPaymentIntentForOrder(
 }
 
 export function fundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
-  return api.payments.fundIntent(id, { accessToken });
+  return api.payments.fundIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
 export function releasePaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
-  return api.payments.releaseIntent(id, { accessToken });
+  return api.payments.releaseIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
 export function refundPaymentIntent(id: string, accessToken: string): Promise<Schemas['PaymentIntent']> {
-  return api.payments.refundIntent(id, { accessToken });
+  return api.payments.refundIntent(id, { accessToken, idempotencyKey: createIdempotencyKey() });
 }
 
 // --- Pay with wallet (issue #59) -------------------------------------------

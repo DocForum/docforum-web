@@ -7,10 +7,12 @@ import type { PatientAppointment, Dependent, HealthEntry, HealthSectionKey } fro
 import * as dependentsService from '../services/dependents-service';
 import * as healthService from '../services/health-profile-service';
 import * as appointmentsService from '../services/appointments-service';
+import * as onboardingService from '../services/onboarding-service';
 
 vi.mock('../services/dependents-service');
 vi.mock('../services/health-profile-service');
 vi.mock('../services/appointments-service');
+vi.mock('../services/onboarding-service');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,14 +60,6 @@ function laterToday(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 50, 0);
 }
 
-/** The next calendar day at a fixed hour. `now + 26h` only lands on
- * "tomorrow" while the clock is before 22:00 — later runs slide two days out
- * and the card drops to a bare date instead of the label under test. */
-function tomorrow(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0);
-}
-
 function appointment(start: Date, status: PatientAppointment['status'] = 'scheduled'): PatientAppointment {
   return {
     id: 'apt-1',
@@ -96,6 +90,13 @@ describe('PatientDashboardPage care hub', () => {
     vi.mocked(healthService.listHealthEntries).mockReset();
     vi.mocked(appointmentsService.listMyAppointments).mockReset();
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([]);
+    vi.mocked(onboardingService.getPatientOnboarding).mockReset();
+    // Default: setup finished, so these tests describe the care hub itself.
+    vi.mocked(onboardingService.getPatientOnboarding).mockResolvedValue({
+      profileComplete: true,
+      healthProfileComplete: true,
+      firstSearchComplete: true,
+    });
     mockHealth();
   });
 
@@ -222,9 +223,15 @@ describe('PatientDashboardPage care hub', () => {
 
   it('files a later visit under Coming up without promising check-in today', async () => {
     vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
-    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([
-      appointment(tomorrow()),
-    ]);
+    // "Tomorrow" in the component's own terms is the calendar day of
+    // now + 24h (formatSlotDate compares against that), so build the visit
+    // from that day. A raw now + 26h only lands on it when the run starts
+    // before 22:00 local — after that it crosses two midnights and the label
+    // falls back to a plain date. Noon keeps the slot unambiguously ahead of
+    // the patient, so the card lands under "Coming up".
+    const tomorrow = new Date(Date.now() + DAY_MS);
+    const visit = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 12, 0, 0);
+    vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([appointment(visit)]);
 
     render(<PatientDashboardPage />);
 
@@ -272,5 +279,24 @@ describe('PatientDashboardPage care hub', () => {
     expect(screen.queryByText(/Loading your care summary/i)).not.toBeInTheDocument();
     expect(appointmentsService.listMyAppointments).not.toHaveBeenCalled();
     expect(screen.queryByText(/could not be loaded/i)).not.toBeInTheDocument();
+  });
+
+  it('shows first-run setup progress from the server summary', async () => {
+    vi.mocked(dependentsService.listDependents).mockResolvedValue([]);
+    vi.mocked(onboardingService.getPatientOnboarding).mockResolvedValue({
+      profileComplete: true,
+      healthProfileComplete: false,
+      firstSearchComplete: false,
+    });
+
+    render(<PatientDashboardPage />);
+
+    expect(await screen.findByText('1 of 3 done')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Get set up' })).toHaveAttribute(
+      'aria-valuenow',
+      '1',
+    );
+    // The hub below is still fully usable while onboarding is unfinished.
+    expect(screen.getByRole('heading', { name: 'What needs your attention' })).toBeInTheDocument();
   });
 });

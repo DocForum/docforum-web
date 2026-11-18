@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -11,7 +11,9 @@ import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLogin } from '../hooks/useLogin';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -27,17 +29,36 @@ export interface LoginFormProps {
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const form = useZodForm(loginSchema, { email: '', password: '' });
   const loginMutation = useLogin();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
   const t = useT();
   const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { errors } = form.formState;
+
+  // Move focus to the first problem after a failed submit so keyboard and
+  // screen-reader users do not have to hunt through the form.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
       await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      lockout.reset();
       onSuccess?.();
     } catch (error) {
+      // 429 lockout: show a countdown and keep submit disabled until it ends.
+      // The message is account-agnostic on purpose — it must not reveal
+      // whether the email exists (issue #80).
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         const fieldErrors = mapServerErrors(error.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -53,8 +74,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+      <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
+        {loginMutation.isPending && (
+          <p className="srOnly" role="status">
+            Logging in. Please wait.
+          </p>
+        )}
         {isSlow && (
           <p className="slowHint" role="status">
             <Spinner size={14} />
@@ -68,7 +95,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
         />
-        <Button type="submit" loading={loginMutation.isPending}>
+        <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
           {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
         </Button>
       </form>

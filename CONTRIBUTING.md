@@ -92,6 +92,71 @@ scoped (and why).
 - CI (typecheck, tests, build) must pass before merge — it runs
   automatically on your PR.
 
+## 5. Preview builds for every pull request
+
+Every PR gets a preview **artifact**, built in **mock-API mode**, so reviewers
+can walk through a change without checking it out:
+
+- `pr-preview-build.yml` builds the PR on `pull_request` (read-only token, no
+  secrets), runs the tests, checks that the bundle is mock-only, and uploads
+  `dist/` as a downloadable artifact.
+- `pr-preview-comment.yml` runs on `workflow_run` and comments a link to the
+  artifact. It resolves the PR from the build run itself, so it also works for
+  fork PRs (GitHub leaves `workflow_run.pull_requests` empty for those).
+- The artifact is **never published** to GitHub Pages or any other shared
+  origin. A PR controls its own build, so serving it from `docforum.github.io`
+  would put contributor JavaScript on the real app's origin. Artifacts are
+  private to the repository and expire after 14 days.
+- Download the artifact, unzip it, and serve the folder locally, for example
+  `npx serve <folder>`.
+
+The preview runs against the MSW mock API only (`npm run dev:mock`'s handlers
+and fixtures), seeded with obviously fake `@example.test` data. It is built
+with a reserved-invalid API URL, so it cannot reach the real backend even if a
+request escapes the mocks. `npm run check:preview` fails the build if either
+guarantee is missing; since the PR controls that script, treat it as a quality
+gate rather than a security boundary — the security property is that the build
+is never served from a shared origin.
+
+Fork code therefore never runs in a job that holds a write token or a secret,
+and the privileged comment job never checks out or executes anything the PR
+produced. Keep it that way: if a preview needs a secret, it belongs in the
+build job's *public* config, never a token.
+
+`npm run dev:mock` is still the fastest way to review locally; preview builds
+are for "there is a runnable bundle attached to the PR".
+
+## 6. Shared test utilities and the coverage gate
+
+- `src/test/render.tsx` — `renderWithProviders(ui, { route, role, session })`
+gives a component the providers the app actually uses (fresh React Query
+client, router, optional signed-in role). `render` remains the plain entry
+point.
+- `src/test/factories.ts` — typed factories for every model
+(`makePrescriptionOrder`, `makeNotification`, …). State only the fields the
+test asserts on; do not hand-write model objects.
+- `src/test/server.ts` — one MSW server for the run. Tests that exercise the
+real `src/services/` layer hit the same handlers as `npm run dev:mock`.
+- `npm run test:coverage` enforces thresholds on `src/features/` and
+`src/services/` (configured in `vite.config.ts`) and runs in CI. Thresholds
+are a floor at the level measured when they were set: raise them when you add
+coverage, never lower them to make a PR pass.
+
+## 7. Loading, empty and error states
+
+New screens use the shared components from `src/components/states/` instead
+of inventing local spinners and error paragraphs:
+
+- `Skeleton` — loading placeholder; animation stops under
+  `prefers-reduced-motion`.
+- `EmptyState` — an empty screen always offers the next action (the prop is
+  required).
+- `InlineError` — a failed section inside an otherwise working screen, with
+  an optional retry.
+- `PageError` — a route whose primary query failed, with retry and a way out.
+- `QueryState` — picks skeleton / error / empty / content from a React Query
+  result, so a screen never reimplements that decision.
+
 ## Found a bug instead?
 
 Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md), not

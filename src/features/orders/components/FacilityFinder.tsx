@@ -6,7 +6,9 @@ import { FacilityCard } from './FacilityCard';
 import { FacilityMap } from './FacilityMap';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useT } from '../../../i18n/useT';
@@ -36,7 +38,12 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
     [selectedType, coordinates, areaQuery],
   );
 
-  const { data: facilities = [], isLoading: isSearching, error: searchError } = useFacilitySearch(searchParams);
+  const {
+    data: facilities = [],
+    isLoading: isSearching,
+    error: searchError,
+    refetch: refetchFacilities,
+  } = useFacilitySearch(searchParams);
 
   const handleSelectFacility = (facility: FacilityWithDistance) => {
     setSelectedFacilityId(facility.id);
@@ -127,25 +134,31 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
       </div>
 
       {searchError && (
-        <FormError message={errorMessage(searchError) ?? t('facilityFinder.fetchError', 'Error fetching facilities')} />
+        <InlineError
+          title="Facilities couldn't be loaded"
+          message={errorMessage(searchError) ?? t('facilityFinder.fetchError', 'Error fetching facilities')}
+          onRetry={() => void refetchFacilities()}
+        />
       )}
 
       {isSearching && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--color-text-muted)' }}>
-          <Spinner size={16} />
-          <span>Finding eligible facilities…</span>
-        </div>
+        <Skeleton lines={3} height="2.5rem" label="Finding eligible facilities" />
       )}
 
       <div className={styles.layoutSplit}>
         <div className={styles.listColumn} role="feed" aria-busy={isSearching} aria-label="Facilities list">
-          {facilities.length === 0 && !isSearching && (
-            <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <p style={{ margin: 0 }}>No facilities found matching your criteria.</p>
-              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-xs)' }}>
-                Try adjusting your search query or enabling location for distance results.
-              </p>
-            </div>
+          {facilities.length === 0 && !isSearching && !searchError && (
+            <EmptyState
+              title="No facilities found matching your criteria"
+              description="Try a different area or postal code, or clear the filters to see every participating pharmacy and lab."
+              action={{
+                label: 'Clear search and filters',
+                onClick: () => {
+                  setAreaQuery('');
+                  setSelectedType(undefined);
+                },
+              }}
+            />
           )}
 
           {facilities.map((fac) => (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FacilityMemberList } from './FacilityMemberList';
 import { PendingInvitesList } from './PendingInvitesList';
 import { InviteMemberModal } from './InviteMemberModal';
@@ -104,9 +104,7 @@ export function FacilityTeamView({
   if (membersLoading) {
     return (
       <div className={styles.container}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
-          <Spinner size={24} />
-        </div>
+        <Skeleton lines={4} height="2.25rem" label="Loading facility team members" />
       </div>
     );
   }
@@ -140,7 +138,7 @@ export function FacilityTeamView({
   };
 
   return (
-    <div className={styles.container} aria-label="Facility team management">
+    <section className={styles.container} aria-label="Facility team management">
       <header className={styles.header}>
 <div className={styles.headerTitle}>
           <h1>{t('facilityTeam.title', 'Facility team & accounts')}</h1>
@@ -200,6 +198,6 @@ export function FacilityTeamView({
         isPending={inviteMutation.isPending}
         isOwner={isOwner}
       />
-    </div>
+    </section>
   );
 }

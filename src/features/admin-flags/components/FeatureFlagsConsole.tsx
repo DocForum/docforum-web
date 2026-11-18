@@ -1,7 +1,8 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useFeatureFlags, useFlagHistory, useSavingFlagKeys, useUpdateFeatureFlag } from '../hooks/useFeatureFlags';
 import { applyUpdate, draftFromFlag } from '../draft';
 import { describeListError, describeSaveError } from '../errors';
@@ -100,26 +101,37 @@ export function FeatureFlagsConsole() {
 
   let body;
   if (flags.isLoading) {
-    body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading feature flags…</span>
-      </div>
-    );
+    body = <Skeleton lines={4} height="2.5rem" label="Loading feature flags" />;
   } else if (flags.error) {
     body = (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeListError(flags.error)}</p>
-        <Button variant="secondary" onClick={() => void flags.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title="Flags couldn't be loaded"
+        message={describeListError(flags.error)}
+        onRetry={() => void flags.refetch()}
+      />
     );
   } else if (visible.length === 0) {
     body = (
-      <p className={styles.empty}>
-        {all.length === 0 ? 'No feature flags are defined in this environment yet.' : 'No flags match these filters.'}
-      </p>
+      <EmptyState
+        title={
+          all.length === 0
+            ? 'No feature flags are defined in this environment yet.'
+            : 'No flags match these filters.'
+        }
+        description={
+          all.length === 0
+            ? 'Flags created in docforum-core appear here with their rollout and targeting.'
+            : 'Clear the search or filters to see every flag in this environment.'
+        }
+        action={
+          all.length === 0
+            ? { label: 'Refresh flags', onClick: () => void flags.refetch() }
+            : {
+                label: 'Clear filters',
+                onClick: () => updateFilters({ query: '', kind: 'all', state: 'all' }),
+              }
+        }
+      />
     );
   } else {
     body = (

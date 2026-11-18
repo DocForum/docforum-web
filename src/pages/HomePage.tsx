@@ -155,13 +155,21 @@ export function HomePage() {
         aria-label={t('home.threadAria', 'How a visit flows through DocForum')}
         ref={threadSectionRef}
       >
+        <h2 className="srOnly">{t('home.threadHeading', 'The care thread')}</h2>
         <ol className={styles.threadList}>
           {steps.map((step, i) => {
             const isFinal = i === steps.length - 1;
             return (
               <li key={step.key} className={styles.threadStep}>
                 <div className={styles.threadNode}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" className={styles.threadDotSvg}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    className={styles.threadDotSvg}
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <circle
                       ref={(el) => {
                         dotRefs.current[i] = el;
@@ -173,7 +181,13 @@ export function HomePage() {
                     />
                   </svg>
                   {!isFinal && (
-                    <svg className={styles.threadLineSvg} height="2" preserveAspectRatio="none">
+                    <svg
+                      className={styles.threadLineSvg}
+                      height="2"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
                       <line
                         ref={(el) => {
                           lineRefs.current[i] = el;

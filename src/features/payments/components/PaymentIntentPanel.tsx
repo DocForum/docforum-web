@@ -1,7 +1,11 @@
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useFormat } from '../../../i18n/useFormat';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { usePaymentIntent, useFundPaymentIntent, useReleasePaymentIntent, useRefundPaymentIntent } from '../hooks/usePaymentIntent';
+import { contractUrl, transactionUrl } from '../explorer';
 import type { PaymentIntentStatus } from '../../../types/models';
 
 const NEXT_ACTION: Record<PaymentIntentStatus, string | null> = {
@@ -20,19 +24,29 @@ const NEXT_ACTION: Record<PaymentIntentStatus, string | null> = {
  * triggers a real Stellar contract call on docforum-core's side — this
  * repo never touches Stellar directly (hard rule 1). */
 export function PaymentIntentPanel({ intentId }: { intentId: string }) {
+  const { formatAssetAmount } = useFormat();
   const intentQuery = usePaymentIntent(intentId);
   const fundMutation = useFundPaymentIntent();
   const releaseMutation = useReleasePaymentIntent();
   const refundMutation = useRefundPaymentIntent();
   const errorMessage = useErrorMessage();
 
-  if (intentQuery.isLoading) return <p>Loading…</p>;
+  if (intentQuery.isLoading) return <Skeleton lines={3} label="Loading payment intent" />;
   if (intentQuery.isError) {
-    return <FormError message={errorMessage(intentQuery.error)} />;
+    return (
+      <InlineError
+        title="This payment intent couldn't be loaded"
+        message={errorMessage(intentQuery.error) ?? 'Could not load this payment intent.'}
+        onRetry={() => void intentQuery.refetch()}
+      />
+    );
   }
 
   const intent = intentQuery.data;
   if (!intent) return null;
+
+  const txUrl = transactionUrl(intent.stellarTxHash);
+  const contractLink = contractUrl(intent.sorobanContractId);
 
   const pendingError = fundMutation.error ?? releaseMutation.error ?? refundMutation.error;
   const actionError = errorMessage(pendingError);
@@ -48,7 +62,10 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
           {intent.orderType} · {intent.orderId}
         </dd>
         <dt>Amount</dt>
-        <dd>{intent.amountStroops} stroops</dd>
+        <dd>
+          {formatAssetAmount(intent.amountStroops, 'XLM', { decimals: 7 })}{' '}
+          <small>({intent.amountStroops} stroops)</small>
+        </dd>
         {intent.escrowId && (
           <>
             <dt>On-chain escrow id</dt>
@@ -59,7 +76,27 @@ export function PaymentIntentPanel({ intentId }: { intentId: string }) {
           <>
             <dt>Last transaction</dt>
             <dd>
-              <code>{intent.stellarTxHash}</code>
+              {txUrl ? (
+                <a href={txUrl} target="_blank" rel="noopener noreferrer">
+                  <code>{intent.stellarTxHash}</code>
+                </a>
+              ) : (
+                <code>{intent.stellarTxHash}</code>
+              )}
+            </dd>
+          </>
+        )}
+        {intent.sorobanContractId && (
+          <>
+            <dt>Soroban contract</dt>
+            <dd>
+              {contractLink ? (
+                <a href={contractLink} target="_blank" rel="noopener noreferrer">
+                  <code>{intent.sorobanContractId}</code>
+                </a>
+              ) : (
+                <code>{intent.sorobanContractId}</code>
+              )}
             </dd>
           </>
         )}
