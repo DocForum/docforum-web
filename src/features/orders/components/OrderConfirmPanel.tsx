@@ -78,7 +78,7 @@ export function OrderConfirmPanel({
         orderId,
         expectedUpdatedAt: updatedAt,
       });
-    } catch (err) {
+    } catch {
       setError('Failed to confirm receipt. Please try again.');
     }
   }
@@ -103,7 +103,7 @@ export function OrderConfirmPanel({
       setShowReportDialog(false);
       setReportReason(null);
       setReportDescription('');
-    } catch (err) {
+    } catch {
       setError('Failed to report problem. Please try again.');
     }
   }
