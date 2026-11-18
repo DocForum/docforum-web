@@ -15,6 +15,12 @@
 
 import type { HealthSectionKey } from './types/models';
 
+export const orderKeys = {
+  all: ['orders'] as const,
+  mine: () => ['orders', 'mine'] as const,
+  detail: (orderId: string) => ['orders', 'detail', orderId] as const,
+};
+
 /**
  * Appointments. `today()` is the doctor's live view for the dashboard and
  * queue panel; `list(profileId)` is the patient-facing list that issue #3
