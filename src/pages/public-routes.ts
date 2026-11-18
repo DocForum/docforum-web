@@ -29,8 +29,11 @@ export interface PublicPageDef {
  * `VITE_PUBLIC_SITE_ORIGIN` — the canonical URL is absolute metadata about
  * the deployed site, so it must not depend on where a given build runs.
  */
+// PR preview builds (#104) must not reference the production origin at all
+// (scripts/check-preview-dist.mjs), so they fall back to a reserved host.
 export const SITE_ORIGIN =
-  (import.meta.env.VITE_PUBLIC_SITE_ORIGIN as string | undefined) ?? 'https://docforum.github.io';
+  (import.meta.env.VITE_PUBLIC_SITE_ORIGIN as string | undefined) ??
+  (import.meta.env.VITE_PREVIEW_MOCKS === 'true' ? 'https://preview.invalid' : 'https://docforum.github.io');
 
 /** Path prefix of the deployed GitHub Pages project site. */
 export const SITE_BASE = '/docforum-web/';
