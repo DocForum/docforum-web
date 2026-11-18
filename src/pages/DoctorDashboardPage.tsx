@@ -12,6 +12,7 @@ import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { useT } from '../i18n/useT';
 import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
+import { DoctorOnboarding } from '../features/onboarding/components/DoctorOnboarding';
 import styles from './DoctorDashboardPage.module.css';
 
 export function DoctorDashboardPage() {
@@ -109,6 +110,10 @@ export function DoctorDashboardPage() {
           </Button>
         </div>
       </header>
+
+      <ErrorBoundary level="section">
+        <DoctorOnboarding />
+      </ErrorBoundary>
 
       <ErrorBoundary level="section">
         <QueuePanel />

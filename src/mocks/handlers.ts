@@ -17,6 +17,7 @@ import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { integrationsHandlers } from './handlers/integrations';
 import { messagingHandlers } from './handlers/messaging';
+import { onboardingHandlers } from './handlers/onboarding';
 import { notificationHandlers } from './handlers/notifications';
 import { orderHandlers } from './handlers/orders';
 import { paymentsHandlers } from './handlers/payments';
@@ -42,6 +43,7 @@ export const handlers = [
   ...facilityHandlers,
   ...facilitySettingsHandlers,
   ...facilityTeamHandlers,
+  ...onboardingHandlers,
   ...featureFlagHandlers,
   ...eventHandlers,
   ...integrationsHandlers,

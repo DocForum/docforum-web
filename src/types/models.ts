@@ -163,6 +163,8 @@ export interface Order {
   /** The facility the patient chose (null if not yet assigned). */
   facilityName: string | null; // assumed — not yet in schema.prisma
   patientProfileId: string;
+  /** Confirmation window for fulfilled orders (issue #35). */
+  confirmationWindow?: OrderConfirmationWindow | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -318,6 +320,8 @@ interface OrderVersionBase {
   fulfillmentStatus?: PartialFulfillmentStatus;
   items?: OrderItemFulfillment[];
   payment?: OrderPaymentSummary;
+  /** Confirmation window for fulfilled orders (issue #35). */
+  confirmationWindow?: OrderConfirmationWindow | null;
 }
 
 export interface Prescription extends OrderVersionBase {
@@ -1613,6 +1617,28 @@ export interface PaymentHistoryPage {
   nextCursor: string | null;
 }
 
+// --- First-run onboarding (#121) --------------------------------------------
+// Assumed shape: docforum-core has no onboarding summary endpoint yet. Each
+// flag is computed by the server from real records — never from a browser
+// flag — so the checklist is correct on a new device:
+//   patient: profile fields, at least one health entry, at least one past
+//            facility/symptom search;
+//   doctor:  verification documents submitted, at least one specialty
+//            registered, at least one open availability slot.
+// See ARCHITECTURE_ESSENTIALS.md "Known assumptions — First-run onboarding".
+
+export interface PatientOnboardingStatus {
+  profileComplete: boolean;
+  healthProfileComplete: boolean;
+  firstSearchComplete: boolean;
+}
+
+export interface DoctorOnboardingStatus {
+  documentsComplete: boolean;
+  specialtiesComplete: boolean;
+  availabilityComplete: boolean;
+}
+
 // --- Phase W6 — Fulfilment disputes (issue #76) -----------------------------
 // Assumed contract: docforum-core#76 (facility fulfilment proof + patient
 // receipt confirmation/dispute) has not landed. Endpoint paths and shapes are
@@ -1712,6 +1738,58 @@ export interface ResolveDisputeInput {
 export interface DisputeAttachmentUrl {
   url: string;
   expiresAt: string;
+}
+
+// --- Phase W2 — Patient confirm receipt / report problem (issue #35) ---------
+// Assumed contract: patient-side dispute initiation endpoints not yet in
+// docforum-core. The patient can confirm receipt of a fulfilled order or
+// report a problem within a time window. See ARCHITECTURE_ESSENTIALS.md
+// "Known assumptions".
+
+/** The confirmation window for a fulfilled order — the patient must confirm
+ * or dispute within this time. */
+export interface OrderConfirmationWindow {
+  /** ISO timestamp when the window closes. */
+  deadlineAt: string;
+  /** What happens if the patient takes no action. */
+  inactionConsequence: 'auto_confirm' | 'escrow_held' | 'refund_pending';
+}
+
+/** Patient confirms they received the order correctly. */
+export interface ConfirmReceiptInput {
+  /** The order the patient is confirming. */
+  orderId: string;
+  /** The `updatedAt` the patient saw — a 409 means someone else acted. */
+  expectedUpdatedAt: string;
+}
+
+/** Patient reports a problem with the order fulfillment. */
+export interface ReportProblemInput {
+  /** The order the patient is disputing. */
+  orderId: string;
+  /** Why the patient is reporting a problem. */
+  reason: DisputeReason;
+  /** Additional details about the problem. */
+  description: string;
+  /** The `updatedAt` the patient saw — a 409 means someone else acted. */
+  expectedUpdatedAt: string;
+}
+
+/** Response from confirming receipt — the updated order. */
+export interface ConfirmReceiptResponse {
+  orderId: string;
+  status: OrderStatus;
+  confirmedAt: string;
+  updatedAt: string;
+}
+
+/** Response from reporting a problem — the created dispute. */
+export interface ReportProblemResponse {
+  disputeId: string;
+  orderId: string;
+  status: DisputeStatus;
+  submittedAt: string;
+  updatedAt: string;
 }
 
 // --- Phase W5 — Pay with wallet (issue #59) ---------------------------------

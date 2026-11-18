@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
+import { PatientOnboarding } from '../features/onboarding/components/PatientOnboarding';
 import { CareCardList } from '../features/care-hub/components/CareCardList';
 import { EmptyState } from '../components/states/EmptyState';
 import { InlineError } from '../components/states/InlineError';
@@ -29,11 +30,12 @@ function PatientHome() {
 
   // A source that failed must not blank the hub: its section says so, the
   // others still render from the data that did arrive.
-  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.health.isLoading;
+  const anyLoading = sources.dependents.isLoading || sources.appointments.isLoading || sources.orders.isLoading || sources.health.isLoading;
 
   return (
     <div className="container">
       <ActingForBanner />
+      <PatientOnboarding />
 
       <div className="card">
         <span className="statusPill">{t('patient.phasePill', 'Phase W2 · in progress')}</span>
@@ -45,7 +47,7 @@ function PatientHome() {
           <h2 id="action-needed" className={styles.heading}>
             Action needed
           </h2>
-          {sources.dependents.failed || sources.appointments.failed || sources.health.failed ? (
+          {sources.dependents.failed || sources.appointments.failed || sources.orders.failed || sources.health.failed ? (
             <InlineError
               title={null}
               message="Some of your information could not be loaded. Everything else below is still current — retry by reloading this page."
