@@ -64,7 +64,7 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
   const CrumbElement = As === 'h2' ? 'h2' : 'h1';
 
   return (
-    <header className={styles.pageHeader} role="banner">
+    <header className={styles.pageHeader}>
       <div className={styles.wrapper}>
         {breadcrumbs.length > 0 && (
           <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

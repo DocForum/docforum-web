@@ -137,9 +137,9 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
 
   return (
     <section className={styles.panel} aria-labelledby="consultation-outcome-heading">
-      <h3 id="consultation-outcome-heading" className={styles.heading}>
+      <h2 id="consultation-outcome-heading" className={styles.heading}>
         Outcome &amp; next steps
-      </h3>
+      </h2>
 
       {errors.notes ? (
         <p className={styles.error} role="alert">

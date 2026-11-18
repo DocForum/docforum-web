@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { Spinner } from '../../../components/Spinner';
+import { useRef, useState } from 'react';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import * as messagingService from '../../../services/messaging-service';
 import { useAuthStore } from '../../../store/auth-store';
@@ -52,6 +55,7 @@ export function MessageThread({ threadId }: Props) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderError, setOlderError] = useState<string | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const cursor = nextCursor ?? messagesQuery.data?.nextCursor ?? null;
   const messages = [...olderMessages, ...(messagesQuery.data?.messages ?? [])];
@@ -73,7 +77,7 @@ export function MessageThread({ threadId }: Props) {
   }
 
   return (
-    <div className={styles.thread}>
+    <div className={styles.thread} ref={threadRef}>
       <h1 className={styles.title}>Consultation messages</h1>
 
       {cursor && (
@@ -82,21 +86,28 @@ export function MessageThread({ threadId }: Props) {
         </button>
       )}
       {olderError && (
-        <p className={styles.error} role="alert">
-          {olderError}
-        </p>
+        <InlineError title={null} message={olderError} onRetry={() => void handleLoadOlder()} />
       )}
 
       {messagesQuery.isLoading ? (
         <div className={styles.loading}>
-          <Spinner size={20} />
+          <Skeleton lines={4} height="1.1rem" label="Loading messages" />
         </div>
       ) : messagesQuery.error ? (
-        <p className={styles.error} role="alert">
-          Could not load this thread.
-        </p>
+        <InlineError
+          title="This thread couldn't be loaded"
+          message={queryErrorMessage(messagesQuery.error)}
+          onRetry={() => void messagesQuery.refetch()}
+        />
       ) : messages.length === 0 ? (
-        <p className={styles.empty}>No messages yet. Start the conversation below.</p>
+        <EmptyState
+          title="No messages yet"
+          description="Ask a question, share how you're feeling, or send a photo of a document. Replies arrive here."
+          action={{
+            label: 'Write the first message',
+            onClick: () => threadRef.current?.querySelector('textarea')?.focus(),
+          }}
+        />
       ) : (
         <ul className={styles.list}>
           {messages.map((message) => (

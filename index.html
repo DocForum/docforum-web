@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1f4d3a" />
+    <meta name="description" content="DocForum — care continuity, escrow-secured fulfillment." />
     <title>DocForum</title>
     <!-- Self-hosted fonts (issue #101): same origin, covered by font-src 'self';
          the stylesheet link carries a Subresource Integrity hash. Google Fonts
@@ -46,9 +49,22 @@
           />
           <circle cx="24" cy="11" r="2" fill="var(--color-accent-2, #a6763d)" />
         </svg>
-        <span>Loading DocForum…</span>
+        <span id="app-loading-label">Loading DocForum…</span>
       </div>
     </div>
+    <script>
+      // Pre-hydration shell: match the browser language before the app bundle
+      // (and its locale chunks) has loaded, so the very first paint isn't
+      // hard-coded English. React replaces this node on mount.
+      (function () {
+        var language = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+        if (language.toLowerCase().indexOf('es') === 0) {
+          var label = document.getElementById('app-loading-label');
+          if (label) label.textContent = 'Cargando DocForum…';
+          document.documentElement.lang = 'es';
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

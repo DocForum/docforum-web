@@ -1,0 +1,23 @@
+{
+  "name": "@docforum/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generated types + typed client for docforum-core's HTTP API. Types are generated from openapi/docforum-core.openapi.yaml; never hand-edited.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src",
+    "openapi"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "check-version": "node scripts/check-version.mjs"
+  }
+}

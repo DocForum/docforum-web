@@ -7,19 +7,23 @@ import { queryClient } from '../query-client';
 import { resetDb } from './db';
 import styles from './DevPanel.module.css';
 import { useMockStore, type MockScenario } from './mock-store';
+import { FLAG_DESCRIPTIONS, KNOWN_FLAGS } from '../features/feature-flags/flags';
 import { activateMockRole, mockSignOut } from './roles';
 import type { Role } from '../types/models';
 
 const ROLES: Role[] = ['patient', 'doctor', 'facility', 'admin'];
-const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error'];
+const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error', 'network-once'];
 
 export function DevPanel() {
   const [open, setOpen] = useState(true);
   const scenario = useMockStore((s) => s.scenario);
   const latencyMs = useMockStore((s) => s.latencyMs);
   const activeRole = useMockStore((s) => s.activeRole);
+  const flagOverrides = useMockStore((s) => s.flagOverrides);
   const setScenario = useMockStore((s) => s.setScenario);
   const setLatencyMs = useMockStore((s) => s.setLatencyMs);
+  const setFlagOverride = useMockStore((s) => s.setFlagOverride);
+  const resetFlagOverrides = useMockStore((s) => s.resetFlagOverrides);
 
   if (!open) {
     return (
@@ -83,10 +87,47 @@ export function DevPanel() {
                 queryClient.invalidateQueries();
               }}
             >
-              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : 'errors'}
+              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : s === 'error' ? 'errors' : 'network once'}
             </button>
           ))}
         </div>
+      </div>
+
+      <div className={styles.group}>
+        <span className={styles.groupLabel} id="mock-flags-label">
+          Feature flags (evaluated client view)
+        </span>
+        <div className={styles.flagList} role="group" aria-labelledby="mock-flags-label">
+          {KNOWN_FLAGS.map((flag) => {
+            const checked = flagOverrides[flag] ?? flag === 'notification_preferences';
+            return (
+              <label key={flag} className={styles.flagRow} title={FLAG_DESCRIPTIONS[flag]}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    setFlagOverride(flag, event.target.checked);
+                    queryClient.invalidateQueries({ queryKey: ['me', 'flags'] });
+                  }}
+                />
+                <span>
+                  <code>{flag}</code>
+                  <small>{FLAG_DESCRIPTIONS[flag]}</small>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => {
+            resetFlagOverrides();
+            queryClient.invalidateQueries({ queryKey: ['me', 'flags'] });
+          }}
+        >
+          Reset flags
+        </button>
       </div>
 
       <div className={styles.group}>
