@@ -124,6 +124,7 @@ export function LabResultDetailPage() {
         {/* A held result is withheld until review — values and file both
             stay hidden, even if the API sent them. */}
         {result.values.length > 0 && canViewFile(result.status) && (
+          <div className={styles.tableScroll}>
           <table className={styles.values}>
             <caption>Measured values</caption>
             <thead>
@@ -158,6 +159,7 @@ export function LabResultDetailPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {viewable && result.file && <LabResultViewer resultId={result.id} file={result.file} />}

@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header {
@@ -138,9 +140,18 @@
   background: #fdecec;
 }
 
+/* The values table has five columns; on a phone it scrolls inside its own
+   region instead of widening the whole page. */
+.tableScroll {
+  max-width: 100%;
+  margin-top: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .values {
   width: 100%;
-  margin-top: 1rem;
+  min-width: 30rem;
   border-collapse: collapse;
 }
 
