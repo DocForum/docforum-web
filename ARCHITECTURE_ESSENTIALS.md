@@ -785,7 +785,7 @@ existing imports. Services call the generated client through
 `src/services/api-client.ts`, which remains the only owner of transport details
 and typed errors.
 
-## Known assumptions
+## Known assumptions — platform and API client
 
 - Acting-for profile selection is frontend-only Zustand state. The selected
   patient profile id is included in patient query keys and API calls.
