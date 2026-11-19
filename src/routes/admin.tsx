@@ -2,6 +2,8 @@ import { Route } from 'react-router-dom';
 import { AdminAuditPage } from '../pages/AdminAuditPage';
 import { AdminCatalogsPage } from '../pages/AdminCatalogsPage';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage';
+import { AdminPaymentsConsolePage } from '../pages/AdminPaymentsConsolePage';
+import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { AdminDisputeDetailPage } from '../pages/AdminDisputeDetailPage';
 import { AdminDisputesPage } from '../pages/AdminDisputesPage';
 import { AdminFlagsPage } from '../pages/AdminFlagsPage';
@@ -89,6 +91,24 @@ export const adminRoutes = (
       }
     />
     <Route path="admin/catalogs" element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
+    <Route
+      path="admin/users"
+      element={
+        <RequireAuth allowedRoles={['admin']}>
+          <AdminUsersPage />
+        </RequireAuth>
+      }
+    />
+    {/* The payments console moved off `/admin` when the overview took over
+        the landing page (issue #68); the page itself is unchanged. */}
+    <Route
+      path="admin/payments/console"
+      element={
+        <RequireAuth allowedRoles={['admin']}>
+          <AdminPaymentsConsolePage />
+        </RequireAuth>
+      }
+    />
     <Route
       path="admin/*"
       element={

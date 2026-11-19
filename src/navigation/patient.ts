@@ -7,5 +7,6 @@ export const patientNavItems: NavItem[] = [
   { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
   { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
   { to: '/patient/facilities', label: 'Facilities', roles: ['patient'] },
+  { to: '/patient/results', label: 'Lab results', roles: ['patient'] },
   { to: '/patient/settings', label: 'Settings', roles: ['patient'], messageId: 'nav.settings' },
 ];

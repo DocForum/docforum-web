@@ -8,6 +8,8 @@
 import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
   AccountInvite,
+  AdminInvite,
+  AdminUser,
   Appointment,
   AuditEvent,
   CatalogItem,
@@ -36,7 +38,11 @@ import type {
   FulfillmentQueueItem,
   HealthEntry,
   IntakeForm,
+  CancellationPolicy,
+  LabResultDetail,
   DoctorMessageThread,
+  OperationsOverview,
+  PatientAppointment,
   Notification,
   NotificationPreferences,
   PatientOrder,
@@ -165,6 +171,15 @@ export interface MockDb {
   webhookEndpoints: WebhookEndpoint[];
   webhookDeliveries: WebhookDelivery[];
   patientOrders: PatientOrder[];
+  // Patient-side appointment rows backing `/appointments/mine`, the cancel
+  // flow (issue #15) and the lab results list (issue #24).
+  patientAppointments: PatientAppointment[];
+  cancellationPolicies: Record<string, CancellationPolicy>;
+  labResults: LabResultDetail[];
+  // Admin user management (issue #70) and the operations overview (issue #68).
+  adminUsers: AdminUser[];
+  adminInvites: AdminInvite[];
+  operationsOverview: OperationsOverview;
   // Partial-fulfilment order rows with per-item quantities (issue #54). Kept
   // separate from `patientOrders`, which is the W2 version-record shape.
   orders: PatientOrder[];
@@ -2047,6 +2062,307 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // --- Patient appointments, cancellation policy and lab results (issues
+  // #15 and #24) ---------------------------------------------------------
+  const slotAt = (startOffsetMs: number, endOffsetMs: number): PatientAppointment['availabilitySlot'] => ({
+    id: `slot-${startOffsetMs}`,
+    doctorProfileId: DOCTOR_PROFILE_ID,
+    status: 'booked',
+    startTime: new Date(Date.now() + startOffsetMs).toISOString(),
+    endTime: new Date(Date.now() + endOffsetMs).toISOString(),
+    createdAt: '2026-10-01T09:00:00.000Z',
+    updatedAt: '2026-10-01T09:00:00.000Z',
+  });
+
+  const patientAppointments: PatientAppointment[] = [
+    {
+      id: 'apt-pat-upcoming',
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      availabilitySlotId: 'slot-upcoming',
+      status: 'scheduled',
+      // Referral-origin on purpose: the cancel dialog must explain the
+      // referral consequence, not only the slot.
+      origin: 'referral',
+      availabilitySlot: {
+        ...slotAt(3 * 86_400_000, 3 * 86_400_000 + 30 * 60_000),
+        id: 'slot-upcoming',
+      },
+      intake: null,
+      createdAt: '2026-10-01T09:00:00.000Z',
+      updatedAt: '2026-10-01T09:00:00.000Z',
+    },
+    {
+      id: 'apt-pat-soon',
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      availabilitySlotId: 'slot-soon',
+      status: 'scheduled',
+      origin: 'direct_booking',
+      availabilitySlot: { ...slotAt(45 * 60_000, 75 * 60_000), id: 'slot-soon' },
+      intake: null,
+      createdAt: '2026-10-01T10:00:00.000Z',
+      updatedAt: '2026-10-01T10:00:00.000Z',
+    },
+    {
+      id: 'apt-pat-done',
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      availabilitySlotId: 'slot-done',
+      status: 'completed',
+      origin: 'direct_booking',
+      availabilitySlot: {
+        ...slotAt(-5 * 86_400_000, -5 * 86_400_000 + 30 * 60_000),
+        id: 'slot-done',
+      },
+      intake: null,
+      createdAt: '2026-09-20T09:00:00.000Z',
+      updatedAt: '2026-09-20T09:00:00.000Z',
+    },
+  ];
+
+  const cancellationPolicies: Record<string, CancellationPolicy> = Object.fromEntries(
+    patientAppointments.map((appointment) => [
+      appointment.id,
+      {
+        lateCancellationCutoffMinutes: 120,
+        releaseSlotBeforeCutoff: true,
+        // Late cancels still free the chair, but are recorded against the
+        // patient — the honest combination the dialog has to explain.
+        releaseSlotAfterCutoff: true,
+        recordLateCancellation: true,
+        referralHandling: 'returns_to_referral_queue' as const,
+      },
+    ]),
+  );
+
+  const labResults: LabResultDetail[] = [
+    {
+      id: 'lab-res-normal',
+      orderId: 'ord-lab-demo-1',
+      testName: 'Full blood count (FBC)',
+      facilityName: 'Demo Diagnostics (fake)',
+      resultedAt: '2026-10-16T14:20:00.000Z',
+      status: 'available',
+      flag: 'normal',
+      summary: 'All measured values are within the usual range for your age.',
+      requiresDoctorReview: false,
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorName: 'Dr. Demo Placeholder',
+      orderedAt: '2026-10-14T09:00:00.000Z',
+      values: [
+        { name: 'Haemoglobin', value: '142', unit: 'g/L', referenceRange: '120–160', flag: 'normal' },
+        { name: 'White cells', value: '6.2', unit: '×10⁹/L', referenceRange: '4.0–11.0', flag: 'normal' },
+      ],
+      acknowledgement: { status: 'not_required' },
+      file: {
+        kind: 'pdf',
+        fileName: 'fbc-result.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 48_000,
+        contentPath: '/mock/lab-results/lab-res-normal/file',
+      },
+    },
+    {
+      id: 'lab-res-abnormal',
+      orderId: 'ord-lab-demo-1',
+      testName: 'Full blood count (FBC)',
+      facilityName: 'Demo Diagnostics (fake)',
+      resultedAt: '2026-10-17T10:05:00.000Z',
+      status: 'available',
+      flag: 'abnormal',
+      summary: 'One value is outside the usual range. Your doctor has been notified.',
+      requiresDoctorReview: true,
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorName: 'Dr. Demo Placeholder',
+      orderedAt: '2026-10-14T09:00:00.000Z',
+      values: [
+        { name: 'Haemoglobin', value: '98', unit: 'g/L', referenceRange: '120–160', flag: 'abnormal' },
+      ],
+      acknowledgement: {
+        status: 'pending',
+        nextStep: 'Your doctor has been notified and will contact you about this result.',
+      },
+      file: {
+        kind: 'image',
+        fileName: 'fbc-result.png',
+        mimeType: 'image/png',
+        sizeBytes: 84_000,
+        contentPath: '/mock/lab-results/lab-res-abnormal/file',
+      },
+    },
+    {
+      id: 'lab-res-critical',
+      orderId: 'ord-lab-demo-2',
+      testName: 'Potassium',
+      facilityName: 'Demo Diagnostics (fake)',
+      resultedAt: '2026-10-18T08:40:00.000Z',
+      status: 'reviewed',
+      flag: 'critical',
+      summary: 'A value needs prompt attention. Your doctor has reviewed it and been in touch.',
+      requiresDoctorReview: true,
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorName: 'Dr. Demo Placeholder',
+      orderedAt: '2026-10-17T08:00:00.000Z',
+      values: [
+        { name: 'Potassium', value: '6.4', unit: 'mmol/L', referenceRange: '3.5–5.1', flag: 'critical' },
+      ],
+      acknowledgement: {
+        status: 'acknowledged',
+        acknowledgedAt: '2026-10-18T08:52:00.000Z',
+        acknowledgedBy: 'Dr. Demo Placeholder',
+        nextStep: 'Your doctor reviewed this result and arranged a follow-up call.',
+      },
+      file: {
+        kind: 'pdf',
+        fileName: 'potassium-result.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 31_000,
+        contentPath: '/mock/lab-results/lab-res-critical/file',
+      },
+    },
+    {
+      id: 'lab-res-held',
+      orderId: 'ord-lab-demo-3',
+      testName: 'Thyroid function',
+      facilityName: 'Demo Diagnostics (fake)',
+      resultedAt: '2026-10-18T11:15:00.000Z',
+      status: 'held',
+      flag: 'critical',
+      summary: 'Your doctor is reviewing this result before it is released to you.',
+      requiresDoctorReview: true,
+      patientProfileId: PATIENT_PROFILE_ID,
+      doctorName: 'Dr. Demo Placeholder',
+      orderedAt: '2026-10-16T09:00:00.000Z',
+      values: [],
+      acknowledgement: { status: 'pending' },
+      file: null,
+    },
+  ];
+
+  // --- Admin user management (issue #70) ------------------------------------
+  const adminUsers: AdminUser[] = [
+    {
+      id: 'usr-admin-demo',
+      email: ADMIN_USER.email,
+      fullName: 'Al Admin (fake)',
+      role: 'admin',
+      status: 'active',
+      activeSessionCount: 2,
+      createdAt: '2026-01-08T09:00:00.000Z',
+      lastActiveAt: '2026-11-18T16:20:00.000Z',
+    },
+    {
+      id: 'usr-admin-demo-2',
+      email: 'second.admin@example.test',
+      fullName: 'Bea Backoffice (fake)',
+      role: 'admin',
+      status: 'active',
+      activeSessionCount: 1,
+      createdAt: '2026-02-11T09:00:00.000Z',
+      lastActiveAt: '2026-11-17T10:00:00.000Z',
+    },
+    {
+      id: DOCTOR_USER.id,
+      email: DOCTOR_USER.email,
+      fullName: 'Dr. Demo Placeholder',
+      role: 'doctor',
+      status: 'active',
+      activeSessionCount: 1,
+      createdAt: '2026-01-06T09:00:00.000Z',
+      lastActiveAt: '2026-11-19T07:45:00.000Z',
+    },
+    {
+      id: PATIENT_USER.id,
+      email: PATIENT_USER.email,
+      fullName: 'Pat Placeholder',
+      role: 'patient',
+      status: 'active',
+      activeSessionCount: 3,
+      createdAt: '2026-01-05T09:00:00.000Z',
+      lastActiveAt: '2026-11-19T08:10:00.000Z',
+    },
+    {
+      id: 'usr-departed-demo',
+      email: 'departed.staff@example.test',
+      fullName: 'Dee Departed (fake)',
+      role: 'facility',
+      status: 'deactivated',
+      activeSessionCount: 0,
+      createdAt: '2026-03-02T09:00:00.000Z',
+      lastActiveAt: '2026-09-01T12:00:00.000Z',
+      deactivatedAt: '2026-09-02T09:30:00.000Z',
+      deactivationReason: 'Left the organisation (demo fixture).',
+    },
+  ];
+
+  const adminInvites: AdminInvite[] = [
+    {
+      id: 'inv-admin-demo-1',
+      email: 'new.admin@example.test',
+      role: 'admin',
+      invitedAt: '2026-11-18T09:00:00.000Z',
+      expiresAt: '2026-11-25T09:00:00.000Z',
+      invitedByName: 'Al Admin (fake)',
+    },
+  ];
+
+  // --- Admin operations overview (issue #68) --------------------------------
+  const operationsOverview: OperationsOverview = {
+    generatedAt: new Date().toISOString(),
+    queues: [
+      {
+        key: 'verifications',
+        label: 'Doctor verifications',
+        count: 3,
+        oldestAt: '2026-11-16T09:00:00.000Z',
+        href: '/admin/verifications',
+        available: true,
+      },
+      {
+        key: 'stuck_referrals',
+        label: 'Stuck referrals',
+        count: 2,
+        oldestAt: '2026-11-15T13:00:00.000Z',
+        href: '/admin/referrals',
+        available: true,
+      },
+      {
+        key: 'unrouted_orders',
+        label: 'Orders awaiting a facility',
+        count: 0,
+        oldestAt: null,
+        href: '/admin/audit?entityType=Order',
+        available: true,
+      },
+      {
+        key: 'stuck_payments',
+        label: 'Stuck payments',
+        count: 1,
+        oldestAt: '2026-11-18T18:00:00.000Z',
+        href: '/admin/payments/console',
+        available: true,
+      },
+      {
+        key: 'failed_jobs',
+        label: 'Failed background jobs',
+        count: 4,
+        oldestAt: '2026-11-19T05:00:00.000Z',
+        href: '/admin/system',
+        available: true,
+      },
+      {
+        key: 'disputes',
+        label: 'Fulfilment disputes',
+        count: 0,
+        oldestAt: null,
+        href: '/admin/disputes',
+        available: false,
+        detail: 'The disputes service is not reporting right now.',
+      },
+    ],
+  };
+
   const notificationPreferences: Record<Role, NotificationPreferences> = {
     patient: defaultPreferencesForRole('patient'),
     doctor: defaultPreferencesForRole('doctor'),
@@ -2081,6 +2397,12 @@ export function createSeedDb(): MockDb {
     webhookEndpoints,
     webhookDeliveries,
     patientOrders,
+    patientAppointments,
+    cancellationPolicies,
+    labResults,
+    adminUsers,
+    adminInvites,
+    operationsOverview,
     orders,
     orderFacilities,
     walletLink,

@@ -89,7 +89,7 @@ test('admin creates, funds and releases exactly one payment intent', async ({ pa
     };
     (window as Window & { __paymentCalls?: string[] }).__paymentCalls = [];
   });
-  await visit('/admin', 'admin');
+  await visit('/admin/payments/console', 'admin');
   await page.getByRole('textbox', { name: 'Order id' }).fill('ord-example-1');
   await page.getByRole('textbox', { name: 'Patient profile id' }).fill('prf-patient-demo');
   await page.getByRole('textbox', { name: 'Facility id' }).fill('fac-demo-pharmacy');

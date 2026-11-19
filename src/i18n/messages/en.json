@@ -66,6 +66,7 @@
   "admin.lookupTitle": "Look up an existing payment intent",
   "admin.paymentIntentId": "Payment intent id",
   "admin.paymentIntentIdHint": "Paste the id returned when the intent was created.",
+  "admin.paymentsConsole": "Payments console",
   "admin.welcome": "Welcome, {email}",
   "app.accessibility": "Accessibility",
   "app.footer": "DocForum — care continuity, escrow-secured fulfillment.",

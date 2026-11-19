@@ -2,6 +2,8 @@ import { Route } from 'react-router-dom';
 import { AccessLogPage } from '../pages/AccessLogPage';
 import { AppointmentDetailPage } from '../pages/AppointmentDetailPage';
 import { CareThreadPage } from '../pages/CareThreadPage';
+import { LabResultDetailPage } from '../pages/LabResultDetailPage';
+import { LabResultsPage } from '../pages/LabResultsPage';
 import { OrderDetailPage } from '../pages/OrderDetailPage';
 import { PatientDashboardPage } from '../pages/PatientDashboardPage';
 import { PaymentDetailPage } from '../pages/PaymentDetailPage';
@@ -61,6 +63,22 @@ export const patientRoutes = (
       element={
         <RequireAuth allowedRoles={['patient', 'doctor']}>
           <CareThreadPage />
+        </RequireAuth>
+      }
+    />
+    <Route
+      path="patient/results"
+      element={
+        <RequireAuth allowedRoles={['patient']}>
+          <LabResultsPage />
+        </RequireAuth>
+      }
+    />
+    <Route
+      path="patient/results/:resultId"
+      element={
+        <RequireAuth allowedRoles={['patient']}>
+          <LabResultDetailPage />
         </RequireAuth>
       }
     />
