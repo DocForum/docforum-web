@@ -79,6 +79,11 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   session?: { user: User; accessToken: string };
   /** Pass an existing client to assert on its cache. */
   queryClient?: QueryClient;
+  /** Locale for the IntlProvider. Default `en`. */
+  locale?: string;
+  /** Catalogue to load, e.g. the Spanish messages. Default empty (English
+   * `defaultMessage`s), exactly like the app before a locale chunk resolves. */
+  messages?: Record<string, string>;
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -96,6 +101,8 @@ export function renderWithProviders(
     role,
     session,
     queryClient = createTestQueryClient(),
+    locale = 'en',
+    messages = {},
     ...rtlOptions
   } = options;
 
@@ -110,9 +117,9 @@ export function renderWithProviders(
 
   const result = rtlRender(ui, {
     wrapper: ({ children }) => (
-      // Empty message catalogue: components carry English `defaultMessage`s,
-      // exactly like the app does before a locale chunk resolves.
-      <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
+      // Empty catalogue by default: components carry English
+      // `defaultMessage`s, exactly like the app before a locale chunk loads.
+      <IntlProvider locale={locale} defaultLocale="en" messages={messages} onError={() => undefined}>
         <QueryClientProvider client={queryClient}>
           <TimeZoneProvider>
             <MemoryRouter initialEntries={initialEntries ?? routes ?? [route]}>{children}</MemoryRouter>

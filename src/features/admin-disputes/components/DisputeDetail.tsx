@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
+import { useT } from '../../../i18n/useT';
+import type { Translate } from '../../../i18n/useT';
 import { statusLabel, orderTypeLabel } from '../../payments/status';
 import { formatStroops } from '../../../services/payments-service';
 import { useDispute } from '../hooks/useDisputes';
@@ -20,19 +22,40 @@ const TONE_CLASS = {
   critical: styles.ageCritical,
 } as const;
 
-function actorRoleLabel(event: DisputeTimelineEvent): string {
-  if (event.actorRole === 'system') return 'System';
-  return event.actorRole.charAt(0).toUpperCase() + event.actorRole.slice(1);
+function actorRoleLabel(event: DisputeTimelineEvent, t: Translate): string {
+  switch (event.actorRole) {
+    case 'system':
+      return t('admin.disputes.role.system', 'System');
+    case 'patient':
+      return t('admin.disputes.role.patient', 'Patient');
+    case 'doctor':
+      return t('admin.disputes.role.doctor', 'Doctor');
+    case 'facility':
+      return t('admin.disputes.role.facility', 'Facility');
+    case 'admin':
+      return t('admin.disputes.role.admin', 'Admin');
+    default:
+      return ((event.actorRole as string).charAt(0).toUpperCase() +
+        (event.actorRole as string).slice(1));
+  }
 }
 
 function Timeline({ events }: { events: DisputeTimelineEvent[] }) {
-  if (events.length === 0) return <p className={styles.muted}>No timeline events recorded.</p>;
+  const t = useT();
+  if (events.length === 0) {
+    return (
+      <p className={styles.muted}>
+        {t('admin.disputes.detail.noTimeline', 'No timeline events recorded.')}
+      </p>
+    );
+  }
   return (
     <ol className={styles.timeline}>
       {events.map((event) => (
         <li className={styles.timelineItem} data-kind={event.kind} key={event.id}>
           <span className={styles.timelineTime}>
-            <time dateTime={event.at}>{formatDateTime(event.at)}</time> · {actorRoleLabel(event)} · {event.actorName}
+            <time dateTime={event.at}>{formatDateTime(event.at)}</time> ·{' '}
+            {actorRoleLabel(event, t)} · {event.actorName}
           </span>
           <p className={styles.timelineSummary}>{event.summary}</p>
         </li>
@@ -43,32 +66,63 @@ function Timeline({ events }: { events: DisputeTimelineEvent[] }) {
 
 /** What actually happened to the money, read from the post-resolution payment
  * status rather than assuming the release/refund succeeded. */
-function resolvedPaymentCopy(dispute: FulfillmentDispute, resolution: DisputeResolution): string {
+function resolvedPaymentCopy(
+  dispute: FulfillmentDispute,
+  resolution: DisputeResolution,
+  t: Translate,
+): string {
   const amount = formatStroops(dispute.amountStroops, dispute.asset);
   if (resolution === 'facility') {
     return dispute.payment.status === 'released'
-      ? `${amount} was released from escrow to ${dispute.facility.name}.`
-      : `The dispute was decided for the facility; the payment is currently "${statusLabel(dispute.payment.status)}".`;
+      ? t(
+          'admin.disputes.detail.releasedToFacility',
+          '{amount} was released from escrow to {facility}.',
+          { amount, facility: dispute.facility.name },
+        )
+      : t(
+          'admin.disputes.detail.decidedFacilityPending',
+          'The dispute was decided for the facility; the payment is currently "{status}".',
+          { status: statusLabel(dispute.payment.status, t) },
+        );
   }
   return dispute.payment.status === 'refunded'
-    ? `${amount} was refunded from escrow to ${dispute.patientName}.`
-    : `The dispute was decided for the patient; the payment is currently "${statusLabel(dispute.payment.status)}".`;
+    ? t(
+        'admin.disputes.detail.refundedToPatient',
+        '{amount} was refunded from escrow to {patient}.',
+        { amount, patient: dispute.patientName },
+      )
+    : t(
+        'admin.disputes.detail.decidedPatientPending',
+        'The dispute was decided for the patient; the payment is currently "{status}".',
+        { status: statusLabel(dispute.payment.status, t) },
+      );
 }
 
 function ResolvedNotice({ dispute }: { dispute: FulfillmentDispute }) {
+  const t = useT();
   if (!dispute.resolution) return null;
-  const party = resolutionLabel(dispute.resolution);
+  const party = resolutionLabel(dispute.resolution, t);
+  const resolvedBy = dispute.resolvedBy
+    ? t('admin.disputes.detail.resolvedBy', 'Resolved by {name}', { name: dispute.resolvedBy })
+    : t('admin.disputes.detail.resolved', 'Resolved');
   return (
     <section className={styles.resolved} aria-labelledby="dispute-resolved-heading">
-      <h2 id="dispute-resolved-heading">Resolved for the {party}</h2>
-      <p>{resolvedPaymentCopy(dispute, dispute.resolution)}</p>
+      <h2 id="dispute-resolved-heading">
+        {t('admin.disputes.detail.resolvedFor', 'Resolved for the {party}', { party })}
+      </h2>
+      <p>{resolvedPaymentCopy(dispute, dispute.resolution, t)}</p>
       <p className={styles.muted}>
-        {dispute.resolvedBy ? `Resolved by ${dispute.resolvedBy}` : 'Resolved'}
-        {dispute.resolvedAt ? ` on ${formatDateTime(dispute.resolvedAt)}` : ''}. This decision is final.
+        {resolvedBy}
+        {dispute.resolvedAt
+          ? t('admin.disputes.detail.resolvedOn', ' on {date}. This decision is final.', {
+              date: formatDateTime(dispute.resolvedAt),
+            })
+          : t('admin.disputes.detail.resolvedFinal', '. This decision is final.')}
       </p>
       {dispute.resolutionNotes && (
         <p>
-          <strong>Resolution notes:</strong> {dispute.resolutionNotes}
+          <strong>{t('admin.disputes.detail.resolutionNotes', 'Resolution notes:')}</strong>{' '}
+          {dispute.resolutionNotes}
         </p>
       )}
     </section>
@@ -84,11 +138,14 @@ function ActionChoice({
   resolution: DisputeResolution;
   onChoose: () => void;
 }) {
-  const consequence = resolutionConsequence(dispute, resolution);
+  const t = useT();
+  const consequence = resolutionConsequence(dispute, resolution, t);
   return (
     <div className={styles.panelBlock}>
       <Button variant={resolution === 'patient' ? 'danger' : 'primary'} onClick={onChoose}>
-        Resolve for {resolutionLabel(resolution)}
+        {t('admin.disputes.detail.resolveFor', 'Resolve for {party}', {
+          party: resolutionLabel(resolution, t),
+        })}
       </Button>
       <p className={styles.muted}>{consequence.payment}</p>
       <p className={styles.muted}>{consequence.outcome}</p>
@@ -97,6 +154,7 @@ function ActionChoice({
 }
 
 export function DisputeDetail({ disputeId }: { disputeId: string }) {
+  const t = useT();
   const query = useDispute(disputeId);
   const [resolution, setResolution] = useState<DisputeResolution | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -106,7 +164,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
     return (
       <p className={styles.status}>
         <Spinner />
-        Loading dispute…
+        {t('admin.disputes.detail.loading', 'Loading dispute…')}
       </p>
     );
   }
@@ -115,12 +173,12 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
     return (
       <div className={styles.detail}>
         <Link to="/admin/disputes" className={styles.backLink}>
-          ← All disputes
+          {t('admin.disputes.detail.back', '← All disputes')}
         </Link>
         <div className={styles.errorBox} role="alert">
-          <p>{describeDisputeDetailError(query.error)}</p>
+          <p>{describeDisputeDetailError(query.error, t)}</p>
           <Button variant="secondary" onClick={() => void query.refetch()}>
-            Try again
+            {t('errors.actions.tryAgain', 'Try again')}
           </Button>
         </div>
       </div>
@@ -132,9 +190,11 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
     return (
       <div className={styles.detail}>
         <Link to="/admin/disputes" className={styles.backLink}>
-          ← All disputes
+          {t('admin.disputes.detail.back', '← All disputes')}
         </Link>
-        <p className={styles.empty}>This dispute no longer exists.</p>
+        <p className={styles.empty}>
+          {t('admin.disputes.detail.gone', 'This dispute no longer exists.')}
+        </p>
       </div>
     );
   }
@@ -143,19 +203,24 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
   const hours = hoursSince(dispute.openedAt, now);
   const isOpen = dispute.status === 'open';
   const amount = formatStroops(dispute.amountStroops, dispute.asset);
-  const facilityConsequence = resolutionConsequence(dispute, 'facility');
-  const patientConsequence = resolutionConsequence(dispute, 'patient');
+  const facilityConsequence = resolutionConsequence(dispute, 'facility', t);
+  const patientConsequence = resolutionConsequence(dispute, 'patient', t);
 
   return (
     <div className={styles.detail}>
       <Link to="/admin/disputes" className={styles.backLink}>
-        ← All disputes
+        {t('admin.disputes.detail.back', '← All disputes')}
       </Link>
 
       {notice && (
         <div className={styles.noticeSuccess} role="status">
           <p>{notice}</p>
-          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={() => setNotice(null)}
+            aria-label={t('admin.disputes.dismiss', 'Dismiss')}
+          >
             ×
           </button>
         </div>
@@ -163,7 +228,12 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
       {staleNotice && (
         <div className={styles.noticeWarning} role="alert">
           <p>{staleNotice}</p>
-          <button type="button" className={styles.dismiss} onClick={() => setStaleNotice(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={() => setStaleNotice(null)}
+            aria-label={t('admin.disputes.dismiss', 'Dismiss')}
+          >
             ×
           </button>
         </div>
@@ -172,26 +242,44 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
       <header className={styles.detailHeader}>
         <div className={styles.badges}>
           <span className={isOpen ? styles.statusOpen : styles.statusResolved}>
-            {isOpen ? 'Open' : `Resolved for the ${resolutionLabel(dispute.resolution ?? 'patient')}`}
+            {isOpen
+              ? t('admin.disputes.detail.open', 'Open')
+              : t('admin.disputes.detail.resolvedFor', 'Resolved for the {party}', {
+                  party: resolutionLabel(dispute.resolution ?? 'patient', t),
+                })}
           </span>
-          <span className={styles.reason}>{reasonLabel(dispute.reason)}</span>
+          <span className={styles.reason}>{reasonLabel(dispute.reason, t)}</span>
           {isOpen && (
             <span className={[styles.age, TONE_CLASS[ageTone(hours ?? 0)]].join(' ')}>
-              Open {ageLabel(dispute.openedAt, now)}
+              {t('admin.disputes.openFor', 'Open {age}', {
+                age: ageLabel(dispute.openedAt, now, t),
+              })}
             </span>
           )}
         </div>
         <h1 className={styles.detailTitle}>{dispute.itemName}</h1>
         <p className={styles.detailMeta}>
-          {orderTypeLabel(dispute.orderType)} order <code>{dispute.orderId}</code> · {dispute.facility.name} · opened{' '}
-          {formatDateTime(dispute.openedAt)}
+          {t('admin.disputes.detail.orderLabel', '{orderType} order', {
+            orderType: orderTypeLabel(dispute.orderType, t),
+          })}{' '}
+          <code>{dispute.orderId}</code> · {dispute.facility.name}
+          {t('admin.disputes.detail.metaOpened', ' · opened {date}', {
+            date: formatDateTime(dispute.openedAt),
+          })}
         </p>
       </header>
 
       {dispute.status === 'open' ? (
         <div className={styles.noticeWarning} role="status">
           <p>
-            <strong>Payment release is blocked.</strong> {amount} is held in escrow until this dispute is resolved.
+            <strong>
+              {t('admin.disputes.detail.paymentBlockedStrong', 'Payment release is blocked.')}
+            </strong>{' '}
+            {t(
+              'admin.disputes.detail.paymentBlockedBody',
+              '{amount} is held in escrow until this dispute is resolved.',
+              { amount },
+            )}
           </p>
         </div>
       ) : (
@@ -201,19 +289,19 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
       <div className={styles.detailGrid}>
         <section className={styles.panel} aria-labelledby="dispute-payment-heading">
           <h2 className={styles.panelTitle} id="dispute-payment-heading">
-            Payment
+            {t('admin.disputes.detail.payment', 'Payment')}
           </h2>
           <dl className={styles.facts}>
             <div>
-              <dt>Blocked amount</dt>
+              <dt>{t('admin.disputes.detail.blockedAmount', 'Blocked amount')}</dt>
               <dd className={styles.amount}>{amount}</dd>
             </div>
             <div>
-              <dt>Escrow status</dt>
-              <dd>{statusLabel(dispute.payment.status)}</dd>
+              <dt>{t('admin.disputes.detail.escrowStatus', 'Escrow status')}</dt>
+              <dd>{statusLabel(dispute.payment.status, t)}</dd>
             </div>
             <div>
-              <dt>Payment intent</dt>
+              <dt>{t('admin.disputes.detail.paymentIntent', 'Payment intent')}</dt>
               <dd>
                 <Link className={styles.mono} to={`/admin?intent=${encodeURIComponent(dispute.payment.intentId)}`}>
                   {dispute.payment.intentId}
@@ -222,7 +310,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
             </div>
             {dispute.payment.escrowId && (
               <div>
-                <dt>Escrow id</dt>
+                <dt>{t('admin.disputes.detail.escrowId', 'Escrow id')}</dt>
                 <dd className={styles.mono}>{dispute.payment.escrowId}</dd>
               </div>
             )}
@@ -231,42 +319,56 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
 
         <section className={styles.panel} aria-labelledby="dispute-report-heading">
           <h2 className={styles.panelTitle} id="dispute-report-heading">
-            Patient report
+            {t('admin.disputes.detail.patientReport', 'Patient report')}
           </h2>
           <p className={styles.fieldHint}>
-            {reasonLabel(dispute.patientReport.reason)} · submitted {formatDateTime(dispute.patientReport.submittedAt)}{' '}
-            by {dispute.patientReport.submittedBy}
+            {t('admin.disputes.detail.reportMeta', '{reason} · submitted {date} by {name}', {
+              reason: reasonLabel(dispute.patientReport.reason, t),
+              date: formatDateTime(dispute.patientReport.submittedAt),
+              name: dispute.patientReport.submittedBy,
+            })}
           </p>
           <p className={styles.reportText}>{dispute.patientReport.description}</p>
         </section>
 
         <section className={styles.panel} aria-labelledby="dispute-proof-heading">
           <h2 className={styles.panelTitle} id="dispute-proof-heading">
-            Facility proof
+            {t('admin.disputes.detail.facilityProof', 'Facility proof')}
           </h2>
           {dispute.facilityProof ? (
             <>
               <p>
-                <span className={styles.panelLabel}>Reference</span>{' '}
+                <span className={styles.panelLabel}>
+                  {t('admin.disputes.detail.reference', 'Reference')}
+                </span>{' '}
                 <span className={styles.proofReference}>{dispute.facilityProof.reference}</span>
               </p>
               <p className={styles.fieldHint}>
-                Submitted {formatDateTime(dispute.facilityProof.submittedAt)} by {dispute.facilityProof.submittedBy}
+                {t('admin.disputes.detail.proofMeta', 'Submitted {date} by {name}', {
+                  date: formatDateTime(dispute.facilityProof.submittedAt),
+                  name: dispute.facilityProof.submittedBy,
+                })}
               </p>
               {dispute.facilityProof.note ? (
                 <p>{dispute.facilityProof.note}</p>
               ) : (
-                <p className={styles.muted}>No note was added.</p>
+                <p className={styles.muted}>
+                  {t('admin.disputes.detail.noNote', 'No note was added.')}
+                </p>
               )}
               <div className={styles.panelBlock}>
-                <h3 className={styles.panelLabel}>Attachments</h3>
+                <h3 className={styles.panelLabel}>
+                  {t('admin.disputes.detail.attachments', 'Attachments')}
+                </h3>
                 <AttachmentList disputeId={dispute.id} attachments={dispute.facilityProof.attachments} />
               </div>
             </>
           ) : (
             <p className={styles.danger}>
-              The facility has not submitted proof yet. Without proof, resolving for the facility means releasing money
-              on the patient's word alone.
+              {t(
+                'admin.disputes.detail.noProof',
+                "The facility has not submitted proof yet. Without proof, resolving for the facility means releasing money on the patient's word alone.",
+              )}
             </p>
           )}
         </section>
@@ -274,7 +376,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
 
       <section className={styles.panel} aria-labelledby="dispute-timeline-heading">
         <h2 className={styles.panelTitle} id="dispute-timeline-heading">
-          Timeline
+          {t('admin.disputes.detail.timeline', 'Timeline')}
         </h2>
         <Timeline events={dispute.timeline} />
       </section>
@@ -282,10 +384,13 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
       {isOpen && (
         <section className={styles.panel} aria-labelledby="dispute-resolve-heading">
           <h2 className={styles.panelTitle} id="dispute-resolve-heading">
-            Resolve this dispute
+            {t('admin.disputes.detail.resolveHeading', 'Resolve this dispute')}
           </h2>
           <p className={styles.finalWarning}>
-            Both choices are final. Resolving releases or refunds the escrow — it cannot be reversed or re-opened.
+            {t(
+              'admin.disputes.detail.finalWarning',
+              'Both choices are final. Resolving releases or refunds the escrow — it cannot be reversed or re-opened.',
+            )}
           </p>
           <div className={styles.resolveActions}>
             <ActionChoice dispute={dispute} resolution="facility" onChoose={() => setResolution('facility')} />
@@ -293,7 +398,10 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
           </div>
           {(facilityConsequence.movesMoney || patientConsequence.movesMoney) && (
             <p className={styles.fieldHint}>
-              The exact payment consequence is shown again in the confirmation step before anything moves.
+              {t(
+                'admin.disputes.detail.consequenceHint',
+                'The exact payment consequence is shown again in the confirmation step before anything moves.',
+              )}
             </p>
           )}
         </section>
@@ -310,8 +418,11 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
           onResolved={(updated) => {
             setResolution(null);
             setNotice(
-              `Dispute resolved for the ${resolutionLabel(updated.resolution ?? resolution)}. ` +
-                `The decision is final and was written to the audit trail.`,
+              t(
+                'admin.disputes.detail.resolvedNotice',
+                'Dispute resolved for the {party}. The decision is final and was written to the audit trail.',
+                { party: resolutionLabel(updated.resolution ?? resolution, t) },
+              ),
             );
           }}
           onStale={(message) => {

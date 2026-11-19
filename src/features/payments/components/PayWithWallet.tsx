@@ -1,12 +1,11 @@
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import { usePayWithWallet } from '../hooks/usePayWithWallet';
 import { stepperIndex, type WalletPayPhase } from '../wallet-pay';
 import { transactionUrl } from '../explorer';
 import { formatStroops } from '../../../services/payments-service';
 import type { PaymentIntent } from '../../../types/models';
 import styles from './PayWithWallet.module.css';
-
-const STEP_LABELS = ['Prepare', 'Your wallet', 'Submit', 'Confirm'] as const;
 
 interface PayWithWalletProps {
   orderId: string;
@@ -16,16 +15,23 @@ interface PayWithWalletProps {
 }
 
 function Stepper({ phase }: { phase: WalletPayPhase }) {
+  const t = useT();
+  const steps = [
+    { key: 'prepare', label: t('payments.wallet.stepPrepare', 'Prepare') },
+    { key: 'wallet', label: t('payments.wallet.stepWallet', 'Your wallet') },
+    { key: 'submit', label: t('payments.wallet.stepSubmit', 'Submit') },
+    { key: 'confirm', label: t('payments.wallet.stepConfirm', 'Confirm') },
+  ];
   const active = stepperIndex(phase);
   const settled = phase === 'confirmed' || phase === 'expired' || phase === 'failed';
 
   return (
-    <ol className={styles.steps} aria-label="Payment progress">
-      {STEP_LABELS.map((label, index) => {
+    <ol className={styles.steps} aria-label={t('payments.wallet.progressAria', 'Payment progress')}>
+      {steps.map((step, index) => {
         const state = settled || index < active ? 'done' : index === active ? 'active' : 'todo';
         return (
           <li
-            key={label}
+            key={step.key}
             className={styles.step}
             data-state={state}
             aria-current={state === 'active' ? 'step' : undefined}
@@ -33,7 +39,7 @@ function Stepper({ phase }: { phase: WalletPayPhase }) {
             <span className={styles.stepIndex} aria-hidden="true">
               {index + 1}
             </span>
-            {label}
+            {step.label}
           </li>
         );
       })}
@@ -50,16 +56,22 @@ function Stepper({ phase }: { phase: WalletPayPhase }) {
  * and a refusal lands back at the start without error styling.
  */
 export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
+  const t = useT();
   const { state, start, reset, busy, confirmedTxHash } = usePayWithWallet({ orderId, intent, wallet });
   const explorer = transactionUrl(confirmedTxHash);
+  const amount = formatStroops(intent.amountStroops);
 
   return (
     <section className={styles.panel} aria-labelledby={`wallet-pay-${intent.id}`}>
       <h3 className={styles.heading} id={`wallet-pay-${intent.id}`}>
-        Pay with your wallet
+        {t('payments.wallet.heading', 'Pay with your wallet')}
       </h3>
       <p className={styles.amount}>
-        {formatStroops(intent.amountStroops)} XLM held in escrow until the order is fulfilled.
+        {t(
+          'payments.wallet.amount',
+          '{amount} XLM held in escrow until the order is fulfilled.',
+          { amount },
+        )}
       </p>
 
       <Stepper phase={state.phase} />
@@ -67,35 +79,46 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
       {state.phase === 'idle' ? (
         <div className={styles.state}>
           <p>
-            docforum-core prepares the transaction, your wallet signs it, and docforum-core submits it. Nothing is
-            built, simulated or sent from your browser, and your keys never leave your wallet.
+            {t(
+              'payments.wallet.idleBody',
+              'docforum-core prepares the transaction, your wallet signs it, and docforum-core submits it. Nothing is built, simulated or sent from your browser, and your keys never leave your wallet.',
+            )}
           </p>
           <div className={styles.actions}>
-            <Button onClick={() => void start()}>Pay with wallet</Button>
+            <Button onClick={() => void start()}>
+              {t('payments.wallet.payButton', 'Pay with wallet')}
+            </Button>
           </div>
         </div>
       ) : null}
 
       {state.phase === 'preparing' ? (
         <p className={`${styles.state} ${styles.working}`} role="status">
-          Preparing the transaction with docforum-core…
+          {t('payments.wallet.preparing', 'Preparing the transaction with docforum-core…')}
         </p>
       ) : null}
 
       {state.phase === 'awaiting_wallet' ? (
         <div className={styles.state} role="status">
           <p>
-            <strong>Confirm in your wallet.</strong> Review the transaction and approve it to sign.
+            <strong>{t('payments.wallet.confirmStrong', 'Confirm in your wallet.')}</strong>{' '}
+            {t(
+              'payments.wallet.confirmBody',
+              'Review the transaction and approve it to sign.',
+            )}
           </p>
           {state.expiresAt ? (
             <p className={styles.hint}>
-              It expires at {new Date(state.expiresAt).toLocaleTimeString()} — expiring is normal, and preparing a
-              new one costs nothing.
+              {t(
+                'payments.wallet.expiresAt',
+                'It expires at {time} — expiring is normal, and preparing a new one costs nothing.',
+                { time: new Date(state.expiresAt).toLocaleTimeString() },
+              )}
             </p>
           ) : null}
           <div className={styles.actions}>
             <Button variant="secondary" onClick={reset}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
           </div>
         </div>
@@ -103,27 +126,35 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
 
       {state.phase === 'submitting' ? (
         <p className={`${styles.state} ${styles.working}`} role="status">
-          Submitting your signed transaction to docforum-core…
+          {t(
+            'payments.wallet.submitting',
+            'Submitting your signed transaction to docforum-core…',
+          )}
         </p>
       ) : null}
 
       {state.phase === 'confirming' ? (
         <p className={`${styles.state} ${styles.working}`} role="status">
-          Waiting for confirmation on the network…
+          {t('payments.wallet.confirming', 'Waiting for confirmation on the network…')}
         </p>
       ) : null}
 
       {state.phase === 'confirmed' ? (
         <div className={styles.success} role="status">
-          <p className={styles.successTitle}>Payment confirmed</p>
+          <p className={styles.successTitle}>
+            {t('payments.wallet.confirmedTitle', 'Payment confirmed')}
+          </p>
           <p>
-            Your {formatStroops(intent.amountStroops)} XLM is held in escrow — the facility is only paid when the
-            order is fulfilled.
+            {t(
+              'payments.wallet.confirmedBody',
+              'Your {amount} XLM is held in escrow — the facility is only paid when the order is fulfilled.',
+              { amount },
+            )}
           </p>
           {explorer ? (
             <p>
               <a className={styles.explorerLink} href={explorer} target="_blank" rel="noopener noreferrer">
-                View transaction on the Stellar explorer
+                {t('payments.wallet.explorer', 'View transaction on the Stellar explorer')}
               </a>
             </p>
           ) : null}
@@ -133,21 +164,31 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
       {state.phase === 'expired' ? (
         <div className={styles.expired} role="status">
           <p>
-            <strong>This transaction expired.</strong> Prepared transactions are only valid for a short time —
-            nothing was sent and nothing left your wallet. Preparing a new one keeps you right here.
+            <strong>{t('payments.wallet.expiredStrong', 'This transaction expired.')}</strong>{' '}
+            {t(
+              'payments.wallet.expiredBody',
+              'Prepared transactions are only valid for a short time — nothing was sent and nothing left your wallet. Preparing a new one keeps you right here.',
+            )}
           </p>
           <div className={styles.actions}>
-            <Button onClick={() => void start()}>Prepare a new transaction</Button>
+            <Button onClick={() => void start()}>
+              {t('payments.wallet.prepareNew', 'Prepare a new transaction')}
+            </Button>
           </div>
         </div>
       ) : null}
 
       {state.phase === 'declined' ? (
         <div className={styles.declined} role="status">
-          <p>You declined in your wallet. Nothing was sent and nothing changed.</p>
+          <p>
+            {t(
+              'payments.wallet.declined',
+              'You declined in your wallet. Nothing was sent and nothing changed.',
+            )}
+          </p>
           <div className={styles.actions}>
             <Button variant="secondary" onClick={reset}>
-              Back to payment
+              {t('payments.wallet.backToPayment', 'Back to payment')}
             </Button>
           </div>
         </div>
@@ -156,12 +197,16 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
       {state.phase === 'failed' ? (
         <div className={styles.state}>
           <div className={styles.error} role="alert">
-            <p>{state.reason ?? 'The payment could not be completed.'}</p>
+            <p>
+              {state.reason ?? t('payments.wallet.failed', 'The payment could not be completed.')}
+            </p>
           </div>
           <div className={styles.actions}>
-            <Button onClick={() => void start()}>Try again</Button>
+            <Button onClick={() => void start()}>
+              {t('common.tryAgain', 'Try again')}
+            </Button>
             <Button variant="secondary" onClick={reset}>
-              Back to payment
+              {t('payments.wallet.backToPayment', 'Back to payment')}
             </Button>
           </div>
         </div>
@@ -171,12 +216,20 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
         <div className={styles.state}>
           <div className={styles.info} role="status">
             <p>
-              <strong>No wallet detected.</strong> {state.reason} Install a Stellar wallet extension (such as
-              Freighter) and unlock it, then try again — your keys stay in the wallet.
+              <strong>
+                {t('payments.wallet.walletUnavailableStrong', 'No wallet detected.')}
+              </strong>{' '}
+              {state.reason}{' '}
+              {t(
+                'payments.wallet.walletUnavailableBody',
+                'Install a Stellar wallet extension (such as Freighter) and unlock it, then try again — your keys stay in the wallet.',
+              )}
             </p>
           </div>
           <div className={styles.actions}>
-            <Button onClick={() => void start()}>Check again</Button>
+            <Button onClick={() => void start()}>
+              {t('payments.wallet.checkAgain', 'Check again')}
+            </Button>
           </div>
         </div>
       ) : null}
@@ -185,19 +238,27 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
         <div className={styles.state}>
           <div className={styles.info} role="status">
             <p>
-              <strong>No linked wallet yet.</strong> {state.reason} Wallet linking for patients is coming with
-              docforum-core's SEP-10 work — this payment can be prepared once your wallet is linked.
+              <strong>{t('payments.wallet.walletNotLinkedStrong', 'No linked wallet yet.')}</strong>{' '}
+              {state.reason}{' '}
+              {t(
+                'payments.wallet.walletNotLinkedBody',
+                "Wallet linking for patients is coming with docforum-core's SEP-10 work — this payment can be prepared once your wallet is linked.",
+              )}
             </p>
           </div>
           <div className={styles.actions}>
             <Button variant="secondary" onClick={() => void start()}>
-              Try again
+              {t('common.tryAgain', 'Try again')}
             </Button>
           </div>
         </div>
       ) : null}
 
-      {busy ? <p className={styles.hint}>Keep this tab open until the payment finishes.</p> : null}
+      {busy ? (
+        <p className={styles.hint}>
+          {t('payments.wallet.keepOpen', 'Keep this tab open until the payment finishes.')}
+        </p>
+      ) : null}
     </section>
   );
 }

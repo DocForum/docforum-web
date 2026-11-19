@@ -13,6 +13,21 @@ const RUNNING_DELAY_KEY = queueKeys.runningDelay();
 // How long an action can be undone after it's tapped.
 export const UNDO_WINDOW_MS = 4000;
 
+type VisitStatus = QueueEntry['status'];
+
+interface PendingAction {
+  timer: ReturnType<typeof setTimeout>;
+  /** Status before the optimistic change, restored on undo or failure. */
+  previousStatus: VisitStatus;
+  /** What the optimistic change set, so a rollback never clobbers newer state. */
+  appliedStatus: VisitStatus;
+}
+
+/**
+ * Today's appointments. The backend scopes the day from the doctor's practice
+ * time zone (issue #236), so this hook sends no date and computes no boundary
+ * locally — a doctor near midnight sees the server's day, not the browser's.
+ */
 export function useAppointments() {
   const accessToken = useAuthStore((state) => state.accessToken);
   return useQuery({
@@ -58,104 +73,135 @@ export function useUpdateRunningDelay() {
  * Start/complete visits with optimistic UI and an undo window.
  *
  * Tapping start/complete applies the optimistic change immediately and
- * defers the real API call by UNDO_WINDOW_MS. `undo(id)` cancels the
- * deferred call and reverts the optimistic UI, so nothing reaches the
- * server unless the window elapses.
+ * defers the real PATCH by UNDO_WINDOW_MS. `undo(id)` cancels the deferred
+ * call and reverts the optimistic UI, so nothing reaches the server unless
+ * the window elapses.
+ *
+ * Failures roll the optimistic row back and refetch, so a `409` (not
+ * scheduled / not checked in / not in progress) never leaves the queue
+ * showing a state the server rejected. A second action for the same
+ * appointment while one is still pending is ignored, so the undo window can
+ * never produce two conflicting PATCHes.
  */
 export function useVisitActions() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
+  const pending = useRef<Map<string, PendingAction>>(new Map());
+  const sent = useRef<Set<string>>(new Set());
+
+  const applyOptimistic = useCallback(
+    (id: string, status: VisitStatus) => {
+      queryClient.setQueryData(QUEUE_KEY, (old: QueueEntry[] | undefined) => {
+        if (!old) return old;
+        return old.map((e) => (e.appointmentId === id ? { ...e, status } : e));
+      });
+    },
+    [queryClient],
+  );
+
+  /**
+   * Put the row back only if it still shows the optimistic value: a poll or a
+   * newer action may already have written something else.
+   */
+  const rollback = useCallback(
+    (id: string, appliedStatus: VisitStatus, previousStatus: VisitStatus) => {
+      queryClient.setQueryData(QUEUE_KEY, (old: QueueEntry[] | undefined) => {
+        if (!old) return old;
+        return old.map((e) =>
+          e.appointmentId === id && e.status === appliedStatus
+            ? { ...e, status: previousStatus }
+            : e,
+        );
+      });
+      sent.current.delete(id);
+      // The server is the source of truth after a rejection.
+      invalidateFor(queryClient, 'queue.visit-action');
+    },
+    [queryClient],
+  );
 
   const startMutation = useMutation({
     mutationFn: (id: string) => queueService.startVisit(id, accessToken!),
     // The optimistic row lands instantly; once the server agrees, the
     // appointment list above the queue (and a non-observed queue copy) must
     // converge on the same status too.
-    onSuccess: () => invalidateFor(queryClient, 'queue.visit-action'),
+    onSuccess: (_appointment, id) => {
+      sent.current.delete(id);
+      invalidateFor(queryClient, 'queue.visit-action');
+    },
+    onError: (_error, id) => rollback(id, 'in_progress', 'checked_in'),
   });
   const completeMutation = useMutation({
     mutationFn: (id: string) => queueService.completeVisit(id, accessToken!),
-    onSuccess: () => invalidateFor(queryClient, 'queue.visit-action'),
+    onSuccess: (_appointment, id) => {
+      sent.current.delete(id);
+      invalidateFor(queryClient, 'queue.visit-action');
+    },
+    onError: (_error, id) => rollback(id, 'completed', 'in_progress'),
   });
 
-  const pending = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-
-  const applyOptimistic = useCallback(
-    (id: string, status: 'checked_in' | 'in_progress' | 'completed') => {
-      queryClient.setQueryData(QUEUE_KEY, (old: QueueEntry[] | undefined) => {
-        if (!old) return old;
-        return old.map((e) =>
-          e.appointmentId === id ? { ...e, status } : e,
-        );
-      });
-    },
-    [queryClient],
-  );
-
   const clearPending = useCallback((id: string) => {
-    const timer = pending.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
+    const action = pending.current.get(id);
+    if (action) {
+      clearTimeout(action.timer);
       pending.current.delete(id);
     }
   }, []);
 
-  const startVisit = useCallback(
-    (id: string) => {
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
-        id,
-      );
-      if (!entry || entry.status !== 'checked_in') return;
+  const schedule = useCallback(
+    (id: string, previousStatus: VisitStatus, appliedStatus: VisitStatus, send: (id: string) => void) => {
+      // One deferred write per appointment: a repeated tap must not queue a
+      // second, conflicting PATCH or orphan the first timer.
+      if (pending.current.has(id) || sent.current.has(id)) return;
 
-      applyOptimistic(id, 'in_progress');
+      clearPending(id);
+      applyOptimistic(id, appliedStatus);
 
       const timer = setTimeout(() => {
         pending.current.delete(id);
-        startMutation.mutate(id);
+        sent.current.add(id);
+        send(id);
       }, UNDO_WINDOW_MS);
-      pending.current.set(id, timer);
+      pending.current.set(id, { timer, previousStatus, appliedStatus });
     },
-    [accessToken, applyOptimistic, queryClient, startMutation],
+    [applyOptimistic, clearPending],
+  );
+
+  const startVisit = useCallback(
+    (id: string) => {
+      const entry = findQueueEntry(queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY), id);
+      if (!entry || entry.status !== 'checked_in') return;
+      schedule(id, entry.status, 'in_progress', (appointmentId) =>
+        startMutation.mutate(appointmentId),
+      );
+    },
+    [queryClient, schedule, startMutation],
   );
 
   const completeVisit = useCallback(
     (id: string) => {
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
-        id,
-      );
+      const entry = findQueueEntry(queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY), id);
       if (!entry || entry.status !== 'in_progress') return;
-
-      applyOptimistic(id, 'completed');
-
-      const timer = setTimeout(() => {
-        pending.current.delete(id);
-        completeMutation.mutate(id);
-      }, UNDO_WINDOW_MS);
-      pending.current.set(id, timer);
+      schedule(id, entry.status, 'completed', (appointmentId) =>
+        completeMutation.mutate(appointmentId),
+      );
     },
-    [accessToken, applyOptimistic, queryClient, completeMutation],
+    [queryClient, schedule, completeMutation],
   );
 
   const undo = useCallback(
     (id: string) => {
+      const action = pending.current.get(id);
+      // Once the deferred PATCH has been sent there is nothing safe to undo:
+      // reversing it would need a second, conflicting PATCH.
+      if (!action) return;
+
       clearPending(id);
-      const entry = findQueueEntry(
-        queryClient.getQueryData<QueueEntry[]>(QUEUE_KEY),
-        id,
-      );
-      if (!entry) return;
-      // Revert to the last known good status.
-      if (entry.status === 'in_progress') {
-        applyOptimistic(id, 'checked_in');
-      } else if (entry.status === 'completed') {
-        applyOptimistic(id, 'in_progress');
-      }
+      rollback(id, action.appliedStatus, action.previousStatus);
       startMutation.reset();
       completeMutation.reset();
     },
-    [clearPending, applyOptimistic, queryClient, startMutation, completeMutation],
+    [clearPending, rollback, startMutation, completeMutation],
   );
 
   const hasPendingUndo = pending.current.size > 0;
@@ -172,9 +218,6 @@ export function useVisitActions() {
   };
 }
 
-function findQueueEntry(
-  entries: QueueEntry[] | undefined,
-  appointmentId: string,
-) {
+function findQueueEntry(entries: QueueEntry[] | undefined, appointmentId: string) {
   return entries?.find((e) => e.appointmentId === appointmentId);
 }

@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { useT } from '../i18n/useT';
 import { Button } from '../components/Button';
 import { FormError } from '../components/FormError';
 import { PaymentReceipt } from '../features/payments/components/PaymentReceipt';
@@ -8,6 +9,7 @@ import { historyErrorCopy, statusLabel } from '../features/payments/status';
 import styles from './PaymentDetailPage.module.css';
 
 export function PaymentDetailPage() {
+  const t = useT();
   const { intentId } = useParams();
   const entryQuery = usePaymentHistoryEntry(intentId);
   const now = new Date();
@@ -17,7 +19,7 @@ export function PaymentDetailPage() {
       <div className="container">
         <div className="card">
           <h1 className={styles.title}>Payment</h1>
-          <FormError message={historyErrorCopy(entryQuery.error)} />
+          <FormError message={historyErrorCopy(entryQuery.error, t)} />
           <p className={styles.back}>
             <Link to="/payments">Back to your payments</Link>
           </p>
@@ -46,7 +48,7 @@ export function PaymentDetailPage() {
   return (
     <div className="container">
       <div className="card">
-        <span className={`statusPill ${styles.noPrint}`}>{statusLabel(entry.status)}</span>
+        <span className={`statusPill ${styles.noPrint}`}>{statusLabel(entry.status, t)}</span>
         <h1 className={styles.title}>Payment</h1>
 
         {/* The print button is the only action here: a receipt has to be

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PayWithWallet } from './PayWithWallet';
@@ -57,9 +58,11 @@ function renderFlow(wallet: WalletBridge | null = fakeWallet()) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
+    <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
     <QueryClientProvider client={queryClient}>
       <PayWithWallet orderId={ORDER_ID} intent={intent} wallet={wallet} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 

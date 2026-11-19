@@ -1,5 +1,7 @@
 import { useId, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
+import { useT } from '../../../i18n/useT';
+import type { Translate } from '../../../i18n/useT';
 import { useAuditFilters } from '../hooks/useAuditFilters';
 import { hasActiveFilters } from '../filters';
 import { AuditFilterForm } from './AuditFilterForm';
@@ -8,18 +10,26 @@ import { AccessLogsPanel } from './AccessLogsPanel';
 import type { AuditTab } from '../filters';
 import styles from './AuditLogViewer.module.css';
 
-const TABS: { id: AuditTab; label: string; description: string }[] = [
-  {
-    id: 'events',
-    label: 'State changes',
-    description: 'Who booked, verified, funded or released what — every attributable transition (PRD §7).',
-  },
-  {
-    id: 'access',
-    label: 'Record access',
-    description: 'Who viewed which clinical record, and through which route.',
-  },
-];
+function tabs(t: Translate): { id: AuditTab; label: string; description: string }[] {
+  return [
+    {
+      id: 'events',
+      label: t('admin.audit.tab.events', 'State changes'),
+      description: t(
+        'admin.audit.tab.eventsDescription',
+        'Who booked, verified, funded or released what — every attributable transition (PRD §7).',
+      ),
+    },
+    {
+      id: 'access',
+      label: t('admin.audit.tab.access', 'Record access'),
+      description: t(
+        'admin.audit.tab.accessDescription',
+        'Who viewed which clinical record, and through which route.',
+      ),
+    },
+  ];
+}
 
 /**
  * Admin audit console. All state — tab, filters and page position — lives in
@@ -27,6 +37,8 @@ const TABS: { id: AuditTab; label: string; description: string }[] = [
  * Rows are rendered, never logged: nothing here writes to the console.
  */
 export function AuditLogViewer() {
+  const t = useT();
+  const TABS = tabs(t);
   const { filters, issues, pageNumber, applyFilters, clearFilters, selectTab, goOlder, goNewer, goNewest } =
     useAuditFilters();
   const baseId = useId();
@@ -56,14 +68,20 @@ export function AuditLogViewer() {
   return (
     <section className={styles.viewer} aria-labelledby={`${baseId}-title`}>
       <header className={styles.header}>
-        <h1 id={`${baseId}-title`}>Audit trail</h1>
+        <h1 id={`${baseId}-title`}>{t('admin.audit.title', 'Audit trail')}</h1>
         <p className={styles.subtitle}>
-          Read-only view of docforum-core's append-only audit records. Filters are kept in the address bar, so any
-          view can be bookmarked or shared with another admin.
+          {t(
+            'admin.audit.subtitle',
+            "Read-only view of docforum-core's append-only audit records. Filters are kept in the address bar, so any view can be bookmarked or shared with another admin.",
+          )}
         </p>
       </header>
 
-      <div role="tablist" aria-label="Audit record type" className={styles.tabs}>
+      <div
+        role="tablist"
+        aria-label={t('admin.audit.tabsAria', 'Audit record type')}
+        className={styles.tabs}
+      >
         {TABS.map((tab) => {
           const selected = tab.id === filters.tab;
           return (
@@ -98,7 +116,7 @@ export function AuditLogViewer() {
 
         {issues.length > 0 && (
           <div className={styles.notice} role="status">
-            <p>Some filters in this link were ignored:</p>
+            <p>{t('admin.audit.ignoredFilters', 'Some filters in this link were ignored:')}</p>
             <ul>
               {issues.map((issue) => (
                 <li key={issue}>{issue}</li>

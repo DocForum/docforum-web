@@ -1,5 +1,6 @@
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
+import { useT } from '../../../i18n/useT';
 import { KIND_LABELS, ROLES, STATE_LABELS, describeAudience, flagState } from '../flags';
 import { LastChanged } from './LastChanged';
 import type { LastChange } from './LastChanged';
@@ -16,9 +17,12 @@ interface FlagCardProps {
 }
 
 export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: FlagCardProps) {
+  const t = useT();
   const state = flagState(flag);
   const headingId = `flag-${flag.id}`;
-  const roleLabels = ROLES.filter((role) => flag.targeting.roles.includes(role.value)).map((role) => role.label);
+  const roleLabels = ROLES.filter((role) => flag.targeting.roles.includes(role.value)).map((role) =>
+    t(`admin.flags.role.${role.value}`, role.label),
+  );
 
   return (
     <article className={styles.card} aria-labelledby={headingId} aria-busy={saving}>
@@ -28,15 +32,17 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
         </h2>
         <div className={styles.badges}>
           <span className={styles.statePill} data-state={state}>
-            {STATE_LABELS[state]}
+            {t(`admin.flags.state.${state}`, STATE_LABELS[state])}
           </span>
-          <span className={styles.kindBadge}>{KIND_LABELS[flag.kind]}</span>
+          <span className={styles.kindBadge}>
+            {t(`admin.flags.kind.${flag.kind}`, KIND_LABELS[flag.kind])}
+          </span>
         </div>
       </div>
 
       {flag.description && <p className={styles.description}>{flag.description}</p>}
 
-      <p className={styles.audience}>{describeAudience(flag)}</p>
+      <p className={styles.audience}>{describeAudience(flag, t)}</p>
 
       {flag.kind === 'percentage' && (
         <div className={styles.rollout} data-off={!flag.enabled || undefined}>
@@ -49,15 +55,23 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
 
       <dl className={styles.facts}>
         <div>
-          <dt>Roles</dt>
-          <dd>{roleLabels.length > 0 ? roleLabels.join(', ') : 'All roles'}</dd>
+          <dt>{t('admin.flags.roles', 'Roles')}</dt>
+          <dd>
+            {roleLabels.length > 0
+              ? roleLabels.join(', ')
+              : t('admin.flags.allRoles', 'All roles')}
+          </dd>
         </div>
         <div>
-          <dt>Allowlist</dt>
+          <dt>{t('admin.flags.allowlist', 'Allowlist')}</dt>
           <dd>
             {flag.targeting.userIds.length === 0
-              ? 'None'
-              : `${flag.targeting.userIds.length} ${flag.targeting.userIds.length === 1 ? 'user' : 'users'}`}
+              ? t('admin.flags.allowlistNone', 'None')
+              : t(
+                  'admin.flags.allowlistCount',
+                  '{count, plural, one {1 user} other {# users}}',
+                  { count: flag.targeting.userIds.length },
+                )}
           </dd>
         </div>
       </dl>
@@ -68,14 +82,14 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
           {saving && (
             <span className={styles.saving} role="status">
               <Spinner size={14} />
-              Saving…
+              {t('admin.flags.saving', 'Saving…')}
             </span>
           )}
           <button
             type="button"
             role="switch"
             aria-checked={flag.enabled}
-            aria-label={`${flag.key} enabled`}
+            aria-label={t('admin.flags.switchAria', '{key} enabled', { key: flag.key })}
             className={styles.switch}
             onClick={() => onToggle(flag)}
             disabled={saving}
@@ -83,7 +97,7 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
             <span className={styles.switchThumb} aria-hidden="true" />
           </button>
           <Button type="button" variant="secondary" onClick={() => onEdit(flag)} disabled={saving} aria-describedby={headingId}>
-            Edit
+            {t('common.edit', 'Edit')}
           </Button>
         </div>
       </div>

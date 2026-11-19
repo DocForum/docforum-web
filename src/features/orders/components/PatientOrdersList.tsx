@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Spinner } from '../../../components/Spinner';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
+import { useT } from '../../../i18n/useT';
 import type { PatientOrder } from '../../../types/models';
 import { useMyOrders } from '../hooks/useOrders';
 import styles from './PatientOrders.module.css';
+
+type Translate = ReturnType<typeof useT>;
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -14,27 +17,37 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
-export function orderTypeLabel(order: PatientOrder): string {
-  return order.orderType === 'prescription' ? 'Prescription' : 'Lab order';
+/** API `orderType` is mapped to copy explicitly; the raw value never renders. */
+export function orderTypeLabel(order: PatientOrder, t: Translate): string {
+  return order.orderType === 'prescription'
+    ? t('orders.type.prescription', 'Prescription')
+    : t('orders.type.labOrder', 'Lab order');
 }
 
-export function orderItemSummary(order: PatientOrder): string {
+/** Counts go through ICU plurals so a locale decides its own plural rules. */
+export function orderItemSummary(order: PatientOrder, t: Translate): string {
   const items = order.items ?? [];
   const total = items.length;
   const outstanding = items.filter((item) => item.quantityOutstanding > 0).length;
-  if (total === 1) return '1 item';
-  if (outstanding > 0) return `${total} items · ${outstanding} still outstanding`;
-  return `${total} items`;
+  if (outstanding > 0) {
+    return t(
+      'orders.itemCountOutstanding',
+      '{total, plural, one {1 item} other {# items}} · {outstanding, plural, one {1 still outstanding} other {# still outstanding}}',
+      { total, outstanding },
+    );
+  }
+  return t('orders.itemCount', '{total, plural, one {1 item} other {# items}}', { total });
 }
 
 export function PatientOrdersList() {
+  const t = useT();
   const { data: orders = [], isLoading, error } = useMyOrders();
 
   if (isLoading) {
     return (
       <div className={styles.loading} role="status">
         <Spinner />
-        <span>Loading your orders…</span>
+        <span>{t('orders.list.loading', 'Loading your orders…')}</span>
       </div>
     );
   }
@@ -42,7 +55,9 @@ export function PatientOrdersList() {
   if (error) {
     return (
       <p className={styles.error} role="alert">
-        {error instanceof Error ? error.message : 'Could not load your orders.'}
+        {error instanceof Error
+          ? error.message
+          : t('orders.list.error', 'Could not load your orders.')}
       </p>
     );
   }
@@ -51,37 +66,47 @@ export function PatientOrdersList() {
     <section className={styles.page} aria-labelledby="orders-heading">
       <div className={styles.pageHeader}>
         <div>
-          <h1 id="orders-heading">My orders</h1>
+          <h1 id="orders-heading">{t('orders.list.title', 'My orders')}</h1>
           <p className={styles.subtitle}>
-            Prescriptions and lab orders, including anything a facility could not fill yet.
+            {t(
+              'orders.list.subtitle',
+              'Prescriptions and lab orders, including anything a facility could not fill yet.',
+            )}
           </p>
         </div>
       </div>
 
       {orders.length === 0 ? (
-        <p className={styles.empty}>You have no orders.</p>
+        <p className={styles.empty}>{t('orders.list.empty', 'You have no orders.')}</p>
       ) : (
         <ul className={styles.orderList}>
           {orders.map((order) => (
             <li key={order.id} className={styles.orderCard}>
               <div className={styles.orderCardHeader}>
                 <div>
-                  <p className={styles.orderType}>{orderTypeLabel(order)}</p>
+                  {/* Medication and test names are clinical data: never translated. */}
+                  <p className={styles.orderType}>{orderTypeLabel(order, t)}</p>
                   <h2 className={styles.orderTitle}>{order.medicationOrTest}</h2>
                   <p className={styles.orderMeta}>
-                    Issued {formatDate(order.issuedAt)}
+                    {t('orders.list.issued', 'Issued {date}', {
+                      date: formatDate(order.issuedAt),
+                    })}
                     {order.facilityName ? ` · ${order.facilityName}` : ''}
                   </p>
                 </div>
-                <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
+                <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} t={t} />
               </div>
 
-              <p className={styles.orderSummary}>{orderItemSummary(order)}</p>
+              <p className={styles.orderSummary}>{orderItemSummary(order, t)}</p>
 
               <div className={styles.orderFooter}>
-                <span className={styles.expiry}>Expires {formatDate(order.expiresAt)}</span>
+                <span className={styles.expiry}>
+                  {t('orders.list.expires', 'Expires {date}', {
+                    date: formatDate(order.expiresAt),
+                  })}
+                </span>
                 <Link to={`/patient/orders/${order.id}`} className={styles.viewLink}>
-                  View order
+                  {t('orders.list.viewOrder', 'View order')}
                 </Link>
               </div>
             </li>

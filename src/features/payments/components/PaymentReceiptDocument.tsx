@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useT } from '../../../i18n/useT';
 import { PrintLayout, usePrint } from '../../../components/PrintLayout';
 import { amountLabel } from '../stroops';
 import { formatDay, orderTypeLabel, refundDeadlineCopy, statusCopy, statusLabel } from '../status';
@@ -14,11 +15,12 @@ interface Props {
 /** Printable + PDF-exportable payment receipt, wrapped in PrintLayout.
  *  Reuses the same data shape as the on-screen PaymentReceipt component. */
 export function PaymentReceiptDocument({ entry, now }: Props) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const { onPrint, onExportPdf, isExporting, exportError } = usePrint();
 
   const txLink = transactionUrl(entry.stellarTxHash);
-  const refund = refundDeadlineCopy(entry.refundDeadlineAt, now);
+  const refund = refundDeadlineCopy(entry.refundDeadlineAt, now, t);
 
   return (
     <div>
@@ -41,7 +43,7 @@ export function PaymentReceiptDocument({ entry, now }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <dt style={{ fontWeight: 600, minWidth: '8rem' }}>For</dt>
-              <dd style={{ margin: 0 }}>{orderTypeLabel(entry.orderType)}</dd>
+              <dd style={{ margin: 0 }}>{orderTypeLabel(entry.orderType, t)}</dd>
             </div>
             {entry.facilityName ? (
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
@@ -55,7 +57,7 @@ export function PaymentReceiptDocument({ entry, now }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Status</dt>
-              <dd style={{ margin: 0 }}>{statusLabel(entry.status)}</dd>
+              <dd style={{ margin: 0 }}>{statusLabel(entry.status, t)}</dd>
             </div>
             {refund ? (
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
@@ -89,7 +91,7 @@ export function PaymentReceiptDocument({ entry, now }: Props) {
           )}
 
           <p style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid #ccc', fontSize: 'var(--text-sm)', color: '#555' }}>
-            {statusCopy(entry.status)}
+            {statusCopy(entry.status, t)}
           </p>
         </PrintLayout>
       </div>

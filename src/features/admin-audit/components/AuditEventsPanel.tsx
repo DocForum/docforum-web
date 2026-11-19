@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useT } from '../../../i18n/useT';
 import { useAuditEvents } from '../hooks/useAuditLog';
 import { csvFilename, downloadCsv, toCsv } from '../csv';
 import { matchesAction, toAuditQuery } from '../filters';
@@ -8,6 +9,8 @@ import type { AuditPanelProps } from './AuditResults';
 import type { AuditEvent } from '../../../types/models';
 import styles from './AuditLogViewer.module.css';
 
+// CSV headers stay in stable English: they are a machine-facing contract for
+// spreadsheet and analyst tooling, not UI copy. See docs.d/248-audit-csv-headers.md.
 export const AUDIT_EVENT_CSV_COLUMNS: CsvColumn<AuditEvent>[] = [
   { header: 'createdAt', value: (event) => event.createdAt },
   { header: 'action', value: (event) => event.action },
@@ -42,6 +45,7 @@ function Metadata({ metadata }: { metadata: AuditEvent['metadata'] }) {
 }
 
 export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewest }: AuditPanelProps) {
+  const t = useT();
   const query = useMemo(() => toAuditQuery(filters, PAGE_SIZE), [filters]);
   const { data, error, isLoading, isFetching, isPlaceholderData, refetch } = useAuditEvents(query);
 
@@ -52,8 +56,10 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
     <>
       {filters.action && (
         <p className={styles.hint}>
-          Action is matched within each loaded page — docforum-core's audit endpoint doesn't filter by action yet, so
-          older pages may hold more matches.
+          {t(
+            'admin.audit.events.actionHint',
+            "Action is matched within each loaded page — docforum-core's audit endpoint doesn't filter by action yet, so older pages may hold more matches.",
+          )}
         </p>
       )}
       <AuditResults
@@ -74,19 +80,25 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
         onExport={() => downloadCsv(csvFilename('docforum-audit-events'), toCsv(AUDIT_EVENT_CSV_COLUMNS, rows))}
         emptyMessage={
           items.length > 0
-            ? 'No events on this page match the action filter. Try older pages.'
-            : 'No audit events match these filters.'
+            ? t(
+                'admin.audit.events.emptyFiltered',
+                'No events on this page match the action filter. Try older pages.',
+              )
+            : t('admin.audit.events.empty', 'No audit events match these filters.')
         }
       >
-        <table className={styles.table} aria-label="State-change audit events">
+        <table
+          className={styles.table}
+          aria-label={t('admin.audit.events.tableAria', 'State-change audit events')}
+        >
           <thead>
             <tr>
-              <th scope="col">When</th>
-              <th scope="col">Action</th>
-              <th scope="col">Entity</th>
-              <th scope="col">Transition</th>
-              <th scope="col">Actor</th>
-              <th scope="col">Request &amp; details</th>
+              <th scope="col">{t('admin.audit.col.when', 'When')}</th>
+              <th scope="col">{t('admin.audit.col.action', 'Action')}</th>
+              <th scope="col">{t('admin.audit.col.entity', 'Entity')}</th>
+              <th scope="col">{t('admin.audit.col.transition', 'Transition')}</th>
+              <th scope="col">{t('admin.audit.col.actor', 'Actor')}</th>
+              <th scope="col">{t('admin.audit.col.request', 'Request & details')}</th>
             </tr>
           </thead>
           <tbody>
@@ -105,7 +117,7 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
                   {event.fromState || event.toState ? (
                     <span className={styles.transition}>
                       <span>{event.fromState ?? '∅'}</span>
-                      <span aria-label="to">→</span>
+                      <span aria-label={t('admin.audit.transition.to', 'to')}>→</span>
                       <span>{event.toState ?? '∅'}</span>
                     </span>
                   ) : (

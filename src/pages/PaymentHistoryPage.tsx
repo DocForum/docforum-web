@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../i18n/useT';
 import { Button } from '../components/Button';
 import { FormError } from '../components/FormError';
 import { PaymentHistoryList } from '../features/payments/components/PaymentHistoryList';
@@ -7,6 +8,7 @@ import { historyErrorCopy } from '../features/payments/status';
 import styles from './PaymentHistoryPage.module.css';
 
 export function PaymentHistoryPage() {
+  const t = useT();
   const historyQuery = usePaymentHistory();
   const entries = historyQuery.data?.pages.flatMap((page) => page.intents) ?? [];
 
@@ -30,7 +32,7 @@ export function PaymentHistoryPage() {
         </p>
 
         {historyQuery.isError ? (
-          <FormError message={entries.length > 0 ? 'Older payments could not be loaded.' : historyErrorCopy(historyQuery.error)} />
+          <FormError message={entries.length > 0 ? 'Older payments could not be loaded.' : historyErrorCopy(historyQuery.error, t)} />
         ) : null}
 
         {body}

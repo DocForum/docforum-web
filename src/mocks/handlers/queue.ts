@@ -1,5 +1,8 @@
 // Doctor queue endpoints: today's appointments, live queue, start/complete
 // visits, running delay with manual override.
+//
+// Methods and paths match docforum-core (issue #236): visits transition with
+// PATCH, and "today" is a server-scoped path — no date is computed here.
 import { http } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
@@ -26,7 +29,7 @@ function deriveQueue(appointments: Appointment[]): QueueEntry[] {
 
 export const queueHandlers = [
   http.get(
-    '*/doctor/appointments/today',
+    '*/appointments/doctor/today',
     respond('list', () =>
       [...db.appointments].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     ),
@@ -34,27 +37,30 @@ export const queueHandlers = [
 
   http.get('*/doctor/queue/today', respond('list', () => deriveQueue(db.appointments))),
 
-  http.post(
+  http.patch(
     '*/appointments/:id/start',
     respond('json', ({ params }) => {
       const apt = db.appointments.find((a) => a.id === paramId(params));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'completed') return conflict('cannot start a completed visit');
-      if (apt.status === 'in_progress') return apt; // idempotent, per assumed contract
+      if (apt.status === 'completed') return conflict('this visit is already completed');
+      if (apt.status === 'in_progress') return apt; // idempotent, per the core contract
+      if (apt.status === 'scheduled' || apt.checkInAt === null) {
+        return conflict('this visit is not checked in');
+      }
       apt.status = 'in_progress';
       apt.startedAt = new Date().toISOString();
       return apt;
     }),
   ),
 
-  http.post(
+  http.patch(
     '*/appointments/:id/complete',
     respond('json', ({ params }) => {
       const apt = db.appointments.find((a) => a.id === paramId(params));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'scheduled' || apt.status === 'checked_in') {
-        return conflict('visit has not started yet');
-      }
+      if (apt.status === 'completed') return apt; // idempotent, per the core contract
+      if (apt.status === 'scheduled') return conflict('this visit is not scheduled for today');
+      if (apt.status === 'checked_in') return conflict('this visit is not in progress');
       apt.status = 'completed';
       apt.completedAt = new Date().toISOString();
       return apt;

@@ -14,6 +14,7 @@ import { useFormat } from '../../../i18n/useFormat';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { useT } from '../../../i18n/useT';
 import { formatTime } from '../../../i18n/time-zone';
+import { visitErrorMessage } from '../visit-errors';
 import type { QueueEntry } from '../../../types/models';
 import styles from './QueuePanel.module.css';
 
@@ -62,7 +63,8 @@ export function QueuePanel() {
   const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
-  const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
+  const { startVisit, completeVisit, undo, isPending, hasPendingUndo, startError, completeError } =
+    useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
   const { formatNumber } = useFormat();
@@ -140,6 +142,14 @@ export function QueuePanel() {
           </span>
         </div>
       </header>
+
+      {startError || completeError ? (
+        <p className={styles.empty} role="alert">
+          {startError
+            ? visitErrorMessage(t, startError, 'start')
+            : visitErrorMessage(t, completeError, 'complete')}
+        </p>
+      ) : null}
 
       {hasPendingUndo && undoTarget && (
         <div className={styles.undoToast} role="group" aria-label="Undo last queue action">

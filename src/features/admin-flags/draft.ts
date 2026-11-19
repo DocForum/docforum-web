@@ -1,4 +1,6 @@
-import { ROLES, describeRoles, shortId } from './flags';
+import { ROLES, describeRoles, roleLabel, shortId } from './flags';
+import { identityTranslate } from '../../i18n/useT';
+import type { Translate } from '../../i18n/useT';
 import type { FeatureFlag, FeatureFlagTargeting, Role, UpdateFeatureFlagInput } from '../../types/models';
 
 // The edit form works on strings (what the inputs hold) and only turns them
@@ -44,14 +46,25 @@ export function draftFromFlag(flag: FeatureFlag): FlagDraft {
 
 /** Whole numbers 0–100 only: bucketing is per percent, so 12.5 would be
  * silently rounded by someone, somewhere. */
-export function parsePercentage(raw: string): { value: number } | { error: string } {
+export function parsePercentage(
+  raw: string,
+  t: Translate = identityTranslate,
+): { value: number } | { error: string } {
   const text = raw.trim();
-  if (!text) return { error: 'Enter a percentage from 0 to 100.' };
-  if (text.startsWith('-')) return { error: 'The rollout can’t be below 0%.' };
-  if (/^\d*[.,]\d+$/.test(text)) return { error: 'Use a whole number from 0 to 100.' };
-  if (!/^\d+$/.test(text)) return { error: 'Enter a number from 0 to 100.' };
+  if (!text) return { error: t('admin.flags.percent.required', 'Enter a percentage from 0 to 100.') };
+  if (text.startsWith('-')) {
+    return { error: t('admin.flags.percent.belowZero', 'The rollout can’t be below 0%.') };
+  }
+  if (/^\d*[.,]\d+$/.test(text)) {
+    return { error: t('admin.flags.percent.whole', 'Use a whole number from 0 to 100.') };
+  }
+  if (!/^\d+$/.test(text)) {
+    return { error: t('admin.flags.percent.number', 'Enter a number from 0 to 100.') };
+  }
   const value = Number(text);
-  if (value > 100) return { error: 'The rollout can’t be above 100%.' };
+  if (value > 100) {
+    return { error: t('admin.flags.percent.aboveHundred', 'The rollout can’t be above 100%.') };
+  }
   return { value };
 }
 
@@ -61,17 +74,34 @@ export function parsePercentage(raw: string): { value: number } | { error: strin
  * target nobody. Ids already saved on the flag pass through untouched, so a
  * server-side id this check wouldn't accept can't block an unrelated edit.
  */
-export function parseUserIds(raw: string, saved: string[] = []): { ids: string[] } | { error: string } {
+export function parseUserIds(
+  raw: string,
+  saved: string[] = [],
+  t: Translate = identityTranslate,
+): { ids: string[] } | { error: string } {
   const known = new Set(saved);
   const tokens = raw.split(/[\s,;]+/).filter(Boolean);
   const invalid = tokens.filter((token) => !known.has(token) && !UUID_PATTERN.test(token));
   if (invalid.length > 0) {
     const sample = invalid.slice(0, 3).map((token) => `“${token.slice(0, 40)}”`).join(', ');
-    const more = invalid.length > 3 ? ` and ${invalid.length - 3} more` : '';
-    return { error: `Not a user id: ${sample}${more}. Paste user ids (UUIDs), not emails or names.` };
+    return {
+      error: t(
+        'admin.flags.userIds.invalid',
+        'Not a user id: {sample}. Paste user ids (UUIDs), not emails or names.',
+        { sample },
+      ),
+    };
   }
   const ids = [...new Set(tokens.map((token) => (known.has(token) ? token : token.toLowerCase())))];
-  if (ids.length > MAX_ALLOWLIST) return { error: `Allowlist at most ${MAX_ALLOWLIST} users — use a role or a percentage for more.` };
+  if (ids.length > MAX_ALLOWLIST) {
+    return {
+      error: t(
+        'admin.flags.userIds.tooMany',
+        'Allowlist at most {max} users — use a role or a percentage for more.',
+        { max: MAX_ALLOWLIST },
+      ),
+    };
+  }
   return { ids };
 }
 
@@ -85,9 +115,11 @@ function orderedRoles(roles: Role[]): Role[] {
   return ROLES.map((role) => role.value).filter((role) => roles.includes(role));
 }
 
-function usersLabel(count: number): string {
-  if (count === 0) return 'Nobody';
-  return `${count} ${count === 1 ? 'user' : 'users'}`;
+function usersLabel(count: number, t: Translate): string {
+  if (count === 0) return t('admin.flags.users.nobody', 'Nobody');
+  return t('admin.flags.users.count', '{count, plural, one {1 user} other {# users}}', {
+    count,
+  });
 }
 
 function idList(ids: string[]): string {
@@ -111,17 +143,21 @@ export function applyUpdate(flag: FeatureFlag, input: UpdateFeatureFlagInput): F
   };
 }
 
-export function reviewDraft(flag: FeatureFlag, draft: FlagDraft): DraftReview {
+export function reviewDraft(
+  flag: FeatureFlag,
+  draft: FlagDraft,
+  t: Translate = identityTranslate,
+): DraftReview {
   const errors: DraftErrors = {};
 
   let rolloutPercentage: number | undefined;
   if (flag.kind === 'percentage') {
-    const parsed = parsePercentage(draft.rolloutPercentage);
+    const parsed = parsePercentage(draft.rolloutPercentage, t);
     if ('error' in parsed) errors.rolloutPercentage = parsed.error;
     else rolloutPercentage = parsed.value;
   }
 
-  const parsedIds = parseUserIds(draft.userIds, flag.targeting.userIds);
+  const parsedIds = parseUserIds(draft.userIds, flag.targeting.userIds, t);
   if ('error' in parsedIds) errors.userIds = parsedIds.error;
 
   if ('error' in parsedIds || errors.rolloutPercentage) return { ok: false, errors };
@@ -135,9 +171,13 @@ export function reviewDraft(flag: FeatureFlag, draft: FlagDraft): DraftReview {
     input.enabled = draft.enabled;
     changes.push({
       field: 'enabled',
-      label: 'Kill switch',
-      before: flag.enabled ? 'Enabled' : 'Disabled',
-      after: draft.enabled ? 'Enabled' : 'Disabled',
+      label: t('admin.flags.change.killSwitch', 'Kill switch'),
+      before: flag.enabled
+        ? t('admin.flags.enabled', 'Enabled')
+        : t('admin.flags.disabled', 'Disabled'),
+      after: draft.enabled
+        ? t('admin.flags.enabled', 'Enabled')
+        : t('admin.flags.disabled', 'Disabled'),
     });
   }
 
@@ -145,7 +185,7 @@ export function reviewDraft(flag: FeatureFlag, draft: FlagDraft): DraftReview {
     input.rolloutPercentage = rolloutPercentage;
     changes.push({
       field: 'rolloutPercentage',
-      label: 'Rollout',
+      label: t('admin.flags.change.rollout', 'Rollout'),
       before: percentageLabel(flag.rolloutPercentage),
       after: percentageLabel(rolloutPercentage),
     });
@@ -161,9 +201,9 @@ export function reviewDraft(flag: FeatureFlag, draft: FlagDraft): DraftReview {
   if (rolesChanged) {
     changes.push({
       field: 'roles',
-      label: 'Roles',
-      before: describeRoles(flag.targeting.roles),
-      after: describeRoles(roles),
+      label: t('admin.flags.change.roles', 'Roles'),
+      before: describeRoles(flag.targeting.roles, t),
+      after: describeRoles(roles, t),
     });
   }
   if (usersChanged) {
@@ -171,16 +211,26 @@ export function reviewDraft(flag: FeatureFlag, draft: FlagDraft): DraftReview {
     const after = new Set(userIds);
     const added = userIds.filter((id) => !before.has(id));
     const removed = flag.targeting.userIds.filter((id) => !after.has(id));
+    const detail = [
+      added.length > 0 &&
+        t('admin.flags.change.adds', 'Adds {ids}', { ids: idList(added) }),
+      removed.length > 0 &&
+        t('admin.flags.change.removes', 'Removes {ids}', { ids: idList(removed) }),
+    ]
+      .filter(Boolean)
+      .join(' · ');
     changes.push({
       field: 'userIds',
-      label: 'Allowlist',
-      before: usersLabel(flag.targeting.userIds.length),
-      after: usersLabel(userIds.length),
-      detail: [added.length > 0 && `Adds ${idList(added)}`, removed.length > 0 && `Removes ${idList(removed)}`]
-        .filter(Boolean)
-        .join(' · '),
+      label: t('admin.flags.change.allowlist', 'Allowlist'),
+      before: usersLabel(flag.targeting.userIds.length, t),
+      after: usersLabel(userIds.length, t),
+      detail,
     });
   }
 
   return { ok: true, input, changes, next: applyUpdate(flag, input) };
 }
+
+// `roleLabel` is re-exported for the edit form's role checkboxes, which read
+// each option through the same catalogue mapping.
+export { roleLabel };

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OrderWalletPayPanel } from './OrderWalletPayPanel';
 import { ApiError } from '../../../services/api-client';
@@ -62,9 +63,11 @@ function renderPanel() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
+    <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
     <QueryClientProvider client={queryClient}>
       <OrderWalletPayPanel order={order} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 

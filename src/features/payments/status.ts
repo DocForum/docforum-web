@@ -1,6 +1,15 @@
 import { ApiError } from '../../services/api-client';
 import type { OrderTypeForPayment, PaymentIntentStatus } from '../../types/models';
 
+type Translate = (
+  id: string,
+  defaultMessage: string,
+  values?: Record<string, string | number | boolean | Date | null | undefined>,
+) => string;
+
+/** English fallbacks used when a caller has no translator (pure logic/tests). */
+const identity: Translate = (_id, defaultMessage) => defaultMessage;
+
 export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
   created: 'Not funded',
   awaiting_signature: 'Waiting for your signature',
@@ -8,6 +17,16 @@ export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
   released: 'Released',
   refunded: 'Refunded',
   failed: 'Failed',
+};
+
+/** Explicit, per-status message ids — the raw API value is never rendered. */
+export const STATUS_MESSAGE_ID: Record<PaymentIntentStatus, string> = {
+  created: 'payments.status.created',
+  awaiting_signature: 'payments.status.awaitingSignature',
+  escrowed: 'payments.status.escrowed',
+  released: 'payments.status.released',
+  refunded: 'payments.status.refunded',
+  failed: 'payments.status.failed',
 };
 
 /** Sentences for the person who paid, not the enum token the contract uses.
@@ -23,16 +42,43 @@ export const STATUS_COPY: Record<PaymentIntentStatus, string> = {
   failed: 'This payment failed. Nothing was moved on-chain.',
 };
 
-export function statusLabel(status: PaymentIntentStatus): string {
-  return STATUS_LABEL[status] ?? 'Unknown status';
+export function statusLabel(status: PaymentIntentStatus, t: Translate = identity): string {
+  // Explicit per-status keys: API identifiers are mapped, never rendered raw.
+  switch (status) {
+    case 'created':
+      return t('payments.status.created', 'Not funded');
+    case 'awaiting_signature':
+      return t('payments.status.awaitingSignature', 'Waiting for your signature');
+    case 'escrowed':
+      return t('payments.status.escrowed', 'Held in escrow');
+    case 'released':
+      return t('payments.status.released', 'Released');
+    case 'refunded':
+      return t('payments.status.refunded', 'Refunded');
+    case 'failed':
+      return t('payments.status.failed', 'Failed');
+    default:
+      return t('payments.status.unknown', 'Unknown status');
+  }
 }
 
-export function statusCopy(status: PaymentIntentStatus): string {
-  return STATUS_COPY[status] ?? 'We cannot explain this status yet.';
+/**
+ * The English catalogue carries one ICU `select` for every status, so a
+ * locale can rewrite whole sentences; callers still receive a per-status
+ * fallback for the pre-catalogue render.
+ */
+export function statusCopy(status: PaymentIntentStatus, t: Translate = identity): string {
+  return t(
+    'payments.status.copy',
+    STATUS_COPY[status] ?? 'We cannot explain this status yet.',
+    { status },
+  );
 }
 
-export function orderTypeLabel(orderType: OrderTypeForPayment): string {
-  return orderType === 'prescription' ? 'Prescription' : 'Lab order';
+export function orderTypeLabel(orderType: OrderTypeForPayment, t: Translate = identity): string {
+  return orderType === 'prescription'
+    ? t('payments.orderType.prescription', 'Prescription')
+    : t('payments.orderType.labOrder', 'Lab order');
 }
 
 export function formatDay(iso: string): string {
@@ -43,22 +89,29 @@ export function formatDay(iso: string): string {
 /** An empty payment list and a list that could not be fetched are different
  * statements — the first is about the patient's money, the second about our
  * request. core#90 has not landed, so a 404 here is the normal case. */
-export function historyErrorCopy(error: unknown): string {
+export function historyErrorCopy(error: unknown, t: Translate = identity): string {
   if (error instanceof ApiError && error.status === 404) {
-    return 'Your payment history is not available for this deployment yet.';
+    return t(
+      'payments.history.unavailable',
+      'Your payment history is not available for this deployment yet.',
+    );
   }
   if (error instanceof ApiError) return error.message;
-  return 'Your payment history could not be loaded.';
+  return t('payments.history.loadError', 'Your payment history could not be loaded.');
 }
 
 /** `refundDeadlineAt` is assumed (docforum-core#90) — the real row has no such
  * column, so absence is normal and renders nothing rather than a guess. */
-export function refundDeadlineCopy(deadline: string | null | undefined, now: Date): string | null {
+export function refundDeadlineCopy(
+  deadline: string | null | undefined,
+  now: Date,
+  t: Translate = identity,
+): string | null {
   if (!deadline) return null;
   const date = new Date(deadline);
   if (Number.isNaN(date.getTime())) return null;
   const day = date.toLocaleDateString();
   return date.getTime() < now.getTime()
-    ? `The refund window closed on ${day}.`
-    : `This payment can still be refunded until ${day}.`;
+    ? t('payments.refund.closed', 'The refund window closed on {date}.', { date: day })
+    : t('payments.refund.open', 'This payment can still be refunded until {date}.', { date: day });
 }

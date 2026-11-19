@@ -1,4 +1,6 @@
 import { formatStroops } from '../../services/payments-service';
+import { identityTranslate } from '../../i18n/useT';
+import type { Translate } from '../../i18n/useT';
 import type { DisputeResolution, FulfillmentDispute } from '../../types/models';
 
 export const NOTES_MIN_LENGTH = 10;
@@ -8,13 +10,19 @@ export function normaliseNotes(notes: string): string {
   return notes.trim().replace(/\s+/g, ' ');
 }
 
-export function validateNotes(notes: string): string | null {
+export function validateNotes(notes: string, t: Translate = identityTranslate): string | null {
   const normalised = normaliseNotes(notes);
   if (normalised.length < NOTES_MIN_LENGTH) {
-    return `Add at least ${NOTES_MIN_LENGTH} characters explaining the decision — this is the only record of why.`;
+    return t(
+      'admin.disputes.notesTooShort',
+      'Add at least {min} characters explaining the decision — this is the only record of why.',
+      { min: NOTES_MIN_LENGTH },
+    );
   }
   if (normalised.length > NOTES_MAX_LENGTH) {
-    return `Keep notes under ${NOTES_MAX_LENGTH} characters.`;
+    return t('admin.disputes.notesTooLong', 'Keep notes under {max} characters.', {
+      max: NOTES_MAX_LENGTH,
+    });
   }
   return null;
 }
@@ -40,22 +48,35 @@ export interface ResolutionConsequence {
 export function resolutionConsequence(
   dispute: Pick<FulfillmentDispute, 'amountStroops' | 'asset' | 'facility' | 'patientName' | 'payment'>,
   resolution: DisputeResolution,
+  t: Translate = identityTranslate,
 ): ResolutionConsequence {
   const amountLabel = formatStroops(dispute.amountStroops, dispute.asset);
 
   if (dispute.payment.status !== 'escrowed') {
     const settled =
       dispute.payment.status === 'released'
-        ? 'already released to the facility'
+        ? t('admin.disputes.settled.released', 'already released to the facility')
         : dispute.payment.status === 'refunded'
-          ? 'already refunded to the patient'
-          : 'not held in escrow';
+          ? t('admin.disputes.settled.refunded', 'already refunded to the patient')
+          : t('admin.disputes.settled.notHeld', 'not held in escrow');
     return {
-      payment: `No money moves: this payment was ${settled}. Resolving only closes the dispute.`,
+      payment: t(
+        'admin.disputes.consequence.noMoneyMoves',
+        'No money moves: this payment was {settled}. Resolving only closes the dispute.',
+        { settled },
+      ),
       outcome:
         resolution === 'facility'
-          ? `The dispute is recorded in ${dispute.facility.name}'s favour.`
-          : `The dispute is recorded in ${dispute.patientName}'s favour.`,
+          ? t(
+              'admin.disputes.consequence.recordedForFacility',
+              "The dispute is recorded in {facility}'s favour.",
+              { facility: dispute.facility.name },
+            )
+          : t(
+              'admin.disputes.consequence.recordedForPatient',
+              "The dispute is recorded in {patient}'s favour.",
+              { patient: dispute.patientName },
+            ),
       amountLabel: null,
       movesMoney: false,
     };
@@ -63,25 +84,51 @@ export function resolutionConsequence(
 
   if (resolution === 'facility') {
     return {
-      payment: `Release ${amountLabel} from escrow to ${dispute.facility.name}.`,
-      outcome: `${dispute.patientName} is not refunded, and the order stays fulfilled.`,
+      payment: t(
+        'admin.disputes.consequence.release',
+        'Release {amount} from escrow to {facility}.',
+        { amount: amountLabel, facility: dispute.facility.name },
+      ),
+      outcome: t(
+        'admin.disputes.consequence.patientNotRefunded',
+        '{patient} is not refunded, and the order stays fulfilled.',
+        { patient: dispute.patientName },
+      ),
       amountLabel,
       movesMoney: true,
     };
   }
 
   return {
-    payment: `Refund ${amountLabel} from escrow to ${dispute.patientName}.`,
-    outcome: `${dispute.facility.name} is not paid for this order.`,
+    payment: t(
+      'admin.disputes.consequence.refund',
+      'Refund {amount} from escrow to {patient}.',
+      { amount: amountLabel, patient: dispute.patientName },
+    ),
+    outcome: t(
+      'admin.disputes.consequence.facilityNotPaid',
+      '{facility} is not paid for this order.',
+      { facility: dispute.facility.name },
+    ),
     amountLabel,
     movesMoney: true,
   };
 }
 
-export function resolutionLabel(resolution: DisputeResolution): string {
-  return resolution === 'facility' ? 'facility' : 'patient';
+export function resolutionLabel(
+  resolution: DisputeResolution,
+  t: Translate = identityTranslate,
+): string {
+  return resolution === 'facility'
+    ? t('admin.disputes.party.facility', 'facility')
+    : t('admin.disputes.party.patient', 'patient');
 }
 
-export function resolutionTitle(resolution: DisputeResolution): string {
-  return resolution === 'facility' ? 'Resolve for facility' : 'Resolve for patient';
+export function resolutionTitle(
+  resolution: DisputeResolution,
+  t: Translate = identityTranslate,
+): string {
+  return resolution === 'facility'
+    ? t('admin.disputes.resolutionTitle.facility', 'Resolve for facility')
+    : t('admin.disputes.resolutionTitle.patient', 'Resolve for patient');
 }

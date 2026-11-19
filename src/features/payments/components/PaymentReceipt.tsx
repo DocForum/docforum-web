@@ -1,3 +1,4 @@
+import { useT } from '../../../i18n/useT';
 import { contractUrl, transactionUrl } from '../explorer';
 import { amountLabel } from '../stroops';
 import { formatDay, orderTypeLabel, refundDeadlineCopy, statusCopy, statusLabel } from '../status';
@@ -14,9 +15,10 @@ interface Props {
  * without a browser. `orderId` is not shown — it is an internal pointer, not
  * something a patient can act on. */
 export function PaymentReceipt({ entry, now }: Props) {
+  const t = useT();
   const txLink = transactionUrl(entry.stellarTxHash);
   const contractLink = contractUrl(entry.sorobanContractId);
-  const refund = refundDeadlineCopy(entry.refundDeadlineAt, now);
+  const refund = refundDeadlineCopy(entry.refundDeadlineAt, now, t);
 
   return (
     <div className={styles.receipt} data-testid="payment-receipt">
@@ -28,7 +30,7 @@ export function PaymentReceipt({ entry, now }: Props) {
         <dd>{formatDay(entry.createdAt)}</dd>
 
         <dt>For</dt>
-        <dd>{orderTypeLabel(entry.orderType)}</dd>
+        <dd>{orderTypeLabel(entry.orderType, t)}</dd>
 
         {entry.facilityName ? (
           <>
@@ -41,7 +43,7 @@ export function PaymentReceipt({ entry, now }: Props) {
         <dd className={styles.amount}>{amountLabel(entry.amountStroops)}</dd>
 
         <dt>Status</dt>
-        <dd>{statusLabel(entry.status)}</dd>
+        <dd>{statusLabel(entry.status, t)}</dd>
 
         {refund ? (
           <>
@@ -84,7 +86,7 @@ export function PaymentReceipt({ entry, now }: Props) {
         <p className={styles.verify}>No on-chain transaction yet — nothing to verify until this payment is funded.</p>
       )}
 
-      <p className={styles.note}>{statusCopy(entry.status)}</p>
+      <p className={styles.note}>{statusCopy(entry.status, t)}</p>
     </div>
   );
 }

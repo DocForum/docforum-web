@@ -678,7 +678,7 @@ export interface paths {
     };
   };
 
-  "/doctor/appointments/today": {
+  "/appointments/doctor/today": {
     get: {
       responses: {
           200: { content: { "application/json": Array<components["schemas"]["Appointment"]> } };
@@ -695,7 +695,7 @@ export interface paths {
   };
 
   "/appointments/{appointmentId}/start": {
-    post: {
+    patch: {
       responses: {
           200: { content: { "application/json": components["schemas"]["Appointment"] } };
       };
@@ -703,7 +703,7 @@ export interface paths {
   };
 
   "/appointments/{appointmentId}/complete": {
-    post: {
+    patch: {
       responses: {
           200: { content: { "application/json": components["schemas"]["Appointment"] } };
       };

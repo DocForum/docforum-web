@@ -1,4 +1,6 @@
 import type { DisputeReason, FulfillmentDisputeSummary } from '../../types/models';
+import { identityTranslate } from '../../i18n/useT';
+import type { Translate } from '../../i18n/useT';
 import { ageLabel } from './format';
 
 export const DISPUTE_REASONS: Record<DisputeReason, string> = {
@@ -9,8 +11,13 @@ export const DISPUTE_REASONS: Record<DisputeReason, string> = {
   other: 'Other',
 };
 
-export function reasonLabel(reason: DisputeReason): string {
-  return DISPUTE_REASONS[reason] ?? reason;
+/** API reason values map to copy explicitly; the raw identifier is never shown. */
+export function reasonLabel(reason: DisputeReason, t: Translate = identityTranslate): string {
+  // Unknown values fall back to the server's own token rather than a blank
+  // label; every known API value has an explicit translated entry above.
+  if (!(reason in DISPUTE_REASONS)) return reason;
+  // Template literal keeps the ids discoverable by the catalogue check.
+  return t(`admin.disputes.reason.${reason}`, DISPUTE_REASONS[reason]);
 }
 
 const HOUR_MS = 60 * 60 * 1000;

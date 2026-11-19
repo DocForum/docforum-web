@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useT } from '../../../i18n/useT';
 import { useFeatureFlags, useFlagHistory, useSavingFlagKeys, useUpdateFeatureFlag } from '../hooks/useFeatureFlags';
 import { applyUpdate, draftFromFlag } from '../draft';
 import { describeListError, describeSaveError } from '../errors';
@@ -49,6 +50,7 @@ const NOTICE_CLASS = {
  * in the URL.
  */
 export function FeatureFlagsConsole() {
+  const t = useT();
   const titleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseFlagSearch(searchParams), [searchParams]);
@@ -88,9 +90,16 @@ export function FeatureFlagsConsole() {
     try {
       const saved = await update.mutateAsync(variables);
       const shown = saved?.key ? saved : applyUpdate(variables.flag, variables.input);
-      setNotice({ tone: 'success', message: `${shown.key} saved. ${describeAudience(shown)}`, flagId: shown.id });
+      setNotice({
+        tone: 'success',
+        message: t('admin.flags.saved', '{key} saved. {audience}', {
+          key: shown.key,
+          audience: describeAudience(shown, t),
+        }),
+        flagId: shown.id,
+      });
     } catch (error) {
-      const failure = describeSaveError(error, variables.flag.key);
+      const failure = describeSaveError(error, variables.flag.key, t);
       setNotice({
         tone: failure.kind === 'conflict' ? 'warning' : 'error',
         message: failure.message,
@@ -101,12 +110,18 @@ export function FeatureFlagsConsole() {
 
   let body;
   if (flags.isLoading) {
-    body = <Skeleton lines={4} height="2.5rem" label="Loading feature flags" />;
+    body = (
+      <Skeleton
+        lines={4}
+        height="2.5rem"
+        label={t('admin.flags.loading', 'Loading feature flags')}
+      />
+    );
   } else if (flags.error) {
     body = (
       <InlineError
-        title="Flags couldn't be loaded"
-        message={describeListError(flags.error)}
+        title={t('admin.flags.listErrorTitle', "Flags couldn't be loaded")}
+        message={describeListError(flags.error, t)}
         onRetry={() => void flags.refetch()}
       />
     );
@@ -115,19 +130,31 @@ export function FeatureFlagsConsole() {
       <EmptyState
         title={
           all.length === 0
-            ? 'No feature flags are defined in this environment yet.'
-            : 'No flags match these filters.'
+            ? t(
+                'admin.flags.emptyNoneTitle',
+                'No feature flags are defined in this environment yet.',
+              )
+            : t('admin.flags.emptyFilteredTitle', 'No flags match these filters.')
         }
         description={
           all.length === 0
-            ? 'Flags created in docforum-core appear here with their rollout and targeting.'
-            : 'Clear the search or filters to see every flag in this environment.'
+            ? t(
+                'admin.flags.emptyNoneDescription',
+                'Flags created in docforum-core appear here with their rollout and targeting.',
+              )
+            : t(
+                'admin.flags.emptyFilteredDescription',
+                'Clear the search or filters to see every flag in this environment.',
+              )
         }
         action={
           all.length === 0
-            ? { label: 'Refresh flags', onClick: () => void flags.refetch() }
+            ? {
+                label: t('admin.flags.refresh', 'Refresh flags'),
+                onClick: () => void flags.refetch(),
+              }
             : {
-                label: 'Clear filters',
+                label: t('admin.flags.clearFilters', 'Clear filters'),
                 onClick: () => updateFilters({ query: '', kind: 'all', state: 'all' }),
               }
         }
@@ -158,45 +185,51 @@ export function FeatureFlagsConsole() {
     <section className={styles.console} aria-labelledby={titleId}>
       <header>
         <h1 id={titleId} className={styles.title}>
-          Feature flags
+          {t('admin.flags.title', 'Feature flags')}
         </h1>
         <p className={styles.subtitle}>
-          Staged rollouts served by docforum-core in this environment. Changes take effect for users as soon as they
-          are saved, and every change is recorded in the audit trail under your account.
+          {t(
+            'admin.flags.subtitle',
+            'Staged rollouts served by docforum-core in this environment. Changes take effect for users as soon as they are saved, and every change is recorded in the audit trail under your account.',
+          )}
         </p>
       </header>
 
       <div className={styles.toolbar}>
         <div className={styles.toolbarFields}>
           <label className={styles.searchField}>
-            <span className={styles.fieldLabel}>Search</span>
+            <span className={styles.fieldLabel}>{t('admin.flags.search', 'Search')}</span>
             <input
               type="search"
               className={styles.input}
-              placeholder="Key or description"
+              placeholder={t('admin.flags.searchPlaceholder', 'Key or description')}
               value={filters.query}
               maxLength={100}
               onChange={(event) => updateFilters({ query: event.target.value })}
             />
           </label>
           <label className={styles.selectField}>
-            <span className={styles.fieldLabel}>Type</span>
+            <span className={styles.fieldLabel}>{t('admin.flags.type', 'Type')}</span>
             <select
               className={styles.select}
               value={filters.kind}
               onChange={(event) => updateFilters({ kind: event.target.value as KindFilter })}
             >
-              <option value="all">All types</option>
+              <option value="all">{t('admin.flags.allTypes', 'All types')}</option>
               {Object.entries(KIND_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`admin.flags.kind.${value}`, label)}
                 </option>
               ))}
             </select>
           </label>
         </div>
 
-        <div className={styles.stateFilter} role="group" aria-label="Filter by state">
+        <div
+          className={styles.stateFilter}
+          role="group"
+          aria-label={t('admin.flags.filterByState', 'Filter by state')}
+        >
           {STATE_FILTERS.map((key) => (
             <button
               key={key}
@@ -205,7 +238,9 @@ export function FeatureFlagsConsole() {
               aria-pressed={filters.state === key}
               onClick={() => updateFilters({ state: key })}
             >
-              {key === 'all' ? 'All' : STATE_LABELS[key]}
+              {key === 'all'
+                ? t('admin.flags.all', 'All')
+                : t(`admin.flags.state.${key}`, STATE_LABELS[key])}
               <span className={styles.chipCount}>{counts[key]}</span>
             </button>
           ))}
@@ -219,11 +254,18 @@ export function FeatureFlagsConsole() {
             {notice.flagId && (
               <>
                 {' '}
-                <Link to={auditTrailLink(notice.flagId)}>View in audit trail</Link>
+                <Link to={auditTrailLink(notice.flagId)}>
+                  {t('admin.flags.viewInAudit', 'View in audit trail')}
+                </Link>
               </>
             )}
           </p>
-          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={() => setNotice(null)}
+            aria-label={t('admin.flags.dismiss', 'Dismiss')}
+          >
             ×
           </button>
         </div>
@@ -232,12 +274,19 @@ export function FeatureFlagsConsole() {
       {!flags.isLoading && !flags.error && all.length > 0 && (
         <div className={styles.summaryRow}>
           <p className={styles.summary} aria-live="polite">
-            {filtered ? `${visible.length} of ${all.length} flags` : `${all.length} ${all.length === 1 ? 'flag' : 'flags'}`}
-            {flags.isFetching && ' · updating…'}
+            {filtered
+              ? t('admin.flags.summaryFiltered', '{visible} of {total} flags', {
+                  visible: visible.length,
+                  total: all.length,
+                })
+              : t('admin.flags.summary', '{count, plural, one {1 flag} other {# flags}}', {
+                  count: all.length,
+                })}
+            {flags.isFetching && t('admin.audit.results.updating', ' · updating…')}
           </p>
           {filtered && (
             <button type="button" className={styles.clearFilters} onClick={() => setSearchParams({}, { replace: true })}>
-              Clear filters
+              {t('admin.flags.clearFilters', 'Clear filters')}
             </button>
           )}
         </div>

@@ -3,6 +3,7 @@ import { ApiError } from '../../../services/api-client';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
+import { useT } from '../../../i18n/useT';
 import type { OrderItemFulfillment, PatientOrder } from '../../../types/models';
 import {
   useEligibleFacilitiesForRemainingItems,
@@ -24,6 +25,7 @@ export function RemainingItemsFacilityPicker({
   onClose,
   onRouted,
 }: RemainingItemsFacilityPickerProps) {
+  const t = useT();
   const itemIds = useMemo(() => items.map((item) => item.id), [items]);
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
@@ -57,12 +59,17 @@ export function RemainingItemsFacilityPicker({
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setRouteError(
-          'One or more items were already dispensed elsewhere. Refresh this order to see the latest quantities.',
+          t(
+            'orders.picker.conflict',
+            'One or more items were already dispensed elsewhere. Refresh this order to see the latest quantities.',
+          ),
         );
         return;
       }
       setRouteError(
-        err instanceof Error ? err.message : 'Could not route the remaining items. Try again.',
+        err instanceof Error
+          ? err.message
+          : t('orders.picker.error', 'Could not route the remaining items. Try again.'),
       );
     }
   };
@@ -78,40 +85,62 @@ export function RemainingItemsFacilityPicker({
       >
         <div className={styles.modalHeader}>
           <div>
-            <h2 id="remaining-items-heading">Get remaining items elsewhere</h2>
+            <h2 id="remaining-items-heading">
+              {t('orders.picker.title', 'Get remaining items elsewhere')}
+            </h2>
             <p className={styles.modalSubtitle}>
-              These are the items still outstanding. Only facilities qualified for them are shown.
+              {t(
+                'orders.picker.subtitle',
+                'These are the items still outstanding. Only facilities qualified for them are shown.',
+              )}
             </p>
           </div>
-          <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className={styles.modalClose}
+            onClick={onClose}
+            aria-label={t('orders.picker.closeAria', 'Close')}
+          >
             ×
           </button>
         </div>
 
-        <ul className={styles.itemChips} aria-label="Items being routed">
+        <ul
+          className={styles.itemChips}
+          aria-label={t('orders.picker.itemsAria', 'Items being routed')}
+        >
           {items.map((item) => (
             <li key={item.id} className={styles.itemChip}>
-              {item.name} · {item.quantityOutstanding} {item.unit} remaining
+              {t('orders.picker.remainingChip', '{name} · {quantity} {unit} remaining', {
+                name: item.name,
+                quantity: item.quantityOutstanding,
+                unit: item.unit,
+              })}
             </li>
           ))}
         </ul>
 
         <div className={styles.paymentNote} role="note">
-          <strong>Payment:</strong> {order.payment?.rule} The second facility is paid only for the
-          items it dispenses.
+          <strong>{t('orders.picker.paymentLabel', 'Payment:')}</strong> {order.payment?.rule}{' '}
+          {t(
+            'orders.picker.paymentNote',
+            'The second facility is paid only for the items it dispenses.',
+          )}
         </div>
 
         <div className={styles.facilityList} aria-busy={isLoading}>
           {isLoading && (
             <div className={styles.loading} role="status">
               <Spinner />
-              <span>Finding eligible facilities…</span>
+              <span>{t('orders.picker.loading', 'Finding eligible facilities…')}</span>
             </div>
           )}
           {error && (
             <FormError
               message={
-                error instanceof Error ? error.message : 'Could not load eligible facilities.'
+                error instanceof Error
+                  ? error.message
+                  : t('orders.picker.facilityError', 'Could not load eligible facilities.')
               }
             />
           )}
@@ -127,7 +156,10 @@ export function RemainingItemsFacilityPicker({
             ))}
           {!isLoading && !error && facilities.length === 0 && (
             <p className={styles.empty}>
-              No other facility is currently qualified for these items. Try again later.
+              {t(
+                'orders.picker.empty',
+                'No other facility is currently qualified for these items. Try again later.',
+              )}
             </p>
           )}
         </div>
@@ -136,7 +168,7 @@ export function RemainingItemsFacilityPicker({
 
         <div className={styles.modalActions}>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             type="button"
@@ -144,7 +176,7 @@ export function RemainingItemsFacilityPicker({
             loading={routeMutation.isPending}
             disabled={!selectedFacility || isLoading}
           >
-            Send remaining items
+            {t('orders.picker.send', 'Send remaining items')}
           </Button>
         </div>
       </div>

@@ -484,7 +484,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FulfillmentQueueItem' }
 
-  /doctor/appointments/today:
+  # Server-scoped "today": the backend decides the day boundary from the
+  # signed-in doctor's practice time zone. This client never sends a date non
+  # calculates one locally (issue #236).
+  /appointments/doctor/today:
     get:
       tags: [queue]
       operationId: listTodayAppointments
@@ -511,7 +514,7 @@ paths:
                 items: { $ref: '#/components/schemas/QueueEntry' }
 
   /appointments/{appointmentId}/start:
-    post:
+    patch:
       tags: [queue]
       operationId: startVisit
       parameters:
@@ -525,7 +528,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
 
   /appointments/{appointmentId}/complete:
-    post:
+    patch:
       tags: [queue]
       operationId: completeVisit
       parameters:

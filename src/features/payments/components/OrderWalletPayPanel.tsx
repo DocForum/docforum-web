@@ -8,6 +8,7 @@
 //
 // Payable intents (`created` / `awaiting_signature`) get the wallet flow;
 // settled intents show their status and nothing else.
+import { useT } from '../../../i18n/useT';
 import { useOrderPaymentIntent } from '../hooks/useOrderPaymentIntent';
 import { walletPayEnabled } from '../walletPayFlag';
 import { PayWithWallet } from './PayWithWallet';
@@ -16,6 +17,7 @@ import type { PatientOrder } from '../../../types/models';
 import styles from './PayWithWallet.module.css';
 
 export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
+  const t = useT();
   // Flag off ⇒ never even ask for the order's intent (ADR 0005).
   const intentQuery = useOrderPaymentIntent(walletPayEnabled ? order.id : undefined);
 
@@ -31,7 +33,7 @@ export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
   return (
     <div className={styles.orderPayment} data-testid={`payment-status-${order.id}`}>
       <p className={styles.amount}>
-        Payment: <strong>{statusLabel(intent.status)}</strong>
+        Payment: <strong>{statusLabel(intent.status, t)}</strong>
       </p>
     </div>
   );

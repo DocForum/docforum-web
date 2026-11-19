@@ -8,6 +8,7 @@
 // the payment history screens — one source of truth for what patients
 // read. Internal/console-only fields — facilityId, patientProfileId,
 // escrowId, sorobanContractId — are deliberately never rendered here.
+import { useT } from '../../../i18n/useT';
 import { amountLabel } from '../stroops';
 import { transactionUrl } from '../explorer';
 import { statusCopy, statusLabel } from '../status';
@@ -108,6 +109,7 @@ const FAILED_SUPPORT_NOTE =
   'Nothing was released to the facility. Please contact DocForum support and quote the order reference below.';
 
 export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
+  const t = useT();
   const explorerUrl = transactionUrl(intent.stellarTxHash);
   const timeline = buildTimeline(intent);
 
@@ -120,11 +122,11 @@ export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
       <div className={styles.header}>
         <h2 id="order-payment-title">Payment</h2>
         <span className={styles.statusPill} data-status={intent.status}>
-          {statusLabel(intent.status)}
+          {statusLabel(intent.status, t)}
         </span>
       </div>
 
-      <p className={styles.explanation}>{statusCopy(intent.status)}</p>
+      <p className={styles.explanation}>{statusCopy(intent.status, t)}</p>
       {intent.status === 'failed' && (
         <p className={styles.supportNote} role="status">
           {FAILED_SUPPORT_NOTE}

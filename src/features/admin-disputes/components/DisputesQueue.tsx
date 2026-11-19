@@ -3,6 +3,7 @@ import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useT } from '../../../i18n/useT';
 import { useOpenDisputes } from '../hooks/useDisputes';
 import { describeDisputeQueueError } from '../errors';
 import { oldestAgeLabel, sortByAge } from '../queue';
@@ -10,53 +11,76 @@ import { DisputeCard } from './DisputeCard';
 import styles from './Disputes.module.css';
 
 export function DisputesQueue() {
+  const t = useT();
   const query = useOpenDisputes();
   const now = Date.now();
   const loaded = useMemo(() => sortByAge(query.data?.pages.flatMap((page) => page.items) ?? []), [query.data]);
   const oldest = oldestAgeLabel(loaded, now);
   const count = query.hasNextPage
-    ? `${loaded.length}+ open disputes`
-    : `${loaded.length} open ${loaded.length === 1 ? 'dispute' : 'disputes'}`;
+    ? t('admin.disputes.countMore', '{count}+ open disputes', { count: loaded.length })
+    : t('admin.disputes.count', '{count, plural, one {1 open dispute} other {# open disputes}}', {
+        count: loaded.length,
+      });
 
   return (
     <section className={styles.console} aria-labelledby="disputes-heading">
       <div>
         <h1 className={styles.title} id="disputes-heading">
-          Fulfilment disputes
+          {t('admin.disputes.title', 'Fulfilment disputes')}
         </h1>
         <p className={styles.subtitle}>
-          When a patient disputes a fulfilled order, the payment stays in escrow until an admin resolves it. Oldest
-          first, because every open dispute is money that can't move.
+          {t(
+            'admin.disputes.subtitle',
+            "When a patient disputes a fulfilled order, the payment stays in escrow until an admin resolves it. Oldest first, because every open dispute is money that can't move.",
+          )}
         </p>
       </div>
 
       {loaded.length > 0 && (
         <p className={styles.summary} role="status">
           {count}
-          {oldest ? ` · oldest blocked ${oldest}` : ''}
+          {oldest
+            ? t('admin.disputes.oldest', ' · oldest blocked {age}', { age: oldest })
+            : ''}
         </p>
       )}
 
       {query.isPending ? (
-        <Skeleton lines={4} height="2.25rem" label="Loading open disputes" />
+        <Skeleton
+          lines={4}
+          height="2.25rem"
+          label={t('admin.disputes.loading', 'Loading open disputes')}
+        />
       ) : query.isError && loaded.length === 0 ? (
         <InlineError
-          title="The dispute queue couldn't be loaded"
-          message={describeDisputeQueueError(query.error)}
+          title={t('admin.disputes.queueErrorTitle', "The dispute queue couldn't be loaded")}
+          message={describeDisputeQueueError(query.error, t)}
           onRetry={() => void query.refetch()}
         />
       ) : loaded.length === 0 ? (
         <EmptyState
-          title="No open disputes. Nothing is stuck in escrow right now."
-          description="When a patient disputes a fulfilment, the escrow it blocks appears here for resolution."
-          action={{ label: 'Reload the queue', onClick: () => void query.refetch() }}
+          title={t(
+            'admin.disputes.emptyTitle',
+            'No open disputes. Nothing is stuck in escrow right now.',
+          )}
+          description={t(
+            'admin.disputes.emptyDescription',
+            'When a patient disputes a fulfilment, the escrow it blocks appears here for resolution.',
+          )}
+          action={{
+            label: t('admin.disputes.reload', 'Reload the queue'),
+            onClick: () => void query.refetch(),
+          }}
         />
       ) : (
         <>
           {query.isError && (
             <InlineError
-              title="Showing the disputes loaded before the error"
-              message={describeDisputeQueueError(query.error)}
+              title={t(
+                'admin.disputes.partialErrorTitle',
+                'Showing the disputes loaded before the error',
+              )}
+              message={describeDisputeQueueError(query.error, t)}
               onRetry={() => void query.refetch()}
             />
           )}
@@ -75,7 +99,7 @@ export function DisputesQueue() {
                 disabled={query.isFetchingNextPage}
                 onClick={() => void query.fetchNextPage()}
               >
-                Load older disputes
+                {t('admin.disputes.loadMore', 'Load older disputes')}
               </Button>
             </div>
           )}
