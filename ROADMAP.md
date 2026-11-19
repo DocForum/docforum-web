@@ -851,3 +851,46 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   - New `facility-settings` service/hooks/feature, `/facility/settings` route (facility-role-gated), Settings links in the header nav and every facility page tab bar, and mock handlers/fixtures for settings, catalog and price history. API shapes are assumed pending `docforum-core#74`/`#127`, recorded in `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
   - Desktop and mobile screenshots in `screenshots/`.
   - After merging `main`, de-duplicated the `fac-main` price seed so each catalog item's version history loads once, and refreshed the facility-dashboard visual baselines in the CI Playwright image for the new Settings tab.
+- 2026-11-18 — Built Phase W7 public information pages with prerendering (#120): six new logged-out pages (`/how-it-works`, `/for-doctors`, `/for-facilities`, `/privacy`, `/accessibility`, `/faq`), each PRD-sourced and registered once in `src/pages/public-routes.ts`, rendered through a shared `PublicPage` shell with `usePageMeta` client-side metadata sync. `npm run build`/`build:pages` now prerender every public route to static HTML via `src/prerender/` (SSR entry rendering the real `<App/>` with an empty auth store) plus `scripts/prerender.mjs`, which writes `dist/<route>/index.html`, `sitemap.xml` and `robots.txt` and fails the build on any validation problem (missing title/description/canonical/og:url, empty `#root`, missing/wrong `<h1>`, leftover loading shell, or authenticated UI leaking in). Cross-links between public pages are rewritten to real crawlable paths (`/faq/`), app-only routes to hash links that boot the SPA, and `restorePublicPathIntoHash()` moves path-based URLs into the `HashRouter` on load. Canonical origin is always the production `https://docforum.github.io/docforum-web/` base regardless of build base. Landing-page GSAP animations hardened to progressive enhancement (content stays visible if GSAP fails — regression-tested). The app shell skips its own `PageHeader` on public routes, so these pages keep one `<h1>`, no breadcrumb duplicate and no header actions. Privacy/Accessibility statements are marked "Draft — pending legal review"; facility accounts described as admin-invited; payouts as Stellar testnet — no invented pricing or compliance claims. `vite.config.ts` disables happy-dom's stylesheet fetching so tests never hit the network. 80 test files and 752/752 tests passing; typecheck, build, prerender and `check:dist` green.
+- 2026-11-18 — Phase W7: synchronize logout and acting-for profile changes across tabs
+  ([issue #124](https://github.com/DocForum/docforum-web/issues/124)).
+  A `BroadcastChannel` carries logout and profile-change signals only — never
+  access tokens or user data. Logging out in one tab clears the session and
+  React Query cache in the others; switching the acting-for profile follows in
+  every tab. Browsers without `BroadcastChannel` keep normal single-tab
+  behaviour. Refresh single-flight remains blocked on issue #9's
+  refresh-on-reload flow.
+- 2026-11-18 — Phase W2: patient confirm receipt or report problem for fulfilled orders
+  ([issue #35](https://github.com/DocForum/docforum-web/issues/35)).
+  Patients can confirm receipt of medication or report a problem within a time window
+  on fulfilled orders and in the dashboard "Action needed" section. Implemented
+  against assumed API contracts (see ARCHITECTURE_ESSENTIALS.md "Known assumptions").
+- 2026-11-18 — Built Phase W6 catalog management (#67): `/admin/catalogs` adds searchable pagination and create/edit/retire controls for specialties, symptoms, medications and lab tests, an editor for symptom-to-specialty weights, usage verification before retirement, and slug change warnings. Added per-tab query coverage, role gated routing and admin navigation. API assumptions are recorded in `ARCHITECTURE_ESSENTIALS.md` pending docforum-core #23/#60/#69/#70.
+- 2026-11-18 — Phase W7: active sessions and Retry-After lockout UX
+  ([issue #79](https://github.com/DocForum/docforum-web/issues/79),
+  [issue #80](https://github.com/DocForum/docforum-web/issues/80)).
+  Account settings lists the user's sessions from docforum-core's
+  `GET /auth/sessions` with a coarse "OS · Browser" label (the IP address the API
+  returns is never shown) and can revoke one session or every other session. A
+  `429` becomes a typed `RateLimitError`; login and signup show an
+  account-agnostic countdown and keep submit disabled until `Retry-After` passes,
+  the app shell shows one global notice, and React Query never retries a 429
+  sooner than the server allows.
+- 2026-11-19 — Shared docs now take new content as fragments: a PR adds a file under
+  `docs.d/` naming the doc and the heading (or line) its text goes under,
+  instead of adding lines to `ROADMAP.md`,
+  `ARCHITECTURE_ESSENTIALS.md` or `README.md`. Maintainers fold them with
+  `node scripts/docs-fragments.mjs fold`. The new `Docs fragments` CI job fails
+  PRs that add lines to those docs directly or whose fragments don't fold.
+- 2026-11-19 — Fixed the footer's "Privacy & analytics" link: it pointed at `/privacy`, which
+  became the public privacy page in #176, and was a raw `href`, so on GitHub
+  Pages it left the app's base path. It is now a router link to
+  `/privacy/analytics`, with a regression test.
+- 2026-11-19 — The generated API client types (`packages/api-client/src/generated/`) are marked
+  `linguist-generated` in `.gitattributes`, so GitHub collapses them in PR diffs,
+  and CI now fails if `npm run generate:api` would change the committed file.
+- 2026-11-19 — Split the three files nearly every feature PR edited, so PRs stop conflicting
+  on them: `src/types/models.ts` is now a barrel over `src/types/models/<feature>.ts`
+  (one file per former section; imports from `types/models` are unchanged),
+  routes moved from `App.tsx` to `src/routes/<area>.tsx`, and nav entries from
+  `Layout.tsx` to `src/navigation/<role>.ts`. No route, nav entry or type changed.
