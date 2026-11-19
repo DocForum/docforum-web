@@ -10,12 +10,12 @@ interface Rendered {
   html: string;
 }
 
-function renderPage(def: PublicPageDef): Rendered {
-  const appHtml = renderPublicPage(def.path);
+async function renderPage(def: PublicPageDef): Promise<Rendered> {
+  const appHtml = await renderPublicPage(def.path);
   return { def, appHtml, html: prerenderPage({ template, appHtml, def, base: BUILD_BASE }) };
 }
 
-const rendered = PUBLIC_PAGES.map((def) => renderPage(def));
+const rendered = await Promise.all(PUBLIC_PAGES.map((def) => renderPage(def)));
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 
 describe('renderPublicPage', () => {

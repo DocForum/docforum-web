@@ -2,10 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { init } from '@sentry/react';
 import { phiScrubber, phiBeforeBreadcrumb } from './utils/phi-scrubber';
-// Router selection: BrowserRouter by default; HashRouter only when
-// VITE_USE_HASH_ROUTER=true (set by the GitHub Pages build — see
-// docs/adr/0001-routing-strategy.md and deploy-pages.yml).
-import { BrowserRouter, HashRouter } from 'react-router-dom';
+// Data router (issue #112): browser history by default, hash history when
+// VITE_USE_HASH_ROUTER=true (the GitHub Pages build) — see src/router.ts.
+import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
@@ -13,11 +12,8 @@ import { useAuthStore } from './store/auth-store';
 import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
-import App from './App';
+import { createAppRouter } from './router';
 import './styles/global.css';
-
-const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
-const Router = useHashRouter ? HashRouter : BrowserRouter;
 
 // Mock API for local development (issue #95) — only runs under
 // `npm run dev:mock` (a DEV build with VITE_ENABLE_MOCKS=true). In
@@ -89,8 +85,9 @@ async function boot(): Promise<void> {
   }
 
   // Silent re-auth on reload (issue #9). Deliberately NOT awaited before
-  // render: a cold-started Render instance can take ~40s, and RequireAuth
-  // shows a "Restoring your session…" state while this is in flight. If a
+  // render: a cold-started Render instance can take ~40s, and the route
+  // guards (src/routes/guards.ts) wait for it while the guarded route shows
+  // a "Restoring your session…" fallback inside the normal layout. If a
   // session already exists (mock mode / ?previewRole=), this resolves
   // immediately without a network call.
   void bootstrapSession();
@@ -108,15 +105,18 @@ async function boot(): Promise<void> {
     import.meta.env.BASE_URL,
   );
 
+  // Created after the hash restore above so the router reads the final URL.
+  // Awaits only the first route's code chunk (not its data) — see
+  // resolveInitialLazyRoutes; the loading shell stays up meanwhile.
+  const router = await createAppRouter(queryClient);
+
   createRoot(rootElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <SessionSyncBridge />
-        <Router>
-          <TimeZoneProvider>
-            <App />
-          </TimeZoneProvider>
-        </Router>
+        <TimeZoneProvider>
+          <RouterProvider router={router} />
+        </TimeZoneProvider>
       </QueryClientProvider>
     </StrictMode>,
   );

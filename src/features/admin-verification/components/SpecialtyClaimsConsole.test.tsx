@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { SpecialtyClaimsConsole } from './SpecialtyClaimsConsole';
 import { ApiError } from '../../../services/api-client';
 import * as verificationService from '../../../services/admin-verification-service';
@@ -406,17 +406,13 @@ describe('SpecialtyClaimsConsole — reject', () => {
 });
 
 describe('/admin/verification route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/verification']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/verification');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins', async () => {
     renderApp();
@@ -427,7 +423,8 @@ describe('/admin/verification route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Specialty claims' })).not.toBeInTheDocument();
     expect(verificationService.listSpecialtyClaims).not.toHaveBeenCalled();
   });
