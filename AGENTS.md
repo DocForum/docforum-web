@@ -18,6 +18,13 @@ apply here identically.
   new roadmap lines in a `docs.d/` fragment, and put the changelog entry in
   a new file under `changelog.d/` (see below).
 
+## Generated files
+
+Generated files are listed in `.gitattributes` (GitHub collapses them in PR
+diffs). Never hand-edit or hand-merge one: on a conflict take main's version
+and rerun the command noted there (`npm run generate:api` for the API client
+types).
+
 ## Shared docs: keep your diff to your own lines
 
 Many PRs are open at the same time and most of them touch the same docs.
