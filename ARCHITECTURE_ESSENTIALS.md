@@ -21,7 +21,8 @@ those first if you're new to the org, not just this file.
    payment status and escrow state otherwise come from `docforum-core`'s
    API. If a screen needs Stellar-related data, that is a `docforum-core`
    API gap to file, not a reason to add a Stellar SDK dependency here.
-2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` —
+2. Mirror `docforum-core`'s data model shapes in `src/types/models.ts` (one
+   file per feature under `src/types/models/`, re-exported from there) —
    don't invent parallel frontend-only shapes for the same entities.
 3. Structure: `pages/ components/ features/ hooks/ services/ store/ types/`
    — keep this shape. `src/i18n/` was added in Phase W7 for locale-aware
@@ -36,7 +37,10 @@ those first if you're new to the org, not just this file.
   the development guard in `main.tsx`; CI checks that mock code is absent from
   production bundles.
 - `src/features/` — flow-specific logic.
-- `src/pages/` — route-level components.
+- `src/pages/` — route-level components. Their routes are declared in
+  `src/routes/<area>.tsx` (public, patient, doctor, facility, admin), and nav
+  entries in `src/navigation/<role>.ts`; `App.tsx` and `Layout.tsx` only
+  compose them.
 - `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 - `src/prerender/` — build-time prerendering for the public pages (issue
   #120). `entry-server.tsx` renders the real `<App/>` with an empty auth

@@ -24,6 +24,12 @@ import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
+import type { NavItem } from '../navigation/types';
+import { adminNavItems } from '../navigation/admin';
+import { doctorNavItems } from '../navigation/doctor';
+import { facilityNavItems } from '../navigation/facility';
+import { guestNavItems } from '../navigation/guest';
+import { patientNavItems } from '../navigation/patient';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
 type Role = 'patient' | 'doctor' | 'facility' | 'admin';
@@ -54,70 +60,22 @@ function routeTitle(pathname: string): string {
   return label;
 }
 
-/** A single navigation entry. `badge` renders a small count (e.g. unread). */
-interface NavItem {
-  to: string;
-  label: string;
-  /** Roles allowed to see this item. Omit for unauthenticated items. */
-  roles?: Role[];
-  badge?: number;
-  /** Existing i18n id for the visible label; English `label` is the fallback. */
-  messageId?: string;
-}
-
 /**
- * Role-aware navigation entries. Items are gated by role so unbuilt or
- * role-inappropriate screens never appear. The active item is resolved by
- * `NavLink`'s `end` matching against the current location.
+ * Role-aware navigation entries, one file per role in src/navigation/. Items
+ * are gated by role so unbuilt or role-inappropriate screens never appear.
+ * The active item is resolved by `NavLink`'s `end` matching against the
+ * current location.
  */
+const NAV_ITEMS: Record<Role, NavItem[]> = {
+  patient: patientNavItems,
+  doctor: doctorNavItems,
+  facility: facilityNavItems,
+  admin: adminNavItems,
+};
+
 function roleNavItems(userRole: Role | null): NavItem[] {
-  if (!userRole) {
-    return [
-      { to: '/login', label: 'Log in', roles: [], messageId: 'nav.logIn' },
-      { to: '/signup', label: 'Sign up', roles: [], messageId: 'nav.signUp' },
-    ];
-  }
-
-  const base: NavItem[] = [];
-
-  if (userRole === 'patient') {
-    base.push(
-      { to: '/patient/search', label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
-      { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
-      { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
-      { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
-      { to: '/patient/facilities', label: 'Facilities', roles: ['patient'] },
-      { to: '/patient/settings', label: 'Settings', roles: ['patient'], messageId: 'nav.settings' },
-    );
-  } else if (userRole === 'doctor') {
-    base.push(
-      { to: '/doctor', label: 'Dashboard', roles: ['doctor'], messageId: 'nav.dashboard' },
-      { to: '/doctor/messages', label: 'Messages', roles: ['doctor'], badge: 0 },
-      { to: '/doctor/insights', label: 'Insights', roles: ['doctor'], messageId: 'nav.insights' },
-    );
-  } else if (userRole === 'facility') {
-    base.push(
-      { to: '/facility', label: 'Queue', roles: ['facility'], messageId: 'nav.queue' },
-      { to: '/facility/verify', label: 'Verify Order', roles: ['facility'] },
-      { to: '/facility/team', label: 'Team', roles: ['facility'], messageId: 'nav.team' },
-      { to: '/facility/payments', label: 'Payouts', roles: ['facility'] },
-      { to: '/facility/integrations', label: 'Integrations', roles: ['facility'] },
-    );
-  } else if (userRole === 'admin') {
-    base.push(
-      { to: '/admin', label: 'Payments', roles: ['admin'] },
-      { to: '/admin/verifications', label: 'Verifications', roles: ['admin'] },
-      { to: '/admin/verification', label: 'Specialty claims', roles: ['admin'] },
-      { to: '/admin/referrals', label: 'Referrals', roles: ['admin'] },
-      { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
-      { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },
-      { to: '/admin/flags', label: 'Flags', roles: ['admin'] },
-      { to: '/admin/catalogs', label: 'Catalogs', roles: ['admin'] },
-      { to: '/admin/system', label: 'System', roles: ['admin'] },
-    );
-  }
-
-  return base.filter((item) => !item.roles || item.roles.includes(userRole));
+  if (!userRole) return guestNavItems;
+  return NAV_ITEMS[userRole].filter((item) => !item.roles || item.roles.includes(userRole));
 }
 
 export function Layout() {
