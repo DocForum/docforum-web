@@ -71,7 +71,8 @@ scoped (and why).
   for content that's actually a sequence.
 - If your issue is built against an assumed API contract, document the
   exact assumed shape in `ARCHITECTURE_ESSENTIALS.md` "Known
-  assumptions" as part of your PR — that's how the next person (or the
+  assumptions" as part of your PR, as a `docs.d/` fragment (start it with
+  your own `### …` heading) — that's how the next person (or the
   `docforum-core` contributor eventually building the real endpoint)
   knows what to match or revise.
 - If your change starts, completes, or blocks a roadmap-tracked item,
@@ -79,8 +80,13 @@ scoped (and why).
   entry as a new file in `changelog.d/`, in the same PR. Don't append to
   the end of `ROADMAP.md`; that is what made every PR conflict. See
   `changelog.d/README.md`.
-- Keep doc edits to your own lines: add rows and lines, don't rewrite
-  other people's paragraphs. See `AGENTS.md` → "Shared docs".
+- Don't add new lines to `ROADMAP.md`, `ARCHITECTURE_ESSENTIALS.md` or
+  `README.md`. Put new items, rows, paragraphs and
+  sections in a fragment under `docs.d/` that names the doc and the heading
+  (or line) they go under; a maintainer folds them in. Editing existing
+  lines in place is fine. CI enforces this. See `docs.d/README.md`.
+- Keep doc edits to your own lines: new lines go in `docs.d/`, and don't
+  rewrite other people's paragraphs. See `AGENTS.md` → "Shared docs".
 - Run `npm run typecheck && npm run test && npm run build` locally —
   this is exactly what CI checks.
 
