@@ -12,7 +12,7 @@ export interface SortState {
   direction: SortDirection;
 }
 
-export type FilterType = 'text' | 'select';
+export type FilterType = 'text' | 'select' | 'date';
 
 export interface FilterDefinition {
   key: string;
@@ -129,7 +129,7 @@ export function DataTable<T>({
               ) : (
                 <input
                   id={`${id}-filter-${f.key}`}
-                  type="text"
+                  type={f.type === 'date' ? 'date' : 'text'}
                   className={styles.filterInput}
                   placeholder={f.placeholder ?? `Filter by ${f.label.toLowerCase()}`}
                   value={filterValues[f.key] ?? ''}
@@ -287,6 +287,7 @@ export interface TableUrlState {
   cursor: string | null;
   setSort: (sort: SortState | null) => void;
   setFilter: (key: string, value: string) => void;
+  resetFilters: () => void;
   setCursor: (cursor: string | null) => void;
 }
 
@@ -296,18 +297,18 @@ export function useTableUrlState({ id, filters, defaultSort = null }: UseTableUr
   const prefix = `${id}-`;
 
   const sort = useMemo((): SortState | null => {
-    const key = searchParams.get(`${prefix}sort`);
-    const dir = searchParams.get(`${prefix}dir`);
+    const key = searchParams.get(`${prefix}sort`) ?? (id ? searchParams.get('sort') : null);
+    const dir = searchParams.get(`${prefix}dir`) ?? (id ? searchParams.get('dir') : null);
     if (key && (dir === 'asc' || dir === 'desc')) {
       if (FILTER_KEY_PATTERN.test(key)) return { key, direction: dir };
     }
     return defaultSort;
-  }, [searchParams, prefix, defaultSort]);
+  }, [searchParams, prefix, defaultSort, id]);
 
   const filterValues = useMemo((): Record<string, string> => {
     const values: Record<string, string> = {};
     for (const f of filters) {
-      const raw = searchParams.get(`${prefix}f-${f.key}`);
+      const raw = searchParams.get(`${prefix}f-${f.key}`) ?? (id ? searchParams.get(f.key) : null);
       if (raw !== null && raw.length <= MAX_FILTER_LENGTH) {
         if (f.type === 'select') {
           const allowed = f.options?.some((o) => o.value === raw);
@@ -318,13 +319,13 @@ export function useTableUrlState({ id, filters, defaultSort = null }: UseTableUr
       }
     }
     return values;
-  }, [searchParams, prefix, filters]);
+  }, [searchParams, prefix, filters, id]);
 
   const cursor = useMemo((): string | null => {
-    const raw = searchParams.get(`${prefix}cursor`);
+    const raw = searchParams.get(`${prefix}cursor`) ?? (id ? searchParams.get('cursor') : null);
     if (raw && raw.length <= 500) return raw;
     return null;
-  }, [searchParams, prefix]);
+  }, [searchParams, prefix, id]);
 
   const setSort = useCallback(
     (newSort: SortState | null) => {
@@ -333,18 +334,23 @@ export function useTableUrlState({ id, filters, defaultSort = null }: UseTableUr
           const next = new URLSearchParams(prev);
           next.delete(`${prefix}sort`);
           next.delete(`${prefix}dir`);
+          if (id) {
+            next.delete('sort');
+            next.delete('dir');
+          }
           if (newSort) {
             next.set(`${prefix}sort`, newSort.key);
             next.set(`${prefix}dir`, newSort.direction);
           }
           // Sort change resets the cursor
           next.delete(`${prefix}cursor`);
+          if (id) next.delete('cursor');
           return next;
         },
         { replace: false },
       );
     },
-    [setSearchParams, prefix],
+    [setSearchParams, prefix, id],
   );
 
   const setFilter = useCallback(
@@ -357,15 +363,33 @@ export function useTableUrlState({ id, filters, defaultSort = null }: UseTableUr
           } else {
             next.delete(`${prefix}f-${key}`);
           }
+          if (id) next.delete(key);
           // Filter change resets the cursor
           next.delete(`${prefix}cursor`);
+          if (id) next.delete('cursor');
           return next;
         },
         { replace: false },
       );
     },
-    [setSearchParams, prefix],
+    [setSearchParams, prefix, id],
   );
+
+  const resetFilters = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const f of filters) {
+          next.delete(`${prefix}f-${f.key}`);
+          if (id) next.delete(f.key);
+        }
+        next.delete(`${prefix}cursor`);
+        if (id) next.delete('cursor');
+        return next;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams, prefix, filters, id]);
 
   const setCursor = useCallback(
     (newCursor: string | null) => {
@@ -377,13 +401,14 @@ export function useTableUrlState({ id, filters, defaultSort = null }: UseTableUr
           } else {
             next.delete(`${prefix}cursor`);
           }
+          if (id) next.delete('cursor');
           return next;
         },
         { replace: false },
       );
     },
-    [setSearchParams, prefix],
+    [setSearchParams, prefix, id],
   );
 
-  return { sort, filterValues, cursor, setSort, setFilter, setCursor };
+  return { sort, filterValues, cursor, setSort, setFilter, resetFilters, setCursor };
 }

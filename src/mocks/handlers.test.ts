@@ -33,6 +33,7 @@ import * as myFlagsService from '../services/my-flags-service';
 import * as notificationPreferencesService from '../services/notification-preferences-service';
 import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
+import * as paymentHistoryService from '../services/payment-history-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
 import * as searchService from '../services/search-service';
@@ -868,6 +869,22 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('lists patient payment history with filtering by status and date range', async () => {
+    const all = await paymentHistoryService.listPaymentHistory(undefined, MOCK_ACCESS_TOKEN);
+    expect(all.intents.length).toBeGreaterThan(0);
+
+    const escrowedOnly = await paymentHistoryService.listPaymentHistory(
+      { status: 'escrowed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(escrowedOnly.intents.every((i) => i.status === 'escrowed')).toBe(true);
+
+    const first = all.intents[0];
+    const detail = await paymentHistoryService.getPaymentHistoryEntry(first.id, MOCK_ACCESS_TOKEN);
+    expect(detail.id).toBe(first.id);
+    expect(detail.facilityName).toBe('Bello Lab');
   });
 });
 
