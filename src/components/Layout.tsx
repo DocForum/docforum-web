@@ -339,7 +339,12 @@ export function Layout() {
         <Link to="/accessibility" className={styles.navLink}>
           {t('app.accessibility', 'Accessibility')}
         </Link>
-        <a href="/privacy" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Privacy &amp; analytics</a>
+        {/* Router link, not a raw href: under the GitHub Pages base path a bare
+            "/…" href leaves the app. The analytics disclosure moved to
+            /privacy/analytics when /privacy became the public privacy page. */}
+        <Link to="/privacy/analytics" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+          Privacy &amp; analytics
+        </Link>
       </footer>
     </div>
   );

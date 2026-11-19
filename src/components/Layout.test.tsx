@@ -82,6 +82,13 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getAllByText('doctor').length).toBeGreaterThan(0);
   });
 
+  it('links the footer to the analytics disclosure, inside the router', () => {
+    renderLayout();
+    const link = screen.getByRole('link', { name: 'Privacy & analytics' });
+    // /privacy is now the public privacy page; the analytics page is /privacy/analytics.
+    expect(link).toHaveAttribute('href', '/privacy/analytics');
+  });
+
   it('has a skip-to-content link reachable by keyboard', () => {
     renderLayout();
     const skip = screen.getByRole('link', { name: 'Skip to content' });
