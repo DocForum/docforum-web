@@ -32,6 +32,15 @@ jobs:
 
       - run: npm run typecheck
 
+      # `pretypecheck` regenerated the API client types; they must match the
+      # committed file (.gitattributes marks it generated).
+      - name: Generated API client is up to date
+        run: |
+          git diff --exit-code -- packages/api-client/src/generated || {
+            echo "::error::packages/api-client/src/generated is out of date. Run: npm run generate:api"
+            exit 1
+          }
+
       - run: npm run lint
 
       # Coverage gate (issue #105): thresholds live in vite.config.ts and fail
