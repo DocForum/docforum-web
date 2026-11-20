@@ -147,26 +147,42 @@ describe('SpecialtyClaimPicker', () => {
     expect(screen.getByText(/already on your application/i)).toBeInTheDocument();
   });
 
-  it('shows a loading state while the catalog is fetched', () => {
+  it('shows a loading skeleton while the catalog is fetched', () => {
     renderPicker([], { isLoading: true });
-    expect(screen.getByText(/loading the specialty catalog/i)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading the specialty catalog/i);
   });
 
-  it('shows an empty catalog instead of a broken select', () => {
+  it('shows an empty catalog with a retry instead of a broken select', () => {
+    const onRetry = vi.fn();
+    render(
+      <SpecialtyClaimPicker catalog={[]} claims={[]} isLoading={false} error={null} onRetry={onRetry} />,
+    );
+    expect(screen.getByRole('heading', { name: /catalog is empty/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it('shows the catalogue message with a retry when the catalog cannot be read', async () => {
+    const onRetry = vi.fn();
+    const user = userEvent.setup();
     render(
       <SpecialtyClaimPicker
         catalog={[]}
         claims={[]}
         isLoading={false}
-        error={null}
+        error="The specialty catalog is offline."
+        onRetry={onRetry}
       />,
     );
-    expect(screen.getByText(/catalog is empty/i)).toBeInTheDocument();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('The specialty catalog is offline.');
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the backend message when the catalog cannot be read', () => {
-    renderPicker([], { error: 'The specialty catalog is offline.' });
-    expect(screen.getByRole('alert')).toHaveTextContent('The specialty catalog is offline.');
+  it('gives the claims empty state a next action', () => {
+    renderPicker([]);
+    expect(screen.getByRole('heading', { name: /no specialty claims yet/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /choose a specialty/i })).toBeInTheDocument();
   });
 
   it('surfaces the server reason when a claim is refused', async () => {

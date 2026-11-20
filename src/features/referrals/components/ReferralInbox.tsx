@@ -2,9 +2,10 @@ import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { FormError } from '../../../components/FormError';
-import { Spinner } from '../../../components/Spinner';
-import { ApiError } from '../../../services/api-client';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useReferralInbox } from '../hooks/useReferralInbox';
 import type { ReferralInboxView } from '../hooks/useReferralInbox';
 import { ReferralStatusPill } from './ReferralStatusPill';
@@ -17,6 +18,10 @@ const TABS: ReadonlyArray<{ key: ReferralInboxView; label: string }> = [
   { key: 'accepted', label: 'Accepted' },
   { key: 'upcoming', label: 'With upcoming appointment' },
 ];
+
+function emptyTitle(view: ReferralInboxView): string {
+  return view === 'all' ? 'No referrals yet' : `No ${view} referrals`;
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -59,6 +64,7 @@ function ReferralListItem({ referral }: { referral: ReferralSummary }) {
 export function ReferralInbox() {
   const [view, setView] = useState<ReferralInboxView>('all');
   const query = useReferralInbox(view);
+  const errorText = useErrorMessage();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const items = query.data?.pages.flatMap((page) => page.items);
@@ -119,37 +125,35 @@ export function ReferralInbox() {
         tabIndex={0}
         className={styles.panel}
       >
-        {query.isPending ? (
-          <div className={styles.loading}>
-            <Spinner size={24} />
-            <span>Loading referrals…</span>
-          </div>
-        ) : null}
+        {query.isPending ? <Skeleton lines={4} label="Loading referrals" /> : null}
 
         {firstPageFailed ? (
-          <>
-            <FormError
-              message={
-                query.error instanceof ApiError ? query.error.message : 'Failed to load referrals. Please try again.'
-              }
-            />
-            <Button variant="secondary" onClick={() => query.refetch()} loading={query.isFetching}>
-              Try again
-            </Button>
-          </>
-        ) : null}
-
-        {laterPageFailed ? (
-          <FormError
-            message={
-              query.error instanceof ApiError
-                ? `${query.error.message} — the referrals above are still loaded.`
-                : 'Could not load more referrals. The referrals above are still loaded.'
-            }
+          <InlineError
+            title="Referrals couldn't be loaded"
+            message={errorText(query.error) ?? 'Referrals could not be loaded. Try again.'}
+            onRetry={() => void query.refetch()}
           />
         ) : null}
 
-        {items && items.length === 0 ? <p className={styles.empty}>No referrals yet.</p> : null}
+        {laterPageFailed ? (
+          <InlineError
+            title="More referrals couldn't be loaded"
+            message={`${errorText(query.error) ?? 'Could not load more referrals.'} The referrals above are still loaded.`}
+            onRetry={() => void query.fetchNextPage()}
+          />
+        ) : null}
+
+        {items && items.length === 0 ? (
+          <EmptyState
+            title={emptyTitle(view)}
+            description="Referrals from other doctors appear here as soon as they are sent."
+            action={
+              view === 'all'
+                ? { label: 'Back to the doctor area', to: '/doctor' }
+                : { label: 'View all referrals', onClick: () => setView('all') }
+            }
+          />
+        ) : null}
 
         {items && items.length > 0 ? (
           <>
