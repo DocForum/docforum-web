@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
+import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
+import { TimePicker } from '../../../components/TimePicker';
 import {
   useCreateFacilityPrice,
   useFacilityPrices,
@@ -265,15 +267,27 @@ export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorPr
               required
             />
 
-            <TextField
-              label="Effective from"
-              type="datetime-local"
-              value={effectiveFrom}
-              onChange={(event) => {
+            {/* `effectiveFrom` stays a `YYYY-MM-DDTHH:mm` local string (what
+                the old datetime-local input produced), split across an
+                accessible date and time picker (issue #114). */}
+            <DatePicker
+              label="Effective from (date)"
+              value={effectiveFrom.slice(0, 10)}
+              onChange={(date) => {
                 setSaved(false);
-                setEffectiveFrom(event.target.value);
+                setEffectiveFrom(date ? `${date}T${effectiveFrom.slice(11, 16) || '00:00'}` : '');
               }}
               error={effectiveError ?? undefined}
+              required
+            />
+            <TimePicker
+              label="Effective from (time)"
+              value={effectiveFrom.slice(11, 16)}
+              onChange={(time) => {
+                setSaved(false);
+                const date = effectiveFrom.slice(0, 10);
+                setEffectiveFrom(date && time ? `${date}T${time}` : date ? `${date}T` : '');
+              }}
               required
             />
           </div>

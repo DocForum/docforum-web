@@ -95,18 +95,22 @@ describe('NotificationBell', () => {
       unreadCount: 0,
     });
 
-    renderWithProviders(<NotificationBell />, { role: 'patient' });
+    const { unmount } = renderWithProviders(<NotificationBell />, { role: 'patient' });
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: /notifications, 2 unread/i }));
     await user.click(screen.getByRole('button', { name: /mark all as read/i }));
 
-    await waitFor(() =>
-      expect(notificationsService.markAllNotificationsRead).toHaveBeenCalledTimes(1),
-    );
+    // Cleared at once; the server call waits for the undo window (#113).
     expect(
       await screen.findByRole('button', { name: /notifications, none unread/i }),
     ).toBeInTheDocument();
+    expect(notificationsService.markAllNotificationsRead).not.toHaveBeenCalled();
+
+    unmount();
+    await waitFor(() =>
+      expect(notificationsService.markAllNotificationsRead).toHaveBeenCalledTimes(1),
+    );
   });
 
   it('shows a calm empty state when there is nothing to read', async () => {
