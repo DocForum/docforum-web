@@ -15,6 +15,7 @@ import { readCsrfToken } from './csrf-storage';
 import type { AuthSession } from './auth-service';
 import { notifyRateLimit } from '../store/rate-limit-store';
 import { markApiReachable, markApiUnreachable } from '../store/api-reachability-store';
+import { signOut } from './sign-out';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -346,7 +347,9 @@ async function performRefresh(): Promise<string | null> {
     // Render cold start, so keep the local session and let the caller see
     // the original 401; the next protected call will try again.
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-      useAuthStore.getState().clearSession();
+      // The session is gone for good: clear every piece of client state, not
+      // just the token (issue #227). A network error keeps the session.
+      await signOut('session-expired');
     }
     return null;
   }
