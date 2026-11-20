@@ -1,0 +1,234 @@
+.banner {
+  margin-bottom: var(--space-5);
+}
+
+.offer {
+  border: 1px solid var(--color-accent);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.offerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.offerEyebrow {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.offerHeading {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin: var(--space-1) 0;
+}
+
+.offerDetail {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.offerNote {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.countdownLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.countdownValue {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdownUrgent .countdownValue {
+  color: var(--color-danger);
+}
+
+/* Emphasis only where motion is welcome; the countdown still reads correctly
+   without it (colour plus the number itself). */
+@media (prefers-reduced-motion: no-preference) {
+  .countdownUrgent .countdownValue {
+    animation: waitlist-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes waitlist-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.expired {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  padding: var(--space-4);
+}
+
+.booked {
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-md);
+  background: var(--color-success-surface);
+  padding: var(--space-4);
+}
+
+.booked p {
+  margin: 0;
+}
+
+.primaryLink {
+  font-weight: 600;
+}
+
+.secondaryLink {
+  font-weight: 600;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entry {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.entryHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.entryName {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+.entryDetail {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.status {
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.windowRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.select {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  min-width: 14rem;
+}
+
+.entryActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  max-width: 32rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dialogHeading {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.dialogBody {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.dialogActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.joined p {
+  margin: 0 0 var(--space-3);
+}

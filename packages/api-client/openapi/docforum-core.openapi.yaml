@@ -145,9 +145,9 @@ paths:
                 format: binary
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /account/delete:
-    post:
-      tags: [account]
+  /patients/me:
+    delete:
+      tags: [patients]
       operationId: deleteAccount
       requestBody:
         required: true
@@ -155,12 +155,14 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/DeleteAccountInput' }
       responses:
-        '200':
-          description: Account deleted
+        '204':
+          description: Account anonymised; no body
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: Wrong password (PASSWORD_CONFIRMATION_FAILED) or non-patient role
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DeleteAccountResponse' }
-        '409': { $ref: '#/components/responses/Conflict' }
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 
   /patients/me/dependents:
     get:
@@ -1191,18 +1193,9 @@ components:
 
     DeleteAccountInput:
       type: object
-      required: [password, confirmation]
+      required: [password]
       properties:
         password: { type: string }
-        confirmation: { type: string }
-
-    DeleteAccountResponse:
-      type: object
-      required: [success, message, deletedAt]
-      properties:
-        success: { type: boolean }
-        message: { type: string }
-        deletedAt: { type: string, format: date-time }
 
     CareStepType:
       type: string

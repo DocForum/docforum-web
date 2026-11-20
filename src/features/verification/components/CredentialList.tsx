@@ -1,6 +1,9 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useCredentialResubmit, useDeleteCredential } from '../hooks/useCredentialUpload';
 import {
   CLAIM_ITEM_STATUS_LABELS,
@@ -18,6 +21,7 @@ interface Props {
   credentials: readonly DoctorCredential[];
   isLoading: boolean;
   error: string | null;
+  onRetry?: () => void;
 }
 
 function formatDate(iso: string): string {
@@ -123,27 +127,25 @@ function ResubmitForm({ credential, onClose }: ResubmitFormProps) {
   );
 }
 
-export function CredentialList({ credentials, isLoading, error }: Props) {
+export function CredentialList({ credentials, isLoading, error, onRetry }: Props) {
   const deleteMutation = useDeleteCredential();
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (isLoading) {
-    return <p className={styles.placeholder}>Loading your documents…</p>;
+    return <Skeleton lines={3} label="Loading your documents" />;
   }
 
   if (error) {
-    return <FormError message={error} />;
+    return <InlineError title="Your documents couldn't be loaded" message={error} onRetry={onRetry} />;
   }
 
   if (credentials.length === 0) {
     return (
-      <div className={styles.empty}>
-        <p className={styles.emptyTitle}>No documents uploaded yet.</p>
-        <p className={styles.placeholder}>
-          Upload each required document above to start the review. Files are read by reviewers through a
-          get-on-demand link only — this list never shows a permanent URL.
-        </p>
-      </div>
+      <EmptyState
+        title="No documents uploaded yet"
+        description="Upload each required document above to start the review. Files are read by reviewers through a get-on-demand link only — this list never shows a permanent URL."
+        action={{ label: 'Upload a document', onClick: () => document.getElementById('credential-upload')?.scrollIntoView() }}
+      />
     );
   }
 

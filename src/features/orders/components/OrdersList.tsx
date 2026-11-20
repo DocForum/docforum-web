@@ -230,7 +230,17 @@ export function OrdersList() {
                       <p className={styles.muted}>
                         This order needs a fulfilling facility before it can be processed.
                       </p>
-                      <Button onClick={() => setSelecting(order)}>Choose facility</Button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        {order.catalogItemCode ? (
+                          <Link
+                            to={`/patient/facilities?catalogItemCode=${encodeURIComponent(order.catalogItemCode)}`}
+                            className={styles.compareLink}
+                          >
+                            Compare facility prices
+                          </Link>
+                        ) : null}
+                        <Button onClick={() => setSelecting(order)}>Choose facility</Button>
+                      </div>
                     </>
                   ) : (
                     <p className={styles.muted}>No facility selection is needed for this order.</p>

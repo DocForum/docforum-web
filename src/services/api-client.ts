@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/auth-store';
 import { readCsrfToken } from './csrf-storage';
 import type { AuthSession } from './auth-service';
 import { notifyRateLimit } from '../store/rate-limit-store';
+import { markApiReachable, markApiUnreachable } from '../store/api-reachability-store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -286,7 +287,16 @@ async function withRetry<T>(
         !isOffline() &&
         options.signal?.aborted !== true &&
         controller?.signal.aborted !== true;
-      if (!canRetry) throw error;
+      if (!canRetry) {
+        if (
+          !isOffline() &&
+          (error instanceof ApiTimeoutError ||
+            (error instanceof ApiError && (error.code === NETWORK_ERROR_CODE || error.status >= 500)))
+        ) {
+          markApiUnreachable();
+        }
+        throw error;
+      }
       await sleep(
         computeBackoffMs(attempt, retry.baseDelayMs ?? DEFAULT_BASE_DELAY_MS, retry.maxDelayMs ?? DEFAULT_MAX_DELAY_MS),
       );
@@ -431,6 +441,7 @@ async function throwForResponse(response: Response): Promise<never> {
 
 async function parseResponse<T>(response: Response, parse: ParseMode): Promise<T> {
   if (!response.ok) await throwForResponse(response);
+  markApiReachable();
   if (parse === 'blob') return (await response.blob()) as T;
   if (response.status === 204) return undefined as T;
   return (await readJsonPayload(response)) as T;
@@ -465,7 +476,11 @@ export async function apiFetchStream(
     signal,
   });
 
-  if (!response.ok) await throwForResponse(response);
+  if (!response.ok) {
+    if (!isOffline() && response.status >= 500) markApiUnreachable();
+    await throwForResponse(response);
+  }
+  markApiReachable();
   return response;
 }
 
@@ -832,8 +847,12 @@ export function apiUpload<T>(path: string, formData: FormData, options: UploadOp
         }
       }
       if (xhr.status >= 200 && xhr.status < 300) {
+        markApiReachable();
         resolve(payload as T);
         return;
+      }
+      if (!isOffline() && xhr.status >= 500) {
+        markApiUnreachable();
       }
       const envelope = (payload ?? {}) as ApiErrorEnvelope;
       const source = (envelope.error && typeof envelope.error === 'object')
@@ -852,6 +871,9 @@ export function apiUpload<T>(path: string, formData: FormData, options: UploadOp
     };
     xhr.onerror = () => {
       cleanup();
+      if (!isOffline()) {
+        markApiUnreachable();
+      }
       reject(new ApiError('Network error during upload', 0, undefined, { code: NETWORK_ERROR_CODE }));
     };
     xhr.onabort = () => {

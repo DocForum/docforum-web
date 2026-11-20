@@ -15,6 +15,10 @@ import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
 import { DoctorSearchPage } from './DoctorSearchPage';
 import { OrdersPage } from './OrdersPage';
+import { PatientReferralsPage } from './PatientReferralsPage';
+import { WaitlistPage } from './WaitlistPage';
+import { IntakePage } from './IntakePage';
+import { WaitlistOfferBanner } from '../features/waitlist/components/WaitlistOfferBanner';
 import { OrderDetailPage } from './OrderDetailPage';
 import { PatientOrdersPage } from './PatientOrdersPage';
 import { PatientOrderDetailPage } from './PatientOrderDetailPage';
@@ -36,6 +40,7 @@ function PatientHome() {
     <div className="container">
       <ActingForBanner />
       <PatientOnboarding />
+      <WaitlistOfferBanner />
 
       <div className="card">
         <span className="statusPill">{t('patient.phasePill', 'Phase W2 · in progress')}</span>
@@ -86,6 +91,8 @@ function PatientHome() {
           <Link to="search">{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
           <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
           <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
+          <Link to="referrals">Referrals</Link>
+          <Link to="waitlist">My waitlists</Link>
           <Link to="/care">{t('patient.nav.care', 'Care journey timeline')}</Link>
           <Link to="orders">My prescriptions & lab orders</Link>
           <Link to="facilities">{t('patient.nav.facilities', 'Find pharmacies & labs')}</Link>
@@ -110,6 +117,8 @@ export function PatientDashboardPage() {
       <Route path="orders" element={<PatientOrdersPage />} />
       <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />
+      <Route path="referrals" element={<PatientReferralsPage />} />
+      <Route path="waitlist" element={<WaitlistPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />
       <Route path="orders" element={<OrdersPage />} />
@@ -118,6 +127,7 @@ export function PatientDashboardPage() {
       <Route path="settings" element={<AccountSettingsPage />} />
       <Route path="care/*" element={<CareThreadPage />} />
       <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
+      <Route path="appointments/:appointmentId/intake" element={<IntakePage />} />
     </Routes>
   );
 }
