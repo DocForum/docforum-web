@@ -224,6 +224,17 @@
   line-height: var(--leading-relaxed);
 }
 
+.emptyActions {
+  margin-top: var(--space-3);
+}
+
+.doctorActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
 @media (max-width: 640px) {
   .searchCard {
     padding: var(--space-4);
