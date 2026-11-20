@@ -22,6 +22,13 @@ describe('service worker caching policy', () => {
     expect(isAppShellNavigation('https://docforum-core-api.onrender.com/openapi.json', ORIGIN)).toBe(false);
   });
 
+  it('leaves the Pages fallback and path-style links to the network', () => {
+    const base = '/docforum-web/';
+    expect(isAppShellNavigation(`${ORIGIN}${base}404.html`, ORIGIN)).toBe(false);
+    expect(isAppShellNavigation(`${ORIGIN}${base}patient/orders`, ORIGIN, base)).toBe(false);
+    expect(isAppShellNavigation(`${ORIGIN}${base}`, ORIGIN, base)).toBe(true);
+  });
+
   it('treats malformed URLs as uncacheable', () => {
     expect(shouldBypassCache('http://[::1', ORIGIN)).toBe(true);
   });
