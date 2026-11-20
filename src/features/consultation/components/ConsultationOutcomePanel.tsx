@@ -1,297 +1,312 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { ApiError } from '../../../services/api-client';
-import { useAppointment } from '../../appointment/hooks/useAppointment';
+import { TextField } from '../../../components/TextField';
 import type {
+  ConsultationIssuedOrder,
   ConsultationOutcome,
-  IssuedLabOrder,
-  IssuedPrescription,
-  LabOrder,
-  Prescription,
+  ConsultationRecord,
+  ConsultationReferral,
 } from '../../../types/models';
 import {
-  useConsultationForAppointment,
-  useCreateConsultation,
-  useMyDoctorProfile,
-} from '../hooks/useConsultationOrders';
-import { formatStroops } from '../../../services/payments-service';
-import { LabOrderForm, PrescriptionForm } from './OrderForms';
+  useCreateConsultationReferral,
+  useIssueConsultationOrder,
+  useRecordConsultation,
+} from '../hooks/useConsultationOutcome';
 import styles from './ConsultationOutcomePanel.module.css';
-
-const OUTCOME_LABELS: Record<ConsultationOutcome, string> = {
-  resolved: 'Resolved',
-  referred: 'Referred',
-  follow_up_needed: 'Follow-up needed',
-};
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function IssuedOrders({
-  issued,
-  patientProfileId,
-}: {
-  issued: (IssuedPrescription | IssuedLabOrder)[];
-  patientProfileId?: string;
-}) {
-  if (issued.length === 0) return null;
-
-  return (
-    <section className={styles.issued} aria-labelledby="issued-orders-heading">
-      <h3 id="issued-orders-heading">Issued this session</h3>
-      <ul className={styles.issuedList}>
-        {issued.map((order) => {
-          const isPrescription = 'items' in order;
-          return (
-            <li key={order.id} className={styles.issuedCard} id={`issued-order-${order.id}`}>
-              <div className={styles.issuedHeader}>
-                <p className={styles.issuedTitle}>
-                  {isPrescription ? 'Prescription' : 'Lab order'} ·{' '}
-                  {isPrescription
-                    ? order.items.map((item) => item.drugName).join(', ')
-                    : (order as LabOrder).testType}
-                </p>
-                <span className={styles.statusPill}>{order.status}</span>
-              </div>
-              <p className={styles.issuedMeta}>
-                Issued {formatDateTime(order.createdAt)} ·{' '}
-                {formatStroops(order.amountStroops, 'XLM')} · Payment intent{' '}
-                {order.paymentIntent.status}
-              </p>
-
-              <details className={styles.details}>
-                <summary>View order details</summary>
-                <dl className={styles.detailList}>
-                  <dt>Order ID</dt>
-                  <dd className={styles.mono}>{order.id}</dd>
-                  <dt>Facility</dt>
-                  <dd className={styles.mono}>{order.facilityProfileId}</dd>
-                  <dt>Amount (stroops)</dt>
-                  <dd className={styles.mono}>{order.amountStroops}</dd>
-                  {isPrescription ? (
-                    <>
-                      <dt>Medications</dt>
-                      <dd>
-                        <ol className={styles.itemList}>
-                          {(order as Prescription).items.map((item) => (
-                            <li key={item.id}>
-                              {item.drugName} — {item.dosage}, {item.frequency}, for{' '}
-                              {item.duration}
-                            </li>
-                          ))}
-                        </ol>
-                      </dd>
-                    </>
-                  ) : (
-                    <>
-                      <dt>Urgency</dt>
-                      <dd>{(order as LabOrder).urgency}</dd>
-                      <dt>Instructions</dt>
-                      <dd>{(order as LabOrder).notes || 'None'}</dd>
-                    </>
-                  )}
-                </dl>
-              </details>
-
-              <p className={styles.issuedNote}>
-                Orders are append-only. To correct one, issue a superseding order
-                from this consultation — issued orders can’t be edited.
-              </p>
-
-              {patientProfileId && (
-                <Link
-                  className={styles.issuedLink}
-                  to={`/doctor/patient-chart/${patientProfileId}`}
-                >
-                  Open this patient’s chart
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
 
 interface ConsultationOutcomePanelProps {
   appointmentId: string;
+  notes: string;
 }
 
-/**
- * The consultation's outcome + order issuance (issues #7/#267). Closing the
- * visit creates docforum-core's consultation (`POST /orders/consultations`);
- * prescriptions and lab orders are then issued against that consultation id
- * through the real `/orders/consultations/:id/...` endpoints.
- */
-export function ConsultationOutcomePanel({ appointmentId }: ConsultationOutcomePanelProps) {
-  const consultationQuery = useConsultationForAppointment(appointmentId);
-  const consultation = consultationQuery.data ?? null;
-  const createConsultation = useCreateConsultation(appointmentId);
-  const doctorProfile = useMyDoctorProfile();
-  const appointment = useAppointment(appointmentId);
+interface OutcomeResult {
+  record: ConsultationRecord;
+  referral?: ConsultationReferral;
+  order?: ConsultationIssuedOrder;
+}
+
+const OUTCOMES: { value: ConsultationOutcome; label: string }[] = [
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'referred', label: 'Referred' },
+  { value: 'follow_up_needed', label: 'Follow-up needed' },
+];
+
+export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationOutcomePanelProps) {
+  const recordConsultation = useRecordConsultation();
+  const createReferral = useCreateConsultationReferral();
+  const issueOrder = useIssueConsultationOrder();
 
   const [outcome, setOutcome] = useState<ConsultationOutcome>('resolved');
-  const [notes, setNotes] = useState('');
-  const [tab, setTab] = useState<'prescription' | 'lab_order'>('prescription');
-  const [issued, setIssued] = useState<(IssuedPrescription | IssuedLabOrder)[]>([]);
+  const [followUpDays, setFollowUpDays] = useState('7');
+  const [specialty, setSpecialty] = useState('');
+  const [referralReason, setReferralReason] = useState('');
+  const [wantsOrder, setWantsOrder] = useState(false);
+  const [orderType, setOrderType] = useState<'prescription' | 'lab_order'>('prescription');
+  const [medication, setMedication] = useState('');
+  const [dose, setDose] = useState('');
+  const [testName, setTestName] = useState('');
+  const [orderInstructions, setOrderInstructions] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [result, setResult] = useState<OutcomeResult | null>(null);
 
-  const patientProfileId = appointment.data?.patientProfileId;
-  const verificationStatus = doctorProfile.data?.verificationStatus;
-  const isUnverified = verificationStatus != null && verificationStatus !== 'verified';
+  const isSubmitting =
+    recordConsultation.isPending || createReferral.isPending || issueOrder.isPending;
 
-  const handleCloseVisit = async (event: FormEvent) => {
-    event.preventDefault();
+  const reset = () => {
+    setResult(null);
+    setSubmitError(null);
+    setErrors({});
+  };
+
+  const submit = async () => {
+    const nextErrors: Record<string, string> = {};
+    if (!notes.trim()) nextErrors.notes = 'Add consultation notes above before recording an outcome.';
+    if (outcome === 'referred') {
+      if (!specialty.trim()) nextErrors.specialty = 'Target specialty is required.';
+      if (!referralReason.trim()) nextErrors.referralReason = 'Referral reason is required.';
+    }
+    if (outcome === 'follow_up_needed') {
+      const days = Number(followUpDays);
+      if (!Number.isInteger(days) || days < 1 || days > 90) {
+        nextErrors.followUpDays = 'Enter a whole number of days between 1 and 90.';
+      }
+    }
+    if (wantsOrder) {
+      if (orderType === 'prescription') {
+        if (!medication.trim()) nextErrors.medication = 'Medication is required.';
+        if (!dose.trim()) nextErrors.dose = 'Dose is required.';
+      } else if (!testName.trim()) {
+        nextErrors.testName = 'Test name is required.';
+      }
+    }
+
+    setErrors(nextErrors);
+    setSubmitError(null);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    let recorded: ConsultationRecord | null = null;
     try {
-      await createConsultation.mutateAsync({
-        outcome,
-        notes: notes.trim() ? notes.trim() : null,
+      recorded = await recordConsultation.mutateAsync({
+        appointmentId,
+        input: {
+          notes: notes.trim(),
+          outcome,
+          followUpAfterDays: outcome === 'follow_up_needed' ? Number(followUpDays) : null,
+        },
       });
-      setNotes('');
-    } catch {
-      // Surfaced from the mutation's error state below.
+
+      const referral =
+        outcome === 'referred'
+          ? await createReferral.mutateAsync({
+              consultationId: recorded.id,
+              input: { targetSpecialty: specialty.trim(), reason: referralReason.trim() },
+            })
+          : undefined;
+
+      const issued = wantsOrder
+        ? await issueOrder.mutateAsync({
+            consultationId: recorded.id,
+            input:
+              orderType === 'prescription'
+                ? {
+                    orderType,
+                    medication: medication.trim(),
+                    dose: dose.trim(),
+                    instructions: orderInstructions.trim() || null,
+                  }
+                : {
+                    orderType,
+                    testName: testName.trim(),
+                    instructions: orderInstructions.trim() || null,
+                  },
+          })
+        : undefined;
+
+      setResult({ record: recorded, referral, order: issued });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not record this consultation.';
+      setSubmitError(
+        recorded
+          ? `Consultation was recorded, but the next step failed: ${message}`
+          : message,
+      );
+      if (recorded) setResult({ record: recorded });
     }
   };
 
-  const conflict =
-    createConsultation.error instanceof ApiError && createConsultation.error.status === 409;
-
   return (
     <section className={styles.panel} aria-labelledby="consultation-outcome-heading">
-      <header className={styles.header}>
-        <div>
-          <h2 id="consultation-outcome-heading">Outcome and orders</h2>
-          <p className={styles.subtitle}>
-            Close the consultation once, then issue prescriptions and lab orders
-            against it.
-          </p>
-        </div>
-      </header>
+      <h2 id="consultation-outcome-heading" className={styles.heading}>
+        Outcome &amp; next steps
+      </h2>
 
-      {isUnverified && (
-        <div className={styles.notice} role="status">
-          <p className={styles.noticeTitle}>
-            This profile is {verificationStatus === 'rejected' ? 'not verified' : 'still pending verification'}
-          </p>
-          <p>
-            docforum-core only lets verified doctors issue orders. You can close
-            the consultation, but prescriptions and lab orders will be rejected
-            until verification is complete.
-          </p>
-          <Link className={styles.alertLink} to="/doctor/verification">
-            Check verification status
-          </Link>
-        </div>
-      )}
+      {errors.notes ? (
+        <p className={styles.error} role="alert">
+          {errors.notes}
+        </p>
+      ) : !notes.trim() ? (
+        <p className={styles.hint}>Add consultation notes above before recording an outcome.</p>
+      ) : null}
 
-      {!consultation ? (
-        <form className={styles.form} onSubmit={handleCloseVisit} noValidate>
-          <div className={styles.field}>
-            <label htmlFor="consultation-outcome" className={styles.label}>
-              Consultation outcome
-            </label>
-            <select
-              id="consultation-outcome"
-              className={styles.select}
-              value={outcome}
-              onChange={(event) => setOutcome(event.target.value as ConsultationOutcome)}
-            >
-              {Object.entries(OUTCOME_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="consultation-notes" className={styles.label}>
-              Outcome notes (clinical, stored encrypted)
-            </label>
-            <textarea
-              id="consultation-notes"
-              className={styles.textarea}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={4}
-              maxLength={20000}
-              placeholder="Optional summary of the visit (PHI — kept out of logs and analytics)"
-            />
-          </div>
-
-          {createConsultation.isError && !conflict && (
-            <p className={styles.error} role="alert">
-              {createConsultation.error instanceof Error
-                ? createConsultation.error.message
-                : 'The consultation could not be closed.'}
-            </p>
-          )}
-          {conflict && (
-            <p className={styles.error} role="alert">
-              This visit already has a consultation — it can only be closed once.
-              Ask an admin to check the record if you need to correct the outcome.
-            </p>
-          )}
-
-          <Button type="submit" loading={createConsultation.isPending}>
-            Close consultation
-          </Button>
-        </form>
-      ) : (
-        <>
-          <div className={styles.closedSummary}>
-            <p>
-              <strong>Consultation closed</strong> · {OUTCOME_LABELS[consultation.outcome ?? 'resolved']}{' '}
-              · {formatDateTime(consultation.createdAt)}
-            </p>
-            <p className={styles.mono}>Consultation ID {consultation.id}</p>
-          </div>
-
-          <div className={styles.tabs} role="tablist" aria-label="Order type">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'prescription'}
-              className={tab === 'prescription' ? styles.tabActive : styles.tab}
-              onClick={() => setTab('prescription')}
-            >
-              Prescription
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'lab_order'}
-              className={tab === 'lab_order' ? styles.tabActive : styles.tab}
-              onClick={() => setTab('lab_order')}
-            >
-              Lab order
-            </button>
-          </div>
-
-          <div role="tabpanel">
-            {tab === 'prescription' ? (
-              <PrescriptionForm
-                consultationId={consultation.id}
-                onIssued={(order) => setIssued((current) => [...current, order])}
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>Outcome</legend>
+        <div className={styles.radioRow}>
+          {OUTCOMES.map((option) => (
+            <label key={option.value} className={styles.radioLabel}>
+              <input
+                type="radio"
+                name="consultation-outcome"
+                value={option.value}
+                checked={outcome === option.value}
+                onChange={() => {
+                  setOutcome(option.value);
+                  reset();
+                }}
               />
+              {option.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {outcome === 'referred' ? (
+        <div className={styles.subsection}>
+          <TextField
+            label="Target specialty"
+            value={specialty}
+            onChange={(event) => setSpecialty(event.target.value)}
+            error={errors.specialty}
+          />
+          <label className={styles.textareaLabel}>
+            Referral reason
+            <textarea
+              className={styles.textarea}
+              value={referralReason}
+              onChange={(event) => setReferralReason(event.target.value)}
+              aria-invalid={Boolean(errors.referralReason)}
+            />
+          </label>
+          {errors.referralReason ? (
+            <p className={styles.error} role="alert">
+              {errors.referralReason}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {outcome === 'follow_up_needed' ? (
+        <div className={styles.subsection}>
+          <TextField
+            label="Follow up in days"
+            type="number"
+            min={1}
+            max={90}
+            value={followUpDays}
+            onChange={(event) => setFollowUpDays(event.target.value)}
+            error={errors.followUpDays}
+          />
+        </div>
+      ) : null}
+
+      <div className={styles.subsection}>
+        <label className={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            checked={wantsOrder}
+            onChange={(event) => {
+              setWantsOrder(event.target.checked);
+              reset();
+            }}
+          />
+          Issue a prescription or lab order with this consultation
+        </label>
+
+        {wantsOrder ? (
+          <div className={styles.subsection}>
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.legend}>Order type</legend>
+              <div className={styles.radioRow}>
+                <label className={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="consultation-order-type"
+                    value="prescription"
+                    checked={orderType === 'prescription'}
+                    onChange={() => setOrderType('prescription')}
+                  />
+                  Prescription
+                </label>
+                <label className={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="consultation-order-type"
+                    value="lab_order"
+                    checked={orderType === 'lab_order'}
+                    onChange={() => setOrderType('lab_order')}
+                  />
+                  Lab order
+                </label>
+              </div>
+            </fieldset>
+
+            {orderType === 'prescription' ? (
+              <div className={styles.subsection}>
+                <TextField
+                  label="Medication"
+                  value={medication}
+                  onChange={(event) => setMedication(event.target.value)}
+                  error={errors.medication}
+                />
+                <TextField
+                  label="Dose"
+                  value={dose}
+                  onChange={(event) => setDose(event.target.value)}
+                  error={errors.dose}
+                />
+              </div>
             ) : (
-              <LabOrderForm
-                consultationId={consultation.id}
-                onIssued={(order) => setIssued((current) => [...current, order])}
+              <TextField
+                label="Test name"
+                value={testName}
+                onChange={(event) => setTestName(event.target.value)}
+                error={errors.testName}
               />
             )}
-          </div>
 
-          <IssuedOrders issued={issued} patientProfileId={patientProfileId} />
-        </>
+            <label className={styles.textareaLabel}>
+              Order instructions
+              <textarea
+                className={styles.textarea}
+                value={orderInstructions}
+                onChange={(event) => setOrderInstructions(event.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      {submitError ? (
+        <p className={styles.error} role="alert">
+          {submitError}
+        </p>
+      ) : null}
+
+      {result ? (
+        <div className={styles.result} role="status">
+          <p>
+            Consultation recorded as <strong>{OUTCOMES.find((option) => option.value === outcome)?.label}</strong>.
+          </p>
+          {result.referral ? <p>Referral created for {result.referral.targetSpecialty}.</p> : null}
+          {result.order ? <p>{result.order.medicationOrTest} issued.</p> : null}
+          <Button variant="secondary" onClick={reset}>
+            Record another outcome
+          </Button>
+        </div>
+      ) : (
+        <Button onClick={submit} loading={isSubmitting} disabled={!notes.trim()}>
+          Record consultation
+        </Button>
       )}
     </section>
   );

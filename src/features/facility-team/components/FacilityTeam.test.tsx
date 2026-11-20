@@ -3,11 +3,69 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../test/render';
 import { FacilityTeamView, DEFAULT_MOCK_MEMBERS, DEFAULT_MOCK_INVITES } from './FacilityTeamView';
 import { FulfillmentQueueWithAttribution } from './FulfillmentQueueWithAttribution';
-import { DEFAULT_MOCK_QUEUE } from '../../../pages/FacilityDashboardPage';
 import { useAuthStore } from '../../../store/auth-store';
 import * as teamService from '../../../services/facility-team-service';
+import type { FulfillmentQueueItem } from '../../../types/models';
 
 vi.mock('../../../services/facility-team-service');
+
+const DEFAULT_MOCK_QUEUE: FulfillmentQueueItem[] = [
+  {
+    id: 'queue-1',
+    facilityId: 'fac-main',
+    orderId: 'ord-rx-101',
+    orderType: 'prescription',
+    patientName: 'John Doe',
+    patientProfileId: 'pat-1',
+    itemName: 'Amoxicillin 500mg (30 capsules)',
+    instructions: 'Take 1 capsule three times daily with meals for 10 days.',
+    status: 'fulfilled',
+    receivedAt: '2026-10-18T08:30:00Z',
+    attribution: {
+      action: 'dispensed',
+      performedByUserId: 'user-owner-1',
+      performedByName: 'Dr. Evelyn Reed',
+      performedByEmail: 'evelyn.reed@centralpharmacy.org',
+      performedByRole: 'owner',
+      timestamp: '2026-10-18T09:15:00Z',
+      notes: 'Batch #B-9912 verified and dispensed with patient leaflet',
+    },
+  },
+  {
+    id: 'queue-2',
+    facilityId: 'fac-main',
+    orderId: 'ord-lab-204',
+    orderType: 'lab',
+    patientName: 'Alice Smith',
+    patientProfileId: 'pat-2',
+    itemName: 'Fasting Lipid Panel & HbA1c',
+    instructions: '12-hour fasting venous blood sample required.',
+    status: 'fulfilled',
+    receivedAt: '2026-10-18T09:00:00Z',
+    attribution: {
+      action: 'sample_collected',
+      performedByUserId: 'user-staff-1',
+      performedByName: 'Marcus Vance, PharmD',
+      performedByEmail: 'marcus.vance@centralpharmacy.org',
+      performedByRole: 'staff',
+      timestamp: '2026-10-18T10:05:00Z',
+      notes: 'Phlebotomy completed without complications',
+    },
+  },
+  {
+    id: 'queue-3',
+    facilityId: 'fac-main',
+    orderId: 'ord-rx-309',
+    orderType: 'prescription',
+    patientName: 'Robert Garcia',
+    patientProfileId: 'pat-3',
+    itemName: 'Metformin 850mg (60 tablets)',
+    instructions: 'Take 1 tablet twice daily with food.',
+    status: 'pending',
+    receivedAt: '2026-10-18T10:30:00Z',
+    attribution: null,
+  },
+];
 
 beforeEach(() => {
   useAuthStore.setState({

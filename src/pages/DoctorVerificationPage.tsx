@@ -1,80 +1,125 @@
 import { Link } from 'react-router-dom';
+import { FormError } from '../components/FormError';
 import { Spinner } from '../components/Spinner';
-import { useMyDoctorProfile } from '../features/consultation/hooks/useConsultationOrders';
-import styles from './DoctorVerificationPage.module.css';
+import { useErrorMessage } from '../hooks/useErrorText';
+import { CredentialList } from '../features/verification/components/CredentialList';
+import { CredentialUploadForm } from '../features/verification/components/CredentialUploadForm';
+import { SpecialtyClaimPicker } from '../features/verification/components/SpecialtyClaimPicker';
+import { VerificationChecklist } from '../features/verification/components/VerificationChecklist';
+import { VerificationStatusBanner } from '../features/verification/components/VerificationStatusBanner';
+import {
+  useCredentials,
+  useDoctorProfile,
+  useSpecialtyCatalog,
+  useSpecialtyClaims,
+} from '../features/verification/hooks/useVerification';
+import type { DoctorCredential, DoctorSpecialtyClaim } from '../types/models';
 
-const STATUS_COPY = {
-  verified: {
-    title: 'Your doctor profile is verified',
-    body: 'You can close consultations and issue prescriptions and lab orders.',
-  },
-  pending: {
-    title: 'Verification is still pending',
-    body: 'docforum-core lets only verified doctors issue orders. An admin reviews credentials manually; until that review finishes, order issuance is rejected.',
-  },
-  rejected: {
-    title: 'Your doctor profile was not verified',
-    body: 'Order issuance is blocked. If you believe this is a mistake, contact the DocForum admin team to have your credentials reviewed again.',
-  },
-} as const;
+function messageFrom(error: unknown, fallback: string): string {
+  // Keep the server's sentence whenever there is one: "The license is expired."
+  // tells a doctor what to fix, a generic line does not.
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
 
-/**
- * Where the 403 from order issuance points: the signed-in doctor's own
- * verification status, read from the real `GET /doctors/me`.
- */
+/** `DoctorProfile` carries no rejection reason, so the profile-level banner
+ * reads the newest rejected item — the application was rejected *because* of
+ * something the per-item rows already name. */
+function deriveRejectionReason(
+  credentials: readonly DoctorCredential[],
+  claims: readonly DoctorSpecialtyClaim[],
+): string | null {
+  const rejected = [
+    ...credentials.filter((item) => item.status === 'rejected'),
+    ...claims.filter((item) => item.status === 'rejected'),
+  ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return rejected[0]?.rejectionReason ?? null;
+}
+
 export function DoctorVerificationPage() {
-  const profile = useMyDoctorProfile();
+  const profileQuery = useDoctorProfile();
+  const credentialsQuery = useCredentials();
+  const catalogQuery = useSpecialtyCatalog();
+  const claimsQuery = useSpecialtyClaims();
+  const errorText = useErrorMessage();
+
+  const credentials = credentialsQuery.data ?? [];
+  const claims = claimsQuery.data ?? [];
 
   return (
-    <div className={styles.page}>
-      <h1 className={styles.title}>Doctor verification</h1>
-      <p className={styles.lead}>
-        Issuing prescriptions and lab orders is gated on a verified doctor
-        profile in docforum-core. This page shows the status on your account.
-      </p>
+    <div className="container">
+      <div className="card">
+        <h1>Doctor verification application</h1>
+        <p>
+          Upload your credentials, claim your specialties, and follow each item through review. Documents are read by
+          reviewers through a get-on-demand link, so nothing here shows a permanent URL for an upload.
+        </p>
+        <nav>
+          <Link to="/doctor">Back to the doctor area</Link>
+        </nav>
+      </div>
 
-      {profile.isLoading && (
-        <div className={styles.loading}>
-          <Spinner size={18} /> Checking your verification status…
+      {profileQuery.isPending && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <Spinner size={20} />
+          <span>Loading your application…</span>
         </div>
       )}
 
-      {profile.isError && (
-        <div className={styles.alert} role="alert">
-          {profile.error instanceof Error && profile.error.message
-            ? profile.error.message
-            : 'Your doctor profile could not be loaded.'}
+      {profileQuery.isError && (
+        <div className="card">
+          <FormError
+            message={messageFrom(profileQuery.error, 'We could not read your application status. Reload to retry.')}
+          />
         </div>
       )}
 
-      {profile.data && (
-        <section className={styles.card} aria-live="polite">
-          <p className={styles.statusRow}>
-            <span
-              className={styles.statusPill}
-              data-status={profile.data.verificationStatus}
-            >
-              {profile.data.verificationStatus}
-            </span>
-            <span className={styles.name}>{profile.data.fullName}</span>
-          </p>
-          <h2 className={styles.cardTitle}>
-            {STATUS_COPY[profile.data.verificationStatus].title}
-          </h2>
-          <p className={styles.cardBody}>
-            {STATUS_COPY[profile.data.verificationStatus].body}
-          </p>
-          <p className={styles.meta}>
-            Profile ID <span className={styles.mono}>{profile.data.id}</span>
-          </p>
-        </section>
+      {profileQuery.data && (
+        <div className="card">
+          <VerificationStatusBanner
+            status={profileQuery.data.verificationStatus}
+            rejectionReason={deriveRejectionReason(credentials, claims)}
+            fullName={profileQuery.data.fullName}
+          />
+        </div>
       )}
 
-      <p>
-        <Link to="/doctor" className={styles.backLink}>
-          Back to your day
-        </Link>
-      </p>
+      <div className="card">
+        <VerificationChecklist credentials={credentials} claims={claims} />
+      </div>
+
+      <div className="card" id="credential-upload">
+        <CredentialUploadForm />
+      </div>
+
+      <section className="card" aria-labelledby="verification-documents-title">
+        <h2 id="verification-documents-title">Your documents</h2>
+        <CredentialList
+          credentials={credentials}
+          isLoading={credentialsQuery.isPending}
+          error={
+            credentialsQuery.isError
+              ? errorText(credentialsQuery.error) ?? 'Your documents could not be loaded.'
+              : null
+          }
+          onRetry={() => void credentialsQuery.refetch()}
+        />
+      </section>
+
+      <section className="card" aria-labelledby="verification-specialties-title">
+        <h2 id="verification-specialties-title">Specialty claims</h2>
+        <SpecialtyClaimPicker
+          catalog={catalogQuery.data ?? []}
+          claims={claims}
+          isLoading={catalogQuery.isPending}
+          error={
+            catalogQuery.isError
+              ? errorText(catalogQuery.error) ?? 'The specialty catalog could not be loaded.'
+              : null
+          }
+          onRetry={() => void catalogQuery.refetch()}
+        />
+      </section>
     </div>
   );
 }

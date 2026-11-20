@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import type { VerifyOrderResponse } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate, formatDateTime } from '../../../i18n/time-zone';
 import styles from './OrderVerify.module.css';
 
 interface VerificationResultCardProps {
@@ -10,6 +12,7 @@ interface VerificationResultCardProps {
 
 export function VerificationResultCard({ result, onReset }: VerificationResultCardProps) {
   const navigate = useNavigate();
+  const { timeZone } = useTimeZone();
   const { status, order, token, verifiedAt, message } = result;
 
   const getStatusBadge = () => {
@@ -61,7 +64,7 @@ export function VerificationResultCard({ result, onReset }: VerificationResultCa
             </span>
           </div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-            Verified on {new Date(verifiedAt).toLocaleString()}
+            Verified on {formatDateTime(verifiedAt, timeZone)}
           </div>
         </div>
       </div>
@@ -85,13 +88,13 @@ export function VerificationResultCard({ result, onReset }: VerificationResultCa
         {status === 'expired' && (
           <div role="alert" className={`${styles.alert} ${styles.alertError}`}>
             <strong>Order Expired:</strong> This order reached its expiration cutoff on{' '}
-            {order?.expiresAt ? new Date(order.expiresAt).toLocaleDateString() : 'its designated date'}. Expired orders cannot be fulfilled.
+            {order?.expiresAt ? formatDate(order.expiresAt, timeZone) : 'its designated date'}. Expired orders cannot be fulfilled.
           </div>
         )}
         {status === 'fulfilled' && (
           <div role="alert" className={`${styles.alert} ${styles.alertInfo}`}>
             <strong>Order Already Fulfilled:</strong> This order was completed
-            {order?.fulfilledAt ? ` on ${new Date(order.fulfilledAt).toLocaleString()}` : ''}
+            {order?.fulfilledAt ? ` on ${formatDateTime(order.fulfilledAt, timeZone)}` : ''}
             {order?.fulfilledByFacility ? ` by ${order.fulfilledByFacility}` : ''}. Duplicate dispensing is prohibited.
           </div>
         )}
@@ -122,13 +125,13 @@ export function VerificationResultCard({ result, onReset }: VerificationResultCa
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Issued Date</span>
               <span className={styles.summaryValue}>
-                {new Date(order.issuedAt).toLocaleDateString()}
+                {formatDate(order.issuedAt, timeZone)}
               </span>
             </div>
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Expires Date</span>
               <span className={styles.summaryValue}>
-                {new Date(order.expiresAt).toLocaleDateString()}
+                {formatDate(order.expiresAt, timeZone)}
               </span>
             </div>
             <div className={styles.summaryItem}>

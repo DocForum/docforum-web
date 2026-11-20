@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import * as queueService from '../../../services/queue-service';
 import { useVisitActions, UNDO_WINDOW_MS } from './useQueue';
+import { appointmentKeys, queueKeys } from '../../../query-keys';
 import type { QueueEntry } from '../../../types/models';
 
 vi.mock('../../../services/queue-service');
@@ -40,7 +41,7 @@ describe('useVisitActions', () => {
   });
 
   function seedCache(queryClient: QueryClient, status: QueueEntry['status']) {
-    queryClient.setQueryData(['doctor', 'queue', 'today'], [
+    queryClient.setQueryData(queueKeys.today(), [
       { ...QUEUE_ENTRY, status },
     ]);
   }
@@ -55,7 +56,7 @@ describe('useVisitActions', () => {
     expect(vi.mocked(queueService.startVisit)).not.toHaveBeenCalled();
     expect(
       (
-        queryClient.getQueryData(['doctor', 'queue', 'today']) as QueueEntry[]
+        queryClient.getQueryData(queueKeys.today()) as QueueEntry[]
       )?.[0].status,
     ).toBe('in_progress');
 
@@ -63,7 +64,7 @@ describe('useVisitActions', () => {
     expect(vi.mocked(queueService.startVisit)).not.toHaveBeenCalled();
     expect(
       (
-        queryClient.getQueryData(['doctor', 'queue', 'today']) as QueueEntry[]
+        queryClient.getQueryData(queueKeys.today()) as QueueEntry[]
       )?.[0].status,
     ).toBe('checked_in');
   });
@@ -92,7 +93,7 @@ describe('useVisitActions', () => {
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
     expect(
       (
-        queryClient.getQueryData(['doctor', 'queue', 'today']) as QueueEntry[]
+        queryClient.getQueryData(queueKeys.today()) as QueueEntry[]
       )?.[0].status,
     ).toBe('completed');
 
@@ -100,7 +101,7 @@ describe('useVisitActions', () => {
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
     expect(
       (
-        queryClient.getQueryData(['doctor', 'queue', 'today']) as QueueEntry[]
+        queryClient.getQueryData(queueKeys.today()) as QueueEntry[]
       )?.[0].status,
     ).toBe('in_progress');
   });
@@ -116,6 +117,24 @@ describe('useVisitActions', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(vi.mocked(queueService.completeVisit)).toHaveBeenCalledWith('appt-1', 'test-token');
+  });
+
+  it('refreshes the dashboard appointment list and the queue once the start is confirmed', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'checked_in');
+    queryClient.setQueryData(appointmentKeys.today(), [{ id: 'appt-1' }]);
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.startVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+
+    await vi.waitFor(() => {
+      expect(
+        queryClient.getQueryState(appointmentKeys.today())?.isInvalidated,
+      ).toBe(true);
+      expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true);
+    });
   });
 
   it('does not start a visit that is not checked in', () => {
