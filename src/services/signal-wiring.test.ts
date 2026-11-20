@@ -95,7 +95,7 @@ describe('slow-endpoint timeouts', () => {
     vi.useFakeTimers();
     hungFetch();
 
-    const attempt = requestDataExport('correct-horse', 'token');
+    const attempt = requestDataExport('token');
     const assertion = expect(attempt).rejects.toBeInstanceOf(ApiTimeoutError);
     let settled = false;
     void attempt.then(
@@ -116,6 +116,6 @@ describe('slow-endpoint timeouts', () => {
     await assertion;
     expect(settled).toBe(true);
     const error = await attempt.catch((e: unknown) => e);
-    expect(error).toMatchObject({ timeoutMs: 120_000, path: '/account/data-export' });
+    expect(error).toMatchObject({ timeoutMs: 120_000, path: '/patients/me/export' });
   });
 });
