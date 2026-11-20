@@ -1,5 +1,9 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useVerificationQueue } from '../hooks/useVerifications';
 import { ageTone, hoursSince, oldestAgeLabel, sortBySubmitted } from '../queue';
 import { describeQueueError } from '../errors';
@@ -54,20 +58,36 @@ export function VerificationsQueue() {
   const queue = useVerificationQueue();
   const now = Date.now();
 
-  if (queue.isLoading) return <p className={styles.status}>Loading applications…</p>;
+  const items = sortBySubmitted(queue.data?.pages.flatMap((page) => page.items) ?? []);
 
-  if (queue.isError) {
-    return (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeQueueError(queue.error)}</p>
-        <Button variant="secondary" onClick={() => void queue.refetch()}>
-          Try again
-        </Button>
-      </div>
+  let body: ReactNode;
+  if (queue.isLoading) {
+    body = <Skeleton lines={5} height="2.5rem" label="Loading applications" />;
+  } else if (queue.isError) {
+    body = (
+      <InlineError
+        title="Applications couldn't be loaded"
+        message={describeQueueError(queue.error)}
+        onRetry={() => void queue.refetch()}
+      />
+    );
+  } else if (items.length === 0) {
+    body = (
+      <EmptyState
+        title="No doctors are waiting for review."
+        description="When doctors submit credentials for verification, they will appear in this queue."
+        action={{ label: 'Refresh queue', onClick: () => void queue.refetch() }}
+      />
+    );
+  } else {
+    body = (
+      <ul className={styles.queue}>
+        {items.map((item) => (
+          <QueueRow key={item.doctorProfileId} item={item} now={now} />
+        ))}
+      </ul>
     );
   }
-
-  const items = sortBySubmitted(queue.data?.pages.flatMap((page) => page.items) ?? []);
 
   return (
     <section className={styles.console} aria-labelledby="verifications-heading">
@@ -83,15 +103,7 @@ export function VerificationsQueue() {
 
       {items.length > 0 ? <p className={styles.summary}>{oldestAgeLabel(items, now)}</p> : null}
 
-      {items.length === 0 ? (
-        <p className={styles.empty}>No doctors are waiting for review.</p>
-      ) : (
-        <ul className={styles.queue}>
-          {items.map((item) => (
-            <QueueRow key={item.doctorProfileId} item={item} now={now} />
-          ))}
-        </ul>
-      )}
+      {body}
 
       {queue.hasNextPage ? (
         <div className={styles.loadMoreRow}>
