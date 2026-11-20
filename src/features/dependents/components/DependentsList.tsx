@@ -4,7 +4,7 @@ import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
-import { ApiError } from '../../../services/api-client';
+import { describeDependentError } from '../../../services/error-catalogue';
 import type { Dependent, DependentInput } from '../../../types/models';
 import styles from './DependentsList.module.css';
 
@@ -34,7 +34,11 @@ export function DependentsList() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   function handleAdd(input: DependentInput) {
-    addMutation.mutate(input, { onSuccess: () => setShowAdd(false) });
+    // docforum-core accepts only these two fields on create.
+    addMutation.mutate(
+      { fullName: input.fullName, dateOfBirth: input.dateOfBirth },
+      { onSuccess: () => setShowAdd(false) },
+    );
   }
 
   function handleEdit(id: string, input: DependentInput) {
@@ -50,7 +54,7 @@ export function DependentsList() {
     );
   }
 
-  const apiError = fetchError instanceof ApiError ? fetchError.message : fetchError ? 'Failed to load dependents.' : null;
+  const apiError = describeDependentError(fetchError, 'Failed to load dependents.')?.message ?? null;
 
   return (
     <div className={styles.root}>
@@ -75,7 +79,7 @@ export function DependentsList() {
             onSubmit={handleAdd}
             onCancel={() => { setShowAdd(false); addMutation.reset(); }}
             loading={addMutation.isPending}
-            error={addMutation.error instanceof ApiError ? addMutation.error.message : addMutation.error ? 'Failed to add dependent.' : null}
+            error={describeDependentError(addMutation.error, 'Failed to add dependent.')}
           />
         </div>
       )}
@@ -92,7 +96,7 @@ export function DependentsList() {
               onSubmit={(input) => handleEdit(d.id, input)}
               onCancel={() => { setEditingId(null); editMutation.reset(); }}
               loading={editMutation.isPending}
-              error={editMutation.error instanceof ApiError ? editMutation.error.message : editMutation.error ? 'Failed to save.' : null}
+              error={describeDependentError(editMutation.error, 'Failed to save.')}
             />
           ) : (
             <>

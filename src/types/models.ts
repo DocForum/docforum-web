@@ -67,9 +67,15 @@ export interface Dependent {
   updatedAt: string;
 }
 
-export interface DependentInput {
+/** Exact body docforum-core's `POST /patients/me/dependents` accepts. It
+ * rejects any other field with a `400`, so `relationship` is edit-only until
+ * the backend accepts it on create (see docs.d/261-dependents-strict-create). */
+export interface DependentCreateInput {
   fullName: string;
   dateOfBirth: string;
+}
+
+export interface DependentInput extends DependentCreateInput {
   relationship: Relationship;
 }
 

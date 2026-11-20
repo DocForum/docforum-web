@@ -4,7 +4,7 @@ import { TextField } from '../../../components/TextField';
 import { Spinner } from '../../../components/Spinner';
 import { FormError } from '../../../components/FormError';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
-import { ApiError } from '../../../services/api-client';
+import { describeActingForError } from '../../../services/error-catalogue';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
 
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function HealthSection({ section }: Props) {
-  const { data: entries, isLoading } = useHealthEntries(section);
+  const { data: entries, isLoading, error: listError } = useHealthEntries(section);
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
   const removeMutation = useRemoveHealthEntry();
@@ -76,6 +76,9 @@ export function HealthSection({ section }: Props) {
         )}
       </div>
 
+      <FormError message={describeActingForError(listError, 'Failed to load this section.')} />
+      <FormError message={describeActingForError(removeMutation.error, 'Failed to remove.')} />
+
       {isLoading && (
         <div className={styles.loading}>
           <Spinner size={18} />
@@ -86,9 +89,7 @@ export function HealthSection({ section }: Props) {
         <form onSubmit={handleAdd} className={styles.inlineForm}>
           <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
           <TextField label="Details (optional)" value={details} onChange={(e) => setDetails(e.target.value)} />
-          <FormError
-            message={addMutation.error instanceof ApiError ? addMutation.error.message : addMutation.error ? 'Failed to add.' : null}
-          />
+          <FormError message={describeActingForError(addMutation.error, 'Failed to add.')} />
           <div className={styles.actions}>
             <Button type="submit" loading={addMutation.isPending}>
               Save
@@ -108,9 +109,7 @@ export function HealthSection({ section }: Props) {
             <form onSubmit={handleUpdate} className={styles.inlineForm}>
               <TextField label="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
               <TextField label="Details (optional)" value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
-              <FormError
-                message={updateMutation.error instanceof ApiError ? updateMutation.error.message : updateMutation.error ? 'Failed to save.' : null}
-              />
+              <FormError message={describeActingForError(updateMutation.error, 'Failed to save.')} />
               <div className={styles.actions}>
                 <Button type="submit" loading={updateMutation.isPending}>
                   Save

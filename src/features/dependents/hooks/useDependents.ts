@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as dependentsService from '../../../services/dependents-service';
 import { useAuthStore } from '../../../store/auth-store';
-import type { DependentInput } from '../../../types/models';
+import type { DependentCreateInput, DependentInput } from '../../../types/models';
 
 const DEPENDENTS_KEY = ['dependents'] as const;
 
@@ -20,7 +20,7 @@ export function useAddDependent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: DependentInput) => dependentsService.addDependent(input, accessToken!),
+    mutationFn: (input: DependentCreateInput) => dependentsService.addDependent(input, accessToken!),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: DEPENDENTS_KEY }),
   });
 }
