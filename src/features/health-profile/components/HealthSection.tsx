@@ -101,6 +101,9 @@ export function HealthSection({ section }: Props) {
         )}
       </div>
 
+      <FormError message={describeActingForError(listError, 'Failed to load this section.')} />
+      <FormError message={describeActingForError(removeMutation.error, 'Failed to remove.')} />
+
       {isLoading && (
         <div className={styles.loading}>
           <Skeleton lines={2} label={`Loading ${SECTION_LABELS[section].toLowerCase()}`} />

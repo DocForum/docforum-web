@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useId, useState } from 'react';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -49,6 +49,10 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
     onSubmit({ fullName: fullName.trim(), dateOfBirth, relationship });
   }
 
+  // Server errors that name a field are shown on that input, not the form.
+  const serverDobError = error?.field === 'dateOfBirth' ? error.message : undefined;
+  const formError = error && !error.field ? error.message : null;
+
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
       <TextField
@@ -63,7 +67,7 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
         type="date"
         value={dateOfBirth}
         onChange={(e) => setDateOfBirth(e.target.value)}
-        error={fieldErrors.dateOfBirth}
+        error={fieldErrors.dateOfBirth ?? serverDobError}
         required
       />
       <div className={styles.field}>

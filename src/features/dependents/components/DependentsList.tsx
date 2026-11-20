@@ -43,7 +43,11 @@ export function DependentsList() {
   }
 
   function handleAdd(input: DependentInput) {
-    addMutation.mutate(input, { onSuccess: () => setShowAdd(false) });
+    // docforum-core accepts only these two fields on create.
+    addMutation.mutate(
+      { fullName: input.fullName, dateOfBirth: input.dateOfBirth },
+      { onSuccess: () => setShowAdd(false) },
+    );
   }
 
   function handleEdit(id: string, input: DependentInput) {
