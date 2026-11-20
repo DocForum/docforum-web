@@ -42,6 +42,8 @@ describe('query key factories', () => {
       [facilityKeys.invites('fac-1'), facilityKeys.all],
       [facilityKeys.queue('fac-1'), facilityKeys.all],
       [facilitySearchKeys.list({ type: 'pharmacy' }), facilitySearchKeys.all],
+      [facilitySearchKeys.eligible('MED-1', { type: 'pharmacy' }), facilitySearchKeys.all],
+      [facilitySearchKeys.priceHistory('fac-1'), facilitySearchKeys.all],
       [auditKeys.page('events', { page: 1 }), auditKeys.all],
       [referralKeys.stuck('24h'), referralKeys.all],
       [referralKeys.candidates('cardio'), referralKeys.all],

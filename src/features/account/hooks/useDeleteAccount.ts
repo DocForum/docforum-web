@@ -10,12 +10,14 @@ export function useDeleteAccount() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: ({ password, confirmation }: { password: string; confirmation: string }) =>
-      deleteAccount(password, confirmation, accessToken!),
-    onSuccess: async () => {
-      // The account is gone: drop every piece of client state through the
-      // same helper as every other sign-out path (issue #227).
-      await signOut('account-deleted', { queryClient });
+    mutationFn: ({ password }: { password: string }) => deleteAccount(password, accessToken!),
+    onSuccess: () => {
+      // Clear all server query cache to ensure no patient data survives
+      queryClient.clear();
+      // Clear client session
+      clearSession();
+      // Clear acting profile state
+      setProfiles([]);
       // Navigate to post-deletion confirmation page
       navigate('/account-deleted');
     },

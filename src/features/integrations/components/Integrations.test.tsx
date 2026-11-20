@@ -7,6 +7,7 @@ import { ApiKeysPanel, DEFAULT_MOCK_API_KEYS } from './ApiKeysPanel';
 import { WebhooksPanel, DEFAULT_MOCK_WEBHOOKS } from './WebhooksPanel';
 import { DEFAULT_MOCK_DELIVERIES } from './WebhookDeliveries';
 import { useAuthStore } from '../../../store/auth-store';
+import { ApiError } from '../../../services/api-client';
 import * as integrationsService from '../../../services/integrations-service';
 import * as facilityTeamService from '../../../services/facility-team-service';
 import { DEFAULT_MOCK_MEMBERS } from '../../facility-team/components/FacilityTeamView';
@@ -341,6 +342,73 @@ describe('Integrations — Webhooks', () => {
         'test-token',
       );
     });
+  });
+});
+
+describe('Integrations — panel states', () => {
+  it('shows a loading skeleton for API keys', () => {
+    vi.mocked(integrationsService.listApiKeys).mockReturnValue(new Promise(() => {}));
+
+    render(<ApiKeysPanel facilityId="fac-main" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(/loading api keys/i);
+  });
+
+  it('shows the catalogue error and retries the API key request', async () => {
+    vi.mocked(integrationsService.listApiKeys).mockRejectedValue(
+      new ApiError('Internal detail that must not be rendered.', 503),
+    );
+
+    render(<ApiKeysPanel facilityId="fac-main" />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/temporarily unavailable/i);
+    expect(alert).not.toHaveTextContent(/internal detail/i);
+
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(integrationsService.listApiKeys).toHaveBeenCalledTimes(2));
+  });
+
+  it('gives the empty API key list a create action', async () => {
+    vi.mocked(integrationsService.listApiKeys).mockResolvedValue([]);
+
+    render(<ApiKeysPanel facilityId="fac-main" />);
+
+    expect(await screen.findByRole('heading', { name: /no active api keys/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /create your first key/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows a loading skeleton for webhook endpoints', () => {
+    vi.mocked(integrationsService.listWebhookEndpoints).mockReturnValue(new Promise(() => {}));
+
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(/loading webhook endpoints/i);
+  });
+
+  it('shows the catalogue error and retries the webhook request', async () => {
+    vi.mocked(integrationsService.listWebhookEndpoints).mockRejectedValue(
+      new ApiError('Internal detail that must not be rendered.', 503),
+    );
+
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/temporarily unavailable/i);
+
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(integrationsService.listWebhookEndpoints).toHaveBeenCalledTimes(2));
+  });
+
+  it('gives the empty webhook list an add action', async () => {
+    vi.mocked(integrationsService.listWebhookEndpoints).mockResolvedValue([]);
+
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    expect(await screen.findByRole('heading', { name: /no webhook endpoints configured/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /add your first endpoint/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
 
