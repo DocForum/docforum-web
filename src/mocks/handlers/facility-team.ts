@@ -1,5 +1,5 @@
 // Facility team management and fulfillment queue endpoints.
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_USER } from '../fixtures';
@@ -268,30 +268,65 @@ export const facilityTeamHandlers = [
   ),
 
   http.post(
-    '*/facilities/:facilityId/fulfillment-queue/:itemId/lab-result',
+    '*/orders/lab-orders/:itemId/result',
     respond('json', async ({ params, request }) => {
       const item = db.fulfillmentQueue.find((q) => q.id === paramId(params, 'itemId'));
       if (!item) return notFound('fulfillment item');
       if (item.orderType !== 'lab') return conflict('lab results can only be attached to lab orders');
       if (item.status === 'rejected') return conflict('cannot attach a result to a rejected item');
-
-      const formData = await request.formData().catch(() => null);
-      const file = formData?.get('file');
-      if (!(file instanceof File)) return conflict('a lab result file is required');
-      if (file.size > 10 * 1024 * 1024) return conflict('file must be 10 MB or smaller');
-      if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
-        return conflict('file must be a PDF, JPEG, or PNG');
+      if (item.labResult) {
+        return HttpResponse.json(
+          { message: 'A lab result is already attached', code: 'LAB_RESULT_ALREADY_ATTACHED' },
+          { status: 409 },
+        );
       }
+
+      const contentType = request.headers.get('content-type') ?? '';
+      if (!['application/pdf', 'image/jpeg', 'image/png'].includes(contentType)) {
+        return HttpResponse.json(
+          { message: 'Unsupported lab result type', code: 'LAB_RESULT_UNSUPPORTED_TYPE' },
+          { status: 415 },
+        );
+      }
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength > 10 * 1024 * 1024) {
+        return HttpResponse.json(
+          { message: 'Lab result is too large', code: 'LAB_RESULT_TOO_LARGE' },
+          { status: 413 },
+        );
+      }
+      const matchesPdf = contentType === 'application/pdf'
+        && String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-';
+      const matchesPng = contentType === 'image/png'
+        && bytes.length >= 8
+        && bytes[0] === 0x89
+        && String.fromCharCode(...bytes.slice(1, 4)) === 'PNG';
+      const matchesJpeg = contentType === 'image/jpeg'
+        && bytes.length >= 3
+        && bytes[0] === 0xff
+        && bytes[1] === 0xd8
+        && bytes[2] === 0xff;
+      if (!matchesPdf && !matchesPng && !matchesJpeg) {
+        return HttpResponse.json(
+          { message: 'File contents do not match its declared type', code: 'LAB_RESULT_CONTENT_MISMATCH' },
+          { status: 415 },
+        );
+      }
+      const fileName = contentType === 'application/pdf'
+        ? 'lab-result.pdf'
+        : contentType === 'image/png'
+          ? 'lab-result.png'
+          : 'lab-result.jpg';
 
       const updated: FulfillmentQueueItem = {
         ...item,
         labResult: {
-          fileName: file.name,
-          mimeType: file.type,
-          sizeBytes: file.size,
+          fileName,
+          mimeType: contentType,
+          sizeBytes: bytes.byteLength,
           uploadedAt: new Date().toISOString(),
           uploadedByUserId: FACILITY_USER.id,
-          storageKey: `mock/${paramId(params, 'facilityId')}/${item.id}/${file.name}`,
+          storageKey: `mock/${item.facilityId}/${item.id}/${fileName}`,
           downloadUrl: null,
         },
       };

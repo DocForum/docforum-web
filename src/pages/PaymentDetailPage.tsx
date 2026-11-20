@@ -6,7 +6,7 @@ import { Skeleton } from '../components/states/Skeleton';
 import { PaymentReceipt } from '../features/payments/components/PaymentReceipt';
 import { contractUrl, transactionUrl } from '../features/payments/explorer';
 import { usePaymentHistoryEntry } from '../features/payments/hooks/usePaymentHistory';
-import { historyErrorCopy, statusLabel } from '../features/payments/status';
+import { paymentDetailErrorCopy, statusLabel } from '../features/payments/status';
 import styles from './PaymentDetailPage.module.css';
 
 export function PaymentDetailPage() {

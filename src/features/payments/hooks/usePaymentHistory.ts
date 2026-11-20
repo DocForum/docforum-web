@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as paymentHistoryService from '../../../services/payment-history-service';
 import type { PaymentHistoryFilters } from '../../../services/payment-history-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { paymentKeys } from '../../../query-keys';
+import type { PaymentHistoryEntry } from '../../../types/models';
 
 export function usePaymentHistory(filters?: PaymentHistoryFilters) {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -33,10 +34,20 @@ export function usePaymentHistory(filters?: PaymentHistoryFilters) {
 
 export function usePaymentHistoryEntry(id: string | undefined) {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: paymentKeys.historyEntry(id ?? ''),
     queryFn: ({ signal }) => paymentHistoryService.getPaymentHistoryEntry(id!, accessToken!, signal),
     enabled: Boolean(accessToken && id),
+    initialData: () => {
+      if (!id) return undefined;
+      const history = queryClient.getQueryData<{
+        pages: Array<{ intents: PaymentHistoryEntry[] }>;
+      }>(paymentKeys.history());
+      return history?.pages
+        .flatMap((page) => page.intents)
+        .find((entry) => entry.id === id);
+    },
   });
 }

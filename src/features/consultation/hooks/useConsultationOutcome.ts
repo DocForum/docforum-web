@@ -1,5 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import * as consultationService from '../../../services/consultation-service';
+import * as verificationService from '../../../services/doctor-verification-service';
+import * as searchService from '../../../services/search-service';
 import { useAuthStore } from '../../../store/auth-store';
 import type {
   ConsultationOrderInput,
@@ -46,5 +48,23 @@ export function useIssueConsultationOrder() {
       consultationId: string;
       input: ConsultationOrderInput;
     }) => consultationService.issueConsultationOrder(consultationId, input, accessToken!),
+  });
+}
+
+export function useReferralSpecialties() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ['consultation-referral-specialties'],
+    queryFn: () => verificationService.listSpecialties(accessToken),
+    enabled: Boolean(accessToken),
+  });
+}
+
+export function useReferralDoctors(specialtyId: string | null) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ['consultation-referral-doctors', specialtyId],
+    queryFn: () => searchService.searchDoctors({ specialtyIds: specialtyId ? [specialtyId] : [] }, accessToken),
+    enabled: Boolean(accessToken && specialtyId),
   });
 }

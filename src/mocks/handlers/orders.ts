@@ -1,6 +1,6 @@
 import { http } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
 import type { PatientOrder } from '../../types/models';
 
 export const orderHandlers = [
@@ -27,25 +27,36 @@ export const orderHandlers = [
   ),
 
   http.post(
-    '*/orders/:orderId/fulfillment-facility',
-    respond('json', async ({ params, request }) => {
-      const orderId = paramId(params, 'orderId');
+    '*/pharmacy-orders/fulfillments',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as {
+        orderType?: string;
+        orderId?: string;
+        facilityId?: string;
+        orderItemIds?: string[];
+      };
+      const orderId = body.orderId ?? '';
       const order = db.patientOrders.find((o) => o.id === orderId);
       if (!order) return notFound('order');
-
-      const body = (await request.json().catch(() => ({}))) as {
-        facilityId?: string;
-        expectedVersion?: number;
-      };
-
-      if (body.expectedVersion !== undefined && body.expectedVersion !== order.version) {
-        return conflict('order changed since it was loaded');
-      }
+      if (body.orderType !== 'prescription') return badRequest('orderType must be prescription');
 
       const facility = (db.orderFacilities[orderId] ?? []).find(
         (candidate) => candidate.id === body.facilityId,
       );
       if (!facility) return notFound('qualified facility');
+
+      if (body.orderItemIds?.length) {
+        const itemIds = new Set(order.items?.map((item) => item.id) ?? []);
+        if (body.orderItemIds.some((itemId) => !itemIds.has(itemId))) {
+          return badRequest('one or more items are not in this order');
+        }
+        if (order.items?.some((item) =>
+          body.orderItemIds?.includes(item.id) &&
+          item.status === 'dispensed_elsewhere'
+        )) {
+          return conflict('one or more items were already dispensed elsewhere');
+        }
+      }
 
       const updated: PatientOrder = {
         ...order,
@@ -55,6 +66,15 @@ export const orderHandlers = [
           type: facility.type,
           isOpen: facility.isOpen,
         },
+        items: order.items?.map((item) =>
+          !body.orderItemIds || body.orderItemIds.includes(item.id)
+            ? {
+                ...item,
+                routedToFacilityId: facility.id,
+                routedToFacilityName: facility.name,
+              }
+            : item,
+        ),
       };
       db.patientOrders = db.patientOrders.map((candidate) =>
         candidate.id === updated.id ? updated : candidate,

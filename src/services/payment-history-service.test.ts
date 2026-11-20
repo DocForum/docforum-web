@@ -133,7 +133,7 @@ describe('payment-history-service', () => {
 
       const res = await getPaymentHistoryEntry('pi-single', 'test-token');
 
-      expect(apiClient.apiFetch).toHaveBeenCalledWith('/payments/mine/pi-single', {
+      expect(apiClient.apiFetch).toHaveBeenCalledWith('/payments/intents/pi-single', {
         accessToken: 'test-token',
         signal: undefined,
       });

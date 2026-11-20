@@ -51,6 +51,14 @@ export function historyErrorCopy(error: unknown): string {
   return 'Your payment history could not be loaded.';
 }
 
+export function paymentDetailErrorCopy(error: unknown): string {
+  if (error instanceof ApiError && error.status === 404) {
+    return 'Payment not found. It may belong to another account or no longer exist.';
+  }
+  if (error instanceof ApiError) return error.message;
+  return 'This payment could not be loaded.';
+}
+
 /** `refundDeadlineAt` is assumed (docforum-core#90) — the real row has no such
  * column, so absence is normal and renders nothing rather than a guess. */
 export function refundDeadlineCopy(deadline: string | null | undefined, now: Date): string | null {

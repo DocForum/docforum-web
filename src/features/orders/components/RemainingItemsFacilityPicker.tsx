@@ -61,6 +61,12 @@ export function RemainingItemsFacilityPicker({
         );
         return;
       }
+      if (err instanceof ApiError && err.status === 400) {
+        setRouteError(
+          'One or more items are not in this order anymore. Refresh the order and review the remaining items.',
+        );
+        return;
+      }
       setRouteError(
         err instanceof Error ? err.message : 'Could not route the remaining items. Try again.',
       );

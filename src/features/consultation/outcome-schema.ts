@@ -5,14 +5,21 @@ import { z } from 'zod';
  *
  * The shape is flat because every field stays mounted in the form; the
  * conditional rules below only apply to the fields the selected outcome or
- * order type actually uses.
+ * order type actually uses. Referrals carry one or more targets (the real
+ * `POST /consultations/:id/referrals` contract), each with its own optional
+ * doctor and required snapshot notes.
  */
 export const consultationOutcomeSchema = z
   .object({
     outcome: z.enum(['resolved', 'referred', 'follow_up_needed']),
     followUpDays: z.string(),
-    specialty: z.string(),
-    referralReason: z.string(),
+    targets: z.array(
+      z.object({
+        targetSpecialtyId: z.string(),
+        targetDoctorId: z.string(),
+        snapshotNotes: z.string(),
+      }),
+    ),
     wantsOrder: z.boolean(),
     orderType: z.enum(['prescription', 'lab_order']),
     medication: z.string(),
@@ -22,18 +29,41 @@ export const consultationOutcomeSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.outcome === 'referred') {
-      if (!data.specialty.trim()) {
+      if (data.targets.length === 0) {
         ctx.addIssue({
           code: 'custom',
-          path: ['specialty'],
-          message: 'Target specialty is required.',
+          path: ['targets'],
+          message: 'Add at least one referral target.',
         });
       }
-      if (!data.referralReason.trim()) {
+
+      data.targets.forEach((target, index) => {
+        if (!target.targetSpecialtyId && !target.targetDoctorId) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['targets', index, 'targetSpecialtyId'],
+            message: 'Target specialty is required.',
+          });
+        }
+        if (!target.snapshotNotes.trim()) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['targets', index, 'snapshotNotes'],
+            message: 'Snapshot notes are required.',
+          });
+        }
+      });
+
+      const keys = data.targets.map((target) =>
+        target.targetDoctorId
+          ? `doctor:${target.targetDoctorId}`
+          : `specialty:${target.targetSpecialtyId}`,
+      );
+      if (new Set(keys).size !== keys.length) {
         ctx.addIssue({
           code: 'custom',
-          path: ['referralReason'],
-          message: 'Referral reason is required.',
+          path: ['targets'],
+          message: 'Remove duplicate referral targets.',
         });
       }
     }
@@ -80,8 +110,7 @@ export type ConsultationOutcomeFormData = z.infer<typeof consultationOutcomeSche
 export const consultationOutcomeDefaults: ConsultationOutcomeFormData = {
   outcome: 'resolved',
   followUpDays: '7',
-  specialty: '',
-  referralReason: '',
+  targets: [{ targetSpecialtyId: '', targetDoctorId: '', snapshotNotes: '' }],
   wantsOrder: false,
   orderType: 'prescription',
   medication: '',

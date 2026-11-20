@@ -151,7 +151,7 @@ describe('FacilityQueuePanel', () => {
     const user = userEvent.setup();
     render(<FacilityQueuePanel facilityId="fac-1" />);
 
-    const file = new File(['demo lab result'], 'demo-result.pdf', { type: 'application/pdf' });
+    const file = new File(['%PDF-1.4 demo lab result'], 'demo-result.pdf', { type: 'application/pdf' });
     const uploadInput = (await screen.findAllByLabelText(/attach lab result file/i))[0];
     await user.upload(uploadInput, file);
     await user.click(screen.getByRole('button', { name: /upload lab result/i }));
@@ -162,6 +162,7 @@ describe('FacilityQueuePanel', () => {
         'fuq-2',
         file,
         'test-token',
+        expect.any(Function),
       );
     });
   });
