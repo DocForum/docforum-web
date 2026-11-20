@@ -1,73 +1,34 @@
-import { Route } from 'react-router-dom';
-import { FacilityDashboardPage } from '../pages/FacilityDashboardPage';
-import { FacilityInsightsPage } from '../pages/FacilityInsightsPage';
-import { FacilityIntegrationsPage } from '../pages/FacilityIntegrationsPage';
-import { FacilityPaymentsPage } from '../pages/FacilityPaymentsPage';
-import { FacilitySettingsPage } from '../pages/FacilitySettingsPage';
-import { FacilityTeamPage } from '../pages/FacilityTeamPage';
-import { OrderVerifyPage } from '../pages/OrderVerifyPage';
-import { RequireAuth } from '../components/RequireAuth';
-import { paths } from './paths';
+import type { RouteObject } from 'react-router-dom';
+import { lazyPage } from './lazy';
+import { guardedSection, type RouteContext } from './route-helpers';
 
-/** Facility routes. Mounted under the layout in App.tsx. React Router ranks
- * routes by how specific their path is, so order between files doesn't matter. */
-export const facilityRoutes = (
-  <>
-    <Route
-      path={paths.facility.verify}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <OrderVerifyPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={paths.facility.payments}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilityPaymentsPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={paths.facility.team}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilityTeamPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={paths.facility.integrations}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilityIntegrationsPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={paths.facility.insights}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilityInsightsPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={paths.facility.settings}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilitySettingsPage />
-        </RequireAuth>
-      }
-    />
-    <Route
-      path={`${paths.facility.root}/*`}
-      element={
-        <RequireAuth allowedRoles={['facility']}>
-          <FacilityDashboardPage />
-        </RequireAuth>
-      }
-    />
-  </>
-);
+/** Facility routes. Mounted under the layout in `routes/index.tsx`. React Router
+ * ranks routes by how specific their path is, so order between files doesn't matter. */
+export function facilityRoutes(_context: RouteContext): RouteObject[] {
+  return [
+    guardedSection('facility', ['facility'], [
+      { path: 'facility/verify', lazy: lazyPage(() => import('../pages/OrderVerifyPage'), 'OrderVerifyPage') },
+      {
+        path: 'facility/payments',
+        lazy: lazyPage(() => import('../pages/FacilityPaymentsPage'), 'FacilityPaymentsPage'),
+      },
+      { path: 'facility/team', lazy: lazyPage(() => import('../pages/FacilityTeamPage'), 'FacilityTeamPage') },
+      {
+        path: 'facility/integrations',
+        lazy: lazyPage(() => import('../pages/FacilityIntegrationsPage'), 'FacilityIntegrationsPage'),
+      },
+      {
+        path: 'facility/insights',
+        lazy: lazyPage(() => import('../pages/FacilityInsightsPage'), 'FacilityInsightsPage'),
+      },
+      {
+        path: 'facility/settings',
+        lazy: lazyPage(() => import('../pages/FacilitySettingsPage'), 'FacilitySettingsPage'),
+      },
+      {
+        path: 'facility/*',
+        lazy: lazyPage(() => import('../pages/FacilityDashboardPage'), 'FacilityDashboardPage'),
+      },
+    ]),
+  ];
+}

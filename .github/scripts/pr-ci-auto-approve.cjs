@@ -15,7 +15,7 @@
 //      workflows, editor/devcontainer config, fonts, odd executables, files
 //      named like known payload loaders, .gitignore payload markers, npm
 //      lifecycle/dev/build/start scripts, lockfile entries from outside the
-//      npm registry.
+//      npm registry or crates.io, Go module `replace` directives.
 //   5. The same path checks pass for every non-merge commit in the PR's
 //      history, so a payload added and then deleted still holds the PR.
 //   6. Every commit was authored and committed by the PR author, a known AI
@@ -166,7 +166,15 @@ function patchReasons(path, patch) {
     const hosts = new Set(added.map((l) => (l.match(/"resolved":\s*"(\w+:\/\/[^/"]+)/) || [])[1]).filter(Boolean));
     for (const h of hosts) if (h !== 'https://registry.npmjs.org') out.push(`diff: \`${path}\` resolves packages from ${h}`);
   }
+  if (/(^|\/)Cargo\.lock$/.test(path)) {
+    const sources = new Set(added.map((l) => (l.match(/^source\s*=\s*"([^"]+)"/) || [])[1]).filter(Boolean));
+    for (const src of sources) if (!src.startsWith('registry+https://github.com/rust-lang/crates.io-index') && src !== 'sparse+https://index.crates.io/') out.push(`diff: \`${path}\` pulls crates from ${src}`);
+  }
+  if (/(^|\/)go\.mod$/.test(path) && added.some((l) => /^\s*replace\b|=>/.test(l))) {
+    out.push(`diff: \`${path}\` adds a module \`replace\` directive`);
+  }
   return out;
 }
 
 module.exports.review = review;
+module.exports.patchReasons = patchReasons;

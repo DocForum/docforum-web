@@ -21,6 +21,7 @@ import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
+import { pageTitleForPath } from '../navigation/breadcrumbs';
 import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
@@ -34,32 +35,6 @@ import { patientNavItems } from '../navigation/patient';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
 type Role = 'patient' | 'doctor' | 'facility' | 'admin';
-
-/** Derive a human-readable page title from the current route path. */
-function routeTitle(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Home';
-
-  const last = segments[segments.length - 1];
-  const label = last
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/Id\b/g, 'ID')
-    .replace(/Url\b/g, 'URL');
-
-  const roleRoots: Record<string, string> = {
-    patient: 'Patient',
-    doctor: 'Doctor',
-    facility: 'Facility',
-    admin: 'Admin',
-  };
-
-  if (segments.length === 1 && roleRoots[last]) return `${roleRoots[last]} dashboard`;
-  if (segments.length >= 2 && roleRoots[segments[0]]) {
-    return `${roleRoots[segments[0]]} · ${label}`;
-  }
-  return label;
-}
 
 /**
  * Role-aware navigation entries, one file per role in src/navigation/. Items
@@ -94,7 +69,15 @@ export function Layout() {
   const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  // Secondary entries (payments, settings) sit behind a divider so the
+  // primary workflow stays on one line at 1280px. The drawer stays flat.
+  const primaryItems = items.filter((item) => item.group !== 'secondary');
+  const secondaryItems = items.filter((item) => item.group === 'secondary');
   const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
+  const pageTitle = useMemo(() => {
+    const meta = pageTitleForPath(location.pathname);
+    return meta.messageId ? t(meta.messageId, meta.label) : meta.label;
+  }, [location.pathname, t]);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -178,7 +161,7 @@ export function Layout() {
         </div>
 
         <nav className={styles.desktopNav} role="navigation" aria-label="Main">
-          {items.map((item) => (
+          {primaryItems.map((item) => (
             <RRNavLink
               key={item.to}
               to={item.to}
@@ -193,6 +176,20 @@ export function Layout() {
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
+            </RRNavLink>
+          ))}
+          {secondaryItems.length > 0 && (
+            <span className={styles.navGroupDivider} aria-hidden="true" />
+          )}
+          {secondaryItems.map((item) => (
+            <RRNavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+              }
+            >
+              {item.messageId ? t(item.messageId, item.label) : item.label}
             </RRNavLink>
           ))}
           {user && (
@@ -329,7 +326,7 @@ export function Layout() {
       >
         {/* Public information pages (#120) render their own <header>/<h1>;
             the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
+        {isPublicContent ? null : <PageHeader title={pageTitle} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>

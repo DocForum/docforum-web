@@ -3,10 +3,12 @@ import type { NavItem } from './types';
 
 /** Patient navigation, in display order. */
 export const patientNavItems: NavItem[] = [
-  { to: paths.patient.search, label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
-  { to: paths.care, label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
-  { to: paths.patient.dependents, label: 'Dependents', roles: ['patient'] },
-  { to: paths.patient.health, label: 'Health profile', roles: ['patient'] },
-  { to: paths.patient.facilities, label: 'Facilities', roles: ['patient'] },
-  { to: paths.patient.settings, label: 'Settings', roles: ['patient'], messageId: 'nav.settings' },
+  { to: '/patient/search', label: 'Find a doctor', roles: ['patient'], messageId: 'nav.findADoctor' },
+  { to: '/care', label: 'Care journey', roles: ['patient', 'doctor'], messageId: 'nav.careJourney' },
+  { to: '/patient/dependents', label: 'Dependents', roles: ['patient'] },
+  { to: '/patient/health', label: 'Health profile', roles: ['patient'] },
+  { to: '/patient/facilities', label: 'Facilities', roles: ['patient'] },
+  { to: '/patient/orders', label: 'My orders', roles: ['patient'], messageId: 'nav.orders' },
+  { to: '/payments', label: 'Payments', roles: ['patient'], messageId: 'nav.payments', group: 'secondary' },
+  { to: '/patient/settings', label: 'Settings', roles: ['patient'], messageId: 'nav.settings', group: 'secondary' },
 ];

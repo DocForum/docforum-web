@@ -7,8 +7,8 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/auth-store';
-import { useProfileStore } from '../store/profile-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
+import { signOut } from '../services/sign-out';
 import { IDLE_TIMEOUT_DEFAULTS, sanitizeSessionTimeoutSettings } from '../hooks/idle-timeout';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { getSessionTimeoutSettings } from '../services/session-timeout-service';
@@ -19,7 +19,6 @@ import { paths } from '../routes/paths';
 export function SessionTimeoutController() {
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const signOutDueToIdle = useAuthStore((state) => state.signOutDueToIdle);
   const unsavedCount = useUnsavedChangesStore((state) => state.count);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -52,19 +51,17 @@ export function SessionTimeoutController() {
         // Intentional: client cleanup and redirect proceed anyway.
       }
     }
-    // 2. Clear ALL client state: query cache, profile/acting-for store,
-    // and the unsaved-changes registry.
-    queryClient.clear();
-    useProfileStore.setState({ profiles: [], selectedProfileId: null });
-    useUnsavedChangesStore.getState().reset();
-    // 3. Drop the session and land on login with the reason. The reason
-    // also lives in the (in-memory) auth store, because a route guard's
-    // redirect — e.g. RequireAuth on the page being left — can win the
-    // navigation race and strip the query param; LoginPage shows the
-    // notice when either source says idle-timeout.
-    signOutDueToIdle();
-    navigate(`${paths.login}?reason=idle-timeout`, { replace: true });
-  }, [accessToken, signOutDueToIdle, navigate, queryClient]);
+    // 2. Clear ALL client state through the one sign-out helper:
+    // query cache, profile/acting-for store, unsaved-changes registry, auth
+    // session and app caches.
+    await signOut('idle-timeout', { queryClient });
+    // 3. Land on login with the reason. The reason also lives in the
+    // (in-memory) auth store, because a route guard's redirect — e.g.
+    // RequireAuth on the page being left — can win the navigation race and
+    // strip the query param; LoginPage shows the notice when either source
+    // says idle-timeout.
+    navigate('/login?reason=idle-timeout', { replace: true });
+  }, [accessToken, navigate, queryClient]);
 
   const { phase, secondsRemaining, extendSession } = useIdleTimeout({
     enabled: Boolean(user && settings),
