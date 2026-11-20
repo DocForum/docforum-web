@@ -237,6 +237,7 @@
   "facility.welcome": "Welcome, {email} • Central Pharmacy & Diagnostic Center",
   "facilityFinder.fetchError": "Error fetching facilities",
   "facilityFinder.subtitle": "Browse participating facilities, compare real distances, and pick where to fulfill your prescriptions or diagnostic laboratory orders.",
+  "facilityFinder.subtitlePrices": "Compare each facility’s current price for this item, or sort by distance if that matters more.",
   "facilityFinder.title": "Find pharmacies & diagnostic labs",
   "facilityTeam.collect": "Collect & Fulfill",
   "facilityTeam.dispense": "Dispense & Fulfill",

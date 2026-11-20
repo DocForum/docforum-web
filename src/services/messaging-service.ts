@@ -43,6 +43,35 @@ export function totalUnread(threads: DoctorMessageThread[]): number {
   return threads.reduce((sum, t) => sum + t.unreadCount, 0);
 }
 
+/** Maps patient profile ids to the doctor's existing thread with that
+ * patient (#230). The thread list is cursor paginated, so this walks every
+ * page before concluding a patient has no thread — a patient whose thread
+ * is on page 2 must still get a "Message patient" action. Patients with no
+ * thread are simply absent from the result. */
+export async function findThreadIdsForPatients(
+  patientProfileIds: readonly string[],
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Record<string, string>> {
+  const found: Record<string, string> = {};
+  const pending = new Set(patientProfileIds);
+  if (pending.size === 0) return found;
+
+  let cursor: string | null = null;
+  do {
+    const page = await listThreads({ filter: 'all', cursor, limit: 100 }, accessToken, signal);
+    for (const thread of page.threads) {
+      if (pending.has(thread.patientProfileId)) {
+        found[thread.patientProfileId] = thread.id;
+        pending.delete(thread.patientProfileId);
+      }
+    }
+    cursor = page.nextCursor;
+  } while (cursor && pending.size > 0);
+
+  return found;
+}
+
 export function getThread(
   threadId: string,
   accessToken: string,
