@@ -256,6 +256,74 @@ describe('Integrations — Webhooks', () => {
     });
   });
 
+  it('rejects plain HTTP endpoints outside localhost before calling the API', async () => {
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    await screen.findByRole('heading', { name: /^webhooks$/i });
+    await userEvent.click(screen.getByRole('button', { name: /add endpoint/i }));
+
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(
+      within(dialog).getByLabelText(/endpoint url/i),
+      'http://lab.example.test/webhooks/docforum',
+    );
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /create endpoint/i }),
+    );
+
+    expect(
+      await within(dialog).findByText(/webhook endpoints must use HTTPS/i),
+    ).toBeInTheDocument();
+    expect(integrationsService.createWebhookEndpoint).not.toHaveBeenCalled();
+  });
+
+  it('rejects endpoints with embedded credentials', async () => {
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    await screen.findByRole('heading', { name: /^webhooks$/i });
+    await userEvent.click(screen.getByRole('button', { name: /add endpoint/i }));
+
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(
+      within(dialog).getByLabelText(/endpoint url/i),
+      'https://user:pass@lab.example.test/webhooks/docforum',
+    );
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /create endpoint/i }),
+    );
+
+    expect(
+      await within(dialog).findByText(/remove the username and password/i),
+    ).toBeInTheDocument();
+    expect(integrationsService.createWebhookEndpoint).not.toHaveBeenCalled();
+  });
+
+  it('requires at least one subscribed event', async () => {
+    render(<WebhooksPanel facilityId="fac-main" />);
+
+    await screen.findByRole('heading', { name: /^webhooks$/i });
+    await userEvent.click(screen.getByRole('button', { name: /add endpoint/i }));
+
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(
+      within(dialog).getByLabelText(/endpoint url/i),
+      'https://new.example.test/webhooks/docforum',
+    );
+    for (const event of ['order.created', 'order.assigned', 'order.fulfilled']) {
+      await userEvent.click(
+        within(dialog).getByRole('checkbox', { name: event }),
+      );
+    }
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /create endpoint/i }),
+    );
+
+    expect(
+      await within(dialog).findByText('Select at least one event.'),
+    ).toBeInTheDocument();
+    expect(integrationsService.createWebhookEndpoint).not.toHaveBeenCalled();
+  });
+
   it('drops the signing secret from React Query caches once the dialog closes', async () => {
     const clientRef: { current: QueryClient | null } = { current: null };
 
