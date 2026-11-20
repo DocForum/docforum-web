@@ -3,9 +3,12 @@
 // main.tsx when running `npm run dev:mock` (DEV build + VITE_ENABLE_MOCKS).
 // Production builds eliminate that import entirely — verified in CI by
 // `npm run check:dist` (scripts/check-dist-no-mocks.mjs).
-import { http, passthrough } from 'msw';
+import { http, HttpResponse, passthrough } from 'msw';
 import { setupWorker } from 'msw/browser';
 import { handlers } from './handlers';
+
+/** Same default as `src/services/api-client.ts`. */
+const API_ORIGIN = new URL(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000').origin;
 
 /**
  * Never mock the app's own code. Routes are lazy chunks (issue #112), so page
@@ -25,4 +28,21 @@ export const appCodePassthrough = http.all(
   () => passthrough(),
 );
 
-export const worker = setupWorker(appCodePassthrough, ...handlers);
+/**
+ * An API endpoint with no mock handler answers 404, as a real backend would
+ * for a route it doesn't have. Letting it through instead sends it to a
+ * server that doesn't exist (localhost:4000, or the preview's reserved
+ * `.invalid` origin): the network error flags the whole API as unreachable
+ * and puts the "server is waking up" banner on otherwise healthy screens.
+ * Registered last, so it only catches what no handler above matched.
+ */
+export const unmockedApiNotFound = http.all(
+  ({ request }) => new URL(request.url).origin === API_ORIGIN,
+  ({ request }) =>
+    HttpResponse.json(
+      { message: `Mock API: no mock for ${request.method} ${new URL(request.url).pathname}` },
+      { status: 404 },
+    ),
+);
+
+export const worker = setupWorker(appCodePassthrough, ...handlers, unmockedApiNotFound);
