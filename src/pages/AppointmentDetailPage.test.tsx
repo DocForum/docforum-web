@@ -266,6 +266,12 @@ describe('AppointmentDetailPage', () => {
     expect(queryClient.getQueryData(appointmentsKeys.detail('appt-1'))).toHaveProperty('id', 'appt-1');
   });
 
+  it('shows a loading skeleton while the appointment is loading', () => {
+    vi.mocked(appointmentsService.listMyAppointments).mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading your appointment/i);
+  });
+
   it('does not claim the appointment is missing when the id is not the patient\'s', async () => {
     vi.mocked(appointmentsService.listMyAppointments).mockResolvedValue([APPOINTMENT]);
 
