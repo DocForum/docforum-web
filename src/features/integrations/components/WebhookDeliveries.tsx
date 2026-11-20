@@ -86,7 +86,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
               <th>Response</th>
               <th>Attempts</th>
               <th>Delivered</th>
-              <th aria-label="Actions" />
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
