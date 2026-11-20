@@ -507,6 +507,23 @@ describe('facility finder', () => {
     expect(nearby[0].id).toBe('fac-main');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
   });
+
+  it('returns each facility’s price in force for a catalog item, price on request otherwise', async () => {
+    const eligible = await facilityService.getEligibleFacilities(
+      'MED-AMOX-500',
+      {},
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(eligible).toHaveLength(3);
+
+    const priced = eligible.find((facility) => facility.id === 'fac-main');
+    expect(priced?.price?.amountStroops).toBe('275000000');
+    expect(priced?.priceOnRequest).toBe(false);
+
+    const lab = eligible.find((facility) => facility.id === 'fac-demo-lab');
+    expect(lab?.price).toBeNull();
+    expect(lab?.priceOnRequest).toBe(true);
+  });
 });
 
 describe('facility performance insights', () => {

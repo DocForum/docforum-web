@@ -144,6 +144,13 @@
   color: var(--color-text);
 }
 
+.compareLink {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
 .detailLink {
   margin: var(--space-3) 0 0;
   font-size: var(--text-sm);
