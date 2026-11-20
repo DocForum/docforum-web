@@ -15,6 +15,7 @@
     "prerender": "vite build --ssr src/prerender/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "check:dist": "node scripts/check-dist-no-mocks.mjs",
     "check:preview": "node scripts/check-preview-dist.mjs",
+    "check:deploy": "node scripts/check-deployed-site.mjs",
     "build:preview": "tsc -b && vite build",
     "check:stellar-boundary": "node scripts/check-stellar-boundary.mjs",
     "preview": "vite preview",

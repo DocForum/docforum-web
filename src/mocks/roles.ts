@@ -2,17 +2,12 @@
 // app's real auth/profile stores and routes to that role's home screen.
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
+import { LOGIN_PATH, ROLE_HOME } from '../navigation/role-home';
 import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
+import { mockNavigate } from './navigation';
 import type { Role } from '../types/models';
-
-const HOME_BY_ROLE: Record<Role, string> = {
-  patient: '#/patient',
-  doctor: '#/doctor',
-  facility: '#/facility',
-  admin: '#/admin',
-};
 
 /**
  * Sign in as the seeded persona for `role` (or switch to it). Sets the
@@ -35,11 +30,11 @@ export function activateMockRole(
         ]
       : [],
   );
-  if (navigate) window.location.hash = HOME_BY_ROLE[role];
+  if (navigate) mockNavigate(ROLE_HOME[role]);
 }
 
 /** Clear the session and land on the login screen (to test the real flow). */
 export function mockSignOut(): void {
   useAuthStore.getState().clearSession();
-  window.location.hash = '#/login';
+  mockNavigate(LOGIN_PATH);
 }

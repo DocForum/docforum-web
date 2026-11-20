@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { worker } from './browser';
 import { DevPanel } from './DevPanel';
 import { activateMockRole } from './roles';
+import { isMockDeepLink } from './navigation';
 import { useMockStore } from './mock-store';
 
 /**
@@ -41,9 +42,7 @@ export async function startMockApi(): Promise<void> {
   // unless the URL already deep-links a route, which we leave untouched.
   // Logging in through the real login screen works too (handlers answer
   // any credentials).
-  const hash = window.location.hash;
-  const deepLinked = hash !== '' && hash !== '#/' && hash !== '#';
-  activateMockRole(useMockStore.getState().activeRole, { navigate: !deepLinked });
+  activateMockRole(useMockStore.getState().activeRole, { navigate: !isMockDeepLink() });
 
   const panelRoot = document.createElement('div');
   panelRoot.id = 'mock-dev-panel-root';
