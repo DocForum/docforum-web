@@ -9,7 +9,7 @@ the two folders that joined it in #292 separately:
 
 | Set | floor stmt/branch/fn/line | measured 2026-11-20 |
 | --- | --- | --- |
-| aggregate — `src/features`, `src/services`, `src/components`, `src/hooks` | 78 / 70 / 77 / 79 | 83.3 / 75.0 / 82.0 / 85.3 |
+| aggregate — `src/features`, `src/services`, `src/components`, `src/hooks` | 78 / 70 / 77 / 79 | 83.5 / 75.2 / 82.2 / 85.4 |
 | `src/components/**` | 87 / 82 / 89 / 88 | 88.2 / 82.4 / 89.7 / 88.9 |
 | `src/hooks/**` | 95 / 89 / 95 / 97 | 95.6 / 91.0 / 95.7 / 97.9 |
 
