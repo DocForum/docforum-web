@@ -176,6 +176,10 @@ test('facility owner sets a price, creates an API key and a webhook, and invites
   page,
   visit,
 }) => {
+  // Four screens, four axe analyses and four dialogs: 39.6s on an idle machine
+  // against the 60s default, and it crosses that under the load a full
+  // Playwright run puts on it. slow() raises this test's budget only.
+  test.slow();
   recordOwnerWrites(page);
   const writes: string[] = [];
 
