@@ -1,5 +1,6 @@
 // Role-switching helpers for mock mode: applies a seeded persona to the
 // app's real auth/profile stores and routes to that role's home screen.
+import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { signOut } from '../services/sign-out';
@@ -7,13 +8,6 @@ import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFI
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
 import type { Role } from '../types/models';
-
-const HOME_BY_ROLE: Record<Role, string> = {
-  patient: '#/patient',
-  doctor: '#/doctor',
-  facility: '#/facility',
-  admin: '#/admin',
-};
 
 /**
  * Sign in as the seeded persona for `role` (or switch to it). Sets the
@@ -36,7 +30,7 @@ export function activateMockRole(
         ]
       : [],
   );
-  if (navigate) window.location.hash = HOME_BY_ROLE[role];
+  if (navigate) window.location.hash = `#${homePathForRole(role)}`;
 }
 
 /** Clear the session and land on the login screen (to test the real flow). */

@@ -3,6 +3,7 @@ import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { homePathForRole } from '../../../navigation/role-home';
 import type { Notification, Role } from '../../../types/models';
 import { notificationDestination, notificationMeta } from '../notification-meta';
 import { formatNotificationTime, formatNotificationTimestamp } from '../notification-time';
@@ -136,7 +137,7 @@ export function NotificationList({
         <EmptyState
           title="You're all caught up"
           description="Bookings, referrals, orders, results and payment updates will appear here."
-          action={{ label: 'Back to your dashboard', to: role ? roleHome(role) : '/' }}
+          action={{ label: 'Back to your dashboard', to: role ? homePathForRole(role) : '/' }}
         />
       ) : (
         <>
@@ -161,17 +162,4 @@ export function NotificationList({
       )}
     </section>
   );
-}
-
-function roleHome(role: Role): string {
-  switch (role) {
-    case 'doctor':
-      return '/doctor';
-    case 'facility':
-      return '/facility';
-    case 'admin':
-      return '/admin';
-    default:
-      return '/patient';
-  }
 }
