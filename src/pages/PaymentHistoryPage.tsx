@@ -90,15 +90,6 @@ export function PaymentHistoryPage() {
     body = null;
   } else if (historyQuery.isFetching) {
     body = <Skeleton lines={5} height="2.25rem" label="Loading your payments" />;
-  } else {
-    body = (
-      <EmptyState
-        title="You have not paid for anything through DocForum yet."
-        description="Once a facility takes an order and you fund it, the payment and its receipt appear here."
-        action={{ label: 'Back to care summary', to: '/patient' }}
-      />
-    );
-    body = <p className={styles.loading}>Loading your payments…</p>;
   } else if (hasActiveFilters) {
     body = (
       <div className={styles.emptyFiltered}>
@@ -109,7 +100,13 @@ export function PaymentHistoryPage() {
       </div>
     );
   } else {
-    body = <PaymentHistoryList entries={[]} />;
+    body = (
+      <EmptyState
+        title="You have not paid for anything through DocForum yet."
+        description="Once a facility takes an order and you fund it, the payment and its receipt appear here."
+        action={{ label: 'Back to care summary', to: '/patient' }}
+      />
+    );
   }
 
   return (
