@@ -1,6 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useCreateSpecialtyClaim, useDeleteSpecialtyClaim, useResubmitSpecialtyClaim } from '../hooks/useSpecialtyClaims';
 import { CLAIM_ITEM_STATUS_LABELS, NO_REJECTION_REASON } from '../requirements';
 import type { ClaimItemStatus, DoctorSpecialtyClaim, Specialty } from '../../../types/models';
@@ -13,6 +16,7 @@ interface Props {
   claims: readonly DoctorSpecialtyClaim[];
   isLoading: boolean;
   error: string | null;
+  onRetry?: () => void;
 }
 
 function messageFor(error: Error | null, fallback: string): string | null {
@@ -30,7 +34,7 @@ function StatusTag({ status }: { status: ClaimItemStatus }) {
   );
 }
 
-export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Props) {
+export function SpecialtyClaimPicker({ catalog, claims, isLoading, error, onRetry }: Props) {
   const createMutation = useCreateSpecialtyClaim();
   const deleteMutation = useDeleteSpecialtyClaim();
   const resubmitMutation = useResubmitSpecialtyClaim();
@@ -53,18 +57,20 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
   }
 
   if (isLoading) {
-    return <p className={styles.placeholder}>Loading the specialty catalog…</p>;
+    return <Skeleton lines={3} label="Loading the specialty catalog" />;
   }
 
   if (error) {
-    return <FormError message={error} />;
+    return <InlineError title="The specialty catalog couldn't be loaded" message={error} onRetry={onRetry} />;
   }
 
   if (catalog.length === 0) {
     return (
-      <p className={styles.placeholder}>
-        The specialty catalog is empty right now, so claims cannot be added. Reload this page in a moment.
-      </p>
+      <EmptyState
+        title="The specialty catalog is empty"
+        description="Claims cannot be added until the catalog has specialties in it."
+        action={{ label: 'Try again', onClick: () => onRetry?.() }}
+      />
     );
   }
 
@@ -103,10 +109,14 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
       </form>
 
       {claims.length === 0 ? (
-        <p className={styles.placeholder}>
-          No specialty claims yet. Claim the specialties you practise in — each one is reviewed against your
-          specialty certificate.
-        </p>
+        <EmptyState
+          title="No specialty claims yet"
+          description="Claim the specialties you practise in — each one is reviewed against your specialty certificate."
+          action={{
+            label: 'Choose a specialty',
+            onClick: () => document.getElementById('specialty-claim-select')?.focus(),
+          }}
+        />
       ) : (
         <ul className={styles.list}>
           {claims.map((claim) => (
