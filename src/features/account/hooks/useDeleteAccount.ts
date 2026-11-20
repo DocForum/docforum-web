@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import { deleteAccount } from '../../../services/account-service';
+import { paths } from '../../../routes/paths';
 
 export function useDeleteAccount() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -21,7 +22,7 @@ export function useDeleteAccount() {
       // Clear acting profile state
       setProfiles([]);
       // Navigate to post-deletion confirmation page
-      navigate('/account-deleted');
+      navigate(paths.accountDeleted);
     },
   });
 }

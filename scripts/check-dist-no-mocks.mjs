@@ -14,7 +14,19 @@ const FORBIDDEN_MARKERS = [
   'mock-dev-panel-root', // mocks/setup.ts
   'MOCK API', // mocks/DevPanel.tsx (panel title/pill)
   'setupWorker', // msw/browser entry
+  // DEFAULT_MOCK_* fixtures that still live in shipped components (#299);
+  // they must never reach the bundle.
+  'evelyn.reed@centralpharmacy.org', // facility-team/FacilityTeamView.tsx
+  'df_live_a1b2c3d4', // integrations/ApiKeysPanel.tsx
 ];
+
+// Markers whose fixture already ships today. They are reported as warnings
+// until #299's follow-up moves the fixtures into src/mocks/; anything else
+// still fails the check, so a new leak is never silent.
+const KNOWN_LEAKS = new Set([
+  'evelyn.reed@centralpharmacy.org',
+  'df_live_a1b2c3d4',
+]);
 
 function* walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -26,12 +38,17 @@ function* walk(dir) {
 
 let leaked = false;
 let scanned = 0;
+const knownSeen = new Set();
 
 for (const file of walk(DIST)) {
   scanned += 1;
   const content = readFileSync(file, 'utf8');
   for (const marker of FORBIDDEN_MARKERS) {
     if (content.includes(marker)) {
+      if (KNOWN_LEAKS.has(marker)) {
+        knownSeen.add(marker);
+        continue;
+      }
       leaked = true;
       console.error(`✗ mock marker ${JSON.stringify(marker)} found in ${file}`);
     }
@@ -46,4 +63,8 @@ if (leaked) {
   process.exit(1);
 }
 
-console.log(`✓ no mock code in production bundle (${scanned} files scanned)`);
+for (const marker of knownSeen) {
+  console.warn(`! known fixture still shipped (#299): ${JSON.stringify(marker)}`);
+}
+
+console.log(`✓ no new mock code in production bundle (${scanned} files scanned)`);

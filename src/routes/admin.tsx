@@ -11,13 +11,14 @@ import { AdminVerificationDetailPage } from '../pages/AdminVerificationDetailPag
 import { AdminVerificationPage } from '../pages/AdminVerificationPage';
 import { AdminVerificationsPage } from '../pages/AdminVerificationsPage';
 import { RequireAuth } from '../components/RequireAuth';
+import { paths } from './paths';
 
 /** Admin console routes. Mounted under the layout in App.tsx. React Router ranks
  * routes by how specific their path is, so order between files doesn't matter. */
 export const adminRoutes = (
   <>
     <Route
-      path="admin/audit"
+      path={paths.admin.audit}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminAuditPage />
@@ -25,7 +26,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/referrals"
+      path={paths.admin.referrals}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminReferralsPage />
@@ -33,7 +34,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/verifications"
+      path={paths.admin.verifications}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminVerificationsPage />
@@ -41,7 +42,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/verification"
+      path={paths.admin.verification}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminVerificationPage />
@@ -49,7 +50,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/verifications/:doctorProfileId"
+      path={paths.admin.verificationDoctor(":doctorProfileId")}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminVerificationDetailPage />
@@ -57,7 +58,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/disputes"
+      path={paths.admin.disputes}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminDisputesPage />
@@ -65,7 +66,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/disputes/:disputeId"
+      path={paths.admin.dispute(":disputeId")}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminDisputeDetailPage />
@@ -73,7 +74,7 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/system"
+      path={paths.admin.system}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminSystemPage />
@@ -81,16 +82,16 @@ export const adminRoutes = (
       }
     />
     <Route
-      path="admin/flags"
+      path={paths.admin.flags}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminFlagsPage />
         </RequireAuth>
       }
     />
-    <Route path="admin/catalogs" element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
+    <Route path={paths.admin.catalogs} element={<RequireAuth allowedRoles={['admin']}><AdminCatalogsPage /></RequireAuth>} />
     <Route
-      path="admin/*"
+      path={`${paths.admin.root}/*`}
       element={
         <RequireAuth allowedRoles={['admin']}>
           <AdminDashboardPage />

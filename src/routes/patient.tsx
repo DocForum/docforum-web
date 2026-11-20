@@ -7,6 +7,7 @@ import { PatientDashboardPage } from '../pages/PatientDashboardPage';
 import { PaymentDetailPage } from '../pages/PaymentDetailPage';
 import { PaymentHistoryPage } from '../pages/PaymentHistoryPage';
 import { RequireAuth } from '../components/RequireAuth';
+import { paths } from './paths';
 
 /** Patient routes. Mounted under the layout in App.tsx. React Router ranks
  * routes by how specific their path is, so order between files doesn't matter. */
@@ -17,7 +18,7 @@ export const patientRoutes = (
         than being folded under /patient where the hub's nested routes
         live. #32's detail page has no path of its own, so it nests. */}
     <Route
-      path="account/access-log"
+      path={paths.accessLog}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <AccessLogPage />
@@ -25,7 +26,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="payments"
+      path={paths.payments}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <PaymentHistoryPage />
@@ -33,7 +34,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="payments/:intentId"
+      path={paths.payment(":intentId")}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <PaymentDetailPage />
@@ -41,7 +42,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="care"
+      path={paths.care}
       element={
         <RequireAuth allowedRoles={['patient', 'doctor']}>
           <CareThreadPage />
@@ -49,7 +50,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="care/:threadId"
+      path={paths.careThread(":threadId")}
       element={
         <RequireAuth allowedRoles={['patient', 'doctor']}>
           <CareThreadPage />
@@ -57,7 +58,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="care/threads/:threadId"
+      path={paths.legacyCareThread(":threadId")}
       element={
         <RequireAuth allowedRoles={['patient', 'doctor']}>
           <CareThreadPage />
@@ -65,7 +66,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="patient/orders/:orderId"
+      path={paths.patient.order(":orderId")}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <OrderDetailPage />
@@ -78,7 +79,7 @@ export const patientRoutes = (
         `/patient/appointments/:appointmentId`, and the page reads either
         param. */}
     <Route
-      path="appointments/:id"
+      path={paths.appointment(":id")}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <AppointmentDetailPage />
@@ -86,7 +87,7 @@ export const patientRoutes = (
       }
     />
     <Route
-      path="patient/*"
+      path={`${paths.patient.root}/*`}
       element={
         <RequireAuth allowedRoles={['patient']}>
           <PatientDashboardPage />

@@ -3,6 +3,7 @@ import { LoginForm } from '../features/auth/components/LoginForm';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
+import { paths } from '../routes/paths';
 
 interface InviteNavState {
   inviteToken?: string;
@@ -28,7 +29,7 @@ export function LoginPage() {
   const inviteToken = (location.state as InviteNavState | null)?.inviteToken ?? null;
 
   function handleLoginSuccess() {
-    navigate(inviteToken ? '/invite' : '/', {
+    navigate(inviteToken ? paths.invite : paths.home, {
       replace: true,
       state: inviteToken ? { inviteToken } : undefined,
     });

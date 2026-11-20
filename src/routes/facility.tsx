@@ -7,13 +7,14 @@ import { FacilitySettingsPage } from '../pages/FacilitySettingsPage';
 import { FacilityTeamPage } from '../pages/FacilityTeamPage';
 import { OrderVerifyPage } from '../pages/OrderVerifyPage';
 import { RequireAuth } from '../components/RequireAuth';
+import { paths } from './paths';
 
 /** Facility routes. Mounted under the layout in App.tsx. React Router ranks
  * routes by how specific their path is, so order between files doesn't matter. */
 export const facilityRoutes = (
   <>
     <Route
-      path="facility/verify"
+      path={paths.facility.verify}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <OrderVerifyPage />
@@ -21,7 +22,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/payments"
+      path={paths.facility.payments}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilityPaymentsPage />
@@ -29,7 +30,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/team"
+      path={paths.facility.team}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilityTeamPage />
@@ -37,7 +38,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/integrations"
+      path={paths.facility.integrations}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilityIntegrationsPage />
@@ -45,7 +46,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/insights"
+      path={paths.facility.insights}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilityInsightsPage />
@@ -53,7 +54,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/settings"
+      path={paths.facility.settings}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilitySettingsPage />
@@ -61,7 +62,7 @@ export const facilityRoutes = (
       }
     />
     <Route
-      path="facility/*"
+      path={`${paths.facility.root}/*`}
       element={
         <RequireAuth allowedRoles={['facility']}>
           <FacilityDashboardPage />

@@ -4,6 +4,7 @@ import type { VerifyOrderResponse } from '../../../types/models';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDate, formatDateTime } from '../../../i18n/time-zone';
 import styles from './OrderVerify.module.css';
+import { paths } from '../../../routes/paths';
 
 interface VerificationResultCardProps {
   result: VerifyOrderResponse;
@@ -47,9 +48,9 @@ export function VerificationResultCard({ result, onReset }: VerificationResultCa
 
   const handleProceedToFulfil = () => {
     if (order?.orderId) {
-      navigate(`/facility?orderId=${encodeURIComponent(order.orderId)}`);
+      navigate(`${paths.facility.root}?orderId=${encodeURIComponent(order.orderId)}`);
     } else {
-      navigate('/facility');
+      navigate(paths.facility.root);
     }
   };
 

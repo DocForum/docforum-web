@@ -11,6 +11,7 @@ import { PrivacyPage } from '../pages/PrivacyPage';
 import { RequireAuth } from '../components/RequireAuth';
 import { RequireFlag } from '../components/RequireFlag';
 import { SignupPage } from '../pages/SignupPage';
+import { paths } from './paths';
 
 /** Public pages, sign-in and account routes, and pages every role shares. Mounted under the layout in App.tsx. React Router ranks
  * routes by how specific their path is, so order between files doesn't matter. */
@@ -23,13 +24,13 @@ export const publicRoutes = (
     {PUBLIC_CONTENT_ROUTES.map(({ path, Component }) => (
       <Route key={path} path={path} element={<Component />} />
     ))}
-    <Route path="login" element={<LoginPage />} />
-    <Route path="signup" element={<SignupPage />} />
-    <Route path="claim-account" element={<ClaimAccountPage />} />
-    <Route path="invite" element={<InvitePage />} />
-    <Route path="account-deleted" element={<AccountDeletedPage />} />
+    <Route path={paths.login} element={<LoginPage />} />
+    <Route path={paths.signup} element={<SignupPage />} />
+    <Route path={paths.claimAccount} element={<ClaimAccountPage />} />
+    <Route path={paths.invite} element={<InvitePage />} />
+    <Route path={paths.accountDeleted} element={<AccountDeletedPage />} />
     <Route
-      path="settings/notifications"
+      path={paths.notificationSettings}
       element={
         <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
           <RequireFlag name="notification_preferences">
@@ -40,13 +41,13 @@ export const publicRoutes = (
     />
     {/* Notification centre (issue #107) — every signed-in role has an inbox. */}
     <Route
-      path="notifications"
+      path={paths.notifications}
       element={
         <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
           <NotificationsPage />
         </RequireAuth>
       }
     />
-    <Route path="privacy/analytics" element={<PrivacyPage />} />
+    <Route path={paths.privacyAnalytics} element={<PrivacyPage />} />
   </>
 );
