@@ -1,0 +1,1 @@
+Standardized facility, payments, fulfillment, insights, and integration date/time display on shared i18n formatters ([issue #255](https://github.com/DocForum/docforum-web/issues/255)). Price effective-from timestamps prefer a valid facility zone and otherwise use the user's configured zone. ESLint now rejects direct `toLocale*String` calls outside `src/i18n/`.

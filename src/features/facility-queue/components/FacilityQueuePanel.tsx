@@ -15,6 +15,7 @@ import {
   useUploadLabResult,
 } from '../hooks/useFacilityQueue';
 import styles from './FacilityQueuePanel.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -34,16 +35,6 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function attributionVerb(action: NonNullable<FulfillmentQueueItem['attribution']>['action']) {
@@ -108,7 +99,7 @@ function LabResultUploader({ itemId, result, isUploading, onUpload }: LabResultU
           <div>
             <p className={styles.resultName}>{result.fileName}</p>
             <p className={styles.resultMeta}>
-              {formatBytes(result.sizeBytes)} · uploaded {formatDateTime(result.uploadedAt)}
+              {formatBytes(result.sizeBytes)} · uploaded <ZonedTime value={result.uploadedAt} />
             </p>
             {result.downloadUrl ? (
               <a href={result.downloadUrl} target="_blank" rel="noreferrer">
@@ -273,7 +264,7 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
                       <span aria-hidden="true">·</span>
                       <span>{item.orderType === 'prescription' ? 'Prescription' : 'Diagnostic test'}</span>
                       <span aria-hidden="true">·</span>
-                      <span>Received {formatDateTime(item.receivedAt)}</span>
+                      <span>Received <ZonedTime value={item.receivedAt} /></span>
                     </p>
                   </div>
                   <span
@@ -293,7 +284,7 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
                       {attributionVerb(item.attribution.action)}{' '}
                       <strong>{item.attribution.performedByName}</strong> (
                       {item.attribution.performedByRole}) on{' '}
-                      {formatDateTime(item.attribution.timestamp)}
+                      <ZonedTime value={item.attribution.timestamp} />
                       {item.attribution.notes ? ` — “${item.attribution.notes}”` : ''}
                     </span>
                   </div>

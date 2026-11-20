@@ -12,6 +12,7 @@ import { useSlowRequestHint } from '../hooks/useSlowRequestHint';
 import { ApiError } from '../services/api-client';
 import type { AppointmentStatus, PatientAppointment } from '../types/models';
 import styles from './AppointmentDetailPage.module.css';
+import { useLocaleStore } from '../i18n/locale-store';
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
@@ -65,6 +66,8 @@ export function AppointmentDetailPage() {
   const appointment = detail.data ?? null;
   const clinician = useClinician(appointment?.doctorProfileId);
   const [showReschedule, setShowReschedule] = useState(false);
+  const locale = useLocaleStore((state) => state.locale);
+  const timeZone = useLocaleStore((state) => state.timeZone);
   const showColdStartHint = useSlowRequestHint(detail.isPending);
   const now = new Date();
 
@@ -128,7 +131,7 @@ export function AppointmentDetailPage() {
 
   const slot = appointment.availabilitySlot;
   const window = rescheduleWindow(appointment, now);
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeZoneLabel = timeZone;
 
   return (
     <div className={`container ${styles.page}`}>
@@ -157,12 +160,12 @@ export function AppointmentDetailPage() {
               {formatSlotDateTime(slot)}
               <p className={styles.when}>
                 <strong>
-                  {formatSlotDate(slot.startTime, now)} at {formatSlotTime(slot.startTime)}
+                  {formatSlotDate(slot.startTime, now, locale, timeZone)} at {formatSlotTime(slot.startTime, locale, timeZone)}
                 </strong>
                 <br />
-                <span className={styles.until}>Scheduled until {formatSlotTime(slot.endTime)}.</span>
+                <span className={styles.until}>Scheduled until {formatSlotTime(slot.endTime, locale, timeZone)}.</span>
               </p>
-              <small className={styles.gapNote}>Times are shown in your local zone ({timeZone}).</small>
+              <small className={styles.gapNote}>Times are shown in your local zone ({timeZoneLabel}).</small>
             </dd>
           </div>
           <div>

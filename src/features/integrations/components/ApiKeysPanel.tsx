@@ -4,6 +4,7 @@ import { Spinner } from '../../../components/Spinner';
 import { CreateApiKeyDialog } from './CreateApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
 import type { FacilityApiKey } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './Integrations.module.css';
 
 // Fallback data for preview/development when backend endpoint is not yet connected
@@ -111,10 +112,10 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                       ))
                     )}
                   </td>
-                  <td>{new Date(key.createdAt).toLocaleDateString()}</td>
+                  <td><ZonedTime value={key.createdAt} mode="date" /></td>
                   <td>
                     {key.lastUsedAt
-                      ? new Date(key.lastUsedAt).toLocaleDateString()
+                      ? <ZonedTime value={key.lastUsedAt} mode="date" />
                       : 'Never'}
                   </td>
                   <td className={styles.actionCell}>

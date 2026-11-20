@@ -6,6 +6,7 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import type { AbnormalResult } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './AbnormalResultsInbox.module.css';
 
 export function AbnormalResultsInbox() {
@@ -112,9 +113,7 @@ export function AbnormalResultsInbox() {
                   <td>{result.patientName}</td>
                   <td>{result.testName}</td>
                   <td>{result.value}</td>
-                  <td>
-                    {new Date(result.issuedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </td>
+                  <td><ZonedTime value={result.issuedAt} mode="date" /></td>
                   <td className={styles.actionsCol}>
                     <Button
                       onClick={() => handleAcknowledge(result)}

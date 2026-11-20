@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FacilityVolumeDay } from '../../../types/models';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './FacilityInsights.module.css';
 
 interface FacilityVolumeChartProps {
@@ -12,14 +13,13 @@ const BAR_COLORS = {
   rejected: '#b45309',
 } as const;
 
-function formatDayLabel(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 export function FacilityVolumeChart({ days }: FacilityVolumeChartProps) {
+  const format = useFormat();
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const formatDayLabel = (iso: string) => format.formatDate(
+    iso,
+    { timeZone: 'UTC' },
+  );
 
   const maxValue = Math.max(1, ...days.flatMap((d) => [d.received, d.fulfilled, d.rejected]));
 

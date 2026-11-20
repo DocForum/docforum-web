@@ -2,6 +2,7 @@ import { ApiError } from '../../services/api-client';
 import { UNREACHABLE, formatDuration, readinessDisplay, runDuration } from './status';
 import type { StatusDisplay, Tone } from './status';
 import type { JobRun, ReadinessReport } from '../../types/models';
+import { createFormatters } from '../../i18n/format';
 
 export type HealthSource = 'readiness' | 'jobs' | 'outbox';
 
@@ -54,7 +55,7 @@ export interface RunOutcome {
 
 function itemsPhrase(count: number | null): string {
   if (count === null) return '';
-  return count === 1 ? '1 item' : `${count.toLocaleString('en-GB')} items`;
+  return count === 1 ? '1 item' : `${createFormatters().formatNumber(count)} items`;
 }
 
 /** What docforum-core said about the run it started. */

@@ -9,6 +9,7 @@ import { useReferralInbox } from '../hooks/useReferralInbox';
 import type { ReferralInboxView } from '../hooks/useReferralInbox';
 import { ReferralStatusPill } from './ReferralStatusPill';
 import type { ReferralSummary } from '../../../types/models';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './ReferralInbox.module.css';
 
 const TABS: ReadonlyArray<{ key: ReferralInboxView; label: string }> = [
@@ -18,15 +19,12 @@ const TABS: ReadonlyArray<{ key: ReferralInboxView; label: string }> = [
   { key: 'upcoming', label: 'With upcoming appointment' },
 ];
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
 function hasScheduledAppointment(referral: ReferralSummary) {
   return Boolean(referral.resultingAppointmentId) && referral.appointment?.status === 'scheduled';
 }
 
 function ReferralListItem({ referral }: { referral: ReferralSummary }) {
+  const format = useFormat();
   // Accepting a referral is the patient-side action (issue #4) — there is no
   // accept/decline endpoint for the specialist, so the copy here stays
   // honest: every item links to the detail reader, pending items framed as
@@ -41,7 +39,7 @@ function ReferralListItem({ referral }: { referral: ReferralSummary }) {
       </div>
       {referral.targetSpecialty ? <span className={styles.specialty}>{referral.targetSpecialty.name}</span> : null}
       <p className={styles.snapshotMeta}>
-        Snapshot taken <time dateTime={referral.snapshotTakenAt}>{formatDate(referral.snapshotTakenAt)}</time>
+        Snapshot taken <time dateTime={referral.snapshotTakenAt}>{format.formatDate(referral.snapshotTakenAt)}</time>
       </p>
       <p className={styles.notes}>{referral.snapshotNotes}</p>
       {hasScheduledAppointment(referral) ? (

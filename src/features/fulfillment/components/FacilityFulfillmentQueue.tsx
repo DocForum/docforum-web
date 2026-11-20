@@ -4,6 +4,7 @@ import { FormError } from '../../../components/FormError';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { TextField } from '../../../components/TextField';
 import type { FulfillmentQueueItem } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import {
   ITEM_STATUS_LABELS,
   deriveOrderFulfillmentStatus,
@@ -144,7 +145,7 @@ function DispenseItemRow({
         <p className={styles.attribution}>
           Last action: {item.attribution.action.replace('_', ' ')} by{' '}
           <strong>{item.attribution.performedByName}</strong> on{' '}
-          {new Date(item.attribution.timestamp).toLocaleString()}
+          <ZonedTime value={item.attribution.timestamp} />
           {item.attribution.notes ? ` — “${item.attribution.notes}”` : ''}
         </p>
       )}
@@ -247,7 +248,7 @@ export function FacilityFulfillmentQueue({
                     </div>
                     <p className={styles.orderMeta}>
                       Order {group.orderId} · received{' '}
-                      {new Date(group.receivedAt).toLocaleDateString()}
+                      <ZonedTime value={group.receivedAt} mode="date" />
                     </p>
                   </div>
                 </header>

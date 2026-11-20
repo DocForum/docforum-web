@@ -17,10 +17,14 @@ import {
   toLocalDateTimeInput,
 } from '../validation';
 import styles from './FacilitySettings.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { isValidTimeZone } from '../../../i18n/time-zone';
 
 interface PriceListEditorProps {
   facilityId: string;
   onDirtyChange: (dirty: boolean) => void;
+  facilityTimeZone?: string | null;
 }
 
 function currentPriceFor(
@@ -52,7 +56,11 @@ function priceStatus(
   return current?.id === price.id ? 'Current' : 'Superseded';
 }
 
-export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorProps) {
+export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }: PriceListEditorProps) {
+  const { timeZone: userTimeZone } = useTimeZone();
+  const effectiveTimeZone = facilityTimeZone && isValidTimeZone(facilityTimeZone)
+    ? facilityTimeZone
+    : userTimeZone;
   const { data: prices = [], isLoading, error } = useFacilityPrices(facilityId);
   const searchMutation = useSearchCatalogItems();
   const createMutation = useCreateFacilityPrice(facilityId);
@@ -330,7 +338,7 @@ export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorPr
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <caption className={styles.tableCaption}>
-              Facility price versions ({prices.length} {prices.length === 1 ? 'version' : 'versions'})
+              Facility price versions ({prices.length} {prices.length === 1 ? 'version' : 'versions'}) — times shown in {effectiveTimeZone}
             </caption>
             <thead>
               <tr>
@@ -367,7 +375,7 @@ export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorPr
                         <td className={styles.amountCell}>
                           {formatAmountFromStroops(price.amountStroops, price.asset)} {price.asset}
                         </td>
-                        <td>{new Date(price.effectiveFrom).toLocaleString()}</td>
+                        <td><ZonedTime value={price.effectiveFrom} timeZone={effectiveTimeZone} /></td>
                         <td>
                           <span
                             className={`${styles.statusPill} ${

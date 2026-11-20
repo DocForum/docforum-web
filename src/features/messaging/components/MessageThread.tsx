@@ -11,19 +11,12 @@ import { useMessages, useThread } from '../hooks/useMessageThread';
 import { AttachmentPreview } from './AttachmentPreview';
 import { MessageComposer } from './MessageComposer';
 import styles from './MessageThread.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface Props {
   threadId: string;
 }
 
-function formatTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function MessageItem({ threadId, message }: { threadId: string; message: Message }) {
   return (
@@ -38,7 +31,7 @@ function MessageItem({ threadId, message }: { threadId: string; message: Message
         </div>
       )}
       <time className={styles.time} dateTime={message.createdAt}>
-        {formatTime(message.createdAt)}
+        <ZonedTime value={message.createdAt} />
       </time>
     </li>
   );

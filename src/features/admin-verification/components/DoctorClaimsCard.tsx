@@ -6,6 +6,7 @@ import { formatAge, formatBytes, hoursSince } from '../claims';
 import type { DoctorClaims } from '../claims';
 import type { ClaimDecision, SpecialtyClaim } from '../../../types/models';
 import styles from './SpecialtyClaims.module.css';
+import { useFormat } from '../../../i18n/useFormat';
 
 interface DoctorClaimsCardProps {
   group: DoctorClaims;
@@ -57,6 +58,7 @@ function useCredentialOpener() {
 /** One doctor, their pending specialty claims, and each claim's supporting
  * document beside the approve/reject actions. */
 export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps) {
+  const format = useFormat();
   const { openCredential, loadingId, error } = useCredentialOpener();
   const headingId = `doctor-${group.doctorId}`;
 
@@ -96,7 +98,7 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                   <span className={styles.credentialName}>{claim.credential.fileName}</span>
                   <span className={styles.credentialMeta}>
                     {claim.credential.mimeType} · {formatBytes(claim.credential.sizeBytes)} · uploaded{' '}
-                    {new Date(claim.credential.uploadedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                    {format.formatDate(claim.credential.uploadedAt)}
                   </span>
                   <Button
                     type="button"

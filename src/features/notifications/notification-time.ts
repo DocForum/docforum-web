@@ -2,6 +2,8 @@
  * Falls back to a stable date for anything older than a week, and to the raw
  * string if the timestamp cannot be parsed — a notification must never render
  * "NaN min ago" or an empty cell. */
+import { createFormatters } from '../../i18n/format';
+
 export function formatNotificationTime(iso: string, now: Date = new Date()): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
@@ -19,19 +21,12 @@ export function formatNotificationTime(iso: string, now: Date = new Date()): str
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} d ago`;
 
-  return new Date(then).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: new Date(then).getFullYear() === now.getFullYear() ? undefined : 'numeric',
-  });
+  return createFormatters().formatDate(new Date(then));
 }
 
 /** Full timestamp for the `title`/screen-reader text behind a relative time. */
 export function formatNotificationTimestamp(iso: string): string {
   const parsed = Date.parse(iso);
   if (Number.isNaN(parsed)) return iso;
-  return new Date(parsed).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return createFormatters().formatDateTime(new Date(parsed));
 }

@@ -11,6 +11,7 @@ import { canCheckIn } from '../queue';
 import { formatSlotTime, shouldPollQueue } from '../slot';
 import type { PatientAppointment, AppointmentQueue } from '../../../types/models';
 import styles from './QueuePanel.module.css';
+import { useLocaleStore } from '../../../i18n/locale-store';
 
 interface Props {
   appointment: PatientAppointment;
@@ -56,17 +57,19 @@ function queueDetail(queue: AppointmentQueue): string {
   return `${ahead}${wait}`;
 }
 
-function notOpenDetail(queue: AppointmentQueue, now: Date): string {
+function notOpenDetail(queue: AppointmentQueue, now: Date, locale: string, timeZone: string): string {
   if (!queue.checkInOpensAt) return 'Check-in opens on the day of your appointment.';
   const opens = new Date(queue.checkInOpensAt);
   if (Number.isNaN(opens.getTime())) return 'Check-in opens on the day of your appointment.';
   // A window that has already opened but not yet been recomputed by the
   // backend is open — saying "opens at 11:00" next to a live button is a lie.
   if (opens.getTime() <= now.getTime()) return 'Check-in is open now.';
-  return `Check-in opens at ${formatSlotTime(queue.checkInOpensAt)}.`;
+  return `Check-in opens at ${formatSlotTime(queue.checkInOpensAt, locale, timeZone)}.`;
 }
 
 export function QueuePanel({ appointment, now }: Props) {
+  const locale = useLocaleStore((state) => state.locale);
+  const timeZone = useLocaleStore((state) => state.timeZone);
   const queueQuery = useAppointmentQueue(appointment.id, shouldPollQueue(appointment, now));
   const checkInMutation = useCheckIn(appointment.id);
   const [alertsWanted, setAlertsWanted] = useState(false);
@@ -118,11 +121,11 @@ export function QueuePanel({ appointment, now }: Props) {
       </h2>
 
       {queue.phase === 'waiting' && queue.checkedInAt ? (
-        <p className={styles.checkedIn}>Checked in at {formatSlotTime(queue.checkedInAt)}.</p>
+        <p className={styles.checkedIn}>Checked in at {formatSlotTime(queue.checkedInAt, locale, timeZone)}.</p>
       ) : null}
 
       <p className={styles.state} role="status" aria-live="polite">
-        {queue.phase === 'not_open' ? notOpenDetail(queue, now) : queueDetail(queue)}
+        {queue.phase === 'not_open' ? notOpenDetail(queue, now, locale, timeZone) : queueDetail(queue)}
       </p>
 
       {stale && (

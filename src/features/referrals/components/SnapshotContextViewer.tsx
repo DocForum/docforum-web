@@ -1,9 +1,6 @@
 import type { ReferralDetail } from '../../../types/models';
+import { useFormat } from '../../../i18n/useFormat';
 import styles from './SnapshotContextViewer.module.css';
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
 
 /** The core of issue #41: everything rendered here comes from fields frozen
  * on the referral payload itself (`snapshotNotes`, `intakeSnapshot`,
@@ -12,6 +9,7 @@ function formatDate(iso: string) {
  * the snapshot is self-contained and substituting live notes would break the
  * product's guarantee. */
 export function SnapshotContextViewer({ referral }: { referral: ReferralDetail }) {
+  const format = useFormat();
   const { intakeSnapshot, referringDoctor, snapshotNotes, snapshotTakenAt, targetSpecialty } = referral;
 
   return (
@@ -22,7 +20,7 @@ export function SnapshotContextViewer({ referral }: { referral: ReferralDetail }
 
       <p className={styles.snapshotLabel}>
         <strong>
-          Snapshot taken <time dateTime={snapshotTakenAt}>{formatDate(snapshotTakenAt)}</time>
+          Snapshot taken <time dateTime={snapshotTakenAt}>{format.formatDate(snapshotTakenAt)}</time>
         </strong>
       </p>
 
@@ -46,7 +44,7 @@ export function SnapshotContextViewer({ referral }: { referral: ReferralDetail }
         <div className={styles.metaRow}>
           <dt>Intake submitted</dt>
           <dd>
-            <time dateTime={intakeSnapshot.submittedAt}>{formatDate(intakeSnapshot.submittedAt)}</time>
+            <time dateTime={intakeSnapshot.submittedAt}>{format.formatDate(intakeSnapshot.submittedAt)}</time>
           </dd>
         </div>
       </dl>

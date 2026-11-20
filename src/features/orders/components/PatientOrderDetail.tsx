@@ -9,15 +9,7 @@ import { useOrder } from '../hooks/useOrders';
 import { orderTypeLabel } from './PatientOrdersList';
 import { RemainingItemsFacilityPicker } from './RemainingItemsFacilityPicker';
 import styles from './PatientOrders.module.css';
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 function paymentStatusLabel(status: OrderPaymentSummary['status']): string {
   switch (status) {
@@ -85,7 +77,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
       {item.dispensedByFacilityName && item.status !== 'dispensed_elsewhere' && (
         <p className={styles.itemMeta}>
           Dispensed by {item.dispensedByFacilityName}
-          {item.dispensedAt ? ` on ${formatDate(item.dispensedAt)}` : ''}.
+          {item.dispensedAt ? <> on <ZonedTime value={item.dispensedAt} mode="date" /></> : ''}.
         </p>
       )}
 
@@ -174,7 +166,7 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
             {order.medicationOrTest}
           </h1>
           <p className={styles.orderMeta}>
-            Order {order.id} · issued {formatDate(order.issuedAt)}
+            Order {order.id} · issued <ZonedTime value={order.issuedAt} mode="date" />
             {order.facilityName ? ` · ${order.facilityName}` : ''}
           </p>
         </div>

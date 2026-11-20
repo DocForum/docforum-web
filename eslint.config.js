@@ -52,6 +52,21 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/i18n/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toLocaleString|toLocaleDateString|toLocaleTimeString)$/]",
+          message:
+            'Use the shared i18n formatters (useFormat/ZonedTime or src/i18n helpers) instead of direct toLocale*String calls.',
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}'],
     languageOptions: {
       ecmaVersion: 2022,

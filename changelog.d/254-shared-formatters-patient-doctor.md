@@ -1,0 +1,1 @@
+Standardized patient and doctor date/time display on the shared i18n formatters and zoned time component ([issue #254](https://github.com/DocForum/docforum-web/issues/254)). Appointment, referral, result, medication, chart, schedule, and verification timestamps now follow the selected locale and time zone, with date-only values kept stable.
