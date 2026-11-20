@@ -7,19 +7,27 @@ section: Testing utilities & coverage gate (issue #105)
 `vite.config.ts` `test.coverage` gates the whole measured set **and** each of
 the two folders that joined it in #292 separately:
 
-| Set | statements | branches | functions | lines |
-| --- | --- | --- | --- | --- |
-| aggregate — `src/features`, `src/services`, `src/components`, `src/hooks` | 78 | 70 | 77 | 79 |
-| `src/components/**` | 87 | 82 | 89 | 88 |
-| `src/hooks/**` | 95 | 89 | 95 | 97 |
+| Set | floor stmt/branch/fn/line | measured 2026-11-20 |
+| --- | --- | --- |
+| aggregate — `src/features`, `src/services`, `src/components`, `src/hooks` | 78 / 70 / 77 / 79 | 83.3 / 75.0 / 82.0 / 85.3 |
+| `src/components/**` | 87 / 82 / 89 / 88 | 88.2 / 82.4 / 89.7 / 88.9 |
+| `src/hooks/**` | 95 / 89 / 95 / 97 | 95.6 / 91.0 / 95.7 / 97.9 |
 
 The per-folder floors are the levels measured on 2026-11-20, the day both
 folders entered the gate (vitest treats any non-threshold key in
 `thresholds` as a glob and checks that glob's own summary, so a shared
 component or hook can no longer drop to zero tests while the aggregate keeps
 clearing 78). The aggregate floors are unchanged from #105: adding these two
-well-covered folders moved the measured total *up* (82.7 / 74.6 / 81.5 / 84.8),
-so lowering nothing was possible and nothing was lowered.
+well-covered folders moved the measured total *up*, so lowering nothing was
+possible and nothing was lowered.
+
+A floor is a claim about a tree, and `main` moves daily. Rebasing onto the
+commits that landed while this was in review dropped `src/hooks/**` to
+93.8 / 88.1 / 94.8 / 96.9 — not because a test was deleted, but because a new,
+partly untested hook (`useUnsavedChangesGuard.ts`, from #329) arrived in the
+gated folder. The gate did its job: the fix was the missing cases, never the
+number. Re-run `npm run test:coverage` after every rebase onto a `main` that
+touched these two folders.
 
 `src/pages/**` stays out of the gate — pages compose the folders above and are
 covered through them — and `src/mocks/**` is dev-only. `**/*.test.*`,
