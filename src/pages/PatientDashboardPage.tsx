@@ -20,8 +20,6 @@ import { WaitlistPage } from './WaitlistPage';
 import { IntakePage } from './IntakePage';
 import { WaitlistOfferBanner } from '../features/waitlist/components/WaitlistOfferBanner';
 import { OrderDetailPage } from './OrderDetailPage';
-import { PatientOrdersPage } from './PatientOrdersPage';
-import { PatientOrderDetailPage } from './PatientOrderDetailPage';
 import { MessageThreadPage } from './MessageThreadPage';
 import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import { useT } from '../i18n/useT';
@@ -114,8 +112,6 @@ export function PatientDashboardPage() {
     <Routes>
       <Route index element={<PatientHome />} />
       <Route path="search" element={<DoctorSearchPage />} />
-      <Route path="orders" element={<PatientOrdersPage />} />
-      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="referrals" element={<PatientReferralsPage />} />
       <Route path="waitlist" element={<WaitlistPage />} />
