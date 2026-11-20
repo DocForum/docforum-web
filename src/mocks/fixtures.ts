@@ -837,7 +837,7 @@ export function createSeedDb(): MockDb {
       asset: 'XLM',
       versions: [
         { amountStroops: '250000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
-        { amountStroops: '275000000', effectiveFrom: '2026-10-15T00:00:00.000Z' },
+        { amountStroops: '275000000', effectiveFrom: '2026-11-10T00:00:00.000Z' },
       ],
     },
     {
@@ -1049,6 +1049,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       medication: 'Demo Amoxicillin 500mg (fake)',
+      catalogItemCode: 'MED-AMOX-500',
       dose: 'One capsule three times daily',
       quantity: '30 capsules',
       instructions: 'Demo instructions (fake): take with food for ten days.',
@@ -1081,6 +1082,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       testName: 'Demo full blood count (fake)',
+      catalogItemCode: 'LAB-FBC',
       fastingRequired: true,
       instructions: 'Demo instructions (fake): fasting sample required.',
     },

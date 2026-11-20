@@ -13,6 +13,8 @@
 import { create } from 'zustand';
 import type { User } from '../types/models';
 import { clearCsrfToken, writeCsrfToken } from '../services/csrf-storage';
+import { useIntakeDraftStore } from './intake-draft-store';
+import { useMessageDraftStore } from './message-draft-store';
 
 /**
  * `resolving` means the boot refresh is in flight: a protected route must
@@ -21,6 +23,13 @@ import { clearCsrfToken, writeCsrfToken } from '../services/csrf-storage';
  * finished (or never needed).
  */
 export type AuthStatus = 'idle' | 'resolving' | 'resolved';
+
+/** PHI drafts live in memory for the signed-in session only. Signing out or
+ * timing out must drop them so the next person on a shared device sees none. */
+function clearPhiDrafts(): void {
+  useIntakeDraftStore.getState().clearAll();
+  useMessageDraftStore.getState().clearAll();
+}
 
 interface AuthState {
   user: User | null;
@@ -57,6 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   clearSession: () => {
     clearCsrfToken();
+    clearPhiDrafts();
     set({ user: null, accessToken: null, csrfToken: null, status: 'resolved' });
   },
   beginAuthCheck: () => set({ status: 'resolving' }),
@@ -67,6 +77,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   // the still-valid refresh cookie — the user stays signed out.
   signOutDueToIdle: () => {
     clearCsrfToken();
+    clearPhiDrafts();
     set({
       user: null,
       accessToken: null,
