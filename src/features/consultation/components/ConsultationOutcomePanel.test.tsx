@@ -170,12 +170,12 @@ describe('ConsultationOutcomePanel', () => {
     const user = userEvent.setup();
     vi.mocked(consultationService.createConsultationReferral)
       .mockRejectedValueOnce(new Error('Referral service unavailable'))
-      .mockResolvedValueOnce(REFERRAL);
+      .mockResolvedValueOnce([REFERRAL]);
     render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Needs a cardiologist." />);
 
     await user.click(screen.getByRole('radio', { name: 'Referred' }));
-    await user.type(screen.getByLabelText('Target specialty'), 'Cardiology');
-    await user.type(screen.getByLabelText('Referral reason'), 'Demo reason.');
+    await user.selectOptions(screen.getByLabelText('Target specialty'), 'spc-cardio');
+    await user.type(screen.getByLabelText('Snapshot notes'), 'Demo reason.');
 
     await user.click(screen.getByRole('button', { name: /record consultation/i }));
     expect(

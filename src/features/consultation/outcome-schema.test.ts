@@ -17,26 +17,62 @@ function errorFor(field: string, overrides: Record<string, unknown> = {}) {
   return result.error.issues.find((issue) => issue.path[0] === field)?.message ?? null;
 }
 
+function targetError(
+  index: number,
+  field: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const result = parse(overrides);
+  if (result.success) return null;
+  return (
+    result.error.issues.find(
+      (issue) =>
+        issue.path[0] === 'targets' &&
+        issue.path[1] === index &&
+        issue.path[2] === field,
+    )?.message ?? null
+  );
+}
+
 describe('consultationOutcomeSchema', () => {
   it('accepts a resolved outcome without extras', () => {
     expect(parse().success).toBe(true);
   });
 
-  it('requires referral fields only when the outcome is referred', () => {
-    expect(errorFor('specialty', { outcome: 'resolved' })).toBeNull();
-    expect(errorFor('specialty', { outcome: 'referred' })).toBe(
+  it('requires referral targets only when the outcome is referred', () => {
+    expect(
+      parse({ outcome: 'resolved', targets: [] }).success,
+    ).toBe(true);
+    expect(targetError(0, 'targetSpecialtyId', { outcome: 'referred' })).toBe(
       'Target specialty is required.',
     );
-    expect(errorFor('referralReason', { outcome: 'referred' })).toBe(
-      'Referral reason is required.',
+    expect(targetError(0, 'snapshotNotes', { outcome: 'referred' })).toBe(
+      'Snapshot notes are required.',
     );
     expect(
       parse({
         outcome: 'referred',
-        specialty: 'Cardiology',
-        referralReason: 'Needs review.',
+        targets: [
+          {
+            targetSpecialtyId: 'spc-cardio',
+            targetDoctorId: '',
+            snapshotNotes: 'Needs review.',
+          },
+        ],
       }).success,
     ).toBe(true);
+  });
+
+  it('rejects duplicate referral targets', () => {
+    expect(
+      errorFor('targets', {
+        outcome: 'referred',
+        targets: [
+          { targetSpecialtyId: 'spc-cardio', targetDoctorId: '', snapshotNotes: 'One.' },
+          { targetSpecialtyId: 'spc-cardio', targetDoctorId: '', snapshotNotes: 'Two.' },
+        ],
+      }),
+    ).toBe('Remove duplicate referral targets.');
   });
 
   it.each([
@@ -82,8 +118,17 @@ describe('consultationOutcomeSchema', () => {
 
   it('treats whitespace-only required values as missing', () => {
     expect(
-      errorFor('specialty', { outcome: 'referred', specialty: '   ' }),
-    ).toBe('Target specialty is required.');
+      targetError(0, 'snapshotNotes', {
+        outcome: 'referred',
+        targets: [
+          {
+            targetSpecialtyId: 'spc-cardio',
+            targetDoctorId: '',
+            snapshotNotes: '   ',
+          },
+        ],
+      }),
+    ).toBe('Snapshot notes are required.');
     expect(errorFor('medication', { wantsOrder: true, medication: '   ' })).toBe(
       'Medication is required.',
     );

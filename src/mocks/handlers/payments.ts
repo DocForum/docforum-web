@@ -141,7 +141,10 @@ export const paymentsHandlers = [
     respond('json', ({ params }) => {
       const intent = db.paymentIntents.find((i) => i.id === paramId(params));
       if (!intent) return notFound('payment intent');
-      return intent;
+      return {
+        ...intent,
+        facilityName: 'Bello Lab',
+      };
     }),
   ),
 

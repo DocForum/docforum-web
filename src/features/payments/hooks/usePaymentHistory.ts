@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as paymentHistoryService from '../../../services/payment-history-service';
 import type { PaymentHistoryFilters } from '../../../services/payment-history-service';
 import { useAuthStore } from '../../../store/auth-store';
