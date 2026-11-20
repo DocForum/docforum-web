@@ -48,6 +48,12 @@ export function patientRoutes({ queryClient }: RouteContext): RouteObject[] {
         prefetch: (_args, token) =>
           settlePrefetch([queryClient.ensureQueryData(myAppointmentsQueryOptions(token))]),
       },
+      // Doctor profile + week availability (issue #13). The issue specifies
+      // this literal path; booking hands off to the nested /patient/book route.
+      {
+        path: 'doctors/:doctorId',
+        lazy: lazyPage(() => import('../pages/DoctorProfilePage'), 'DoctorProfilePage'),
+      },
       {
         path: 'patient/*',
         lazy: lazyPage(() => import('../pages/PatientDashboardPage'), 'PatientDashboardPage'),
