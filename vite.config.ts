@@ -1,6 +1,8 @@
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
 // domain root — base must match or every asset URL 404s. Only applied for
@@ -69,18 +71,46 @@ function cspPlugin(isProd: boolean): Plugin {
   };
 }
 
-export default defineConfig(({ command }) => {
+function pagesRedirectPlugin(base: string): Plugin {
+  return {
+    name: 'docforum-pages-redirect',
+    generateBundle() {
+      const script = readFileSync(join(process.cwd(), 'scripts/pages-redirect.js'), 'utf8')
+        .replace("'__BASE_PATH__'", JSON.stringify(base));
+      this.emitFile({ type: 'asset', fileName: 'pages-redirect.js', source: script });
+      this.emitFile({
+        type: 'asset',
+        fileName: '404.html',
+        source: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="${PROD_CSP}">
+    <title>Redirecting to DocForum</title>
+    <script src="${base}pages-redirect.js" defer></script>
+  </head>
+  <body>
+    <p>Redirecting to DocForum. <a href="${base}">Open DocForum</a>.</p>
+  </body>
+</html>`,
+      });
+    },
+  };
+}
+
+export default defineConfig(({ command, isSsrBuild }) => {
   const isProd = command === 'build';
+  const base = process.env.VITE_BASE_PATH ?? (process.env.GITHUB_PAGES ? '/docforum-web/' : '/');
   return {
     // `VITE_BASE_PATH` lets a static host serve the app from a subpath without
     // touching the main Pages build. Everything else keeps the GitHub Pages /
     // root behaviour.
-    base:
-      process.env.VITE_BASE_PATH ??
-      (process.env.GITHUB_PAGES ? '/docforum-web/' : '/'),
+    base,
     plugins: [
       react(),
       cspPlugin(isProd),
+      ...(isProd && !isSsrBuild && process.env.GITHUB_PAGES ? [pagesRedirectPlugin(base)] : []),
       VitePWA({
         // injectManifest (not generateSW) so the caching policy is real,
         // reviewable source: src/pwa/sw.ts. Only the app shell + hashed static
@@ -120,6 +150,7 @@ export default defineConfig(({ command }) => {
         },
         injectManifest: {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          globIgnores: ['**/404.html', '**/pages-redirect.js'],
           // index.html is the HashRouter entry point; every route is served
           // from it by the NavigationRoute in src/pwa/sw.ts.
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

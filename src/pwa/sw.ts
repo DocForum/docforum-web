@@ -40,9 +40,13 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
 const appOrigin = new URL(self.registration.scope).origin;
+const shellPath = import.meta.env.VITE_USE_HASH_ROUTER === 'true'
+  ? new URL(self.registration.scope).pathname
+  : undefined;
 
-// HashRouter means every route is served by index.html; deep links and
-// refreshes resolve to the same shell.
+// HashRouter keeps client-side routes in the fragment. On Pages, only the
+// deployment root gets the cached shell so path-style links can reach 404.html
+// and be converted to hash routes by the static fallback.
 //
 // This is the worker's ONLY route. Precache handles the exact hashed asset
 // URLs from the build; everything else (including every API call) matches no
@@ -51,7 +55,7 @@ const appOrigin = new URL(self.registration.scope).origin;
 // navigations, so a crafted deep link cannot make the worker serve stale
 // shell content for a data request.
 registerRoute(
-  ({ request, url }) => request.mode === 'navigate' && isAppShellNavigation(url.href, appOrigin),
+  ({ request, url }) => request.mode === 'navigate' && isAppShellNavigation(url.href, appOrigin, shellPath),
   createHandlerBoundToURL('index.html'),
 );
 

@@ -29,10 +29,13 @@ export function shouldBypassCache(requestUrl: string, appOrigin: string): boolea
 }
 
 /** Only same-origin navigation requests get the cached app shell. */
-export function isAppShellNavigation(requestUrl: string, appOrigin: string): boolean {
+export function isAppShellNavigation(requestUrl: string, appOrigin: string, shellPath?: string): boolean {
   try {
     const url = new URL(requestUrl, appOrigin);
-    return url.origin === appOrigin && !shouldBypassCache(requestUrl, appOrigin);
+    return url.origin === appOrigin &&
+      !url.pathname.endsWith('/404.html') &&
+      (shellPath === undefined || url.pathname === shellPath) &&
+      !shouldBypassCache(requestUrl, appOrigin);
   } catch {
     return false;
   }

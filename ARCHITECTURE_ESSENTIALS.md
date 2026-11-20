@@ -110,11 +110,10 @@ land and consume `appointmentKeys.list(profileId)`.
   **preview**, not production: the free-tier backend spins down after 15
   minutes idle (~1 minute cold-start delay on the next request), and its
   Postgres expires 2026-10-14 unless renewed — data is disposable.
-- Router is `HashRouter`, not `BrowserRouter` — GitHub Pages has no
-  server-side rewrite for client-side routes, so a deep link like `/login`
-  would 404 on refresh under history-API routing. Switch back to
-  `BrowserRouter` if this ever deploys somewhere with a real rewrite rule
-  (e.g. behind `docforum-core` itself, or Vercel/Netlify).
+- Router is `HashRouter` on GitHub Pages. Its `404.html` redirects missing
+  path-style links under `/docforum-web/` to hash routes; the service worker
+  lets those requests reach Pages. Switch back to `BrowserRouter` for hosts
+  with a real rewrite rule (e.g. behind `docforum-core` or Vercel/Netlify).
 - `vite.config.ts`'s `base` is conditional on `GITHUB_PAGES=true` (set by
   `npm run build:pages`) — plain `npm run build` still serves from `/`.
 

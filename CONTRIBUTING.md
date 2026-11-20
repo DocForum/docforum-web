@@ -11,9 +11,13 @@ product context this repo builds on).
 ```bash
 git clone https://github.com/DocForum/docforum-web.git
 cd docforum-web
+nvm use            # installs/uses the Node major pinned in .nvmrc
 npm install
 npm run dev        # → http://localhost:5173
 ```
+
+Node 22 is the supported runtime. The same `.nvmrc` is used by contributors
+and every GitHub Actions workflow; npm rejects unsupported Node majors.
 
 No backend required to start the dev server, but most screens need one
 to actually do anything: run `docforum-core`'s backend yourself (see its
