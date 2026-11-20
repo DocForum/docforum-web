@@ -104,10 +104,13 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
 
   if (query.isPending) {
     return (
-      <p className={styles.status}>
-        <Spinner />
-        Loading dispute…
-      </p>
+      <div className={styles.detail}>
+        <h1 className={styles.detailTitle}>Dispute</h1>
+        <p className={styles.status}>
+          <Spinner />
+          Loading dispute…
+        </p>
+      </div>
     );
   }
 
@@ -117,6 +120,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
         <Link to="/admin/disputes" className={styles.backLink}>
           ← All disputes
         </Link>
+        <h1 className={styles.detailTitle}>Dispute</h1>
         <div className={styles.errorBox} role="alert">
           <p>{describeDisputeDetailError(query.error)}</p>
           <Button variant="secondary" onClick={() => void query.refetch()}>
@@ -134,6 +138,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
         <Link to="/admin/disputes" className={styles.backLink}>
           ← All disputes
         </Link>
+        <h1 className={styles.detailTitle}>Dispute</h1>
         <p className={styles.empty}>This dispute no longer exists.</p>
       </div>
     );

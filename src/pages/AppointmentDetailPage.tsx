@@ -81,6 +81,10 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card" aria-busy="true">
+          <h1 className={styles.title}>Your appointment</h1>
+          <p className={styles.loading}>
+            <Spinner size={16} /> Loading your appointment…
+          </p>
           <Skeleton lines={5} height="1.75rem" label="Loading your appointment" />
           {showColdStartHint && (
             <p className="slowHint">The server may be waking up — this can take up to a minute.</p>

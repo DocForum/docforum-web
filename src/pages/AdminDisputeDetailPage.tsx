@@ -14,6 +14,7 @@ export function AdminDisputeDetailPage() {
           <Link to="/admin/disputes" className={styles.backLink}>
             ← All disputes
           </Link>
+          <h1 className={styles.detailTitle}>Dispute</h1>
           <p className={styles.empty}>No dispute was selected. Return to the queue.</p>
         </>
       )}

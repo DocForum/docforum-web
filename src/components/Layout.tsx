@@ -323,9 +323,10 @@ export function Layout() {
         role="main"
         tabIndex={-1}
       >
-        {/* Public information pages (#120) render their own <header>/<h1>;
-            the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={pageTitle} />}
+        {/* The shell shows the breadcrumb trail (#234) but no heading: each
+            page renders its own single <h1> (#238). Public information pages
+            (#120) render their own <header> and get neither. */}
+        {isPublicContent ? null : <PageHeader title={pageTitle} showTitle={false} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>
