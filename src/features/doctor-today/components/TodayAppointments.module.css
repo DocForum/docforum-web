@@ -1,0 +1,153 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.count {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.notice,
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-surface);
+  font-size: var(--text-sm);
+}
+
+.error {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row[data-status='cancelled'],
+.row[data-status='no_show'] {
+  color: var(--color-text-muted);
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+  min-width: 84px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.end {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.patient {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.reason {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.statusPill[data-status='scheduled'] {
+  background: var(--color-surface-hover);
+}
+
+.statusPill[data-status='completed'] {
+  background: #e7f6ec;
+  color: #1b7a3d;
+  border-color: #8fceae;
+}
+
+.statusPill[data-status='cancelled'],
+.statusPill[data-status='no_show'] {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.referral {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.actionsWrap {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1 1 100%;
+}
+
+@media (max-width: 640px) {
+  .row {
+    gap: var(--space-2);
+  }
+
+  .time {
+    min-width: 64px;
+  }
+
+  .actionsWrap {
+    justify-content: flex-start;
+  }
+}

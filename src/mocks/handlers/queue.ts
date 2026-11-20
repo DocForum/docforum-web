@@ -2,8 +2,10 @@
 // visits, running delay with manual override.
 import { http } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
-import type { Appointment, QueueEntry } from '../../types/models';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
+import type { Appointment, AppointmentStatus, QueueEntry } from '../../types/models';
+
+const STATUS_UPDATES: AppointmentStatus[] = ['completed', 'cancelled', 'no_show'];
 
 function deriveQueue(appointments: Appointment[]): QueueEntry[] {
   return appointments
@@ -57,6 +59,30 @@ export const queueHandlers = [
       }
       apt.status = 'completed';
       apt.completedAt = new Date().toISOString();
+      return apt;
+    }),
+  ),
+
+  http.patch(
+    '*/appointments/:id/status',
+    respond('json', async ({ params, request }) => {
+      const body = (await request.json().catch(() => ({}))) as { status?: unknown };
+      if (typeof body.status !== 'string' || !STATUS_UPDATES.includes(body.status as AppointmentStatus)) {
+        return badRequest('status must be one of completed, cancelled, no_show');
+      }
+
+      const apt = db.appointments.find((a) => a.id === paramId(params));
+      if (!apt) return notFound('appointment');
+      // Only a still-scheduled visit can be completed, cancelled or marked
+      // no-show; anything else is a conflict the UI has to explain.
+      if (apt.status !== 'scheduled') return conflict('appointment is no longer scheduled');
+
+      if (body.status === 'no_show' && apt.referral) {
+        // Assumed cascade: each no-show is counted so the next one can expire
+        // the referral. docforum-core owns the real referral transition.
+        apt.referral = { ...apt.referral, priorNoShows: apt.referral.priorNoShows + 1 };
+      }
+      apt.status = body.status as AppointmentStatus;
       return apt;
     }),
   ),

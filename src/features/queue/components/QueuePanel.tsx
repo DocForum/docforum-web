@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import {
   useQueue,
+  useAppointments,
   useVisitActions,
   useRunningDelay,
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import {
+  AppointmentStatusActions,
+  formatVisitTime,
+} from '../../doctor-today/components/AppointmentStatusActions';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
 import styles from './QueuePanel.module.css';
@@ -25,6 +30,8 @@ function statusLabel(status: string) {
 
 export function QueuePanel() {
   const { data: queue = [] } = useQueue();
+  const { data: appointments = [] } = useAppointments();
+  const [notice, setNotice] = useState<string | null>(null);
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
@@ -34,6 +41,11 @@ export function QueuePanel() {
   const navigate = useNavigate();
 
   const byPosition = [...queue].sort((a, b) => a.queuePosition - b.queuePosition);
+  // Patients still expected today stay out of the live queue until they
+  // check in, but the doctor can already mark them no-show or cancel.
+  const scheduled = [...appointments]
+    .filter((apt) => apt.status === 'scheduled')
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   const handleUndo = () => {
     if (undoTarget) undo(undoTarget);
@@ -68,6 +80,30 @@ export function QueuePanel() {
             Undo
           </Button>
           <span className={styles.undoHint}>reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s</span>
+        </div>
+      )}
+
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
+
+      {scheduled.length > 0 && (
+        <div className={styles.scheduled}>
+          <h3 className={styles.scheduledHeading}>Still expected</h3>
+          <ul className={styles.scheduledList}>
+            {scheduled.map((appointment) => (
+              <li key={appointment.id} className={styles.scheduledRow}>
+                <span className={styles.scheduledTime}>{formatVisitTime(appointment.startsAt)}</span>
+                <span className={styles.scheduledPatient}>{appointment.patientName}</span>
+                <span className={styles.statusPill} data-status="scheduled">
+                  Scheduled
+                </span>
+                <AppointmentStatusActions appointment={appointment} onConflict={setNotice} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
