@@ -2,7 +2,7 @@
 // app's real auth/profile stores and routes to that role's home screen.
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
-import { LOGIN_PATH, ROLE_HOME } from '../navigation/role-home';
+import { signOut } from '../services/sign-out';
 import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
@@ -35,6 +35,8 @@ export function activateMockRole(
 
 /** Clear the session and land on the login screen (to test the real flow). */
 export function mockSignOut(): void {
-  useAuthStore.getState().clearSession();
-  mockNavigate(LOGIN_PATH);
+  // Route through the shared helper so mock sign-out clears the query cache
+  // and acting-for profiles like every other path (issue #227).
+  void signOut('mock');
+  window.location.hash = '#/login';
 }
