@@ -1,6 +1,7 @@
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { buildProductionCsp } from './src/utils/csp';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
 // domain root — base must match or every asset URL 404s. Only applied for
@@ -29,18 +30,17 @@ const API_ORIGIN = (() => {
   }
 })();
 
-const PROD_CSP = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "font-src 'self'",
-  `connect-src 'self' ${API_ORIGIN}`,
-  "img-src 'self' data:",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'", // ignored in a meta tag; enforced via HTTP header where supported
-  "require-trusted-types-for 'script'", // Chrome/Edge; no DOM XSS sinks in the app
-].join('; ');
+// Monitoring origins (issue #233): when VITE_SENTRY_DSN or
+// VITE_ANALYTICS_ENDPOINT is set, its exact origin joins `connect-src` so the
+// requests the app already makes are not silently blocked. Only the build
+// computes this, so a bad value fails `npm run build` with a clear message.
+function prodCsp(): string {
+  return buildProductionCsp({
+    apiOrigin: API_ORIGIN,
+    sentryDsn: process.env.VITE_SENTRY_DSN,
+    analyticsEndpoint: process.env.VITE_ANALYTICS_ENDPOINT,
+  });
+}
 
 const DEV_CSP = [
   "default-src 'self'",
@@ -54,7 +54,7 @@ const DEV_CSP = [
 ].join('; ');
 
 function cspPlugin(isProd: boolean): Plugin {
-  const csp = isProd ? PROD_CSP : DEV_CSP;
+  const csp = isProd ? prodCsp() : DEV_CSP;
   const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
   return {
     name: 'docforum-csp',

@@ -1,7 +1,7 @@
 import { Route } from 'react-router-dom';
 import { ConsultationNote } from '../features/consultation/components/ConsultationNote';
 import { DoctorDashboardPage } from '../pages/DoctorDashboardPage';
-import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
+import { DoctorMessagesPage } from '../pages/DoctorMessagesPage';
 import { DoctorPracticeInsightsPage } from '../pages/DoctorPracticeInsightsPage';
 import { MessageThreadPage } from '../pages/MessageThreadPage';
 import { PatientChartPage } from '../pages/PatientChartPage';
@@ -28,7 +28,7 @@ export const doctorRoutes = (
     } />
     <Route path="doctor/messages" element={
       <RequireAuth allowedRoles={['doctor']}>
-        <div className="container"><h1>Messages</h1><DoctorInbox /></div>
+        <DoctorMessagesPage />
       </RequireAuth>
     } />
     <Route path="doctor/messages/:threadId" element={
