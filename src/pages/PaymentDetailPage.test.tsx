@@ -162,6 +162,12 @@ describe('PaymentDetailPage', () => {
     expect(await screen.findByText('Lab order')).toBeInTheDocument();
   });
 
+  it('shows a loading skeleton while the payment is loading', () => {
+    vi.mocked(paymentHistoryService.getPaymentHistoryEntry).mockReturnValue(new Promise(() => {}));
+    renderAt('/payments/pi-1');
+    expect(screen.getByRole('status')).toHaveTextContent(/loading this payment/i);
+  });
+
   it('says the receipt is unavailable rather than showing an empty one', async () => {
     vi.mocked(paymentHistoryService.getPaymentHistoryEntry).mockRejectedValue(new ApiError('Not Found', 404));
 
@@ -170,6 +176,7 @@ describe('PaymentDetailPage', () => {
     expect(await screen.findByText(/payment not found/i)).toBeInTheDocument();
     expect(screen.queryByTestId('payment-receipt')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to your payments/i })).toHaveAttribute('href', '/payments');
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('asks the visitor to sign in instead of guessing', async () => {
@@ -178,6 +185,7 @@ describe('PaymentDetailPage', () => {
     renderAt('/payments/pi-1');
 
     expect(await screen.findByText(/sign in to see this payment/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/login');
     expect(paymentHistoryService.getPaymentHistoryEntry).not.toHaveBeenCalled();
   });
 });

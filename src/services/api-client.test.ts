@@ -17,6 +17,7 @@ import {
 } from './api-client';
 import { bootstrapSession } from './session';
 import { useAuthStore } from '../store/auth-store';
+import { useProfileStore } from '../store/profile-store';
 import { clearCsrfToken } from './csrf-storage';
 import type { User } from '../types/models';
 
@@ -568,8 +569,12 @@ describe('session recovery (issue #9)', () => {
       expect(refreshCalls).toBe(1);
     });
 
-    it('clears the session when the refresh also fails', async () => {
+    it('clears the session and acting-for profiles when the refresh also fails', async () => {
       useAuthStore.getState().setSession(patient, 'expired-token', 'csrf-1');
+      useProfileStore.setState({
+        profiles: [{ id: 'profile-1', fullName: 'Demo Patient', isSelf: true }],
+        selectedProfileId: 'profile-1',
+      });
 
       fetchMock
         .mockResolvedValueOnce(jsonBody({ message: 'expired' }, 401))
@@ -580,6 +585,8 @@ describe('session recovery (issue #9)', () => {
       ).rejects.toMatchObject({ status: 401 });
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().accessToken).toBeNull();
+      expect(useProfileStore.getState().profiles).toHaveLength(0);
+      expect(useProfileStore.getState().selectedProfileId).toBeNull();
     });
 
     it('does not recurse when the refresh itself 401s', async () => {

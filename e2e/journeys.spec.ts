@@ -31,7 +31,7 @@ test('patient facility search retries a one-time network failure', async ({ page
     state.failNext = false;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (new URL(url).pathname === '/facilities') {
+      if (new URL(url).pathname === '/facilities/eligible') {
         state.requests = (state.requests ?? 0) + 1;
         if (state.failNext) {
           state.failNext = false;
