@@ -15,6 +15,7 @@ import { readCsrfToken } from './csrf-storage';
 import type { AuthSession } from './auth-service';
 import { notifyRateLimit } from '../store/rate-limit-store';
 import { markApiReachable, markApiUnreachable } from '../store/api-reachability-store';
+import { signOut } from './sign-out';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
