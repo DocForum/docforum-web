@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
 import { ApiError } from '../../../services/api-client';
@@ -24,6 +24,10 @@ function formatDate(iso: string) {
 
 export function ReferralDetailPage({ referralId }: { referralId: string }) {
   const referralQuery = useReferralDetail(referralId);
+  const [searchParams] = useSearchParams();
+  // Rows in the Sent view open the detail with `?from=sent`, so "Back to
+  // referrals" returns to that view instead of the received inbox.
+  const backTo = searchParams.get('from') === 'sent' ? '/doctor/referrals/sent' : '/doctor/referrals';
 
   if (referralQuery.isPending) {
     return (
@@ -50,7 +54,7 @@ export function ReferralDetailPage({ referralId }: { referralId: string }) {
               : 'Could not load this referral. Please try again.'
           }
         />
-        <Link className={styles.backLink} to="/doctor/referrals">
+        <Link className={styles.backLink} to={backTo}>
           Back to referrals
         </Link>
       </div>
@@ -62,7 +66,7 @@ export function ReferralDetailPage({ referralId }: { referralId: string }) {
 
   return (
     <div className={styles.root}>
-      <Link className={styles.backLink} to="/doctor/referrals">
+      <Link className={styles.backLink} to={backTo}>
         Back to referrals
       </Link>
 

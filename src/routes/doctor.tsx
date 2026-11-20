@@ -1,6 +1,7 @@
 import { Route } from 'react-router-dom';
 import { ConsultationNote } from '../features/consultation/components/ConsultationNote';
 import { DoctorDashboardPage } from '../pages/DoctorDashboardPage';
+import { DoctorReferralsPage } from '../pages/DoctorReferralsPage';
 import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
 import { DoctorPracticeInsightsPage } from '../pages/DoctorPracticeInsightsPage';
 import { MessageThreadPage } from '../pages/MessageThreadPage';
@@ -19,6 +20,11 @@ export const doctorRoutes = (
     <Route path="doctor/insights" element={
       <RequireAuth allowedRoles={['doctor']}>
         <DoctorPracticeInsightsPage />
+      </RequireAuth>
+    } />
+    <Route path="doctor/referrals/*" element={
+      <RequireAuth allowedRoles={['doctor']}>
+        <DoctorReferralsPage />
       </RequireAuth>
     } />
     <Route path="doctor/consultation/:appointmentId" element={

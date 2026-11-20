@@ -32,3 +32,8 @@
   background: var(--color-surface-alt);
   color: var(--color-text-faint);
 }
+
+.pill[data-status='cancelled'] {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
