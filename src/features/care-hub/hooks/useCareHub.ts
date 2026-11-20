@@ -6,6 +6,8 @@ import { formatSlotDate, formatSlotTime, isOnSlotDay, isUpcoming } from '../../a
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import { PRIORITY, type CareCard } from '../ranking';
+import { useLocaleStore } from '../../../i18n/locale-store';
+import { createFormatters } from '../../../i18n/format';
 
 const RECENT_WINDOW_DAYS = 30;
 
@@ -29,6 +31,9 @@ function inviteExpired(expiresAt?: string): boolean {
 }
 
 export function useCareHub(now: Date = new Date()): CareHub {
+  const locale = useLocaleStore((state) => state.locale);
+  const timeZone = useLocaleStore((state) => state.timeZone);
+  const format = createFormatters(locale, timeZone);
   const accessToken = useAuthStore((state) => state.accessToken);
   const profileId = useProfileStore((state) => state.selectedProfileId);
   const dependents = useDependents();
@@ -83,9 +88,9 @@ export function useCareHub(now: Date = new Date()): CareHub {
       id: `appointment-${appointment.id}`,
       section: today ? 'action' : 'upcoming',
       priority: today ? PRIORITY.needsYou : PRIORITY.goodToKnow,
-      title: today ? 'Check in for your visit today' : `Visit ${formatSlotDate(startsAt, now)} at ${formatSlotTime(startsAt)}`,
+      title: today ? 'Check in for your visit today' : `Visit ${formatSlotDate(startsAt, now, locale, timeZone)} at ${formatSlotTime(startsAt, locale, timeZone)}`,
       detail: today
-        ? `Your appointment is at ${formatSlotTime(startsAt)}. Open it to check in and see your place in the queue.`
+        ? `Your appointment is at ${formatSlotTime(startsAt, locale, timeZone)}. Open it to check in and see your place in the queue.`
         : 'Check-in opens on the day of your visit.',
       to: `/patient/appointments/${appointment.id}`,
       badge: today ? 'Today' : undefined,
@@ -132,7 +137,7 @@ export function useCareHub(now: Date = new Date()): CareHub {
         section: 'recent',
         priority: PRIORITY.recent,
         title: `${entry.name} updated`,
-        detail: `Your ${entry.section} list changed on ${formatDate(entry.updatedAt)}.`,
+        detail: `Your ${entry.section} list changed on ${format.formatDate(entry.updatedAt)}.`,
         to: '/patient/health',
       });
     }
@@ -163,9 +168,4 @@ export function useCareHub(now: Date = new Date()): CareHub {
       },
     },
   };
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString();
 }

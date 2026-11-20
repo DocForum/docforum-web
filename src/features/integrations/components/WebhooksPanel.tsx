@@ -12,6 +12,7 @@ import {
   useSendTestDelivery,
 } from '../hooks/useIntegrations';
 import type { WebhookEndpoint } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './Integrations.module.css';
 
 // Fallback data for preview/development when backend endpoint is not yet connected
@@ -132,7 +133,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                     <span>
                       Last delivery:{' '}
                       {endpoint.lastDeliveryAt
-                        ? new Date(endpoint.lastDeliveryAt).toLocaleString()
+                        ? <ZonedTime value={endpoint.lastDeliveryAt} />
                         : 'Never'}
                     </span>
                   </div>

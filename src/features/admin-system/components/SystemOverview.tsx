@@ -7,6 +7,7 @@ import { TimeAgo } from './TimeAgo';
 import type { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
 import type { Tone } from '../status';
 import styles from './SystemHealth.module.css';
+import { useFormat } from '../../../i18n/useFormat';
 
 interface SystemOverviewProps {
   readiness: ReturnType<typeof useReadiness>;
@@ -38,6 +39,7 @@ function readinessDetail(readiness: ReturnType<typeof useReadiness>): string {
 
 /** The three answers to "is it broken?" — the panels below have the detail. */
 export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewProps) {
+  const format = useFormat();
   const verdict = readinessVerdict(readiness.data?.report, readiness.error);
 
   let jobsTile;
@@ -64,10 +66,10 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
     const summary = outbox.data;
     outboxTile = {
       tone: outboxTone(summary),
-      value: <span className={styles.tileCount}>{summary.deadLetterCount.toLocaleString('en-GB')}</span>,
+      value: <span className={styles.tileCount}>{format.formatNumber(summary.deadLetterCount)}</span>,
       detail: (
         <>
-          {summary.pendingCount.toLocaleString('en-GB')} pending
+          {format.formatNumber(summary.pendingCount)} pending
           {summary.oldestPendingAt && (
             <>
               {' '}

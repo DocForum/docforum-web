@@ -13,6 +13,7 @@ import { useMessages, useSendMessage, useThread } from '../hooks/useMessageThrea
 import { AttachmentPreview } from './AttachmentPreview';
 import { MessageComposer } from './MessageComposer';
 import styles from './MessageThread.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface Props {
   threadId: string;
@@ -70,7 +71,7 @@ function MessageItem({ threadId, message }: { threadId: string; message: Message
         </div>
       )}
       <time className={styles.time} dateTime={message.createdAt}>
-        {formatTime(message.createdAt)}
+        <ZonedTime value={message.createdAt} />
       </time>
     </li>
   );

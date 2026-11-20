@@ -2,18 +2,12 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { usePatientChart } from '../hooks/usePatientChart';
+import { useFormat } from '../../../i18n/useFormat';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './PatientChartPanel.module.css';
 
-function formatDate(iso: string | null | undefined) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 export function PatientChartPanel({ patientProfileId }: { patientProfileId?: string }) {
+  const format = useFormat();
   const {
     allergies,
     conditions,
@@ -57,7 +51,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                 {allergies.map((a) => (
                   <li key={a.id}>
                     {a.name}{a.details ? ` (${a.details})` : ''}{' '}
-                    {a.updatedAt ? ` (as of ${formatDate(a.updatedAt)})` : ''}
+                    {a.updatedAt ? ` (as of ${format.formatDate(a.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -72,7 +66,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                 {conditions.map((c) => (
                   <li key={c.id}>
                     {c.name}{c.details ? ` (${c.details})` : ''}{' '}
-                    {c.updatedAt ? ` (as of ${formatDate(c.updatedAt)})` : ''}
+                    {c.updatedAt ? ` (as of ${format.formatDate(c.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -87,7 +81,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                 {medications.map((m) => (
                   <li key={m.id}>
                     {m.name}{m.details ? ` (${m.details})` : ''}{' '}
-                    {m.updatedAt ? ` (as of ${formatDate(m.updatedAt)})` : ''}
+                    {m.updatedAt ? ` (as of ${format.formatDate(m.updatedAt)})` : ''}
                   </li>
                 ))}
               </ul>
@@ -106,7 +100,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
             {priorConsultations.map((c) => (
               <li key={c.id} className={styles.consultItem}>
                 <span className={styles.consultDate}>
-                  {formatDate(c.timestamp)}
+                  <ZonedTime value={c.timestamp} mode="date" />
                 </span>
                 <span className={styles.consultType}>
                   {c.stepType === 'appointment' ? 'Appointment' : 'Consultation'}
@@ -142,8 +136,8 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                   <td>{o.type === 'prescription' ? 'Prescription' : 'Lab order'}</td>
                   <td>{o.items.map((item) => item.name).join(', ')}</td>
                   <td>{o.items.map((item) => item.note).filter(Boolean).join('; ') || ''}</td>
-                  <td>{formatDate(o.issuedAt)}</td>
-                  <td>{formatDate(o.expiresAt)}</td>
+                  <td><ZonedTime value={o.issuedAt} mode="date" /></td>
+                  <td><ZonedTime value={o.expiresAt} mode="date" /></td>
                 </tr>
               ))}
             </tbody>
@@ -180,7 +174,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
                       {r.isCritical ? 'Critical' : r.isAbnormal ? 'Abnormal' : 'Normal'}
                     </span>
                   </td>
-                  <td>{formatDate(r.issuedAt)}</td>
+                  <td><ZonedTime value={r.issuedAt} mode="date" /></td>
                 </tr>
               ))}
             </tbody>

@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { PrintLayout, usePrint } from '../../../components/PrintLayout';
 import { Button } from '../../../components/Button';
 import type { DataExport } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface Props {
   exportData: DataExport;
@@ -15,14 +16,6 @@ function formatBytes(bytes?: number | null): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return '\u2014';
-  try {
-    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  } catch {
-    return iso;
-  }
-}
 
 /** Printable + PDF-exportable data export summary.  Patients can bring
  *  a printed summary to other providers as proof of their data export. */
@@ -66,7 +59,7 @@ export function DataExportSummaryDocument({ exportData }: Props) {
             {exportData.expiresAt ? (
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Expires</dt>
-                <dd style={{ margin: 0 }}>{formatDate(exportData.expiresAt)}</dd>
+                <dd style={{ margin: 0 }}><ZonedTime value={exportData.expiresAt} /></dd>
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>

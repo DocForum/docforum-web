@@ -1,4 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react';
+import { useFormat } from '../i18n/useFormat';
 import styles from './PrintLayout.module.css';
 
 // ─── Logo (inline SVG so it prints without network) ──────────────────────
@@ -34,15 +35,10 @@ export interface PrintLayoutProps {
   offScreen?: boolean;
 }
 
-function formatDate(d: Date): string {
-  return d.toLocaleString(undefined, {
-    dateStyle: 'long',
-    timeStyle: 'short',
-  });
-}
 
 export function PrintLayout({ title, children, offScreen = false }: PrintLayoutProps) {
-  const generated = formatDate(new Date());
+  const format = useFormat();
+  const generated = format.formatDateTime(new Date());
 
   return (
     <div

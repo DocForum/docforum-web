@@ -5,15 +5,9 @@ import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import type { Appointment, IntakeForm } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import { useAppointmentIntake, useTodayAppointments } from '../hooks/useDoctorToday';
 import styles from './TodayAppointments.module.css';
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function statusLabel(status: Appointment['status']) {
   return {
@@ -30,7 +24,7 @@ function IntakeSummary({ intake }: { intake: IntakeForm }) {
   return (
     <div className={styles.intake}>
       <p className={styles.intakeMeta}>
-        Submitted {new Date(intake.submittedAt).toLocaleString()}
+        Submitted <ZonedTime value={intake.submittedAt} />
       </p>
       <dl className={styles.fields}>
         <div>
@@ -92,7 +86,9 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
         aria-controls={intakeId}
         onClick={() => setExpanded((current) => !current)}
       >
-        <span className={styles.time}>{formatTime(appointment.startsAt)}</span>
+        <span className={styles.time}>
+          <ZonedTime value={appointment.startsAt} mode="time" />
+        </span>
         <span className={styles.patient}>
           <strong>{appointment.patientName}</strong>
           <span className={styles.reason}>{appointment.reason || 'No reason recorded'}</span>

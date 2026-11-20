@@ -15,6 +15,7 @@ import {
   validateCredentialFile,
 } from '../requirements';
 import type { ClaimItemStatus, DoctorCredential } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './CredentialList.module.css';
 
 interface Props {
@@ -22,10 +23,6 @@ interface Props {
   isLoading: boolean;
   error: string | null;
   onRetry?: () => void;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function rejectionMessage(error: Error | null, fallback: string): string | null {
@@ -174,7 +171,9 @@ export function CredentialList({ credentials, isLoading, error, onRetry }: Props
               </div>
               <div className={styles.metaPair}>
                 <dt className={styles.metaKey}>Submitted</dt>
-                <dd className={styles.metaValue}>{formatDate(credential.submittedAt)}</dd>
+                <dd className={styles.metaValue}>
+                  <ZonedTime value={credential.submittedAt} mode="date" />
+                </dd>
               </div>
             </dl>
 

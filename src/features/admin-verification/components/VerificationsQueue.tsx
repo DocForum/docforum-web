@@ -9,12 +9,13 @@ import { ageTone, hoursSince, oldestAgeLabel, sortBySubmitted } from '../queue';
 import { describeQueueError } from '../errors';
 import type { VerificationQueueItem } from '../../../types/models';
 import styles from './Verifications.module.css';
+import { createFormatters } from '../../../i18n/format';
 
 function submittedLabel(item: VerificationQueueItem, now: number): string {
   const date = new Date(item.submittedAt);
   const formatted = Number.isNaN(date.getTime())
     ? item.submittedAt
-    : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    : createFormatters().formatDate(date);
   const hours = hoursSince(item.submittedAt, now);
   if (hours === null) return `Submitted ${formatted}`;
   if (hours >= 48) return `Submitted ${formatted} · ${Math.floor(hours / 24)} days ago`;

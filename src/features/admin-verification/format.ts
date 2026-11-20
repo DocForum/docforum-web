@@ -8,22 +8,17 @@ export function formatBytes(sizeBytes: number): string {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+import { createFormatters } from '../../i18n/format';
+
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return Number.isNaN(date.getTime()) ? iso : createFormatters().formatDateTime(date);
 }
 
 export function formatDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return Number.isNaN(date.getTime()) ? iso : createFormatters().formatDate(date);
 }
 
 /** How long a signed URL has left, in plain words. */

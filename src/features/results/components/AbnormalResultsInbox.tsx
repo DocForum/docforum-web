@@ -8,6 +8,7 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import type { AbnormalResult } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './AbnormalResultsInbox.module.css';
 
 export function AbnormalResultsInbox() {

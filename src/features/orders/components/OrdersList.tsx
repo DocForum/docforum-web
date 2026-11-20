@@ -16,14 +16,7 @@ import {
   useSelectFulfillingFacility,
 } from '../hooks/useOrders';
 import styles from './OrdersList.module.css';
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 function statusLabel(order: PatientOrder) {
   if (order.status === 'active') return order.selectedFacility ? 'In fulfillment' : 'Needs a facility';
@@ -196,7 +189,7 @@ export function OrdersList() {
                     </span>
                     <h2 className={styles.title}>{orderTitle(order)}</h2>
                     <p className={styles.meta}>
-                      Issued {formatDate(order.issuedAt)}
+                      Issued <ZonedTime value={order.issuedAt} mode="date" />
                       {order.issuedByDoctorName ? ` by ${order.issuedByDoctorName}` : ''}
                     </p>
                   </div>

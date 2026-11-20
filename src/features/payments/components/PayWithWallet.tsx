@@ -4,6 +4,7 @@ import { stepperIndex, type WalletPayPhase } from '../wallet-pay';
 import { transactionUrl } from '../explorer';
 import { formatStroops } from '../../../services/payments-service';
 import type { PaymentIntent } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './PayWithWallet.module.css';
 
 const STEP_LABELS = ['Prepare', 'Your wallet', 'Submit', 'Confirm'] as const;
@@ -89,7 +90,7 @@ export function PayWithWallet({ orderId, intent, wallet }: PayWithWalletProps) {
           </p>
           {state.expiresAt ? (
             <p className={styles.hint}>
-              It expires at {new Date(state.expiresAt).toLocaleTimeString()} — expiring is normal, and preparing a
+              It expires at <ZonedTime value={state.expiresAt} mode="time" /> — expiring is normal, and preparing a
               new one costs nothing.
             </p>
           ) : null}

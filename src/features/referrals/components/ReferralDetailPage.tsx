@@ -9,6 +9,7 @@ import { ReferralAccessDenied } from './ReferralAccessDenied';
 import { ReferralStatusPill } from './ReferralStatusPill';
 import { SnapshotContextViewer } from './SnapshotContextViewer';
 import styles from './ReferralDetailPage.module.css';
+import { useFormat } from '../../../i18n/useFormat';
 
 const APPOINTMENT_LABELS: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
@@ -19,11 +20,8 @@ const APPOINTMENT_LABELS: Record<AppointmentStatus, string> = {
   no_show: 'Did not attend',
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
 export function ReferralDetailPage({ referralId }: { referralId: string }) {
+  const format = useFormat();
   const referralQuery = useReferralDetail(referralId);
   const errorText = useErrorMessage();
 

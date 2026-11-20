@@ -13,6 +13,7 @@ import { TextField } from '../../../components/TextField';
 import { ApiError } from '../../../services/api-client';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { useAuthStore } from '../../../store/auth-store';
+import { useFormat } from '../../../i18n/useFormat';
 import { validateFullName, validatePassword } from '../../auth/validation';
 import { useLogout } from '../../auth/hooks/useLogout';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
@@ -35,18 +36,13 @@ const DASHBOARDS: Record<InviteRole, string> = {
   admin: '/admin',
 };
 
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-}
 
 function inviterDescription(invite: AccountInvite): string {
   return invite.invitedBy ?? 'your DocForum contact';
 }
 
 export function InviteLanding({ token }: InviteLandingProps) {
+  const format = useFormat();
   const inviteQuery = useInvite(token);
   const acceptMutation = useAcceptInvite();
   const logout = useLogout();
@@ -117,7 +113,7 @@ export function InviteLanding({ token }: InviteLandingProps) {
     };
     const messages: Record<AccountInvite['status'], string> = {
       pending: '',
-      expired: `This invitation expired on ${formatDate(invite.expiresAt)} and can no longer be used. Ask ${inviterDescription(invite)} to send you a new one.`,
+      expired: `This invitation expired on ${format.formatDate(invite.expiresAt)} and can no longer be used. Ask ${inviterDescription(invite)} to send you a new one.`,
       revoked: `This invitation was revoked and can no longer be used. If you still need access, contact ${inviterDescription(invite)}.`,
       accepted:
         'This invitation has already been used. If that was you, just log in — otherwise ask for a fresh invite.',

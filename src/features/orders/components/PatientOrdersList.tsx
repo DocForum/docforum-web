@@ -6,15 +6,8 @@ import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBad
 import type { PatientOrder } from '../../../types/models';
 import { useMyOrders } from '../hooks/useOrders';
 import styles from './PatientOrders.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 export function orderTypeLabel(order: PatientOrder): string {
   return order.orderType === 'prescription' ? 'Prescription' : 'Lab order';
@@ -67,7 +60,7 @@ export function PatientOrdersList() {
                   <p className={styles.orderType}>{orderTypeLabel(order)}</p>
                   <h2 className={styles.orderTitle}>{order.medicationOrTest}</h2>
                   <p className={styles.orderMeta}>
-                    Issued {formatDate(order.issuedAt)}
+                    Issued <ZonedTime value={order.issuedAt} mode="date" />
                     {order.facilityName ? ` · ${order.facilityName}` : ''}
                   </p>
                 </div>
@@ -77,7 +70,7 @@ export function PatientOrdersList() {
               <p className={styles.orderSummary}>{orderItemSummary(order)}</p>
 
               <div className={styles.orderFooter}>
-                <span className={styles.expiry}>Expires {formatDate(order.expiresAt)}</span>
+                <span className={styles.expiry}>Expires <ZonedTime value={order.expiresAt} mode="date" /></span>
                 <Link to={`/patient/orders/${order.id}`} className={styles.viewLink}>
                   View order
                 </Link>

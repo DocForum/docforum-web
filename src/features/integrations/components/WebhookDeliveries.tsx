@@ -2,6 +2,7 @@ import { Spinner } from '../../../components/Spinner';
 import { Button } from '../../../components/Button';
 import { useWebhookDeliveries, useRedeliverWebhook } from '../hooks/useIntegrations';
 import type { WebhookDelivery, WebhookDeliveryStatus } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './Integrations.module.css';
 
 // Fallback data for preview/development
@@ -111,7 +112,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
                 <td>{delivery.attemptCount}</td>
                 <td>
                   {delivery.deliveredAt
-                    ? new Date(delivery.deliveredAt).toLocaleTimeString()
+                    ? <ZonedTime value={delivery.deliveredAt} mode="time" />
                     : '—'}
                 </td>
                 <td className={styles.actionCell}>

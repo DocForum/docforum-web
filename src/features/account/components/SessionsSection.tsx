@@ -13,19 +13,9 @@ import {
   useSessions,
 } from '../hooks/useSessions';
 import styles from './SessionsSection.module.css';
+import { useFormat } from '../../../i18n/useFormat';
 
 type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' };
-
-function formatLastActive(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return 'unknown';
-  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
 
 /**
  * Active sessions and devices (issue #79). Lists the user's sessions with
@@ -33,6 +23,7 @@ function formatLastActive(iso: string): string {
  * other one, and treats revoking the current session as a real sign-out.
  */
 export function SessionsSection() {
+  const format = useFormat();
   const { data: sessions, isLoading, isError, refetch, isFetching } = useSessions();
   const revokeSessionMutation = useRevokeSession();
   const revokeOthersMutation = useRevokeOtherSessions();
@@ -135,7 +126,7 @@ export function SessionsSection() {
                   </p>
                   <p className={styles.meta}>
                     {session.approximateLocation ?? 'Location unavailable'} · Last active{' '}
-                    {formatLastActive(session.lastActiveAt)}
+                    {format.formatRelativeTime(session.lastActiveAt)}
                   </p>
                 </div>
                 <Button
