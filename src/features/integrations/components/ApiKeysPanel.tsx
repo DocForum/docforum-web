@@ -113,7 +113,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                 <th>Scopes</th>
                 <th>Created</th>
                 <th>Last used</th>
-                <th aria-label="Actions" />
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
