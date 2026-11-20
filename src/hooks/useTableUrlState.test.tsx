@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useTableUrlState } from '../components/DataTable';
 import type { FilterDefinition } from '../components/DataTable';
@@ -10,6 +10,7 @@ const filters: FilterDefinition[] = [
     { value: 'pending', label: 'Pending' },
   ]},
   { key: 'name', label: 'Name', type: 'text' },
+  { key: 'from', label: 'From', type: 'date' },
 ];
 
 function wrap(initialPath: string) {
@@ -74,6 +75,29 @@ describe('useTableUrlState', () => {
       () => useTableUrlState({ id: 'test', filters }),
       wrap('/'),
     );
+    expect(result.current.cursor).toBeNull();
+  });
+
+  it('reads date filter values from URL and falls back to unprefixed params', () => {
+    const { result } = renderHook(
+      () => useTableUrlState({ id: 'test', filters }),
+      wrap('/?from=2026-10-01&status=active'),
+    );
+    expect(result.current.filterValues).toEqual({ from: '2026-10-01', status: 'active' });
+  });
+
+  it('resets filters and clears cursor', () => {
+    const { result } = renderHook(
+      () => useTableUrlState({ id: 'test', filters }),
+      wrap('/?test-f-status=active&test-f-from=2026-10-01&test-cursor=abc123'),
+    );
+    expect(result.current.filterValues).toEqual({ status: 'active', from: '2026-10-01' });
+    expect(result.current.cursor).toBe('abc123');
+
+    act(() => {
+      result.current.resetFilters();
+    });
+    expect(result.current.filterValues).toEqual({});
     expect(result.current.cursor).toBeNull();
   });
 });
