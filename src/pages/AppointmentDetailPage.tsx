@@ -193,6 +193,12 @@ export function AppointmentDetailPage() {
         )}
 
         <h2 className={styles.sectionTitle}>Actions</h2>
+        {appointment.status === 'scheduled' && !appointment.intake && (
+          <p className={styles.detail}>
+            <Link to={`/patient/appointments/${appointment.id}/intake`}>Complete your intake</Link>
+            {' — '}answers save as you type in this tab.
+          </p>
+        )}
         {window.allowed ? (
           <div className={styles.actions}>
             <Button onClick={() => setShowReschedule(true)}>Reschedule</Button>

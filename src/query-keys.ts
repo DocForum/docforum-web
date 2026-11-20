@@ -92,6 +92,22 @@ export const facilitySearchKeys = {
   all: ['facilities'] as const,
   list: (params: { type?: string; lat?: number; lng?: number; query?: string }) =>
     ['facilities', params.type ?? null, params.lat ?? null, params.lng ?? null, params.query ?? null] as const,
+  /** Eligible facilities for one catalog item, with their price in force (#258). */
+  eligible: (
+    catalogItemCode: string,
+    params: { type?: string; lat?: number; lng?: number; query?: string },
+  ) =>
+    [
+      'facilities',
+      'eligible',
+      catalogItemCode,
+      params.type ?? null,
+      params.lat ?? null,
+      params.lng ?? null,
+      params.query ?? null,
+    ] as const,
+  /** One facility's public price history (#258) — read per card, never mutated. */
+  priceHistory: (facilityId: string) => ['facilities', 'prices', facilityId] as const,
 };
 
 /** Admin audit tables: one root, one key per tab+filter combination. */

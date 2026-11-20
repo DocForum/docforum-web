@@ -1,7 +1,12 @@
 import { useState, useMemo } from 'react';
-import type { FacilityType, FacilityWithDistance } from '../../../types/models';
+import type {
+  EligibleFacility,
+  FacilityType,
+  FacilityWithDistance,
+} from '../../../types/models';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { useFacilitySearch } from '../hooks/useFacilitySearch';
+import { useEligibleFacilities, useFacilitySearch } from '../hooks/useFacilitySearch';
+import { compareFacilitiesByPrice } from '../facility-price';
 import { FacilityCard } from './FacilityCard';
 import { FacilityMap } from './FacilityMap';
 import { Button } from '../../../components/Button';
@@ -17,14 +22,25 @@ import styles from './FacilityFinder.module.css';
 interface FacilityFinderProps {
   initialType?: FacilityType;
   onFacilityChosen?: (facility: FacilityWithDistance) => void;
+  /** Catalog code of the order item being fulfilled. When set, the finder
+   * compares each facility's price for that item (issue #258). */
+  catalogItemCode?: string;
 }
 
-export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinderProps) {
+type SortBy = 'distance' | 'price';
+
+export function FacilityFinder({
+  initialType,
+  onFacilityChosen,
+  catalogItemCode,
+}: FacilityFinderProps) {
   const t = useT();
   const errorMessage = useErrorMessage();
   const [selectedType, setSelectedType] = useState<FacilityType | undefined>(initialType);
   const [areaQuery, setAreaQuery] = useState('');
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>('distance');
+  const comparingPrices = Boolean(catalogItemCode);
 
   const { coordinates, isLoading: isLocating, error: geoError, requestLocation, clearLocation } = useGeolocation();
 
@@ -38,12 +54,26 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
     [selectedType, coordinates, areaQuery],
   );
 
-  const {
-    data: facilities = [],
-    isLoading: isSearching,
-    error: searchError,
-    refetch: refetchFacilities,
-  } = useFacilitySearch(searchParams);
+  const search = useFacilitySearch(searchParams, !comparingPrices);
+  const eligible = useEligibleFacilities(catalogItemCode, searchParams);
+
+  const facilities = useMemo<FacilityWithDistance[]>(() => {
+    return comparingPrices ? (eligible.data ?? []) : (search.data ?? []);
+  }, [comparingPrices, eligible.data, search.data]);
+  const isSearching = comparingPrices ? eligible.isLoading : search.isLoading;
+  const searchError = comparingPrices ? eligible.error : search.error;
+  const refetchFacilities = comparingPrices ? eligible.refetch : search.refetch;
+
+  const eligibleById = useMemo(() => {
+    const byId = new Map<string, EligibleFacility>();
+    for (const facility of eligible.data ?? []) byId.set(facility.id, facility);
+    return byId;
+  }, [eligible.data]);
+
+  const visibleFacilities = useMemo<FacilityWithDistance[]>(() => {
+    if (!comparingPrices || sortBy !== 'price') return facilities;
+    return [...(eligible.data ?? [])].sort(compareFacilitiesByPrice);
+  }, [facilities, eligible.data, comparingPrices, sortBy]);
 
   const handleSelectFacility = (facility: FacilityWithDistance) => {
     setSelectedFacilityId(facility.id);
@@ -131,7 +161,37 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
             onChange={(e) => setAreaQuery(e.target.value)}
           />
         </div>
+
+        {comparingPrices && (
+          <div className={styles.sortGroup} role="group" aria-label="Sort facilities">
+            <span className={styles.sortLabel}>Sort by</span>
+            <button
+              type="button"
+              className={`${styles.tabButton} ${sortBy === 'distance' ? styles.tabActive : ''}`}
+              aria-pressed={sortBy === 'distance'}
+              onClick={() => setSortBy('distance')}
+            >
+              Distance
+            </button>
+            <button
+              type="button"
+              className={`${styles.tabButton} ${sortBy === 'price' ? styles.tabActive : ''}`}
+              aria-pressed={sortBy === 'price'}
+              onClick={() => setSortBy('price')}
+            >
+              Price
+            </button>
+          </div>
+        )}
       </div>
+
+      {comparingPrices && (
+        <p className={styles.sortHint} role="status">
+          {sortBy === 'price'
+            ? 'Sorted by price, cheapest first. Facilities with a price on request are listed last.'
+            : 'Sorted by distance.'}
+        </p>
+      )}
 
       {searchError && (
         <InlineError
@@ -161,12 +221,15 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
             />
           )}
 
-          {facilities.map((fac) => (
+          {visibleFacilities.map((fac) => (
             <FacilityCard
               key={fac.id}
               facility={fac}
               isSelected={fac.id === selectedFacilityId}
               onSelect={handleSelectFacility}
+              catalogItemCode={catalogItemCode}
+              price={eligibleById.get(fac.id)?.price}
+              priceOnRequest={eligibleById.get(fac.id)?.priceOnRequest}
             />
           ))}
         </div>

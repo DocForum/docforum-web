@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const DEFAULT_MESSAGE =
-  'You have unsaved facility settings. Leave this page and discard your changes?';
+  'You have unsaved changes. Leave this page and discard your changes?';
 
 /**
  * Warns before a full page unload and intercepts in-app link navigation

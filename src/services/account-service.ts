@@ -2,7 +2,7 @@
 // All calls route through the generated @docforum/api-client (see
 // packages/api-client/openapi/ for the contract).
 import { api, SLOW_REQUEST_TIMEOUT_MS } from './api-client';
-import type { DataExport, DeleteAccountResponse } from '../types/models';
+import type { DataExport } from '../types/models';
 
 // The export is assembled server-side (every row for this account), so it
 // gets the slow-endpoint budget rather than the default one.
@@ -25,10 +25,9 @@ export function downloadDataExport(exportId: string, accessToken: string, signal
   });
 }
 
-export function deleteAccount(
-  password: string,
-  confirmation: string,
-  accessToken: string,
-): Promise<DeleteAccountResponse> {
-  return api.account.deleteAccount({ password, confirmation }, { accessToken });
+// docforum-core's real contract (#41): `DELETE /patients/me` with the
+// password in the body, answering `204 No Content`. The typed confirmation
+// phrase is a client-side safeguard only and never leaves the browser.
+export function deleteAccount(password: string, accessToken: string): Promise<void> {
+  return api.account.deleteAccount({ password }, { accessToken });
 }
