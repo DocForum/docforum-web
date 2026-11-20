@@ -148,9 +148,12 @@ export default defineConfig(({ command }) => {
       globals: true,
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
-      // Coverage gate (issue #105). Only the folders that hold product logic
-      // are measured: `pages/` and `components/` are mostly composition and
-      // were never part of the gate, and `src/mocks/` is dev-only.
+      // Coverage gate (issue #105, widened by issue #292). Measures the
+      // folders that hold logic reachable from any screen: `features/`,
+      // `services/`, and since #292 the shared `components/` and `hooks/` —
+      // a primitive used everywhere could previously lose every test without
+      // CI noticing. `pages/` stays out (composition over the folders below)
+      // and `src/mocks/` is dev-only.
       // Thresholds are the current measured levels (see ARCHITECTURE_ESSENTIALS.md
       // "Testing utilities & coverage gate") — they ratchet up as tests land,
       // never down. CI runs `npm run test:coverage`, so a regression fails.
@@ -158,13 +161,19 @@ export default defineConfig(({ command }) => {
         provider: 'v8',
         reporter: ['text-summary', 'json-summary'],
         reportsDirectory: './coverage',
-        include: ['src/features/**/*.{ts,tsx}', 'src/services/**/*.{ts,tsx}'],
+        include: [
+          'src/features/**/*.{ts,tsx}',
+          'src/services/**/*.{ts,tsx}',
+          'src/components/**/*.{ts,tsx}',
+          'src/hooks/**/*.{ts,tsx}',
+        ],
         exclude: [
           '**/*.test.{ts,tsx}',
           '**/*.stories.{ts,tsx}',
           '**/*.d.ts',
           // Barrel/re-export only, no behaviour to cover.
           'src/features/**/index.ts',
+          'src/components/**/index.ts',
         ],
         // Floor measured when the gate was introduced (see
         // ARCHITECTURE_ESSENTIALS.md "Testing utilities & coverage gate").
@@ -174,6 +183,22 @@ export default defineConfig(({ command }) => {
           branches: 70,
           functions: 77,
           lines: 79,
+          // Per-folder floors for the two folders #292 brought in, at the
+          // levels measured the same day. The aggregate above still gates the
+          // whole measured set; these stop one shared component or hook from
+          // sliding to zero while the total keeps clearing it.
+          'src/components/**': {
+            statements: 87,
+            branches: 82,
+            functions: 89,
+            lines: 88,
+          },
+          'src/hooks/**': {
+            statements: 95,
+            branches: 89,
+            functions: 95,
+            lines: 97,
+          },
         },
       },
     },
