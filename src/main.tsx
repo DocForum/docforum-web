@@ -14,8 +14,13 @@ import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
+import { applyStoredTheme } from './utils/theme';
 import App from './App';
 import './styles/global.css';
+
+// Apply the saved light/dark/high-contrast choice before the first paint, so a
+// reload never flashes the default theme (issue #98 / #296).
+applyStoredTheme();
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 const Router = useHashRouter ? HashRouter : BrowserRouter;
