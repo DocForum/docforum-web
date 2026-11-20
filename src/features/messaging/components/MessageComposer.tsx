@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { useMessageDraftStore } from '../../../store/message-draft-store';
+import type { SendMessageInput } from '../../../types/models';
 import { FormError } from '../../../components/FormError';
 import { ApiError } from '../../../services/api-client';
 import { formatBytes, MAX_ATTACHMENT_BYTES } from '../attachment-validation';
@@ -13,12 +15,20 @@ interface Props {
   threadId: string;
   disabled?: boolean;
   onSent?: (messageId: string) => void;
+  /** When provided, the thread owns delivery (optimistic append, failed
+   * state, retry). The composer still owns the draft and attachments. */
+  onSend?: (input: SendMessageInput) => Promise<void>;
 }
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
 
-export function MessageComposer({ threadId, disabled = false, onSent }: Props) {
-  const [body, setBody] = useState('');
+export function MessageComposer({ threadId, disabled = false, onSent, onSend }: Props) {
+  // PHI draft: in memory only, keyed by thread, cleared on send or logout.
+  const body = useMessageDraftStore((state) => state.drafts[threadId] ?? '');
+  const setDraft = useMessageDraftStore((state) => state.setDraft);
+  const clearDraft = useMessageDraftStore((state) => state.clearDraft);
+  const [sending, setSending] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
   const uploader = useAttachmentUploader(threadId);
   const sendMutation = useSendMessage(threadId);
   const attachInput = useRef<HTMLInputElement>(null);
@@ -28,24 +38,45 @@ export function MessageComposer({ threadId, disabled = false, onSent }: Props) {
     (body.trim().length > 0 || uploader.uploadedIds.length > 0) &&
     !uploader.isUploading &&
     !sendMutation.isPending &&
+    !sending &&
     !disabled;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSend) return;
-    sendMutation.mutate(
-      {
-        body: body.trim(),
-        attachmentIds: uploader.uploadedIds.length ? uploader.uploadedIds : undefined,
+
+    const input: SendMessageInput = {
+      body: body.trim(),
+      attachmentIds: uploader.uploadedIds.length ? uploader.uploadedIds : undefined,
+    };
+
+    setDeliveryError(null);
+
+    if (onSend) {
+      setSending(true);
+      try {
+        await onSend(input);
+        // The message is now in the thread's outbox; the draft has served
+        // its purpose.
+        clearDraft(threadId);
+        uploader.reset();
+      } catch (error) {
+        setDeliveryError(
+          error instanceof ApiError ? error.message : 'Could not send. Please try again.',
+        );
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    sendMutation.mutate(input, {
+      onSuccess: (message) => {
+        clearDraft(threadId);
+        uploader.reset();
+        onSent?.(message.id);
       },
-      {
-        onSuccess: (message) => {
-          setBody('');
-          uploader.reset();
-          onSent?.(message.id);
-        },
-      },
-    );
+    });
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
@@ -55,11 +86,12 @@ export function MessageComposer({ threadId, disabled = false, onSent }: Props) {
   }
 
   const sendError =
-    sendMutation.error instanceof ApiError
+    deliveryError ??
+    (sendMutation.error instanceof ApiError
       ? sendMutation.error.message
       : sendMutation.error
         ? 'Could not send. Please try again.'
-        : null;
+        : null);
 
   return (
     <form className={styles.composer} onSubmit={handleSubmit}>
@@ -82,7 +114,7 @@ export function MessageComposer({ threadId, disabled = false, onSent }: Props) {
       <textarea
         className={styles.textarea}
         value={body}
-        onChange={(event) => setBody(event.target.value)}
+        onChange={(event) => setDraft(threadId, event.target.value)}
         placeholder="Write a message…"
         aria-label="Message"
         rows={3}
@@ -127,7 +159,7 @@ export function MessageComposer({ threadId, disabled = false, onSent }: Props) {
           Take photo
         </Button>
         <span className={styles.hint}>JPEG, PNG, WebP or PDF · up to {formatBytes(MAX_ATTACHMENT_BYTES)}</span>
-        <Button type="submit" loading={sendMutation.isPending} disabled={!canSend}>
+        <Button type="submit" loading={sendMutation.isPending || sending} disabled={!canSend}>
           Send
         </Button>
       </div>
