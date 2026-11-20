@@ -102,6 +102,12 @@ describe('PaymentHistoryPage', () => {
     );
   });
 
+  it('shows a loading skeleton while payments are loading', () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory).mockReturnValue(new Promise(() => {}));
+    render(<PaymentHistoryPage />);
+    expect(screen.getByRole('status')).toHaveTextContent(/loading your payments/i);
+  });
+
   it('says history is unavailable rather than empty when the endpoint is missing', async () => {
     vi.mocked(paymentHistoryService.listPaymentHistory).mockRejectedValue(new ApiError('Not Found', 404));
 
@@ -109,6 +115,7 @@ describe('PaymentHistoryPage', () => {
 
     expect(await screen.findByText(/not available for this deployment yet/i)).toBeInTheDocument();
     expect(screen.queryByText(/have not paid for anything/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('describes an account that genuinely has no payments', async () => {
@@ -117,6 +124,7 @@ describe('PaymentHistoryPage', () => {
     render(<PaymentHistoryPage />);
 
     expect(await screen.findByText(/have not paid for anything/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to care summary/i })).toHaveAttribute('href', '/patient');
   });
 
   it('explains every status the contract has, without printing the token', async () => {
