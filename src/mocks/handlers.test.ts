@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
-import { ApiError } from '../services/api-client';
+import { ApiError, apiFetch } from '../services/api-client';
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -561,6 +561,32 @@ describe('facility finder', () => {
     const lab = eligible.find((facility) => facility.id === 'fac-demo-lab');
     expect(lab?.price).toBeNull();
     expect(lab?.priceOnRequest).toBe(true);
+  });
+
+  it('filters the free-text area query client-side, since core has no `query` param', async () => {
+    const matches = await facilityService.getFacilities({ query: 'example' }, MOCK_ACCESS_TOKEN);
+    expect(matches.map((f) => f.id)).toEqual(['fac-demo-pharmacy-2']);
+  });
+
+  it('rejects a missing type and radiusKm without near, like docforum-core', async () => {
+    await expect(
+      apiFetch('/facilities/eligible', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      apiFetch('/facilities/eligible?type=lab&radiusKm=5', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('accepts near=lat,lng with a radius and lists unknown distances last', async () => {
+    const nearby = await apiFetch<{ id: string; distanceKm: number | null }[]>(
+      '/facilities/eligible?type=pharmacy&near=6.5244,3.3792&radiusKm=5',
+      { accessToken: MOCK_ACCESS_TOKEN },
+    );
+    expect(nearby.length).toBeGreaterThan(0);
+    expect(nearby.every((f) => f.distanceKm !== null && f.distanceKm <= 5)).toBe(true);
+
+    const withoutLocation = await facilityService.getFacilities({}, MOCK_ACCESS_TOKEN);
+    expect(withoutLocation.every((f) => f.distanceKm == null)).toBe(true);
   });
 });
 
