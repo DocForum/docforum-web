@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useT } from '../../../i18n/useT';
 import { ageTone, hoursSince, reasonLabel } from '../queue';
-import { ageLabel, formatDateTime, formatDisputeAmount } from '../format';
+import { ageLabel, formatDisputeAmount } from '../format';
 import type { FulfillmentDisputeSummary } from '../../../types/models';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT } from '../../../i18n/useT';
 import styles from './Disputes.module.css';
 
 const TONE_CLASS = {
@@ -13,6 +14,7 @@ const TONE_CLASS = {
 
 export function DisputeCard({ dispute, now }: { dispute: FulfillmentDisputeSummary; now: number }) {
   const t = useT();
+  const { dateTime } = useFormatters();
   const hours = hoursSince(dispute.openedAt, now);
   const href = `/admin/disputes/${dispute.id}`;
 
@@ -21,7 +23,7 @@ export function DisputeCard({ dispute, now }: { dispute: FulfillmentDisputeSumma
       <div className={styles.cardTop}>
         <div className={styles.badges}>
           <span className={[styles.age, TONE_CLASS[ageTone(hours ?? 0)]].join(' ')}>
-            {t('admin.disputes.openFor', 'Open {age}', { age: ageLabel(dispute.openedAt, now) })}
+            {t('adminDisputes.openAge', 'Open {age}', { age: ageLabel(dispute.openedAt, now, t) })}
           </span>
           <span className={styles.reason}>{reasonLabel(dispute.reason, t)}</span>
         </div>
@@ -30,36 +32,32 @@ export function DisputeCard({ dispute, now }: { dispute: FulfillmentDisputeSumma
 
       <h2 className={styles.cardTitle} id={`dispute-${dispute.id}`}>
         <Link to={href}>
-          {dispute.itemName} —{' '}
-          {dispute.orderType === 'prescription'
-            ? t('payments.orderType.prescription', 'Prescription')
-            : t('payments.orderType.labOrder', 'Lab order')}
+          {dispute.itemName} — {dispute.orderType === 'prescription'
+            ? t('payments.orderType.prescription', 'prescription')
+            : t('payments.orderType.labOrder', 'lab order')}
         </Link>
       </h2>
       <p className={styles.cardMeta}>
-        {t('admin.disputes.orderOpened', 'Order {orderId} · opened {date}', {
-          orderId: dispute.orderId,
-          date: formatDateTime(dispute.openedAt),
-        })}
+        {t('adminDisputes.orderMeta', 'Order {id} · opened {date}', { id: dispute.orderId, date: dateTime(dispute.openedAt) })}
       </p>
 
       <dl className={styles.facts}>
         <div>
-          <dt>{t('admin.disputes.facility', 'Facility')}</dt>
+          <dt>{t('adminDisputes.facility', 'Facility')}</dt>
           <dd>{dispute.facility.name}</dd>
         </div>
         <div>
-          <dt>{t('admin.disputes.patient', 'Patient')}</dt>
+          <dt>{t('adminDisputes.patient', 'Patient')}</dt>
           <dd>{dispute.patientName}</dd>
         </div>
         <div>
-          <dt>{t('admin.disputes.blockedInEscrow', 'Blocked in escrow')}</dt>
+          <dt>{t('adminDisputes.blockedAmount', 'Blocked in escrow')}</dt>
           <dd className={styles.amount}>{formatDisputeAmount(dispute.amountStroops, dispute.asset)}</dd>
         </div>
       </dl>
 
       <div className={styles.cardActions}>
-        <Link to={href}>{t('admin.disputes.review', 'Review dispute')}</Link>
+        <Link to={href}>{t('adminDisputes.review', 'Review dispute')}</Link>
       </div>
     </article>
   );

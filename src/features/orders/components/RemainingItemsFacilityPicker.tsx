@@ -60,17 +60,13 @@ export function RemainingItemsFacilityPicker({
       if (err instanceof ApiError && err.status === 409) {
         setRouteError(
           t(
-            'orders.picker.conflict',
+            'orders.picker.routeConflict',
             'One or more items were already dispensed elsewhere. Refresh this order to see the latest quantities.',
           ),
         );
         return;
       }
-      setRouteError(
-        err instanceof Error
-          ? err.message
-          : t('orders.picker.error', 'Could not route the remaining items. Try again.'),
-      );
+      setRouteError(t('orders.picker.routeError', 'Could not route the remaining items. Try again shortly.'));
     }
   };
 
@@ -85,33 +81,20 @@ export function RemainingItemsFacilityPicker({
       >
         <div className={styles.modalHeader}>
           <div>
-            <h2 id="remaining-items-heading">
-              {t('orders.picker.title', 'Get remaining items elsewhere')}
-            </h2>
+            <h2 id="remaining-items-heading">{t('orders.picker.title', 'Get remaining items elsewhere')}</h2>
             <p className={styles.modalSubtitle}>
-              {t(
-                'orders.picker.subtitle',
-                'These are the items still outstanding. Only facilities qualified for them are shown.',
-              )}
+              {t('orders.picker.subtitle', 'These are the items still outstanding. Only facilities qualified for them are shown.')}
             </p>
           </div>
-          <button
-            type="button"
-            className={styles.modalClose}
-            onClick={onClose}
-            aria-label={t('orders.picker.closeAria', 'Close')}
-          >
+          <button type="button" className={styles.modalClose} onClick={onClose} aria-label={t('orders.picker.close', 'Close')}>
             ×
           </button>
         </div>
 
-        <ul
-          className={styles.itemChips}
-          aria-label={t('orders.picker.itemsAria', 'Items being routed')}
-        >
+        <ul className={styles.itemChips} aria-label={t('orders.picker.itemsLabel', 'Items being routed')}>
           {items.map((item) => (
             <li key={item.id} className={styles.itemChip}>
-              {t('orders.picker.remainingChip', '{name} · {quantity} {unit} remaining', {
+              {t('orders.picker.itemRemaining', '{name} · {quantity} {unit} remaining', {
                 name: item.name,
                 quantity: item.quantityOutstanding,
                 unit: item.unit,
@@ -122,25 +105,20 @@ export function RemainingItemsFacilityPicker({
 
         <div className={styles.paymentNote} role="note">
           <strong>{t('orders.picker.paymentLabel', 'Payment:')}</strong> {order.payment?.rule}{' '}
-          {t(
-            'orders.picker.paymentNote',
-            'The second facility is paid only for the items it dispenses.',
-          )}
+          {t('orders.picker.paymentNote', 'The second facility is paid only for the items it dispenses.')}
         </div>
 
         <div className={styles.facilityList} aria-busy={isLoading}>
           {isLoading && (
             <div className={styles.loading} role="status">
               <Spinner />
-              <span>{t('orders.picker.loading', 'Finding eligible facilities…')}</span>
+              <span>{t('orders.picker.findingFacilities', 'Finding eligible facilities…')}</span>
             </div>
           )}
           {error && (
             <FormError
               message={
-                error instanceof Error
-                  ? error.message
-                  : t('orders.picker.facilityError', 'Could not load eligible facilities.')
+                t('orders.picker.facilitiesError', 'Could not load eligible facilities. Try again shortly.')
               }
             />
           )}
@@ -156,10 +134,7 @@ export function RemainingItemsFacilityPicker({
             ))}
           {!isLoading && !error && facilities.length === 0 && (
             <p className={styles.empty}>
-              {t(
-                'orders.picker.empty',
-                'No other facility is currently qualified for these items. Try again later.',
-              )}
+              {t('orders.picker.noFacilities', 'No other facility is currently qualified for these items. Try again later.')}
             </p>
           )}
         </div>
@@ -176,7 +151,7 @@ export function RemainingItemsFacilityPicker({
             loading={routeMutation.isPending}
             disabled={!selectedFacility || isLoading}
           >
-            {t('orders.picker.send', 'Send remaining items')}
+            {t('orders.picker.sendItems', 'Send remaining items')}
           </Button>
         </div>
       </div>

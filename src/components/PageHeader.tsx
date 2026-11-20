@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useT } from '../i18n/useT';
 import styles from './PageHeader.module.css';
 
 /** One breadcrumb step. */
@@ -27,12 +28,13 @@ interface PageHeaderProps {
  * screen-reader users can jump past chrome to the page content.
  */
 export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As = 'h1' }: PageHeaderProps) {
+  const t = useT();
   const location = useLocation();
 
   const breadcrumbs = useMemo(() => {
     if (explicitCrumbs) return explicitCrumbs;
 
-    const crumbs: Breadcrumb[] = [{ label: 'Home', to: '/' }];
+    const crumbs: Breadcrumb[] = [{ label: t('common.home', 'Home'), to: '/' }];
     const segments = location.pathname.split('/').filter(Boolean);
 
     // Home root has no further crumbs.
@@ -47,19 +49,14 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
         (segment === 'patient' || segment === 'doctor' || segment === 'facility' || segment === 'admin') &&
         segments.length === 1;
       if (isRoleRoot) {
-        crumbs.push({ label: segment.charAt(0).toUpperCase() + segment.slice(1), to: path });
+        crumbs.push({ label: t(`roles.${segment}`, segment.charAt(0).toUpperCase() + segment.slice(1)), to: path });
         continue;
       }
-      const label =
-        segment
-          .replace(/[-_]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-          .replace(/Id\b/g, 'ID')
-          .replace(/Url\b/g, 'URL');
+      const label = breadcrumbLabel(segment, segments, t);
       crumbs.push({ label, to: path });
     }
     return crumbs;
-  }, [location.pathname, explicitCrumbs]);
+  }, [location.pathname, explicitCrumbs, t]);
 
   const CrumbElement = As === 'h2' ? 'h2' : 'h1';
 
@@ -67,7 +64,7 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
     <header className={styles.pageHeader}>
       <div className={styles.wrapper}>
         {breadcrumbs.length > 0 && (
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+          <nav className={styles.breadcrumbs} aria-label={t('common.breadcrumb', 'Breadcrumb')}>
             <ol className={styles.crumbList}>
               {breadcrumbs.map((crumb, i) => {
                 const last = i === breadcrumbs.length - 1;
@@ -101,4 +98,26 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
       </div>
     </header>
   );
+}
+
+function breadcrumbLabel(segment: string, segments: string[], t: ReturnType<typeof useT>): string {
+  if (segment === 'patient' || segment === 'admin' || segment === 'doctor' || segment === 'facility') {
+    return t(`roles.${segment}`, segment.charAt(0).toUpperCase() + segment.slice(1));
+  }
+  if (segments[0] === 'patient' && segment === 'orders') {
+    return t('orders.list.breadcrumb', 'Orders');
+  }
+  if (segments[0] === 'payments' && segment === 'payments') {
+    return t('payments.history.eyebrow', 'Payments');
+  }
+  if (segments[0] === 'admin') {
+    if (segment === 'audit') return t('admin.nav.audit', 'Audit trail');
+    if (segment === 'disputes') return t('admin.nav.disputes', 'Disputes');
+    if (segment === 'flags') return t('admin.nav.flags', 'Flags');
+  }
+  return segment
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/Id\b/g, 'ID')
+    .replace(/Url\b/g, 'URL');
 }

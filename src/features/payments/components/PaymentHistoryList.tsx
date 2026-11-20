@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
-import { useT } from '../../../i18n/useT';
 import { amountLabel } from '../stroops';
 import { formatDay, orderTypeLabel, statusLabel } from '../status';
 import type { PaymentHistoryEntry } from '../../../types/models';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT } from '../../../i18n/useT';
 import styles from './PaymentHistoryList.module.css';
 
 export function PaymentHistoryList({ entries }: { entries: PaymentHistoryEntry[] }) {
   const t = useT();
+  const { date: formatDate } = useFormatters();
 
   if (entries.length === 0) {
     return (
@@ -35,7 +37,7 @@ export function PaymentHistoryList({ entries }: { entries: PaymentHistoryEntry[]
             <span className={styles.status} data-status={entry.status}>
               {statusLabel(entry.status, t)}
             </span>
-            <span className={styles.date}>{formatDay(entry.createdAt)}</span>
+            <span className={styles.date}>{formatDay(entry.createdAt, formatDate)}</span>
           </Link>
         </li>
       ))}

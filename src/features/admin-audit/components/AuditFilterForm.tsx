@@ -2,9 +2,9 @@ import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
-import { useT } from '../../../i18n/useT';
-import { checkFilters, FIELD_LABELS } from '../filters';
+import { checkFilters, filterFieldLabel } from '../filters';
 import type { AuditTab, FilterDraft, FilterErrors } from '../filters';
+import { useT } from '../../../i18n/useT';
 import styles from './AuditLogViewer.module.css';
 
 // Suggestions only — the inputs accept any well-formed value, since
@@ -36,7 +36,7 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
   const actionsId = useId();
 
   const bind = (field: keyof FilterDraft) => ({
-    label: t(`admin.audit.field.${field}`, FIELD_LABELS[field]),
+    label: filterFieldLabel(field, t),
     value: draft[field],
     error: errors[field],
     onChange: (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [field]: event.target.value })),
@@ -54,25 +54,25 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
     <form
       className={styles.filters}
       onSubmit={handleSubmit}
-      aria-label={t('admin.audit.filters.aria', 'Filter audit entries')}
+      aria-label={t('adminAudit.filters.label', 'Filter audit entries')}
       noValidate
     >
       <div className={styles.filterGrid}>
         <TextField
           {...bind('entityType')}
           list={entityTypesId}
-          placeholder={t('admin.audit.filters.entityTypePlaceholder', 'PaymentIntent')}
+          placeholder={t('adminAudit.filter.entityTypePlaceholder', 'PaymentIntent')}
           autoComplete="off"
         />
         <TextField
           {...bind('entityId')}
-          placeholder={t('admin.audit.filters.entityIdPlaceholder', 'Record id')}
+          placeholder={t('adminAudit.filter.entityIdPlaceholder', 'Record id')}
           autoComplete="off"
           spellCheck={false}
         />
         <TextField
           {...bind('actor')}
-          placeholder={t('admin.audit.filters.actorPlaceholder', 'User id')}
+          placeholder={t('adminAudit.filter.actorPlaceholder', 'User id')}
           autoComplete="off"
           spellCheck={false}
         />
@@ -80,7 +80,7 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
           <TextField
             {...bind('action')}
             list={actionsId}
-            placeholder={t('admin.audit.filters.actionPlaceholder', 'payment_intent')}
+            placeholder={t('adminAudit.filter.actionPlaceholder', 'payment_intent')}
             autoComplete="off"
           />
         )}
@@ -100,10 +100,10 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
       </datalist>
 
       <div className={styles.filterActions}>
-        <Button type="submit">{t('admin.audit.filters.apply', 'Apply filters')}</Button>
+        <Button type="submit">{t('adminAudit.filters.apply', 'Apply filters')}</Button>
         {canClear && (
           <Button type="button" variant="secondary" onClick={onClear}>
-            {t('admin.audit.filters.clear', 'Clear')}
+            {t('adminAudit.filters.clear', 'Clear')}
           </Button>
         )}
       </div>

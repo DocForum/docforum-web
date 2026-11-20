@@ -290,7 +290,6 @@ export function createApiClient(transport: ApiTransport) {
     },
 
     queue: {
-      // The server owns the "today" boundary; no date is derived here.
       listTodayAppointments(options: CallOptions = {}): Promise<Res<'/appointments/doctor/today', 'get'>> {
         return transport.request('/appointments/doctor/today', options);
       },

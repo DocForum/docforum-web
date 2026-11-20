@@ -4,6 +4,8 @@ import type {
   OrderItemFulfillmentStatus,
   PartialFulfillmentStatus,
 } from '../../types/models';
+import type { Translator } from '../../i18n/useT';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 type FulfillmentQuantity = Pick<
   FulfillmentQueueItem,
@@ -62,3 +64,7 @@ export const ITEM_STATUS_LABELS: Record<OrderItemFulfillmentStatus, string> = {
   dispensed_elsewhere: 'Dispensed elsewhere',
   rejected: 'Rejected',
 };
+
+export function itemStatusLabel(status: OrderItemFulfillmentStatus, t: Translator = englishTranslator): string {
+  return t(`orders.itemStatus.${status}`, ITEM_STATUS_LABELS[status] ?? status);
+}

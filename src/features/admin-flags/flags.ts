@@ -1,7 +1,7 @@
 import { formatDateTime } from '../../i18n/time-zone';
-import { identityTranslate } from '../../i18n/useT';
-import type { Translate } from '../../i18n/useT';
+import type { Translator } from '../../i18n/useT';
 import type { AuditEvent, FeatureFlag, FeatureFlagKind, Role } from '../../types/models';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 // Audit events for flags are assumed to use the Prisma model name, like every
 // other entity in docforum-core's audit trail (docforum-core#132).
@@ -14,28 +14,9 @@ export const ROLES: { value: Role; label: string; plural: string }[] = [
   { value: 'admin', label: 'Admin', plural: 'admins' },
 ];
 
-// API identifiers map to message ids; raw values are never rendered.
-export const ROLE_MESSAGE_IDS: Record<Role, string> = {
-  patient: 'admin.flags.role.patient',
-  doctor: 'admin.flags.role.doctor',
-  facility: 'admin.flags.role.facility',
-  admin: 'admin.flags.role.admin',
-};
-
-export function roleLabel(role: Role, plural: boolean, t: Translate = identityTranslate): string {
-  const id = plural ? `${ROLE_MESSAGE_IDS[role]}.plural` : ROLE_MESSAGE_IDS[role];
-  const entry = ROLES.find((candidate) => candidate.value === role);
-  return t(id, plural ? (entry?.plural ?? role) : (entry?.label ?? role));
-}
-
 export const KIND_LABELS: Record<FeatureFlagKind, string> = {
   boolean: 'On/off',
   percentage: 'Percentage rollout',
-};
-
-export const KIND_MESSAGE_IDS: Record<FeatureFlagKind, string> = {
-  boolean: 'admin.flags.kind.boolean',
-  percentage: 'admin.flags.kind.percentage',
 };
 
 /**
@@ -51,12 +32,6 @@ export const STATE_LABELS: Record<FlagState, string> = {
   off: 'Off',
 };
 
-export const STATE_MESSAGE_IDS: Record<FlagState, string> = {
-  on: 'admin.flags.state.on',
-  rollout: 'admin.flags.state.rollout',
-  off: 'admin.flags.state.off',
-};
-
 export function flagState(flag: Pick<FeatureFlag, 'enabled' | 'kind' | 'rolloutPercentage'>): FlagState {
   if (!flag.enabled) return 'off';
   if (flag.kind === 'percentage' && (flag.rolloutPercentage ?? 0) < 100) return 'rollout';
@@ -68,14 +43,21 @@ function joinWords(words: string[], conjunction: string): string {
   return `${words.slice(0, -1).join(', ')} ${conjunction} ${words[words.length - 1]}`;
 }
 
+export function kindLabel(kind: FeatureFlagKind, t: Translator = englishTranslator): string {
+  return t(`adminFlags.kind.${kind}`, KIND_LABELS[kind]);
+}
+
+export function stateLabel(state: FlagState, t: Translator = englishTranslator): string {
+  return t(`adminFlags.state.${state}`, STATE_LABELS[state]);
+}
+
 /** "everyone", or the targeted roles in a sentence ("patients and doctors"). */
-export function describeRoles(roles: Role[], t: Translate = identityTranslate): string {
-  if (roles.length === 0) return t('admin.flags.audience.everyone', 'everyone');
-  const conjunction = t('admin.flags.audience.conjunction', 'and');
-  return joinWords(
-    ROLES.filter((role) => roles.includes(role.value)).map((role) => roleLabel(role.value, true, t)),
-    conjunction,
+export function describeRoles(roles: Role[], t: Translator = englishTranslator): string {
+  if (roles.length === 0) return t('adminFlags.audience.everyone', 'everyone');
+  const labels = ROLES.filter((role) => roles.includes(role.value)).map((role) =>
+    t(`adminFlags.audience.role.${role.value}`, role.plural),
   );
+  return joinWords(labels, t('adminFlags.audience.and', 'and'));
 }
 
 /**
@@ -85,51 +67,38 @@ export function describeRoles(roles: Role[], t: Translate = identityTranslate): 
  */
 export function describeAudience(
   flag: Pick<FeatureFlag, 'enabled' | 'kind' | 'rolloutPercentage' | 'targeting'>,
-  t: Translate = identityTranslate,
+  t: Translator = englishTranslator,
 ): string {
   const allowlisted = flag.targeting.userIds.length;
-  const allowlistedPhrase = t(
-    'admin.flags.audience.allowlisted',
-    '{count, plural, one {1 allowlisted user} other {# allowlisted users}}',
-    { count: allowlisted },
-  );
   if (!flag.enabled) {
     return allowlisted > 0
-      ? t(
-          'admin.flags.audience.offWithAllowlist',
-          'Off for everyone, allowlisted users included.',
-        )
-      : t('admin.flags.audience.off', 'Off for everyone.');
+      ? t('adminFlags.audience.offWithAllowlist', 'Off for everyone, allowlisted users included.')
+      : t('adminFlags.audience.off', 'Off for everyone.');
   }
 
   const roles = describeRoles(flag.targeting.roles, t);
-  const extra =
-    allowlisted > 0
-      ? t('admin.flags.audience.plusAllowlisted', ', plus {allowlisted}', {
-          allowlisted: allowlistedPhrase,
-        })
-      : '';
+  const extra = allowlisted > 0
+    ? t(
+        'adminFlags.audience.plusAllowlist',
+        ', plus {count, plural, one {# allowlisted user} other {# allowlisted users}}',
+        { count: allowlisted },
+      )
+    : '';
 
-  if (flag.kind === 'boolean') {
-    return t('admin.flags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
-  }
+  if (flag.kind === 'boolean') return t('adminFlags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
 
   const percentage = flag.rolloutPercentage ?? 0;
   if (percentage === 0) {
     return allowlisted > 0
-      ? t('admin.flags.audience.onlyAllowlisted', 'On only for {allowlisted}.', {
-          allowlisted: allowlistedPhrase,
-        })
-      : t('admin.flags.audience.zeroPercent', 'Enabled, but at 0% nobody gets it.');
+      ? t(
+          'adminFlags.audience.onAllowlistedOnly',
+          'On only for {count, plural, one {# allowlisted user} other {# allowlisted users}}.',
+          { count: allowlisted },
+        )
+      : t('adminFlags.audience.zeroPercent', 'Enabled, but at 0% nobody gets it.');
   }
-  if (percentage === 100) {
-    return t('admin.flags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
-  }
-  return t('admin.flags.audience.onForPercentage', 'On for {percentage}% of {roles}{extra}.', {
-    percentage,
-    roles,
-    extra,
-  });
+  if (percentage === 100) return t('adminFlags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
+  return t('adminFlags.audience.percentage', 'On for {percentage}% of {roles}{extra}.', { percentage, roles, extra });
 }
 
 // ---- Filters ---------------------------------------------------------------
@@ -223,6 +192,7 @@ export function shortId(id: string): string {
 
 // ---- Time ------------------------------------------------------------------
 
+const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['year', 365 * 24 * 60 * 60 * 1000],
   ['month', 30 * 24 * 60 * 60 * 1000],
@@ -231,21 +201,13 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60 * 1000],
 ];
 
-export function formatRelative(
-  iso: string,
-  now: number,
-  locale = 'en',
-  t: Translate = identityTranslate,
-): string {
+export function formatRelative(iso: string, now: number): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return t('admin.flags.time.unknown', 'at an unknown time');
+  if (Number.isNaN(at)) return 'at an unknown time';
   const delta = at - now;
-  if (Math.abs(delta) < 60_000) return t('admin.flags.time.justNow', 'just now');
+  if (Math.abs(delta) < 60_000) return 'just now';
   const [unit, size] = UNITS.find(([, length]) => Math.abs(delta) >= length) ?? UNITS[UNITS.length - 1];
-  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(
-    Math.trunc(delta / size),
-    unit,
-  );
+  return relative.format(Math.trunc(delta / size), unit);
 }
 
 export function formatTimestamp(iso: string, timeZone: string): string {

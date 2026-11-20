@@ -1,8 +1,5 @@
 // Doctor queue endpoints: today's appointments, live queue, start/complete
 // visits, running delay with manual override.
-//
-// Methods and paths match docforum-core (issue #236): visits transition with
-// PATCH, and "today" is a server-scoped path — no date is computed here.
 import { http } from 'msw';
 import { db } from '../db';
 import { conflict, notFound, paramId, respond } from '../helpers';
@@ -38,14 +35,12 @@ export const queueHandlers = [
   http.get('*/doctor/queue/today', respond('list', () => deriveQueue(db.appointments))),
 
   http.patch(
-    '*/appointments/:id/start',
+    '*/appointments/:appointmentId/start',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'completed') return conflict('this visit is already completed');
-      if (apt.status === 'in_progress') return apt; // idempotent, per the core contract
-      if (apt.status === 'scheduled' || apt.checkInAt === null) {
-        return conflict('this visit is not checked in');
+      if (apt.status !== 'checked_in' || !apt.checkInAt) {
+        return conflict('appointment must be scheduled and checked in before the visit can start');
       }
       apt.status = 'in_progress';
       apt.startedAt = new Date().toISOString();
@@ -54,13 +49,13 @@ export const queueHandlers = [
   ),
 
   http.patch(
-    '*/appointments/:id/complete',
+    '*/appointments/:appointmentId/complete',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'completed') return apt; // idempotent, per the core contract
-      if (apt.status === 'scheduled') return conflict('this visit is not scheduled for today');
-      if (apt.status === 'checked_in') return conflict('this visit is not in progress');
+      if (apt.status !== 'in_progress') {
+        return conflict('appointment must be in progress before the visit can complete');
+      }
       apt.status = 'completed';
       apt.completedAt = new Date().toISOString();
       return apt;

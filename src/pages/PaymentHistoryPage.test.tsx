@@ -141,4 +141,14 @@ describe('PaymentHistoryPage', () => {
     }
     expect(document.body.textContent).not.toMatch(/\bescrowed\b/);
   });
+
+  it('renders payment history in Spanish', async () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory).mockResolvedValue(page([entry()], null));
+
+    render(<PaymentHistoryPage />, { locale: 'es' });
+
+    expect(await screen.findByRole('heading', { name: 'Tus pagos' })).toBeInTheDocument();
+    expect(await screen.findByText('En depósito en garantía')).toBeInTheDocument();
+    expect(screen.getByText('Receta')).toBeInTheDocument();
+  });
 });

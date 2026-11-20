@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { useT } from '../../../i18n/useT';
 import { EMPTY_FILTERS, parseAuditSearch, toAuditSearch } from '../filters';
 import type { AuditFilters, AuditTab, FilterDraft } from '../filters';
+import { useT } from '../../../i18n/useT';
 
 // Keyset cursors only point forward (towards older entries), so going back
 // a page needs the cursors we came through. They ride along in the history
@@ -24,10 +24,7 @@ export function useAuditFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
-  const { filters, issues } = useMemo(
-    () => parseAuditSearch(searchParams, t),
-    [searchParams, t],
-  );
+  const { filters, issues } = useMemo(() => parseAuditSearch(searchParams, t), [searchParams, t]);
   const trail = readTrail(location.state);
 
   const navigate = useCallback(

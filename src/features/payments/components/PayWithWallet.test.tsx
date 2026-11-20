@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { IntlProvider } from 'react-intl';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { PayWithWallet } from './PayWithWallet';
 import { ApiError } from '../../../services/api-client';
 import type { WalletBridge } from '../wallet';
 import type { PaymentIntent } from '../../../types/models';
+import { renderWithProviders } from '../../../test/render';
 
 vi.mock('../../../services/payments-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../services/payments-service')>();
@@ -57,13 +57,7 @@ function renderFlow(wallet: WalletBridge | null = fakeWallet()) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
-    <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
-    <QueryClientProvider client={queryClient}>
-      <PayWithWallet orderId={ORDER_ID} intent={intent} wallet={wallet} />
-    </QueryClientProvider>
-    </IntlProvider>,
-  );
+  return renderWithProviders(<PayWithWallet orderId={ORDER_ID} intent={intent} wallet={wallet} />, { queryClient });
 }
 
 beforeEach(() => {

@@ -3,7 +3,6 @@ import { renderWithProviders, screen, waitFor } from '../../../test/render';
 import { makePrescriptionOrder } from '../../../test/factories';
 import { PatientOrdersList } from './PatientOrdersList';
 import { useMyOrders } from '../hooks/useOrders';
-import es from '../../../i18n/messages/es.json';
 import type { PatientOrder } from '../../../types/models';
 
 vi.mock('../hooks/useOrders');
@@ -33,7 +32,6 @@ describe('PatientOrdersList in Spanish (#250)', () => {
 
     renderWithProviders(<PatientOrdersList />, {
       locale: 'es',
-      messages: es,
       route: '/patient/orders',
     });
 
@@ -48,7 +46,6 @@ describe('PatientOrdersList in Spanish (#250)', () => {
 
     renderWithProviders(<PatientOrdersList />, {
       locale: 'es',
-      messages: es,
       route: '/patient/orders',
     });
 
@@ -61,7 +58,6 @@ describe('PatientOrdersList in Spanish (#250)', () => {
 
     renderWithProviders(<PatientOrdersList />, {
       locale: 'es',
-      messages: es,
       route: '/patient/orders',
     });
 

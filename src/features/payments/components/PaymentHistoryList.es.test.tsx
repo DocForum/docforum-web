@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { renderWithProviders, screen } from '../../../test/render';
 import { makePaymentIntent } from '../../../test/factories';
 import { PaymentHistoryList } from './PaymentHistoryList';
-import es from '../../../i18n/messages/es.json';
 import type { PaymentHistoryEntry } from '../../../types/models';
 
 const ENTRY: PaymentHistoryEntry = {
@@ -14,11 +13,10 @@ describe('PaymentHistoryList in Spanish (#250)', () => {
   it('renders the status, order type and date labels in Spanish', () => {
     renderWithProviders(<PaymentHistoryList entries={[ENTRY]} />, {
       locale: 'es',
-      messages: es,
       route: '/payments',
     });
 
-    expect(screen.getByText('Retenido en depósito')).toBeInTheDocument();
+    expect(screen.getByText('En depósito en garantía')).toBeInTheDocument();
     expect(screen.getByText(/Receta/)).toBeInTheDocument();
     expect(screen.getByText(/Demo Pharmacy \(fake\)/)).toBeInTheDocument();
   });
@@ -27,7 +25,7 @@ describe('PaymentHistoryList in Spanish (#250)', () => {
     const statuses: { status: PaymentHistoryEntry['status']; label: string }[] = [
       { status: 'created', label: 'Sin financiar' },
       { status: 'awaiting_signature', label: 'Esperando tu firma' },
-      { status: 'escrowed', label: 'Retenido en depósito' },
+      { status: 'escrowed', label: 'En depósito en garantía' },
       { status: 'released', label: 'Liberado' },
       { status: 'refunded', label: 'Reembolsado' },
       { status: 'failed', label: 'Fallido' },
@@ -36,7 +34,7 @@ describe('PaymentHistoryList in Spanish (#250)', () => {
     for (const { status, label } of statuses) {
       const { unmount } = renderWithProviders(
         <PaymentHistoryList entries={[{ ...ENTRY, status }]} />,
-        { locale: 'es', messages: es, route: '/payments' },
+        { locale: 'es', route: '/payments' },
       );
       expect(screen.getByText(label)).toBeInTheDocument();
       // The raw API status must never be rendered.
@@ -48,11 +46,10 @@ describe('PaymentHistoryList in Spanish (#250)', () => {
   it('shows the Spanish empty state', () => {
     renderWithProviders(<PaymentHistoryList entries={[]} />, {
       locale: 'es',
-      messages: es,
       route: '/payments',
     });
 
-    expect(screen.getByText(/Todavía no has pagado nada a través de DocForum/)).toBeInTheDocument();
+    expect(screen.getByText(/Aún no has pagado nada a través de DocForum/)).toBeInTheDocument();
     expect(screen.queryByText(/You have not paid for anything/)).not.toBeInTheDocument();
   });
 });

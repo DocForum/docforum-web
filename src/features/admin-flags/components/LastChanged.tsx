@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth-store';
 import { HISTORY_LIMIT } from '../hooks/useFeatureFlags';
-import { auditTrailLink, formatRelative, formatTimestamp, shortId } from '../flags';
+import { auditTrailLink, formatTimestamp, shortId } from '../flags';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
-import { useT, useLocale } from '../../../i18n/useT';
 import type { AuditEvent, FeatureFlag } from '../../../types/models';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT } from '../../../i18n/useT';
 import styles from './FeatureFlags.module.css';
 
 /** What the audit trail says about a flag's most recent change. */
@@ -24,12 +25,11 @@ interface LastChangedProps {
 }
 
 function When({ iso, now }: { iso: string; now: number }) {
-  const t = useT();
-  const locale = useLocale();
   const { timeZone } = useTimeZone();
+  const { relativeTime } = useFormatters();
   return (
     <time dateTime={iso} title={formatTimestamp(iso, timeZone)}>
-      {formatRelative(iso, now, locale, t)}
+      {relativeTime(iso, new Date(now))}
     </time>
   );
 }
@@ -41,25 +41,18 @@ export function LastChanged({ flag, change, now }: LastChangedProps) {
   let text;
   switch (change.status) {
     case 'loading':
-      text = t('admin.flags.lastChanged.loading', 'Loading last change…');
+      text = t('adminFlags.lastChange.loading', 'Loading last change…');
       break;
     case 'unavailable':
-      text = t(
-        'admin.flags.lastChanged.unavailable',
-        'Last change unavailable — the audit trail couldn’t be loaded.',
-      );
+      text = t('adminFlags.lastChange.unavailable', 'Last change unavailable — the audit trail could not be loaded.');
       break;
     case 'older':
-      text = t(
-        'admin.flags.lastChanged.older',
-        'Last changed before the latest {limit} flag changes.',
-        { limit: HISTORY_LIMIT },
-      );
+      text = t('adminFlags.lastChange.older', 'Last changed before the latest {count} flag changes.', { count: HISTORY_LIMIT });
       break;
     case 'none':
       text = (
         <>
-          {t('admin.flags.lastChanged.none', 'No changes recorded since it was created')}{' '}
+          {t('adminFlags.lastChange.none', 'No changes recorded since it was created')}{' '}
           <When iso={flag.createdAt} now={now} />.
         </>
       );
@@ -67,13 +60,13 @@ export function LastChanged({ flag, change, now }: LastChangedProps) {
     case 'found': {
       const { actorUserId, actorRole, createdAt } = change.event;
       let actor;
-      if (!actorUserId) actor = t('admin.flags.lastChanged.bySystem', 'the system');
-      else if (actorUserId === currentUserId) actor = t('admin.flags.lastChanged.byYou', 'you');
-      else actor = <span title={actorUserId}>{`${actorRole ?? 'user'} ${shortId(actorUserId)}`}</span>;
+      if (!actorUserId) actor = t('adminFlags.lastChange.system', 'the system');
+      else if (actorUserId === currentUserId) actor = t('adminFlags.lastChange.you', 'you');
+      else actor = <span title={actorUserId}>{`${actorRole ? t(`roles.${actorRole}`, actorRole) : t('adminFlags.lastChange.user', 'user')} ${shortId(actorUserId)}`}</span>;
       text = (
         <>
-          {t('admin.flags.lastChanged.changed', 'Changed')} <When iso={createdAt} now={now} />{' '}
-          {t('admin.flags.lastChanged.by', 'by')} {actor}
+          {t('adminFlags.lastChange.changed', 'Changed')}{' '}
+          <When iso={createdAt} now={now} /> {t('adminFlags.lastChange.by', 'by')} {actor}
         </>
       );
       break;
@@ -85,7 +78,7 @@ export function LastChanged({ flag, change, now }: LastChangedProps) {
       <span>{text}</span>{' '}
       {change.status !== 'loading' && change.status !== 'unavailable' && (
         <Link to={auditTrailLink(flag.id)} className={styles.historyLink}>
-          {t('admin.flags.lastChanged.history', 'History')}
+          {t('adminFlags.lastChange.history', 'History')}
         </Link>
       )}
     </p>

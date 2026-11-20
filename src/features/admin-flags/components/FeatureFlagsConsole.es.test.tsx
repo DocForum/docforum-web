@@ -3,7 +3,6 @@ import { renderWithProviders, screen } from '../../../test/render';
 import { makeFeatureFlag } from '../../../test/factories';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { useFeatureFlags, useFlagHistory, useSavingFlagKeys, useUpdateFeatureFlag } from '../hooks/useFeatureFlags';
-import es from '../../../i18n/messages/es.json';
 
 vi.mock('../hooks/useFeatureFlags');
 
@@ -44,19 +43,17 @@ describe('FeatureFlagsConsole in Spanish (#248)', () => {
   it('renders the subtitle, search and state labels in Spanish', () => {
     renderWithProviders(<FeatureFlagsConsole />, {
       locale: 'es',
-      messages: es,
       route: '/admin/flags',
     });
 
-    expect(screen.getByRole('heading', { name: 'Feature flags' })).toBeInTheDocument();
-    expect(screen.getByText(/Despliegues graduales servidos por docforum-core/)).toBeInTheDocument();
-    expect(screen.getAllByText('Desplegándose').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Indicadores de función' })).toBeInTheDocument();
+    expect(screen.getByText(/Despliegues graduales gestionados por docforum-core/)).toBeInTheDocument();
+    expect(screen.getAllByText('En despliegue').length).toBeGreaterThan(0);
   });
 
   it('keeps flag keys and descriptions in English while translating the chrome', () => {
     renderWithProviders(<FeatureFlagsConsole />, {
       locale: 'es',
-      messages: es,
       route: '/admin/flags',
     });
 

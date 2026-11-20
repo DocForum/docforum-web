@@ -3,7 +3,6 @@ import { renderWithProviders, screen } from '../../../test/render';
 import { makeDisputeSummary } from '../../../test/factories';
 import { DisputesQueue } from './DisputesQueue';
 import { useOpenDisputes } from '../hooks/useDisputes';
-import es from '../../../i18n/messages/es.json';
 
 vi.mock('../hooks/useDisputes');
 
@@ -31,12 +30,11 @@ describe('DisputesQueue in Spanish (#248)', () => {
 
     renderWithProviders(<DisputesQueue />, {
       locale: 'es',
-      messages: es,
       route: '/admin/disputes',
     });
 
     expect(screen.getByRole('heading', { name: 'Disputas de cumplimiento' })).toBeInTheDocument();
-    expect(screen.getByText(/permanece en depósito hasta que un administrador lo resuelva/)).toBeInTheDocument();
+    expect(screen.getByText(/permanece en depósito en garantía hasta que un administrador resuelva el caso/)).toBeInTheDocument();
     expect(screen.getByText(/1 disputa abierta/)).toBeInTheDocument();
   });
 
@@ -45,7 +43,6 @@ describe('DisputesQueue in Spanish (#248)', () => {
 
     renderWithProviders(<DisputesQueue />, {
       locale: 'es',
-      messages: es,
       route: '/admin/disputes',
     });
 

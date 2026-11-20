@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { IntlProvider } from 'react-intl';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { screen } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { OrderWalletPayPanel } from './OrderWalletPayPanel';
 import { ApiError } from '../../../services/api-client';
 import type { PatientOrder, PaymentIntent } from '../../../types/models';
+import { renderWithProviders } from '../../../test/render';
 
 vi.mock('../../../services/payments-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../services/payments-service')>();
@@ -62,13 +62,7 @@ function renderPanel() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
-    <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
-    <QueryClientProvider client={queryClient}>
-      <OrderWalletPayPanel order={order} />
-    </QueryClientProvider>
-    </IntlProvider>,
-  );
+  return renderWithProviders(<OrderWalletPayPanel order={order} />, { queryClient });
 }
 
 beforeEach(() => {

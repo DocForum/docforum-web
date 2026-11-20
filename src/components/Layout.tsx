@@ -7,7 +7,7 @@ import {
   Outlet,
 } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
-import { useT } from '../i18n/useT';
+import { useT, type Translator } from '../i18n/useT';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLogout } from '../features/auth/hooks/useLogout';
@@ -35,9 +35,32 @@ import { patientNavItems } from '../navigation/patient';
 type Role = 'patient' | 'doctor' | 'facility' | 'admin';
 
 /** Derive a human-readable page title from the current route path. */
-function routeTitle(pathname: string): string {
+function routeTitle(pathname: string, t: Translator): string {
   const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Home';
+  if (segments.length === 0) return t('common.home', 'Home');
+
+  if (segments[0] === 'patient' && segments[1] === 'orders') {
+    const section = segments.length > 2
+      ? t('orders.detail.routeTitle', 'Order')
+      : t('orders.list.title', 'My orders');
+    return `${t('roles.patient', 'Patient')} · ${section}`;
+  }
+  if (segments[0] === 'payments') {
+    return segments.length > 1
+      ? t('payments.detail.title', 'Payment')
+      : t('payments.history.eyebrow', 'Payments');
+  }
+  if (segments[0] === 'admin') {
+    const role = t('roles.admin', 'Admin');
+    if (segments[1] === 'audit') return `${role} · ${t('adminAudit.title', 'Audit trail')}`;
+    if (segments[1] === 'disputes') {
+      const title = segments.length > 2
+        ? t('adminDisputes.detail.routeTitle', 'Dispute')
+        : t('adminDisputes.queue.title', 'Fulfilment disputes');
+      return `${role} · ${title}`;
+    }
+    if (segments[1] === 'flags') return `${role} · ${t('adminFlags.title', 'Feature flags')}`;
+  }
 
   const last = segments[segments.length - 1];
   const label = last
@@ -328,7 +351,7 @@ export function Layout() {
       >
         {/* Public information pages (#120) render their own <header>/<h1>;
             the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
+        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname, t)} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>

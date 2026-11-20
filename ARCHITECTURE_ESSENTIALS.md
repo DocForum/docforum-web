@@ -472,25 +472,25 @@ store). Every patient API call and React Query key includes the selected
 - `GET /orders/:orderId/qualified-facilities` → `QualifiedOrderFacility[]` = `{id, userId, name, type, isOpen, capabilities, location?}`. The backend's capability matching (docforum-core#14) is the only source of this list; the UI never infers eligibility from facility type.
 - `POST /orders/:orderId/fulfillment-facility` (body: `{facilityId, expectedVersion}`) → the updated `PatientOrder`. `expectedVersion` lets docforum-core answer `409` if the order changed while the patient was choosing; the UI then asks the patient to reload rather than silently overwriting a correction.
 
-### Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
+### Phase W3 — Doctor core flow (confirmed appointment APIs; other contracts assumed)
 
-These shapes back issues #6, #7 and #45–#49. docforum-core issues #61 (message
-thread), #129 (in-person check-in / live queue position) and the
-today's-appointments/consultation contracts are not landed yet, so the
-endpoints below are the smallest reasonable assumption and must be reconciled
-once the real API exists.
+These shapes back issues #6, #7 and #45–#49. The appointment list and visit
+start/complete endpoints below match docforum-core's API. Intake, queue
+position, check-in, running-delay and the consultation/message contracts
+remain assumptions pending docforum-core issues #129 and #61 and the
+consultation contracts.
 
 #### Today's appointments & live queue (issues #6 and #49)
-- `GET /doctor/appointments/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
-- `GET /appointments/:id/intake` → `IntakeForm | null` — the structured intake the patient submitted for that appointment. `404` means no intake was submitted; the UI shows that as an empty state, not an error. The endpoint is doctor-scoped: it must only return intake for appointments assigned to the signed-in doctor.
+- `GET /appointments/doctor/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
+- `GET /appointments/:id/intake` → `IntakeForm | null` — assumed endpoint for the structured intake the patient submitted for that appointment. `404` means no intake was submitted; the UI shows that as an empty state, not an error. The endpoint is doctor-scoped: it must only return intake for appointments assigned to the signed-in doctor.
 - `IntakeForm` shape: `{id, appointmentId, patientProfileId, submittedAt, chiefComplaint, symptomDuration?, severity?: number|null (0–10), currentMedications: string[], allergies: string[], notes?}`.
-- `GET /doctor/queue/today` → `QueueEntry[]` — checked-in patients in queue order (computed server-side from `checkInAt`).
-- `POST /appointments/:id/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`). Idempotent if already started.
-- `POST /appointments/:id/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`).
+- `GET /doctor/queue/today` → `QueueEntry[]` — assumed endpoint for checked-in patients in queue order (computed server-side from `checkInAt`).
+- `PATCH /appointments/:appointmentId/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`); a `409` means it is no longer scheduled or checked in.
+- `PATCH /appointments/:appointmentId/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`); a `409` means it is no longer in progress.
 - `GET /doctor/queue/running-delay` → `RunningDelay` — computed delay from the current in-progress visit vs its scheduled end, plus any manual override.
 - `PATCH /doctor/queue/running-delay` (body: `{manualOverrideMin?: number | null}`) → `RunningDelay` — set/clear a manual "running late by X min" override.
 
-Undo behaviour: start/complete are applied optimistically and can be reverted within a short undo window (a few seconds) by re-calling the inverse action or clearing the optimistic timestamp; the UI surfaces an undo toast.
+Undo behaviour: start/complete are applied optimistically and the write is deferred for exactly four seconds. Undo within that window cancels the write and restores the previous status; after it expires, undo does nothing. A `409` rolls back the optimistic status and invalidates the appointment list and queue.
 
 #### Doctor messages inbox (issue #47)
 - `GET /doctor/messages/threads?filter=&cursor=&limit=` → `{threads: MessageThread[], nextCursor?: string | null}` — threads with unread counts, last-message preview (PHI — kept short), waiting time, oldest unanswered first by default.

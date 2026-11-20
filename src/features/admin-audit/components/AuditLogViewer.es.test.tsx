@@ -3,7 +3,6 @@ import { renderWithProviders, screen } from '../../../test/render';
 import { makeAuditEvent } from '../../../test/factories';
 import { AuditLogViewer } from './AuditLogViewer';
 import { useAccessLogs, useAuditEvents } from '../hooks/useAuditLog';
-import es from '../../../i18n/messages/es.json';
 
 vi.mock('../hooks/useAuditLog');
 
@@ -34,7 +33,6 @@ describe('AuditLogViewer in Spanish (#248)', () => {
   it('renders the console chrome, tabs and subtitle from the Spanish catalogue', () => {
     renderWithProviders(<AuditLogViewer />, {
       locale: 'es',
-      messages: es,
       route: '/admin/audit',
     });
 
@@ -42,14 +40,13 @@ describe('AuditLogViewer in Spanish (#248)', () => {
     expect(screen.getByRole('tab', { name: 'Cambios de estado' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Acceso a registros' })).toBeInTheDocument();
     expect(
-      screen.getByText(/Vista de solo lectura de los registros de auditoría inmutables de docforum-core/),
+      screen.getByText(/Vista de solo lectura de los registros de auditoría de solo anexado de docforum-core/),
     ).toBeInTheDocument();
   });
 
   it('translates filter labels while keeping API action tokens untranslated', () => {
     renderWithProviders(<AuditLogViewer />, {
       locale: 'es',
-      messages: es,
       route: '/admin/audit',
     });
 

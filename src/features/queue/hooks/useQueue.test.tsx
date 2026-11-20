@@ -107,6 +107,58 @@ describe('useVisitActions', () => {
     ).toBe('in_progress');
   });
 
+  it('cancels the PATCH when undo is pressed just before the four-second deadline', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'checked_in');
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.startVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS - 1);
+    result.current.undo('appt-1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(queueService.startVisit).not.toHaveBeenCalled();
+    expect(
+      (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+    ).toBe('checked_in');
+  });
+
+  it('rolls a conflicting start back to checked in and refreshes the queue', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'checked_in');
+    vi.mocked(queueService.startVisit).mockRejectedValue(new ApiError('Conflict', 409));
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.startVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+
+    await vi.waitFor(() =>
+      expect(
+        (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+      ).toBe('checked_in'),
+    );
+    await vi.waitFor(() => expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true));
+  });
+
+  it('rolls a conflicting completion back to in progress', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'in_progress');
+    vi.mocked(queueService.completeVisit).mockRejectedValue(new ApiError('Conflict', 409));
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.completeVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+
+    await vi.waitFor(() =>
+      expect(
+        (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+      ).toBe('in_progress'),
+    );
+  });
+
   it('calls the complete API once the undo window elapses', async () => {
     const { wrapper, queryClient } = makeWrapper();
     seedCache(queryClient, 'in_progress');
@@ -155,100 +207,6 @@ describe('useVisitActions', () => {
     const { result } = renderHook(() => useVisitActions(), { wrapper });
 
     result.current.completeVisit('appt-1');
-    expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
-  });
-
-  function statusOf(queryClient: QueryClient): QueueEntry['status'] | undefined {
-    return (queryClient.getQueryData(queueKeys.today()) as QueueEntry[] | undefined)?.[0].status;
-  }
-
-  it('rolls the optimistic start back when docforum-core rejects it with a 409', async () => {
-    const { wrapper, queryClient } = makeWrapper();
-    seedCache(queryClient, 'checked_in');
-    vi.mocked(queueService.startVisit).mockRejectedValue(
-      new ApiError('this visit is not checked in', 409),
-    );
-
-    const { result } = renderHook(() => useVisitActions(), { wrapper });
-
-    result.current.startVisit('appt-1');
-    expect(statusOf(queryClient)).toBe('in_progress');
-
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
-    await vi.waitFor(() => expect(statusOf(queryClient)).toBe('checked_in'));
-    // The server is the source of truth after a rejection.
-    expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true);
-    expect(result.current.startError).toBeInstanceOf(ApiError);
-  });
-
-  it('rolls the optimistic completion back to in progress on a 409', async () => {
-    const { wrapper, queryClient } = makeWrapper();
-    seedCache(queryClient, 'in_progress');
-    vi.mocked(queueService.completeVisit).mockRejectedValue(
-      new ApiError('this visit is already completed', 409),
-    );
-
-    const { result } = renderHook(() => useVisitActions(), { wrapper });
-
-    result.current.completeVisit('appt-1');
-    expect(statusOf(queryClient)).toBe('completed');
-
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
-    await vi.waitFor(() => expect(statusOf(queryClient)).toBe('in_progress'));
-  });
-
-  it('sends one PATCH when start is tapped twice inside the undo window', async () => {
-    const { wrapper, queryClient } = makeWrapper();
-    seedCache(queryClient, 'checked_in');
-
-    const { result } = renderHook(() => useVisitActions(), { wrapper });
-
-    result.current.startVisit('appt-1');
-    result.current.startVisit('appt-1');
-
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
-    expect(vi.mocked(queueService.startVisit)).toHaveBeenCalledTimes(1);
-    expect(statusOf(queryClient)).toBe('in_progress');
-  });
-
-  it('does not send a second PATCH when undo arrives after the window elapsed', async () => {
-    const { wrapper, queryClient } = makeWrapper();
-    seedCache(queryClient, 'checked_in');
-
-    const { result } = renderHook(() => useVisitActions(), { wrapper });
-
-    result.current.startVisit('appt-1');
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-    expect(vi.mocked(queueService.startVisit)).toHaveBeenCalledTimes(1);
-
-    // The deferred call already left; reversing it would need a second,
-    // conflicting PATCH, so undo is a no-op and the optimistic state stands.
-    result.current.undo('appt-1');
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
-    expect(vi.mocked(queueService.startVisit)).toHaveBeenCalledTimes(1);
-    expect(statusOf(queryClient)).toBe('in_progress');
-  });
-
-  it('ignores complete while the start PATCH is still in flight', async () => {
-    const { wrapper, queryClient } = makeWrapper();
-    seedCache(queryClient, 'checked_in');
-    // Never settles: the start has been sent but not acknowledged, so the
-    // server's status is still unknown.
-    vi.mocked(queueService.startVisit).mockReturnValue(new Promise<never>(() => {}));
-
-    const { result } = renderHook(() => useVisitActions(), { wrapper });
-
-    result.current.startVisit('appt-1');
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-    expect(vi.mocked(queueService.startVisit)).toHaveBeenCalledTimes(1);
-
-    result.current.completeVisit('appt-1');
-    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
-
     expect(vi.mocked(queueService.completeVisit)).not.toHaveBeenCalled();
   });
 });

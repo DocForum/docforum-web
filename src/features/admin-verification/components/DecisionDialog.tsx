@@ -38,15 +38,6 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
   const reasonId = useId();
   const reasonErrorId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
-  // Captured during render, before `autoFocus` moves focus into the dialog:
-  // the element that opened it is what focus must return to on close.
-  const [opener] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' &&
-    document.activeElement instanceof HTMLElement &&
-    document.activeElement !== document.body
-      ? document.activeElement
-      : null,
-  );
   const onCloseRef = useRef(onClose);
   const pendingRef = useRef(false);
 
@@ -64,6 +55,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
   pendingRef.current = mutation.isPending;
 
   useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlayRef.current?.querySelector<HTMLButtonElement>('[data-initial-focus]')?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
@@ -93,7 +85,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      opener?.focus();
+      previous?.focus();
     };
     // Focus is set once on open; the dialog owns focus until it closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,7 +183,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
           </div>
 
           <div className={styles.dialogActions}>
-            <Button type="button" variant="secondary" onClick={close} disabled={mutation.isPending} data-initial-focus autoFocus>
+            <Button type="button" variant="secondary" onClick={close} disabled={mutation.isPending} data-initial-focus>
               Cancel
             </Button>
             <Button type="submit" variant={status === 'verified' ? 'primary' : 'danger'} disabled={!canSubmit} loading={mutation.isPending}>

@@ -1,33 +1,33 @@
 import type { PayoutAsset } from '../../types/models';
 import { formatStroops } from '../../services/payments-service';
-import { identityTranslate } from '../../i18n/useT';
-import type { Translate } from '../../i18n/useT';
+import type { Translator } from '../../i18n/useT';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** Coarse age for queue badges: "6 d 4 h", "3 h 12 m", "8 m". */
-export function ageLabel(
-  iso: string,
-  now: number = Date.now(),
-  t: Translate = identityTranslate,
-): string {
+export function ageLabel(iso: string, now: number = Date.now(), t: Translator = englishTranslator): string {
   const opened = Date.parse(iso);
-  if (Number.isNaN(opened)) return t('admin.disputes.ageUnknown', 'unknown age');
+  if (Number.isNaN(opened)) return t('adminDisputes.age.unknown', 'unknown age');
   const elapsed = Math.max(0, now - opened);
 
   if (elapsed >= DAY) {
     const days = Math.floor(elapsed / DAY);
     const hours = Math.floor((elapsed % DAY) / HOUR);
-    return hours > 0 ? `${days} d ${hours} h` : `${days} d`;
+    return hours > 0
+      ? t('adminDisputes.age.daysHours', '{days} d {hours} h', { days, hours })
+      : t('adminDisputes.age.days', '{days} d', { days });
   }
   if (elapsed >= HOUR) {
     const hours = Math.floor(elapsed / HOUR);
     const minutes = Math.floor((elapsed % HOUR) / MINUTE);
-    return minutes > 0 ? `${hours} h ${minutes} m` : `${hours} h`;
+    return minutes > 0
+      ? t('adminDisputes.age.hoursMinutes', '{hours} h {minutes} min', { hours, minutes })
+      : t('adminDisputes.age.hours', '{hours} h', { hours });
   }
-  return `${Math.max(0, Math.floor(elapsed / MINUTE))} m`;
+  return t('adminDisputes.age.minutes', '{minutes} min', { minutes: Math.max(0, Math.floor(elapsed / MINUTE)) });
 }
 
 /** Exact timestamp for reports and timelines; the age badge carries urgency. */
@@ -44,45 +44,29 @@ export function formatDisputeAmount(stroops: string, asset: PayoutAsset): string
   return formatStroops(stroops, asset);
 }
 
-export function formatBytes(bytes: number, t: Translate = identityTranslate): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return t('admin.disputes.sizeUnknown', 'unknown size');
+export function formatBytes(bytes: number, t: Translator = englishTranslator): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return t('adminDisputes.attachment.unknownSize', 'unknown size');
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** "in 4 min" / "expired" for a freshly minted attachment link. */
-export function expiryLabel(
-  iso: string,
-  now: number = Date.now(),
-  t: Translate = identityTranslate,
-): string {
+export function expiryLabel(iso: string, now: number = Date.now(), t: Translator = englishTranslator): string {
   const expires = Date.parse(iso);
-  if (Number.isNaN(expires)) return t('admin.disputes.expiryUnknown', 'expiry unknown');
+  if (Number.isNaN(expires)) return t('adminDisputes.attachment.expiryUnknown', 'expiry unknown');
   const remaining = expires - now;
-  if (remaining <= 0) return t('admin.disputes.expired', 'expired');
-  if (remaining < MINUTE) return t('admin.disputes.expiresSoon', 'expires in under a minute');
-  return t('admin.disputes.expiresIn', 'expires in {minutes} min', {
-    minutes: Math.floor(remaining / MINUTE),
-  });
+  if (remaining <= 0) return t('adminDisputes.attachment.expired', 'expired');
+  if (remaining < MINUTE) return t('adminDisputes.attachment.expiresUnderMinute', 'expires in under a minute');
+  return t('adminDisputes.attachment.expiresIn', 'expires in {minutes} min', { minutes: Math.floor(remaining / MINUTE) });
 }
 
-const ATTACHMENT_KIND_LABELS: Record<string, string> = {
-  dispensing_record: 'Dispensing record',
-  specimen_id: 'Specimen ID',
-  photo: 'Photo',
-  other: 'Other',
-};
-
-const ATTACHMENT_KIND_IDS: Record<string, string> = {
-  dispensing_record: 'admin.disputes.attachment.dispensingRecord',
-  specimen_id: 'admin.disputes.attachment.specimenId',
-  photo: 'admin.disputes.attachment.photo',
-  other: 'admin.disputes.attachment.other',
-};
-
-export function attachmentKindLabel(kind: string, t: Translate = identityTranslate): string {
-  const id = ATTACHMENT_KIND_IDS[kind];
-  if (!id) return kind;
-  return t(`admin.disputes.attachment.${kind}`, ATTACHMENT_KIND_LABELS[kind]);
+export function attachmentKindLabel(kind: string, t: Translator = englishTranslator): string {
+  const labels: Record<string, string> = {
+    dispensing_record: t('adminDisputes.attachment.kind.dispensingRecord', 'Dispensing record'),
+    specimen_id: t('adminDisputes.attachment.kind.specimenId', 'Specimen ID'),
+    photo: t('adminDisputes.attachment.kind.photo', 'Photo'),
+    other: t('adminDisputes.attachment.kind.other', 'Other'),
+  };
+  return labels[kind] ?? kind;
 }

@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useT } from '../../../i18n/useT';
 import { useAccessLogs } from '../hooks/useAuditLog';
 import { csvFilename, downloadCsv, toCsv } from '../csv';
 import { toAuditQuery } from '../filters';
@@ -7,9 +6,9 @@ import { ActorCell, AuditResults, EntityCell, PAGE_SIZE, Timestamp } from './Aud
 import type { CsvColumn } from '../csv';
 import type { AuditPanelProps } from './AuditResults';
 import type { AccessLog } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './AuditLogViewer.module.css';
 
-// Stable English headers — a machine-facing export contract, not UI copy.
 export const ACCESS_LOG_CSV_COLUMNS: CsvColumn<AccessLog>[] = [
   { header: 'createdAt', value: (entry) => entry.createdAt },
   { header: 'entityType', value: (entry) => entry.entityType },
@@ -43,18 +42,15 @@ export function AccessLogsPanel({ filters, pageNumber, onOlder, onNewer, onNewes
       onNewer={onNewer}
       onNewest={onNewest}
       onExport={() => downloadCsv(csvFilename('docforum-access-logs'), toCsv(ACCESS_LOG_CSV_COLUMNS, rows))}
-      emptyMessage={t('admin.audit.access.empty', 'No record views match these filters.')}
+      emptyMessage={t('adminAudit.access.noMatches', 'No record views match these filters.')}
     >
-      <table
-        className={styles.table}
-        aria-label={t('admin.audit.access.tableAria', 'PHI access logs')}
-      >
+      <table className={styles.table} aria-label={t('adminAudit.access.tableLabel', 'PHI access logs')}>
         <thead>
           <tr>
-            <th scope="col">{t('admin.audit.col.when', 'When')}</th>
-            <th scope="col">{t('admin.audit.access.recordViewed', 'Record viewed')}</th>
-            <th scope="col">{t('admin.audit.access.route', 'Route')}</th>
-            <th scope="col">{t('admin.audit.access.viewedBy', 'Viewed by')}</th>
+            <th scope="col">{t('adminAudit.column.when', 'When')}</th>
+            <th scope="col">{t('adminAudit.access.recordViewed', 'Record viewed')}</th>
+            <th scope="col">{t('adminAudit.access.route', 'Route')}</th>
+            <th scope="col">{t('adminAudit.access.viewedBy', 'Viewed by')}</th>
           </tr>
         </thead>
         <tbody>

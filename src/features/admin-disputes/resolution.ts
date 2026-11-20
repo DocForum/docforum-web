@@ -1,7 +1,7 @@
 import { formatStroops } from '../../services/payments-service';
-import { identityTranslate } from '../../i18n/useT';
-import type { Translate } from '../../i18n/useT';
 import type { DisputeResolution, FulfillmentDispute } from '../../types/models';
+import type { Translator } from '../../i18n/useT';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 export const NOTES_MIN_LENGTH = 10;
 export const NOTES_MAX_LENGTH = 500;
@@ -10,19 +10,13 @@ export function normaliseNotes(notes: string): string {
   return notes.trim().replace(/\s+/g, ' ');
 }
 
-export function validateNotes(notes: string, t: Translate = identityTranslate): string | null {
+export function validateNotes(notes: string, t: Translator = englishTranslator): string | null {
   const normalised = normaliseNotes(notes);
   if (normalised.length < NOTES_MIN_LENGTH) {
-    return t(
-      'admin.disputes.notesTooShort',
-      'Add at least {min} characters explaining the decision — this is the only record of why.',
-      { min: NOTES_MIN_LENGTH },
-    );
+    return t('adminDisputes.resolution.notesMin', 'Add at least {min} characters explaining the decision — this is the only record of why.', { min: NOTES_MIN_LENGTH });
   }
   if (normalised.length > NOTES_MAX_LENGTH) {
-    return t('admin.disputes.notesTooLong', 'Keep notes under {max} characters.', {
-      max: NOTES_MAX_LENGTH,
-    });
+    return t('adminDisputes.resolution.notesMax', 'Keep notes under {max} characters.', { max: NOTES_MAX_LENGTH });
   }
   return null;
 }
@@ -48,35 +42,22 @@ export interface ResolutionConsequence {
 export function resolutionConsequence(
   dispute: Pick<FulfillmentDispute, 'amountStroops' | 'asset' | 'facility' | 'patientName' | 'payment'>,
   resolution: DisputeResolution,
-  t: Translate = identityTranslate,
+  t: Translator = englishTranslator,
 ): ResolutionConsequence {
   const amountLabel = formatStroops(dispute.amountStroops, dispute.asset);
 
   if (dispute.payment.status !== 'escrowed') {
     const settled =
       dispute.payment.status === 'released'
-        ? t('admin.disputes.settled.released', 'already released to the facility')
+        ? t('adminDisputes.resolution.alreadyReleased', 'already released to the facility')
         : dispute.payment.status === 'refunded'
-          ? t('admin.disputes.settled.refunded', 'already refunded to the patient')
-          : t('admin.disputes.settled.notHeld', 'not held in escrow');
+          ? t('adminDisputes.resolution.alreadyRefunded', 'already refunded to the patient')
+          : t('adminDisputes.resolution.notHeld', 'not held in escrow');
     return {
-      payment: t(
-        'admin.disputes.consequence.noMoneyMoves',
-        'No money moves: this payment was {settled}. Resolving only closes the dispute.',
-        { settled },
-      ),
-      outcome:
-        resolution === 'facility'
-          ? t(
-              'admin.disputes.consequence.recordedForFacility',
-              "The dispute is recorded in {facility}'s favour.",
-              { facility: dispute.facility.name },
-            )
-          : t(
-              'admin.disputes.consequence.recordedForPatient',
-              "The dispute is recorded in {patient}'s favour.",
-              { patient: dispute.patientName },
-            ),
+      payment: t('adminDisputes.resolution.noMoneyMoves', 'No money moves: this payment was {settled}. Resolving only closes the dispute.', { settled }),
+      outcome: resolution === 'facility'
+        ? t('adminDisputes.resolution.recordedFacility', 'The dispute is recorded in {name}’s favour.', { name: dispute.facility.name })
+        : t('adminDisputes.resolution.recordedPatient', 'The dispute is recorded in {name}’s favour.', { name: dispute.patientName }),
       amountLabel: null,
       movesMoney: false,
     };
@@ -84,51 +65,27 @@ export function resolutionConsequence(
 
   if (resolution === 'facility') {
     return {
-      payment: t(
-        'admin.disputes.consequence.release',
-        'Release {amount} from escrow to {facility}.',
-        { amount: amountLabel, facility: dispute.facility.name },
-      ),
-      outcome: t(
-        'admin.disputes.consequence.patientNotRefunded',
-        '{patient} is not refunded, and the order stays fulfilled.',
-        { patient: dispute.patientName },
-      ),
+      payment: t('adminDisputes.resolution.release', 'Release {amount} from escrow to {facility}.', { amount: amountLabel, facility: dispute.facility.name }),
+      outcome: t('adminDisputes.resolution.releaseOutcome', '{patient} is not refunded, and the order stays fulfilled.', { patient: dispute.patientName }),
       amountLabel,
       movesMoney: true,
     };
   }
 
   return {
-    payment: t(
-      'admin.disputes.consequence.refund',
-      'Refund {amount} from escrow to {patient}.',
-      { amount: amountLabel, patient: dispute.patientName },
-    ),
-    outcome: t(
-      'admin.disputes.consequence.facilityNotPaid',
-      '{facility} is not paid for this order.',
-      { facility: dispute.facility.name },
-    ),
+    payment: t('adminDisputes.resolution.refund', 'Refund {amount} from escrow to {patient}.', { amount: amountLabel, patient: dispute.patientName }),
+    outcome: t('adminDisputes.resolution.refundOutcome', '{facility} is not paid for this order.', { facility: dispute.facility.name }),
     amountLabel,
     movesMoney: true,
   };
 }
 
-export function resolutionLabel(
-  resolution: DisputeResolution,
-  t: Translate = identityTranslate,
-): string {
-  return resolution === 'facility'
-    ? t('admin.disputes.party.facility', 'facility')
-    : t('admin.disputes.party.patient', 'patient');
+export function resolutionLabel(resolution: DisputeResolution, t: Translator = englishTranslator): string {
+  return resolution === 'facility' ? t('adminDisputes.party.facility', 'facility') : t('adminDisputes.party.patient', 'patient');
 }
 
-export function resolutionTitle(
-  resolution: DisputeResolution,
-  t: Translate = identityTranslate,
-): string {
+export function resolutionTitle(resolution: DisputeResolution, t: Translator = englishTranslator): string {
   return resolution === 'facility'
-    ? t('admin.disputes.resolutionTitle.facility', 'Resolve for facility')
-    : t('admin.disputes.resolutionTitle.patient', 'Resolve for patient');
+    ? t('adminDisputes.resolution.titleFacility', 'Resolve for facility')
+    : t('adminDisputes.resolution.titlePatient', 'Resolve for patient');
 }

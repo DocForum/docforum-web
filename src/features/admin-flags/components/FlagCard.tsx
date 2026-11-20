@@ -1,10 +1,11 @@
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
-import { useT } from '../../../i18n/useT';
-import { KIND_LABELS, ROLES, STATE_LABELS, describeAudience, flagState } from '../flags';
+import { kindLabel, ROLES, stateLabel, describeAudience, flagState } from '../flags';
 import { LastChanged } from './LastChanged';
 import type { LastChange } from './LastChanged';
 import type { FeatureFlag } from '../../../types/models';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT } from '../../../i18n/useT';
 import styles from './FeatureFlags.module.css';
 
 interface FlagCardProps {
@@ -18,10 +19,11 @@ interface FlagCardProps {
 
 export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: FlagCardProps) {
   const t = useT();
+  const { list } = useFormatters();
   const state = flagState(flag);
   const headingId = `flag-${flag.id}`;
   const roleLabels = ROLES.filter((role) => flag.targeting.roles.includes(role.value)).map((role) =>
-    t(`admin.flags.role.${role.value}`, role.label),
+    t(`roles.${role.value}`, role.label),
   );
 
   return (
@@ -32,11 +34,9 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
         </h2>
         <div className={styles.badges}>
           <span className={styles.statePill} data-state={state}>
-            {t(`admin.flags.state.${state}`, STATE_LABELS[state])}
+            {stateLabel(state, t)}
           </span>
-          <span className={styles.kindBadge}>
-            {t(`admin.flags.kind.${flag.kind}`, KIND_LABELS[flag.kind])}
-          </span>
+          <span className={styles.kindBadge}>{kindLabel(flag.kind, t)}</span>
         </div>
       </div>
 
@@ -55,23 +55,17 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
 
       <dl className={styles.facts}>
         <div>
-          <dt>{t('admin.flags.roles', 'Roles')}</dt>
-          <dd>
-            {roleLabels.length > 0
-              ? roleLabels.join(', ')
-              : t('admin.flags.allRoles', 'All roles')}
-          </dd>
+          <dt>{t('adminFlags.card.roles', 'Roles')}</dt>
+          <dd>{roleLabels.length > 0 ? list(roleLabels) : t('adminFlags.card.allRoles', 'All roles')}</dd>
         </div>
         <div>
-          <dt>{t('admin.flags.allowlist', 'Allowlist')}</dt>
+          <dt>{t('adminFlags.card.allowlist', 'Allowlist')}</dt>
           <dd>
             {flag.targeting.userIds.length === 0
-              ? t('admin.flags.allowlistNone', 'None')
-              : t(
-                  'admin.flags.allowlistCount',
-                  '{count, plural, one {1 user} other {# users}}',
-                  { count: flag.targeting.userIds.length },
-                )}
+              ? t('adminFlags.card.none', 'None')
+              : t('adminFlags.card.allowlistCount', '{count, plural, one {# user} other {# users}}', {
+                  count: flag.targeting.userIds.length,
+                })}
           </dd>
         </div>
       </dl>
@@ -82,14 +76,14 @@ export function FlagCard({ flag, lastChange, now, saving, onToggle, onEdit }: Fl
           {saving && (
             <span className={styles.saving} role="status">
               <Spinner size={14} />
-              {t('admin.flags.saving', 'Saving…')}
+              {t('adminFlags.card.saving', 'Saving…')}
             </span>
           )}
           <button
             type="button"
             role="switch"
             aria-checked={flag.enabled}
-            aria-label={t('admin.flags.switchAria', '{key} enabled', { key: flag.key })}
+            aria-label={t('adminFlags.card.switchLabel', '{key} enabled', { key: flag.key })}
             className={styles.switch}
             onClick={() => onToggle(flag)}
             disabled={saving}

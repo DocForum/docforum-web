@@ -8,12 +8,12 @@
 //
 // Payable intents (`created` / `awaiting_signature`) get the wallet flow;
 // settled intents show their status and nothing else.
-import { useT } from '../../../i18n/useT';
 import { useOrderPaymentIntent } from '../hooks/useOrderPaymentIntent';
 import { walletPayEnabled } from '../walletPayFlag';
 import { PayWithWallet } from './PayWithWallet';
 import { statusLabel } from '../status';
 import type { PatientOrder } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './PayWithWallet.module.css';
 
 export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
@@ -33,7 +33,8 @@ export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
   return (
     <div className={styles.orderPayment} data-testid={`payment-status-${order.id}`}>
       <p className={styles.amount}>
-        Payment: <strong>{statusLabel(intent.status, t)}</strong>
+        {t('payments.panel.payment', 'Payment:')}{' '}
+        <strong>{statusLabel(intent.status, t)}</strong>
       </p>
     </div>
   );

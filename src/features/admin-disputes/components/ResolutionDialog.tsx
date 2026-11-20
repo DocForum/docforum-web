@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
-import { useT } from '../../../i18n/useT';
 import { useResolveDispute } from '../hooks/useDisputes';
 import { describeResolutionError } from '../errors';
 import {
@@ -13,6 +12,7 @@ import {
   validateNotes,
 } from '../resolution';
 import type { DisputeResolution, FulfillmentDispute } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './Disputes.module.css';
 
 interface ResolutionDialogProps {
@@ -36,15 +36,6 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
   const notesErrorId = useId();
   const acknowledgeId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
-  // Captured during render, before `autoFocus` moves focus into the dialog:
-  // the element that opened it is what focus must return to on close.
-  const [opener] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' &&
-    document.activeElement instanceof HTMLElement &&
-    document.activeElement !== document.body
-      ? document.activeElement
-      : null,
-  );
   const onCloseRef = useRef(onClose);
   const pendingRef = useRef(false);
 
@@ -69,6 +60,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
   pendingRef.current = mutation.isPending;
 
   useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlayRef.current?.querySelector<HTMLButtonElement>('[data-initial-focus]')?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
@@ -98,7 +90,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      opener?.focus();
+      previous?.focus();
     };
     // Focus is set once on open; the dialog owns focus until it closes.
   }, []);
@@ -153,20 +145,14 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
         aria-describedby={descId}
       >
         <h3 className={styles.dialogTitle} id={titleId}>
-          {t('admin.disputes.dialog.title', '{title}?', { title: dialogTitle })}
+          {dialogTitle}?
         </h3>
         <p className={styles.dialogText} id={descId}>
-          {t('admin.disputes.dialog.body', 'This closes dispute #{id} for order {orderId} in the', {
-            id: dispute.id,
+          {t('adminDisputes.resolution.dialogDescription', 'This closes dispute #{disputeId} for order {orderId} in the {party}’s favour. Resolutions are final — this cannot be undone or reversed.', {
+            disputeId: dispute.id,
             orderId: dispute.orderId,
-          })}{' '}
-          <strong>{t('admin.disputes.dialog.inFavour', "{party}'s favour", { party })}</strong>.{' '}
-          <strong>
-            {t(
-              'admin.disputes.dialog.final',
-              'Resolutions are final — this cannot be undone or reversed.',
-            )}
-          </strong>
+            party,
+          })}
         </p>
 
         <form className={styles.dialogBody} onSubmit={(event) => void submit(event)} noValidate>
@@ -174,42 +160,28 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
             <div className={styles.inlineError} role="alert">
               <p>{failure}</p>
               {outcomeUnknown && (
-                <p>
-                  {t(
-                    'admin.disputes.dialog.outcomeUnknown',
-                    'Close this dialog and reload the dispute before trying again, in case it was applied.',
-                  )}
-                </p>
+                <p>{t('adminDisputes.resolution.reloadAfterUnknown', 'Close this dialog and reload the dispute before trying again, in case it was applied.')}</p>
               )}
             </div>
           )}
 
           <div className={styles.consequence}>
-            <h4>{t('admin.disputes.dialog.paymentConsequence', 'Payment consequence')}</h4>
+            <h4>{t('adminDisputes.resolution.paymentConsequence', 'Payment consequence')}</h4>
             <p>{consequence.payment}</p>
             <p className={styles.consequenceOutcome}>{consequence.outcome}</p>
           </div>
           <p className={styles.finalWarning}>
             {consequence.movesMoney
-              ? t(
-                  'admin.disputes.dialog.movesMoney',
-                  'Confirming moves money immediately. There is no undo.',
-                )
-              : t(
-                  'admin.disputes.dialog.noMoney',
-                  'Confirming still closes the dispute permanently. There is no undo.',
-                )}
+              ? t('adminDisputes.resolution.confirmMovesMoney', 'Confirming moves money immediately. There is no undo.')
+              : t('adminDisputes.resolution.confirmNoMoney', 'Confirming still closes the dispute permanently. There is no undo.')}
           </p>
 
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={notesId}>
-              {t('admin.disputes.dialog.notesLabel', 'Resolution notes')}
+              {t('adminDisputes.resolution.notesLabel', 'Resolution notes')}
             </label>
             <p className={styles.fieldHint} id={`${notesId}-hint`}>
-              {t(
-                'admin.disputes.dialog.notesHint',
-                'Saved to the audit trail with your admin account. Explain the decision without clinical details.',
-              )}
+              {t('adminDisputes.resolution.notesHint', 'Saved to the audit trail with your admin account. Explain the decision without clinical details.')}
             </p>
             <textarea
               className={styles.textarea}
@@ -248,11 +220,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
             <span>
-              {t(
-                'admin.disputes.dialog.acknowledge',
-                "I understand this is final and cannot be undone. Resolve the dispute in the {party}'s favour.",
-                { party },
-              )}
+              {t('adminDisputes.resolution.acknowledge', 'I understand this is final and cannot be undone. Resolve the dispute in the {party}’s favour.', { party })}
             </span>
           </label>
 
@@ -263,11 +231,10 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
               onClick={close}
               disabled={mutation.isPending}
               data-initial-focus
-              autoFocus
             >
               {outcomeUnknown
-                ? t('admin.disputes.dialog.closeAndReload', 'Close and reload dispute')
-                : t('admin.disputes.dialog.keepOpen', 'Keep dispute open')}
+                ? t('adminDisputes.resolution.closeReload', 'Close and reload dispute')
+                : t('adminDisputes.resolution.keepOpen', 'Keep dispute open')}
             </Button>
             {!outcomeUnknown && (
               <Button type="submit" disabled={!canSubmit} loading={mutation.isPending}>

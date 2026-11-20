@@ -3,66 +3,51 @@ import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { Spinner } from '../../../components/Spinner';
-import { useT } from '../../../i18n/useT';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT, type Translator } from '../../../i18n/useT';
+import { ApiError } from '../../../services/api-client';
 import type { OrderItemFulfillment, OrderPaymentSummary, PatientOrder } from '../../../types/models';
+import { itemStatusLabel } from '../../fulfillment/status';
 import { useOrder } from '../hooks/useOrders';
 import { orderTypeLabel } from './PatientOrdersList';
 import { RemainingItemsFacilityPicker } from './RemainingItemsFacilityPicker';
 import styles from './PatientOrders.module.css';
 
-type Translate = ReturnType<typeof useT>;
-
-function formatDate(value: string | null | undefined): string {
+function formatDate(value: string | null | undefined, formatDateValue: (date: string) => string): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDateValue(value);
 }
 
-/** Payment statuses are API identifiers mapped explicitly, never rendered raw. */
-function paymentStatusLabel(status: OrderPaymentSummary['status'], t: Translate): string {
+function paymentStatusLabel(status: OrderPaymentSummary['status'], t: Translator): string {
   switch (status) {
     case 'held':
-      return t('payments.summaryStatus.held', 'Held in escrow');
+      return t('orders.paymentStatus.held', 'Held in escrow');
     case 'partially_released':
-      return t('payments.summaryStatus.partiallyReleased', 'Partially released');
+      return t('orders.paymentStatus.partiallyReleased', 'Partially released');
     case 'released':
-      return t('payments.summaryStatus.released', 'Released');
+      return t('orders.paymentStatus.released', 'Released');
     case 'refunded':
-      return t('payments.summaryStatus.refunded', 'Refunded');
+      return t('orders.paymentStatus.refunded', 'Refunded');
     default:
-      return t('payments.summaryStatus.none', 'No payment');
+      return t('orders.paymentStatus.none', 'No payment');
   }
 }
 
-function itemStatusLabel(status: OrderItemFulfillment['status'], t: Translate): string {
-  switch (status) {
-    case 'pending':
-      return t('orders.itemStatus.pending', 'Pending');
-    case 'partially_dispensed':
-      return t('orders.itemStatus.partiallyDispensed', 'Partially dispensed');
-    case 'dispensed':
-      return t('orders.itemStatus.dispensed', 'Dispensed');
-    case 'dispensed_elsewhere':
-      return t('orders.itemStatus.dispensedElsewhere', 'Dispensed elsewhere');
-    case 'rejected':
-      return t('orders.itemStatus.rejected', 'Rejected');
-    default:
-      return t('orders.itemStatus.unknown', 'Unknown status');
-  }
-}
-
-function ItemCard({ item }: { item: OrderItemFulfillment }) {
-  const t = useT();
+function ItemCard({
+  item,
+  t,
+  formatDateValue,
+}: {
+  item: OrderItemFulfillment;
+  t: Translator;
+  formatDateValue: (date: string) => string;
+}) {
   const isOutstanding = item.quantityOutstanding > 0;
 
   return (
     <li className={styles.detailItem} data-status={item.status}>
       <div className={styles.detailItemHeader}>
         <div>
-          {/* Medication names, doses and instructions are never translated. */}
           <h3 className={styles.detailItemName}>{item.name}</h3>
           {item.instructions && (
             <p className={styles.detailItemInstructions}>{item.instructions}</p>
@@ -73,10 +58,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
         </span>
       </div>
 
-      <dl
-        className={styles.detailQuantities}
-        aria-label={t('orders.detail.quantitiesAria', 'Quantities for {name}', { name: item.name })}
-      >
+      <dl className={styles.detailQuantities} aria-label={t('orders.detail.quantitiesFor', 'Quantities for {name}', { name: item.name })}>
         <div>
           <dt>{t('orders.detail.prescribed', 'Prescribed')}</dt>
           <dd>
@@ -99,37 +81,29 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
 
       {item.status === 'dispensed_elsewhere' && (
         <p className={styles.warning} role="note">
-          <strong>{t('orders.detail.dispensedElsewhereStrong', 'Dispensed elsewhere.')}</strong>{' '}
+          <strong>{t('orders.detail.dispensedElsewhere', 'Dispensed elsewhere.')}</strong>{' '}
           {item.dispensedByFacilityName
-            ? t(
-                'orders.detail.dispensedElsewhereBy',
-                'This item was already dispensed by {facility}.',
-                { facility: item.dispensedByFacilityName },
-              )
-            : t(
-                'orders.detail.dispensedElsewhereNoFacility',
-                'This item was already dispensed at another facility.',
-              )}{' '}
-          {t('orders.detail.dispensedElsewhereTail', 'It cannot be dispensed again here.')}
+            ? t('orders.detail.alreadyDispensedBy', 'This item was already dispensed by {facility}.', {
+                facility: item.dispensedByFacilityName,
+              })
+            : t('orders.detail.alreadyDispensedElsewhere', 'This item was already dispensed at another facility.')}{' '}
+          {t('orders.detail.cannotDispenseAgain', 'It cannot be dispensed again here.')}
         </p>
       )}
 
       {item.dispensedByFacilityName && item.status !== 'dispensed_elsewhere' && (
         <p className={styles.itemMeta}>
+          {t('orders.detail.dispensedBy', 'Dispensed by {facility}', { facility: item.dispensedByFacilityName })}
           {item.dispensedAt
-            ? t('orders.detail.dispensedByOn', 'Dispensed by {facility} on {date}.', {
-                facility: item.dispensedByFacilityName,
-                date: formatDate(item.dispensedAt),
-              })
-            : t('orders.detail.dispensedBy', 'Dispensed by {facility}', {
-                facility: item.dispensedByFacilityName,
-              })}
+            ? t('orders.detail.dispensedOn', ' on {date}', { date: formatDate(item.dispensedAt, formatDateValue) })
+            : ''}
+          .
         </p>
       )}
 
       {item.routedToFacilityName && (
         <p className={styles.routedNote} role="note">
-          {t('orders.detail.routedNote', 'Remaining {quantity} {unit} routed to {facility}.', {
+          {t('orders.detail.routed', 'Remaining {quantity} {unit} routed to {facility}.', {
             quantity: item.quantityOutstanding,
             unit: item.unit,
             facility: item.routedToFacilityName,
@@ -145,7 +119,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
 
       {isOutstanding && item.status !== 'rejected' && !item.routedToFacilityId && (
         <p className={styles.itemMeta}>
-          {t('orders.detail.remaining', '{quantity} {unit} still to be dispensed.', {
+          {t('orders.detail.stillToDispense', '{quantity} {unit} still to be dispensed.', {
             quantity: item.quantityOutstanding,
             unit: item.unit,
           })}
@@ -157,6 +131,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
 
 export function PatientOrderDetail({ orderId }: { orderId: string }) {
   const t = useT();
+  const { date: formatDate } = useFormatters();
   const { data: order, isLoading, error } = useOrder(orderId);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -170,7 +145,8 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
   );
 
   const hasRoutedItems = (order?.items ?? []).some((item) => item.routedToFacilityId);
-  const allDispensed = (order?.items ?? []).every((item) => item.quantityOutstanding <= 0);
+  const allDispensed =
+    (order?.items ?? []).every((item) => item.quantityOutstanding <= 0);
 
   if (isLoading) {
     return (
@@ -185,7 +161,11 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
     return (
       <div className={styles.page}>
         <p className={styles.error} role="alert">
-          {error instanceof Error ? error.message : t('orders.detail.error', 'Order not found.')}
+          {error instanceof ApiError && error.status === 404
+            ? t('orders.detail.notFound', 'Order not found.')
+            : error instanceof ApiError && (error.status === 401 || error.status === 403)
+              ? t('orders.detail.forbidden', 'Sign in again to view this order.')
+              : t('orders.detail.loadError', 'Could not load this order. Try again shortly.')}
         </p>
         <Link to="/patient/orders" className={styles.backLink}>
           {t('orders.detail.back', 'Back to my orders')}
@@ -200,15 +180,10 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
       ?.routedToFacilityName;
     setSuccessMessage(
       facilityName
-        ? t(
-            'orders.detail.routedSuccess',
-            "Remaining items routed to {facility}. They are now on that facility's queue.",
-            { facility: facilityName },
-          )
-        : t(
-            'orders.detail.routedSuccessGeneric',
-            'Remaining items routed to another facility.',
-          ),
+        ? t('orders.detail.routedSuccess', 'Remaining items routed to {facility}. They are now on that facility’s queue.', {
+            facility: facilityName,
+          })
+        : t('orders.detail.routedSuccessUnknown', 'Remaining items routed to another facility.'),
     );
   };
 
@@ -225,35 +200,20 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
             {order.medicationOrTest}
           </h1>
           <p className={styles.orderMeta}>
-            {order.facilityName
-              ? t(
-                  'orders.detail.orderMetaWithFacility',
-                  'Order {orderId} · issued {date} · {facility}',
-                  {
-                    orderId: order.id,
-                    date: formatDate(order.issuedAt),
-                    facility: order.facilityName,
-                  },
-                )
-              : t('orders.detail.orderMeta', 'Order {orderId} · issued {date}', {
-                  orderId: order.id,
-                  date: formatDate(order.issuedAt),
-                })}
+            {t('orders.detail.orderMeta', 'Order {id} · issued {date}', {
+              id: order.id,
+              date: formatDate(order.issuedAt),
+            })}
+            {order.facilityName ? ` · ${order.facilityName}` : ''}
           </p>
         </div>
-        <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} t={t} />
+        <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
       </div>
 
       <div className={styles.paymentCallout} role="note">
         <div>
           <strong>{t('orders.detail.paymentImplications', 'Payment implications')}</strong>
-          <p>
-            {order.payment?.rule ??
-              t(
-                'orders.detail.paymentRuleFallback',
-                'Payment details are not available for this order.',
-              )}
-          </p>
+          <p>{order.payment?.rule ?? t('orders.detail.paymentUnavailable', 'Payment details are not available for this order.')}</p>
         </div>
         <span className={styles.paymentStatus}>
           {paymentStatusLabel(order.payment?.status ?? 'none', t)}
@@ -268,32 +228,24 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
 
       <div className={styles.detailBody}>
         <div className={styles.itemSection}>
-          <h2 className={styles.sectionTitle}>{t('orders.detail.sectionItems', 'Items')}</h2>
+          <h2 className={styles.sectionTitle}>{t('orders.detail.items', 'Items')}</h2>
           <ul className={styles.detailItemList}>
             {(order.items ?? []).map((item) => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={item} t={t} formatDateValue={formatDate} />
             ))}
           </ul>
         </div>
 
         <aside className={styles.detailAside}>
-          <h2 className={styles.sectionTitle}>
-            {t('orders.detail.whatNext', 'What happens next?')}
-          </h2>
+          <h2 className={styles.sectionTitle}>{t('orders.detail.nextHeading', 'What happens next?')}</h2>
           {allDispensed ? (
             <p className={styles.asideText}>
-              {t(
-                'orders.detail.allDispensed',
-                'All items on this order have been dispensed. Nothing else is outstanding.',
-              )}
+              {t('orders.detail.allDispensed', 'All items on this order have been dispensed. Nothing else is outstanding.')}
             </p>
           ) : outstandingItems.length > 0 ? (
             <>
               <p className={styles.asideText}>
-                {t(
-                  'orders.detail.collectElsewhere',
-                  'You can collect the outstanding items from another facility. That facility will only receive the items listed here.',
-                )}
+                {t('orders.detail.collectElsewhere', 'You can collect the outstanding items from another facility. That facility will only receive the items listed here.')}
               </p>
               <Button type="button" onClick={() => setIsPickerOpen(true)}>
                 {t('orders.detail.getRemaining', 'Get remaining items elsewhere')}
@@ -301,25 +253,16 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
             </>
           ) : hasRoutedItems ? (
             <p className={styles.asideText}>
-              {t(
-                'orders.detail.routedCheck',
-                'The remaining items have been routed. Check the item list for the receiving facility.',
-              )}
+              {t('orders.detail.routedNote', 'The remaining items have been routed. Check the item list for the receiving facility.')}
             </p>
           ) : (
             <p className={styles.asideText}>
-              {t(
-                'orders.detail.nothingToRoute',
-                'There are no outstanding items available to route. Items already dispensed elsewhere cannot be moved again.',
-              )}
+              {t('orders.detail.noRouteItems', 'There are no outstanding items available to route. Items already dispensed elsewhere cannot be moved again.')}
             </p>
           )}
 
           <p className={styles.asideFinePrint}>
-            {t(
-              'orders.detail.finePrint',
-              "A partially filled order does not release the full escrow amount. DocForum's backend applies its partial-fulfilment release rule; this screen shows the rule it returns rather than calculating a payout.",
-            )}
+            {t('orders.detail.paymentDisclaimer', 'A partially filled order does not release the full escrow amount. DocForum’s backend applies its partial-fulfilment release rule; this screen shows the rule it returns rather than calculating a payout.')}
           </p>
         </aside>
       </div>
