@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '../../../test/render';
+import { fireEvent, render, screen, waitFor } from '../../../test/render';
 import userEvent from '@testing-library/user-event';
 import { DeleteAccountSection } from './DeleteAccountSection';
 import * as accountService from '../../../services/account-service';
@@ -90,12 +90,48 @@ describe('DeleteAccountSection', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a wrong-password response as a password field error', async () => {
+    vi.mocked(accountService.deleteAccount).mockRejectedValue(
+      new ApiError('Password confirmation failed.', 403, undefined, {
+        code: 'PASSWORD_CONFIRMATION_FAILED',
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<DeleteAccountSection />);
+
+    await user.click(screen.getByRole('button', { name: /proceed to delete account/i }));
+
+    const passwordInput = screen.getByLabelText(/confirm your password/i);
+    await user.type(passwordInput, 'mysecretpassword');
+    await user.type(screen.getByLabelText(/type delete to confirm/i), 'DELETE');
+    await user.click(screen.getByRole('button', { name: /permanently delete account/i }));
+
+    expect(await screen.findByText(/that password is incorrect/i)).toBeInTheDocument();
+    expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not send two DELETEs when the form is submitted twice', async () => {
+    // Never settles, so the mutation stays pending across both submits.
+    vi.mocked(accountService.deleteAccount).mockReturnValue(new Promise<void>(() => {}));
+
+    const user = userEvent.setup();
+    render(<DeleteAccountSection />);
+
+    await user.click(screen.getByRole('button', { name: /proceed to delete account/i }));
+    await user.type(screen.getByLabelText(/confirm your password/i), 'mysecretpassword');
+    await user.type(screen.getByLabelText(/type delete to confirm/i), 'DELETE');
+
+    const form = screen.getByRole('button', { name: /permanently delete account/i }).closest('form')!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(accountService.deleteAccount).toHaveBeenCalledTimes(1));
+  });
+
   it('clears all client state and navigates to /account-deleted on success', async () => {
-    vi.mocked(accountService.deleteAccount).mockResolvedValue({
-      success: true,
-      message: 'Account deleted successfully',
-      deletedAt: new Date().toISOString(),
-    });
+    vi.mocked(accountService.deleteAccount).mockResolvedValue(undefined);
 
     const user = userEvent.setup();
     render(<DeleteAccountSection />);
@@ -108,7 +144,7 @@ describe('DeleteAccountSection', () => {
     await user.click(screen.getByRole('button', { name: /permanently delete account/i }));
 
     await waitFor(() => {
-      expect(accountService.deleteAccount).toHaveBeenCalledWith('mysecretpassword', 'DELETE', 'test-token');
+      expect(accountService.deleteAccount).toHaveBeenCalledWith('mysecretpassword', 'test-token');
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().accessToken).toBeNull();
       expect(useProfileStore.getState().profiles).toEqual([]);
