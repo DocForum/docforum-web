@@ -12,8 +12,7 @@ export function useDeleteAccount() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: ({ password, confirmation }: { password: string; confirmation: string }) =>
-      deleteAccount(password, confirmation, accessToken!),
+    mutationFn: ({ password }: { password: string }) => deleteAccount(password, accessToken!),
     onSuccess: () => {
       // Clear all server query cache to ensure no patient data survives
       queryClient.clear();

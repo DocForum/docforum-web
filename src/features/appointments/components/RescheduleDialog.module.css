@@ -1,0 +1,135 @@
+.panel {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.head h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.close {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-full);
+  width: 2.25rem;
+  height: 2.25rem;
+  line-height: 1;
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--color-surface-hover);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.alert,
+.alertWarn {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.alert {
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger);
+  color: var(--color-text);
+}
+
+.alertWarn {
+  background: var(--color-warning-surface);
+  border: 1px solid var(--color-warning);
+  color: var(--color-text);
+}
+
+.state {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.compare {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.compare > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.compare dt {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-faint);
+}
+
+.compare dd {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.from {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.to {
+  color: var(--color-accent);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.success {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-success-surface);
+  border: 1px solid var(--color-success);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (max-width: 560px) {
+  .actions > * {
+    flex: 1 1 auto;
+  }
+}

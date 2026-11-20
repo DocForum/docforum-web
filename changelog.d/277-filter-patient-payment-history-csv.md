@@ -1,0 +1,2 @@
+Phase W5: filter patient payment history by status and date, and export it as CSV ([issue #277](https://github.com/DocForum/docforum-web/issues/277)).
+Patients can filter payments by status (`created`, `awaiting_signature`, `escrowed`, `released`, `refunded`, `failed`) and date range (`from`, `to`), synced to the URL via `useTableUrlState`. Filtered results can be exported to CSV in-memory with progress tracking, BigInt stroop formatting without float arithmetic, formula injection neutralization, and Stellar testnet explorer links.

@@ -159,14 +159,14 @@ describe('FacilityPayoutLedger & formatStroops', () => {
       const fundLink = screen.getAllByRole('link', { name: /fund tx/i })[0];
       expect(fundLink).toHaveAttribute(
         'href',
-        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_DATA.entries[0].fundTxHash}`,
+        `https://testnet.stellar.expert/explorer/public/transaction/${MOCK_LEDGER_DATA.entries[0].fundTxHash}`,
       );
       expect(fundLink).toHaveAttribute('target', '_blank');
 
       const releaseLink = screen.getByRole('link', { name: /release tx/i });
       expect(releaseLink).toHaveAttribute(
         'href',
-        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_DATA.entries[2].releaseTxHash}`,
+        `https://testnet.stellar.expert/explorer/public/transaction/${MOCK_LEDGER_DATA.entries[2].releaseTxHash}`,
       );
     });
 
@@ -184,6 +184,7 @@ describe('FacilityPayoutLedger & formatStroops', () => {
         'fac-1',
         'facility-access-token',
         expect.objectContaining({ status: 'held' }),
+        expect.any(AbortSignal),
       );
     });
   });

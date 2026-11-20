@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useCalendarFeed, useRotateCalendarToken } from '../hooks/useCalendar';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import styles from './CalendarSubscriptionSection.module.css';
 
 export function CalendarSubscriptionSection() {
-  const { data: feed, isLoading, error } = useCalendarFeed();
+  const { data: feed, isLoading, error, refetch } = useCalendarFeed();
   const rotateMutation = useRotateCalendarToken();
   const [urlCopied, setUrlCopied] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -12,7 +16,7 @@ export function CalendarSubscriptionSection() {
   const [rotateConfirm, setRotateConfirm] = useState(false);
 
   const maskedUrl = feed?.icsUrl
-    ? feed.icsUrl.replace(/[^\?]/g, '*')
+    ? feed.icsUrl.replace(/[^?]/g, '*')
     : '';
 
   const handleCopy = async () => {
@@ -36,7 +40,7 @@ export function CalendarSubscriptionSection() {
       await rotateMutation.mutateAsync();
       setRotateConfirm(false);
       setRotating(false);
-    } catch (err) {
+    } catch {
       setRotating(false);
       // error will be shown by mutation
     }
@@ -46,9 +50,25 @@ export function CalendarSubscriptionSection() {
     setRotateConfirm(false);
   };
 
-  if (isLoading) return <p>Loading calendar feed...</p>;
-  if (error) return <p>Error loading calendar feed.</p>;
-  if (!feed) return <p>No calendar feed available.</p>;
+  if (isLoading) return <Skeleton lines={3} height="1.5rem" label="Loading calendar feed" />;
+  if (error) {
+    return (
+      <InlineError
+        title="The calendar feed couldn't be loaded"
+        message={queryErrorMessage(error)}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
+  if (!feed) {
+    return (
+      <EmptyState
+        title="No calendar feed yet"
+        description="A subscribable feed is created the first time it's requested. Nothing is shared until you add the URL to a calendar."
+        action={{ label: 'Try again', onClick: () => void refetch() }}
+      />
+    );
+  }
 
   return (
     <section className={styles.section}>

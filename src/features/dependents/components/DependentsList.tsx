@@ -1,37 +1,46 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
-import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { DependentForm } from './DependentForm';
 import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/useDependents';
-import { describeDependentError } from '../../../services/error-catalogue';
+import { useT } from '../../../i18n/useT';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDate as formatZonedDate } from '../../../i18n/time-zone';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { Dependent, DependentInput } from '../../../types/models';
 import styles from './DependentsList.module.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function handoverLabel(d: Dependent): string {
-  switch (d.handoverStatus) {
-    case 'eligible':
-      return 'Eligible for handover';
-    case 'invited':
-      return `Invite sent${d.claimInviteExpiresAt ? ` (expires ${formatDate(d.claimInviteExpiresAt)})` : ''}`;
-    case 'claimed':
-      return 'Account claimed — you no longer manage this record';
-    default:
-      return '';
-  }
+function formatDate(iso: string, timeZone: string) {
+  return formatZonedDate(iso, timeZone);
 }
 
 export function DependentsList() {
-  const { data: dependents, isLoading, error: fetchError } = useDependents();
+  const { timeZone } = useTimeZone();
+  const { data: dependents, isLoading, error: fetchError, refetch } = useDependents();
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
+  const t = useT();
+  const errorMessage = useErrorMessage();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  function handoverLabel(d: Dependent, timeZone: string): string {
+    switch (d.handoverStatus) {
+      case 'eligible':
+        return t('dependents.eligible', 'Eligible for handover');
+      case 'invited':
+        return d.claimInviteExpiresAt
+          ? t('dependents.invitedWithExpiry', 'Invite sent (expires {date})', { date: formatDate(d.claimInviteExpiresAt, timeZone) })
+          : t('dependents.invited', 'Invite sent');
+      case 'claimed':
+        return t('dependents.claimed', 'Account claimed — you no longer manage this record');
+      default:
+        return '';
+    }
+  }
 
   function handleAdd(input: DependentInput) {
     // docforum-core accepts only these two fields on create.
@@ -48,29 +57,34 @@ export function DependentsList() {
   if (isLoading) {
     return (
       <div className={styles.loading}>
-        <Spinner size={24} />
-        <span>Loading dependents…</span>
+        <Skeleton lines={3} height="1.5rem" label={t('dependents.loading', 'Loading dependents…')} />
       </div>
     );
   }
 
-  const apiError = describeDependentError(fetchError, 'Failed to load dependents.')?.message ?? null;
+  const apiError = errorMessage(fetchError);
 
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Dependents</h2>
+        <h1 className={styles.title}>{t('dependents.title', 'Dependents')}</h1>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
-            Add dependent
+            {t('dependents.add', 'Add dependent')}
           </Button>
         )}
       </div>
 
-      <FormError message={apiError} />
+      {apiError && (
+        <InlineError
+          title="Dependents couldn't be loaded"
+          message={apiError}
+          onRetry={() => void refetch()}
+        />
+      )}
 
       <p className={styles.notice}>
-        As a guardian you manage these profiles. You control their bookings and health records until they claim their own account.
+        {t('dependents.notice', 'As a guardian you manage these profiles. You control their bookings and health records until they claim their own account.')}
       </p>
 
       {showAdd && (
@@ -79,13 +93,17 @@ export function DependentsList() {
             onSubmit={handleAdd}
             onCancel={() => { setShowAdd(false); addMutation.reset(); }}
             loading={addMutation.isPending}
-            error={describeDependentError(addMutation.error, 'Failed to add dependent.')}
+            error={errorMessage(addMutation.error)}
           />
         </div>
       )}
 
       {dependents && dependents.length === 0 && !showAdd && (
-        <p className={styles.empty}>No dependents added yet.</p>
+        <EmptyState
+          title={t('dependents.empty', 'No dependents added yet.')}
+          description="Add a child or someone you care for to book and manage visits on their behalf."
+          action={{ label: 'Add your first dependent', onClick: () => setShowAdd(true) }}
+        />
       )}
 
       {dependents?.map((d) => (
@@ -96,7 +114,7 @@ export function DependentsList() {
               onSubmit={(input) => handleEdit(d.id, input)}
               onCancel={() => { setEditingId(null); editMutation.reset(); }}
               loading={editMutation.isPending}
-              error={describeDependentError(editMutation.error, 'Failed to save.')}
+              error={errorMessage(editMutation.error)}
             />
           ) : (
             <>
@@ -104,15 +122,21 @@ export function DependentsList() {
                 <span className={styles.name}>{d.fullName}</span>
                 <span className={styles.relationship}>{d.relationship}</span>
               </div>
-              <span className={styles.dob}>Born {formatDate(d.dateOfBirth)}</span>
+              <span className={styles.dob}>
+                <time dateTime={d.dateOfBirth}>
+                  {t('dependents.born', 'Born {date}', {
+                    date: formatDate(d.dateOfBirth, timeZone),
+                  })}
+                </time>
+              </span>
               {d.handoverStatus !== 'not_eligible' && (
                 <span className={styles.handover} data-status={d.handoverStatus}>
-                  {handoverLabel(d)}
+                  {handoverLabel(d, timeZone)}
                 </span>
               )}
               {d.handoverStatus !== 'claimed' && (
                 <Button variant="secondary" onClick={() => setEditingId(d.id)}>
-                  Edit
+                  {t('common.edit', 'Edit')}
                 </Button>
               )}
             </>

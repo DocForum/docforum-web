@@ -1,74 +1,104 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { TextField } from '../../../components/TextField';
+import { useEffect, useRef, useState } from 'react';
+import { FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
-import { useLogin } from '../hooks/useLogin';
+import { FormField } from '../../../components/form/FormField';
+import { useZodForm } from '../../../hooks/useZodForm';
+import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
-import { validateEmail, validatePassword, type FieldErrors } from '../validation';
-import { ApiError } from '../../../services/api-client';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useLogin } from '../hooks/useLogin';
+import { z } from 'zod';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
+
+const loginSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required.').min(8, 'Password must be at least 8 characters.'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export interface LoginFormProps {
   onSuccess?: () => void;
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const form = useZodForm(loginSchema, { email: '', password: '' });
   const loginMutation = useLogin();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
+  const t = useT();
+  const errorMessage = useErrorMessage();
+  const [serverError, setServerError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { errors } = form.formState;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // Move focus to the first problem after a failed submit so keyboard and
+  // screen-reader users do not have to hunt through the form.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
-    const errors: FieldErrors = {
-      email: validateEmail(email),
-      password: validatePassword(password),
-    };
-    setFieldErrors(errors);
-    if (errors.email || errors.password) return;
-
-    loginMutation.mutate({ email, password }, { onSuccess });
+  async function onSubmit(data: LoginFormData) {
+    setServerError(null);
+    try {
+      await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      lockout.reset();
+      onSuccess?.();
+    } catch (error) {
+      // 429 lockout: show a countdown and keep submit disabled until it ends.
+      // The message is account-agnostic on purpose — it must not reveal
+      // whether the email exists (issue #80).
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
+      if (error instanceof ApiError) {
+        const fieldErrors = mapServerErrors(error.body);
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.entries(fieldErrors).forEach(([field, message]) => {
+            form.setError(field as keyof LoginFormData, { message });
+          });
+          return;
+        }
+      }
+      setServerError(errorMessage(error));
+    }
   }
 
-  const submitError =
-    loginMutation.error instanceof ApiError
-      ? loginMutation.error.message
-      : loginMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
-
   return (
-    <form onSubmit={handleSubmit} noValidate>
-      <FormError message={submitError} />
-      {isSlow && (
-        <p className="slowHint" role="status">
-          <Spinner size={14} />
-          Still working — the server may be waking up after being idle. This can take up to a
-          minute.
-        </p>
-      )}
-      <TextField
-        label="Email"
-        type="email"
-        autoComplete="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        error={fieldErrors.email}
-      />
-      <TextField
-        label="Password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        error={fieldErrors.password}
-      />
-      <Button type="submit" loading={loginMutation.isPending}>
-        {loginMutation.isPending ? 'Logging in…' : 'Log in'}
-      </Button>
-    </form>
+    <FormProvider {...form}>
+      <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
+        {loginMutation.isPending && (
+          <p className="srOnly" role="status">
+            Logging in. Please wait.
+          </p>
+        )}
+        {isSlow && (
+          <p className="slowHint" role="status">
+            <Spinner size={14} />
+            {t('auth.slowHint', 'Still working — the server may be waking up after being idle. This can take up to a minute.')}
+          </p>
+        )}
+        <FormField name="email" label={t('auth.email', 'Email')} type="email" autoComplete="email" />
+        <FormField
+          name="password"
+          label={t('auth.password', 'Password')}
+          type="password"
+          autoComplete="current-password"
+        />
+        <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
+          {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
+        </Button>
+      </form>
+    </FormProvider>
   );
 }

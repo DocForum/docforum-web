@@ -1,0 +1,200 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filterLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.filterSelect,
+.filterInput {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-width: 8rem;
+}
+
+.filterSelect:focus-visible,
+.filterInput:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.statusBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.statusCount {
+  font-weight: 500;
+}
+
+.sortHint {
+  font-style: italic;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.table tbody th,
+.table tbody td {
+  font-weight: 400;
+}
+
+.sortButton {
+  border: none;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.sortIcon {
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+.emptyCell {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.errorCell {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--color-danger);
+}
+
+.spinnerCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pagerButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.pageInfo {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Responsive card layout under 600px */
+@media (max-width: 599px) {
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .table td {
+    border: none;
+    padding: var(--space-1) 0;
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    text-align: right;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .emptyCell,
+  .errorCell,
+  .spinnerCell {
+    text-align: left;
+  }
+
+  .emptyCell::before,
+  .errorCell::before,
+  .spinnerCell::before {
+    display: none;
+  }
+}

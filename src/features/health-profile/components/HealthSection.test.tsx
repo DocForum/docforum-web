@@ -101,7 +101,12 @@ describe('HealthSection', () => {
     render(<HealthSection section="conditions" />);
 
     await waitFor(() => {
-      expect(healthService.listHealthEntries).toHaveBeenCalledWith('pp-1', 'conditions', 'test-token');
+      expect(healthService.listHealthEntries).toHaveBeenCalledWith(
+        'pp-1',
+        'conditions',
+        'test-token',
+        expect.any(AbortSignal),
+      );
     });
   });
 });
