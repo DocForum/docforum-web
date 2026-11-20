@@ -103,11 +103,10 @@ export function PaymentHistoryPage() {
   return (
     <div className="container">
       <div className="card">
-        <span className="statusPill">Payments</span>
-        <h1 className={styles.title}>Your payments</h1>
+        <span className="statusPill">{t('payments.history.eyebrow', 'Payments')}</span>
+        <h1 className={styles.title}>{t('payments.history.title', 'Your payments')}</h1>
         <p className={styles.intro}>
-          Every payment you have made through DocForum, with where the money is now: still yours, held in escrow,
-          released to the facility, or returned to you.
+          {t('payments.history.intro', 'Every payment you have made through DocForum, with where the money is now: still yours, held in escrow, released to the facility, or returned to you.')}
         </p>
 
         <div className={styles.toolbar} role="search" aria-label="Filter payments">
@@ -190,7 +189,9 @@ export function PaymentHistoryPage() {
         {exportError ? <FormError message={exportError} /> : null}
 
         {historyQuery.isError ? (
-          <FormError message={entries.length > 0 ? 'Older payments could not be loaded.' : historyErrorCopy(historyQuery.error)} />
+          <FormError message={entries.length > 0
+            ? t('payments.history.olderError', 'Older payments could not be loaded.')
+            : historyErrorCopy(historyQuery.error, t)} />
         ) : null}
 
         {body}
@@ -202,7 +203,9 @@ export function PaymentHistoryPage() {
             onClick={() => historyQuery.fetchNextPage()}
             loading={historyQuery.isFetchingNextPage}
           >
-            {historyQuery.isFetchingNextPage ? 'Loading…' : 'Show older payments'}
+            {historyQuery.isFetchingNextPage
+              ? t('payments.history.loadingMore', 'Loading…')
+              : t('payments.history.showOlder', 'Show older payments')}
           </Button>
         ) : null}
       </div>

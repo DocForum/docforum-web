@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 export type MessageValues = Record<string, string | number | boolean | Date | null | undefined>;
+export type Translator = (id: string, defaultMessage: string, values?: MessageValues) => string;
 
 /**
  * `t(id, defaultMessage, values)` — the single way components read copy.
@@ -10,7 +11,7 @@ export type MessageValues = Record<string, string | number | boolean | Date | nu
  * Interpolation/pluralisation always goes through ICU `values`, never string
  * concatenation.
  */
-export function useT() {
+export function useT(): Translator {
   const intl = useIntl();
   return (id: string, defaultMessage: string, values?: MessageValues): string =>
     intl.formatMessage({ id, defaultMessage }, values);

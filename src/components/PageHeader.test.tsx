@@ -3,7 +3,10 @@ import { render, screen } from '../test/render';
 import { PageHeader } from './PageHeader';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
-function renderHeader(props: Parameters<typeof PageHeader>[0]) {
+function renderHeader(
+  props: Parameters<typeof PageHeader>[0],
+  options: { route?: string; locale?: 'en' | 'es' } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -11,6 +14,7 @@ function renderHeader(props: Parameters<typeof PageHeader>[0]) {
     <QueryClientProvider client={queryClient}>
       <PageHeader {...props} />
     </QueryClientProvider>,
+    options,
   );
 }
 
@@ -48,5 +52,13 @@ describe('PageHeader', () => {
     });
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByText('Custom')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('translates feature route breadcrumbs into Spanish', () => {
+    renderHeader({ title: 'Indicadores de función' }, { route: '/admin/flags', locale: 'es' });
+    expect(screen.getByRole('navigation', { name: 'Ruta de navegación' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Administrador' })).toHaveAttribute('href', '/admin');
+    expect(screen.getByText('Indicadores')).toHaveAttribute('aria-current', 'page');
   });
 });

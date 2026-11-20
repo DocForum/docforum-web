@@ -49,6 +49,21 @@ describe('PatientOrdersList (#54)', () => {
 });
 
 describe('PatientOrderDetail (#54)', () => {
+  it('renders the orders list and detail in Spanish', async () => {
+    vi.mocked(ordersService.listMyOrders).mockResolvedValue(seedDb.orders);
+    const { unmount } = render(<PatientOrdersList />, { locale: 'es' });
+
+    expect(await screen.findByRole('heading', { name: 'Mis pedidos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /ver pedido/i }).length).toBeGreaterThan(0);
+    unmount();
+
+    vi.mocked(ordersService.getPatientOrder).mockResolvedValue(partialOrder);
+    render(<PatientOrderDetail orderId={partialOrder.id} />, { locale: 'es' });
+    expect(await screen.findByRole('heading', { name: 'Demo partial prescription (fake)' })).toBeInTheDocument();
+    expect(screen.getByText('Parcialmente dispensado')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /obtener los artículos restantes en otro lugar/i })).toBeInTheDocument();
+  });
+
   it('shows item quantities, the dispensed-elsewhere warning, and payment rule', async () => {
     vi.mocked(ordersService.getPatientOrder).mockResolvedValue(partialOrder);
     render(<PatientOrderDetail orderId={partialOrder.id} />);

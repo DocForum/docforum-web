@@ -49,7 +49,9 @@ export function FacilityCard({
           )}
         </div>
         <span className={`${styles.badge} ${isPharmacy ? styles.badgePharmacy : styles.badgeLab}`}>
-          {facility.type}
+          {facility.type === 'pharmacy'
+            ? t('orders.facilityType.pharmacy', 'Pharmacy')
+            : t('orders.facilityType.lab', 'Laboratory')}
         </span>
       </div>
 
@@ -61,10 +63,12 @@ export function FacilityCard({
               minimumFractionDigits: 1,
               maximumFractionDigits: 1,
             })}{' '}
-            km away
+            {t('orders.facility.distanceAway', 'km away')}
           </span>
         ) : (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)' }}>Distance unknown</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)' }}>
+            {t('orders.facility.distanceUnknown', 'Distance unknown')}
+          </span>
         )}
 
         {facility.phone && (
@@ -91,7 +95,9 @@ export function FacilityCard({
           }}
           style={{ padding: '0.35rem 0.75rem', fontSize: 'var(--text-xs)' }}
         >
-          {isSelected ? '✓ Selected' : 'Choose facility'}
+          {isSelected
+            ? t('orders.facility.selected', '✓ Selected')
+            : t('orders.facility.choose', 'Choose facility')}
         </Button>
       </div>
     </div>

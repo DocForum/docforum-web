@@ -8,6 +8,7 @@ import {
 } from '../hooks/useQueue';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { FormError } from '../../../components/FormError';
 import { LiveRegion } from '../../../components/LiveRegion';
 import { useAnnouncer } from '../../../hooks/useAnnouncer';
 import { useFormat } from '../../../i18n/useFormat';
@@ -15,6 +16,7 @@ import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { useT } from '../../../i18n/useT';
 import { formatTime } from '../../../i18n/time-zone';
 import type { QueueEntry } from '../../../types/models';
+import { ApiError } from '../../../services/api-client';
 import styles from './QueuePanel.module.css';
 
 function statusLabel(status: string, t: ReturnType<typeof useT>) {
@@ -62,7 +64,7 @@ export function QueuePanel() {
   const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
-  const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
+  const { startVisit, completeVisit, undo, isPending, hasPendingUndo, startError, completeError } = useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
   const { formatNumber } = useFormat();
@@ -118,6 +120,24 @@ export function QueuePanel() {
     setOverrideMin('');
   };
 
+  const actionError = startError ?? completeError;
+  const actionErrorCopy =
+    actionError instanceof ApiError && actionError.status === 409
+      ? startError
+        ? t(
+            'queue.action.startConflict',
+            'This visit could not be started because it is no longer scheduled or checked in. The queue is refreshing; review its current status before trying again.',
+          )
+        : t(
+            'queue.action.completeConflict',
+            'This visit could not be completed because it is no longer in progress. The queue is refreshing; review its current status before trying again.',
+          )
+      : actionError instanceof Error
+        ? actionError.message
+        : actionError
+          ? t('queue.action.failed', 'The queue action could not be saved. The queue is refreshing; try again shortly.')
+          : null;
+
   return (
     <section className={styles.panel} aria-labelledby="queue-heading">
       <header className={styles.panelHeader}>
@@ -142,13 +162,13 @@ export function QueuePanel() {
       </header>
 
       {hasPendingUndo && undoTarget && (
-        <div className={styles.undoToast} role="group" aria-label="Undo last queue action">
-          Action applied.{' '}
+        <div className={styles.undoToast} role="group" aria-label={t('queue.undo.label', 'Undo last queue action')}>
+          {t('queue.undo.applied', 'Action applied.')}
           <Button variant="secondary" onClick={handleUndo}>
-            Undo
+            {t('queue.undo.button', 'Undo')}
           </Button>
           <span className={styles.undoHint}>
-            reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s
+            {t('queue.undo.hint', 'Reverts in {seconds}s', { seconds: Math.round(UNDO_WINDOW_MS / 1000) })}
           </span>
         </div>
       )}
@@ -173,7 +193,7 @@ export function QueuePanel() {
           </thead>
           <tbody>
             {byPosition.map((entry) => {
-              const isPendingAction = isPending;
+                const isPendingAction = isPending || hasPendingUndo;
               return (
                 <tr key={entry.appointmentId} className={styles.row}>
                   <td className={styles.pos}>{formatNumber(entry.queuePosition)}</td>
@@ -229,6 +249,7 @@ export function QueuePanel() {
 
       <QueueAnnouncements entries={byPosition} />
       <LiveRegion message={actionMessage} />
+      <FormError message={actionErrorCopy} />
 
       <div className={styles.override}>
         <label htmlFor="manual-override">{t('queue.manualOverride', 'Manual override')}</label>
