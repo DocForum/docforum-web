@@ -7,4 +7,6 @@ export const facilityNavItems: NavItem[] = [
   { to: '/facility/team', label: 'Team', roles: ['facility'], messageId: 'nav.team' },
   { to: '/facility/payments', label: 'Payouts', roles: ['facility'] },
   { to: '/facility/integrations', label: 'Integrations', roles: ['facility'] },
+  { to: '/facility/insights', label: 'Insights', roles: ['facility'], messageId: 'nav.insights' },
+  { to: '/facility/settings', label: 'Settings', roles: ['facility'], messageId: 'nav.settings', group: 'secondary' },
 ];

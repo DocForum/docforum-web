@@ -1,12 +1,8 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { buildBreadcrumbs, type Breadcrumb } from '../navigation/breadcrumbs';
+import { useT } from '../i18n/useT';
 import styles from './PageHeader.module.css';
-
-/** One breadcrumb step. */
-interface Breadcrumb {
-  label: string;
-  to?: string;
-}
 
 interface PageHeaderProps {
   /** Page title shown as an <h1>. */
@@ -22,6 +18,12 @@ interface PageHeaderProps {
    * (no whitespace). Defaults to `page-title`; a page renders one PageHeader.
    */
   titleId?: string;
+  /**
+   * Render the heading (default). The app shell passes `false` to show only
+   * the breadcrumb trail, because each page owns its single <h1> (#238);
+   * `title` still labels the current crumb.
+   */
+  showTitle?: boolean;
 }
 
 /**
@@ -37,40 +39,21 @@ export function PageHeader({
   actions,
   as: As = 'h1',
   titleId = 'page-title',
+  showTitle = true,
 }: PageHeaderProps) {
   const location = useLocation();
+  const t = useT();
 
-  const breadcrumbs = useMemo(() => {
+  // Only routes in the metadata table get a linked crumb, so a breadcrumb
+  // never points at a path with no route. The current crumb is the page's
+  // own title, never a raw URL segment (`apt-1`).
+  const breadcrumbs = useMemo<Breadcrumb[]>(() => {
     if (explicitCrumbs) return explicitCrumbs;
+    return buildBreadcrumbs(location.pathname, title);
+  }, [location.pathname, explicitCrumbs, title]);
 
-    const crumbs: Breadcrumb[] = [{ label: 'Home', to: '/' }];
-    const segments = location.pathname.split('/').filter(Boolean);
-
-    // Home root has no further crumbs.
-    if (segments.length === 0) return crumbs;
-
-    let path = '';
-    for (const segment of segments) {
-      path += `/${segment}`;
-      // Skip the first segment if it's a role-based dashboard root that maps
-      // to a human label already covered by the title.
-      const isRoleRoot =
-        (segment === 'patient' || segment === 'doctor' || segment === 'facility' || segment === 'admin') &&
-        segments.length === 1;
-      if (isRoleRoot) {
-        crumbs.push({ label: segment.charAt(0).toUpperCase() + segment.slice(1), to: path });
-        continue;
-      }
-      const label =
-        segment
-          .replace(/[-_]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-          .replace(/Id\b/g, 'ID')
-          .replace(/Url\b/g, 'URL');
-      crumbs.push({ label, to: path });
-    }
-    return crumbs;
-  }, [location.pathname, explicitCrumbs]);
+  const crumbLabel = (crumb: Breadcrumb) =>
+    crumb.messageId ? t(crumb.messageId, crumb.label) : crumb.label;
 
   const CrumbElement = As === 'h2' ? 'h2' : 'h1';
 
@@ -78,7 +61,7 @@ export function PageHeader({
     <header className={styles.pageHeader}>
       <div className={styles.wrapper}>
         {breadcrumbs.length > 0 && (
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+          <nav className={styles.breadcrumbs} aria-label={t('breadcrumb.aria', 'Breadcrumb')}>
             <ol className={styles.crumbList}>
               {breadcrumbs.map((crumb, i) => {
                 const last = i === breadcrumbs.length - 1;
@@ -86,14 +69,14 @@ export function PageHeader({
                   <li key={crumb.to ?? crumb.label + i} className={styles.crumbItem}>
                     {crumb.to && !last ? (
                       <Link to={crumb.to} className={styles.crumbLink}>
-                        {crumb.label}
+                        {crumbLabel(crumb)}
                       </Link>
                     ) : (
                       <span
                         className={styles.crumbCurrent}
                         aria-current={last ? 'page' : undefined}
                       >
-                        {crumb.label}
+                        {crumbLabel(crumb)}
                       </span>
                     )}
                     {!last && <span className={styles.crumbSeparator}>/</span>}
@@ -103,11 +86,13 @@ export function PageHeader({
             </ol>
           </nav>
         )}
-        <div className={styles.titleArea}>
-          <CrumbElement className={styles.title} id={titleId}>
-            {title}
-          </CrumbElement>
-        </div>
+        {showTitle && (
+          <div className={styles.titleArea}>
+            <CrumbElement className={styles.title} id={titleId}>
+              {title}
+            </CrumbElement>
+          </div>
+        )}
         {actions && <div className={styles.actions}>{actions}</div>}
       </div>
     </header>

@@ -19,6 +19,9 @@ import { OfflineBanner } from './OfflineBanner';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
+import { PageHeader } from './PageHeader';
+import { pageTitleForPath } from '../navigation/breadcrumbs';
+import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
@@ -65,6 +68,15 @@ export function Layout() {
   const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  // Secondary entries (payments, settings) sit behind a divider so the
+  // primary workflow stays on one line at 1280px. The drawer stays flat.
+  const primaryItems = items.filter((item) => item.group !== 'secondary');
+  const secondaryItems = items.filter((item) => item.group === 'secondary');
+  const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
+  const pageTitle = useMemo(() => {
+    const meta = pageTitleForPath(location.pathname);
+    return meta.messageId ? t(meta.messageId, meta.label) : meta.label;
+  }, [location.pathname, t]);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -148,7 +160,7 @@ export function Layout() {
         </div>
 
         <nav className={styles.desktopNav} role="navigation" aria-label="Main">
-          {items.map((item) => (
+          {primaryItems.map((item) => (
             <RRNavLink
               key={item.to}
               to={item.to}
@@ -163,6 +175,20 @@ export function Layout() {
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
+            </RRNavLink>
+          ))}
+          {secondaryItems.length > 0 && (
+            <span className={styles.navGroupDivider} aria-hidden="true" />
+          )}
+          {secondaryItems.map((item) => (
+            <RRNavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+              }
+            >
+              {item.messageId ? t(item.messageId, item.label) : item.label}
             </RRNavLink>
           ))}
           {user && (
@@ -297,9 +323,10 @@ export function Layout() {
         role="main"
         tabIndex={-1}
       >
-        {/* Each page renders its own single <h1> (issue #238). The shell used
-            to add a route-derived one, which gave every page two level-one
-            headings and a title built from URL segments. */}
+        {/* The shell shows the breadcrumb trail (#234) but no heading: each
+            page renders its own single <h1> (#238). Public information pages
+            (#120) render their own <header> and get neither. */}
+        {isPublicContent ? null : <PageHeader title={pageTitle} showTitle={false} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>

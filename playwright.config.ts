@@ -28,6 +28,8 @@ export default defineConfig({
     { name: 'a11y-reduced', testMatch: /accessibility\.spec\.ts/, use: { ...devices['Desktop Chrome'], colorScheme: 'light', reducedMotion: 'reduce' } },
     { name: 'visual-desktop', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' } },
     { name: 'visual-mobile', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
+    // Landscape phone/tablet mount (WCAG 1.3.4, issue #240).
+    { name: 'landscape', testMatch: /landscape\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 740, height: 360 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
   ],
   webServer: {
     command: 'VITE_USE_HASH_ROUTER=true npm run dev:mock -- --host 127.0.0.1 --port 4173 --strictPort',

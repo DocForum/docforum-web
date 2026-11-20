@@ -1,7 +1,8 @@
 Phase W7: every route now has exactly one meaningful `<h1>`
-([issue #238](https://github.com/DocForum/docforum-web/issues/238)). `Layout`
-no longer renders a route-derived `PageHeader` ("Doctor · Apt Demo 2"), so
-pages own their heading. `PageHeader` gives its heading a fixed `page-title` id
+([issue #238](https://github.com/DocForum/docforum-web/issues/238)). The app
+shell still shows the breadcrumb trail from #234, but through
+`<PageHeader showTitle={false}>`, so it no longer adds a second `<h1>`; pages
+own their heading. `PageHeader` gives its heading a fixed `page-title` id
 (overridable with `titleId`) instead of one built from the breadcrumb label
 with spaces in it. Screens that only had the shell's heading in some states
 now render their own: notifications inbox, patient chart, intake, appointment
