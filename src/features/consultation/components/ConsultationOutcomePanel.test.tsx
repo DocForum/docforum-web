@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../test/render';
 import { useAuthStore } from '../../../store/auth-store';
+import { ApiError } from '../../../services/api-client';
 import * as consultationService from '../../../services/consultation-service';
 import * as verificationService from '../../../services/doctor-verification-service';
 import * as searchService from '../../../services/search-service';
@@ -152,5 +153,55 @@ describe('ConsultationOutcomePanel', () => {
 
     expect(await screen.findByText('Snapshot notes are required.')).toBeInTheDocument();
     expect(consultationService.recordConsultation).not.toHaveBeenCalled();
+  });
+
+  it('focuses the first invalid field on submit', async () => {
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Needs referral." />);
+
+    await user.click(screen.getByRole('radio', { name: 'Referred' }));
+    await user.click(screen.getByRole('button', { name: /record consultation/i }));
+
+    await screen.findByText('Target specialty is required.');
+    expect(screen.getByLabelText('Target specialty')).toHaveFocus();
+  });
+
+  it('does not record the consultation twice when retrying after a referral failure', async () => {
+    const user = userEvent.setup();
+    vi.mocked(consultationService.createConsultationReferral)
+      .mockRejectedValueOnce(new Error('Referral service unavailable'))
+      .mockResolvedValueOnce(REFERRAL);
+    render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Needs a cardiologist." />);
+
+    await user.click(screen.getByRole('radio', { name: 'Referred' }));
+    await user.type(screen.getByLabelText('Target specialty'), 'Cardiology');
+    await user.type(screen.getByLabelText('Referral reason'), 'Demo reason.');
+
+    await user.click(screen.getByRole('button', { name: /record consultation/i }));
+    expect(
+      await screen.findByText(/consultation was recorded, but the next step failed/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /record consultation/i }));
+
+    expect(await screen.findByText(/referral created for cardiology/i)).toBeInTheDocument();
+    expect(consultationService.recordConsultation).toHaveBeenCalledTimes(1);
+    expect(consultationService.createConsultationReferral).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps server field errors onto the shared form fields', async () => {
+    const user = userEvent.setup();
+    vi.mocked(consultationService.recordConsultation).mockRejectedValueOnce(
+      new ApiError('Validation failed', 422, {
+        errors: [{ field: 'followUpDays', message: 'Choose a day the clinic is open.' }],
+      }),
+    );
+    render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Review soon." />);
+
+    await user.click(screen.getByRole('radio', { name: 'Follow-up needed' }));
+    await user.click(screen.getByRole('button', { name: /record consultation/i }));
+
+    expect(await screen.findByText('Choose a day the clinic is open.')).toBeInTheDocument();
+    expect(consultationService.createConsultationReferral).not.toHaveBeenCalled();
   });
 });
