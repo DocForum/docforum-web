@@ -242,6 +242,8 @@ export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+  threadIdsForPatients: (patientProfileIds: readonly string[]) =>
+    ['doctor', 'messages', 'thread-ids-for-patients', patientProfileIds] as const,
 };
 
 /** First-run onboarding summary (#121). One key per role: the server scopes

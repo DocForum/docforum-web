@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { CreateWebhookDialog } from './CreateWebhookDialog';
 import { WebhookDeliveries } from './WebhookDeliveries';
 import {
@@ -33,11 +36,15 @@ interface WebhooksPanelProps {
 export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
-  const { data: endpointsData, isLoading } = useWebhookEndpoints(facilityId);
+  const { data: endpointsData, isLoading, isError, error, refetch } = useWebhookEndpoints(facilityId);
   const deleteMutation = useDeleteWebhookEndpoint(facilityId);
   const testMutation = useSendTestDelivery(facilityId);
+  const errorText = useErrorMessage();
 
-  const endpoints: WebhookEndpoint[] = endpointsData ?? DEFAULT_MOCK_WEBHOOKS;
+  const endpoints: WebhookEndpoint[] = endpointsData ?? [];
+  const errorMessage = isError
+    ? errorText(error) ?? 'Webhook endpoints could not be loaded.'
+    : null;
 
   const handleDelete = (endpointId: string, url: string) => {
     if (
@@ -67,10 +74,22 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   if (isLoading) {
     return (
       <div className={styles.card}>
-        <div className={styles.emptyState}>
-          <Spinner size={24} />
-          <p>Loading webhook endpoints…</p>
+        <Skeleton lines={3} label="Loading webhook endpoints" />
+      </div>
+    );
+  }
+
+  if (errorMessage && endpointsData === undefined) {
+    return (
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>Webhooks</h2>
         </div>
+        <InlineError
+          title="Webhook endpoints couldn't be loaded"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }
@@ -86,10 +105,20 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
         Each delivery is signed with an HMAC secret so you can verify authenticity.
       </p>
 
+      {errorMessage && (
+        <InlineError
+          title="Webhook endpoints may be out of date"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {endpoints.length === 0 ? (
-        <div className={styles.emptyState}>
-          No webhook endpoints configured. Add one to receive real-time event notifications.
-        </div>
+        <EmptyState
+          title="No webhook endpoints configured"
+          description="Add one to receive real-time event notifications in your systems."
+          action={{ label: 'Add your first endpoint', onClick: () => setCreateDialogOpen(true) }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {endpoints.map((endpoint) => (
