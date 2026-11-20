@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
+import { PasswordField } from '../../../components/PasswordField';
 import { FormError } from '../../../components/FormError';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useT } from '../../../i18n/useT';
@@ -154,9 +155,9 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
               </p>
 
             <form onSubmit={handleDeleteSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-              <TextField
+              <PasswordField
+                name="password"
                 label={t('account.delete.confirmPassword', 'Confirm your password')}
-                type="password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);

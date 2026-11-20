@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { ErrorSummary } from '../../../components/ErrorSummary';
 import { FormError } from '../../../components/FormError';
 import { TextField } from '../../../components/TextField';
 import { useGenerateSlots } from '../hooks/useSlotManagement';
@@ -29,10 +30,10 @@ interface Props {
 }
 
 interface FieldErrors {
-  fromDate?: string;
-  toDate?: string;
-  hours?: string;
-  slotLength?: string;
+  fromDate?: { message: string };
+  toDate?: { message: string };
+  hours?: { message: string };
+  slotLength?: { message: string };
 }
 
 function validate(values: {
@@ -44,22 +45,22 @@ function validate(values: {
 }): FieldErrors {
   const errors: FieldErrors = {};
 
-  if (!isValidIsoDate(values.fromDate)) errors.fromDate = 'Choose the first date to generate for.';
-  if (!isValidIsoDate(values.toDate)) errors.toDate = 'Choose the last date to generate for.';
+  if (!isValidIsoDate(values.fromDate)) errors.fromDate = { message: 'Choose the first date to generate for.' };
+  if (!isValidIsoDate(values.toDate)) errors.toDate = { message: 'Choose the last date to generate for.' };
 
   if (!errors.fromDate && !errors.toDate) {
     const span = daysBetween(values.fromDate, values.toDate) + 1;
-    if (span < 1) errors.toDate = 'The last date cannot be before the first date.';
+    if (span < 1) errors.toDate = { message: 'The last date cannot be before the first date.' };
     // One request per day, so a long range is a long chain of round trips.
-    else if (span > MAX_GENERATE_DAYS) errors.toDate = `Keep the range to ${MAX_GENERATE_DAYS} days or fewer — every day is its own request.`;
+    else if (span > MAX_GENERATE_DAYS) errors.toDate = { message: `Keep the range to ${MAX_GENERATE_DAYS} days or fewer — every day is its own request.` };
   }
 
   if (values.endHour <= values.startHour) {
-    errors.hours = 'The end of the daily window must be later than its start.';
+    errors.hours = { message: 'The end of the daily window must be later than its start.' };
   } else {
     const windowMinutes = (values.endHour - values.startHour) * MINUTES_PER_HOUR;
     if (windowMinutes % values.slotLengthMinutes !== 0) {
-      errors.slotLength = `${values.slotLengthMinutes} minutes does not divide evenly into a ${values.endHour - values.startHour}-hour window. Use 15, 20, 30 or 60.`;
+      errors.slotLength = { message: `${values.slotLengthMinutes} minutes does not divide evenly into a ${values.endHour - values.startHour}-hour window. Use 15, 20, 30 or 60.` };
     }
   }
 
@@ -86,7 +87,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
     event.preventDefault();
     const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength });
     setFieldErrors(errors);
-    if (Object.values(errors).some(Boolean)) return;
+    if (Object.values(errors).some((e) => e?.message)) return;
 
     setOutcome(null);
     generate.mutate(
@@ -103,6 +104,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} aria-label="Generate slots">
+      <ErrorSummary errors={fieldErrors as Record<string, { message: string }>} idPrefix="generate-slots" />
       <h3 className={styles.title}>Generate slots</h3>
       <p className={styles.hint}>
         Every day in the range is a separate request — {MAX_GENERATE_DAYS} days maximum. Times are in {timeZone}.
@@ -113,7 +115,8 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
           label="From"
           type="date"
           value={fromDate}
-          error={fieldErrors.fromDate}
+          error={fieldErrors.fromDate?.message}
+            
           onChange={(event) => setFromDate(event.target.value)}
           required
         />
@@ -121,7 +124,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
           label="To"
           type="date"
           value={toDate}
-          error={fieldErrors.toDate}
+          error={fieldErrors.toDate?.message}
           onChange={(event) => setToDate(event.target.value)}
           required
         />
@@ -150,7 +153,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
             id="generate-end-hour"
             className={styles.select}
             value={endHour}
-            aria-invalid={Boolean(fieldErrors.hours)}
+            aria-invalid={Boolean(fieldErrors.hours?.message)}
             onChange={(event) => setEndHour(Number(event.target.value))}
           >
             {hours.map((hour) => (
@@ -168,7 +171,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
             id="generate-slot-length"
             className={styles.select}
             value={slotLength}
-            aria-invalid={Boolean(fieldErrors.slotLength)}
+            aria-invalid={Boolean(fieldErrors.slotLength?.message)}
             onChange={(event) => setSlotLength(Number(event.target.value))}
           >
             {SLOT_LENGTHS.map((minutes) => (
@@ -180,8 +183,8 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
         </div>
       </div>
 
-      <FormError message={fieldErrors.hours ?? null} />
-      <FormError message={fieldErrors.slotLength ?? null} />
+      <FormError message={fieldErrors.hours?.message ?? null} />
+      <FormError message={fieldErrors.slotLength?.message ?? null} />
 
       <p className={styles.count}>
         {dayCount > 0

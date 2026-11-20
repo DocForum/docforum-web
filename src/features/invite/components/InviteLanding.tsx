@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
+import { PasswordField } from '../../../components/PasswordField';
 import { TextField } from '../../../components/TextField';
 import { ApiError } from '../../../services/api-client';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
@@ -262,9 +263,9 @@ export function InviteLanding({ token }: InviteLandingProps) {
               aria-readonly
               aria-describedby="invite-email-note"
             />
-            <TextField
+            <PasswordField
+              name="password"
               label="Password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

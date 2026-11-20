@@ -4,6 +4,7 @@ import { useFacilitySettings } from '../hooks/useFacilitySettings';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { LocationContactEditor } from './LocationContactEditor';
 import { PriceListEditor } from './PriceListEditor';
+import { ErrorSummary } from '../../../components/ErrorSummary';
 import styles from './FacilitySettings.module.css';
 
 interface FacilitySettingsViewProps {
@@ -43,6 +44,7 @@ export function FacilitySettingsView({ facilityId = 'fac-main' }: FacilitySettin
 
       {settings && (
         <>
+          <ErrorSummary errors={{}} idPrefix="facility" />
           <LocationContactEditor
             facilityId={facilityId}
             settings={settings}

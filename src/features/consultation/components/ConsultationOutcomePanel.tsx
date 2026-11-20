@@ -172,61 +172,44 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
           <p className={styles.hint}>Add consultation notes above before recording an outcome.</p>
         ) : null}
 
-        <form
-          ref={formRef}
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-        >
-          <Controller
-            control={form.control}
-            name="outcome"
-            render={({ field }) => (
-              <fieldset className={styles.fieldset}>
-                <legend className={styles.legend}>Outcome</legend>
-                <div className={styles.radioRow}>
-                  {OUTCOMES.map((option) => (
-                    <label key={option.value} className={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name={field.name}
-                        value={option.value}
-                        checked={field.value === option.value}
-                        onChange={() => {
-                          field.onChange(option.value);
-                          clearAttemptState();
-                        }}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            )}
+      {outcome === 'referred' ? (
+        <div className={styles.subsection}>
+          <TextField
+            label="Target specialty"
+            value={specialty}
+            onChange={(event) => setSpecialty(event.target.value)}
+            error={errors.specialty?.message}
           />
-
-          {outcome === 'referred' ? (
-            <div className={styles.subsection}>
-              <FormField name="specialty" label="Target specialty" />
-              <label className={styles.textareaLabel}>
-                Referral reason
-                <textarea
-                  id="referral-reason"
-                  className={styles.textarea}
-                  aria-invalid={Boolean(errors.referralReason)}
-                  aria-describedby={
-                    errors.referralReason ? 'referral-reason-error' : undefined
-                  }
-                  {...form.register('referralReason')}
-                />
-              </label>
-              {errors.referralReason ? (
-                <p id="referral-reason-error" className={styles.error} role="alert">
-                  {errors.referralReason.message}
-                </p>
-              ) : null}
-            </div>
+          <label className={styles.textareaLabel}>
+            Referral reason
+            <textarea
+              className={styles.textarea}
+              value={referralReason}
+              onChange={(event) => setReferralReason(event.target.value)}
+              aria-invalid={Boolean(errors.referralReason)}
+            />
+          </label>
+          {errors.referralReason ? (
+            <p className={styles.error} role="alert">
+              {errors.referralReason.message}
+            </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {outcome === 'follow_up_needed' ? (
+        <div className={styles.subsection}>
+          <TextField
+            label="Follow up in days"
+            type="number"
+            min={1}
+            max={90}
+            value={followUpDays}
+            onChange={(event) => setFollowUpDays(event.target.value)}
+            error={errors.followUpDays?.message}
+          />
+        </div>
+      ) : null}
 
           {outcome === 'follow_up_needed' ? (
             <div className={styles.subsection}>
