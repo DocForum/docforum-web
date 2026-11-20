@@ -8,7 +8,6 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
-import { useAuthStore } from './store/auth-store';
 import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
@@ -49,25 +48,6 @@ async function boot(): Promise<void> {
   if (mocksEnabled) {
     const { startMockApi } = await import('./mocks/setup');
     await startMockApi();
-  }
-
-  // Enable preview session when previewRole query param is set (useful for screenshots & review)
-  const urlParams = new URLSearchParams(window.location.search);
-  const previewRole = urlParams.get('previewRole');
-  if (
-    previewRole &&
-    (previewRole === 'doctor' || previewRole === 'facility' || previewRole === 'patient' || previewRole === 'admin')
-  ) {
-    useAuthStore.getState().setSession(
-      {
-        id: `preview-${previewRole}-user`,
-        email: `${previewRole}@docforum.org`,
-        role: previewRole,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      'preview-token',
-    );
   }
 
   // Error monitoring: disabled unless a DSN is configured (VITE_SENTRY_DSN).
