@@ -49,4 +49,16 @@ describe('PageHeader', () => {
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByText('Custom')).toHaveAttribute('aria-current', 'page');
   });
+
+  it('gives the heading a valid id token, never one built from a label', () => {
+    renderHeader({ title: 'Apt Demo 2' });
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveAttribute('id', 'page-title');
+    expect(heading.id).not.toMatch(/\s/);
+  });
+
+  it('accepts an explicit heading id', () => {
+    renderHeader({ title: 'Health profile', titleId: 'health-title' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('id', 'health-title');
+  });
 });

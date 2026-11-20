@@ -17,6 +17,11 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
   /** Heading level override (default h1). */
   as?: 'h1' | 'h2';
+  /**
+   * id for the heading, e.g. for `aria-labelledby`. Must be a valid id token
+   * (no whitespace). Defaults to `page-title`; a page renders one PageHeader.
+   */
+  titleId?: string;
 }
 
 /**
@@ -26,7 +31,13 @@ interface PageHeaderProps {
  * can simply pass a title. Landmark / heading structure is kept consistent so
  * screen-reader users can jump past chrome to the page content.
  */
-export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As = 'h1' }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  breadcrumbs: explicitCrumbs,
+  actions,
+  as: As = 'h1',
+  titleId = 'page-title',
+}: PageHeaderProps) {
   const location = useLocation();
 
   const breadcrumbs = useMemo(() => {
@@ -93,7 +104,7 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
           </nav>
         )}
         <div className={styles.titleArea}>
-          <CrumbElement className={styles.title} id={`page-title-${breadcrumbs[breadcrumbs.length - 1]?.label ?? 'page'}`}>
+          <CrumbElement className={styles.title} id={titleId}>
             {title}
           </CrumbElement>
         </div>

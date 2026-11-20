@@ -112,7 +112,13 @@ export function NotificationList({
   return (
     <section className={`${styles.list} ${isPanel ? styles.panel : ''}`} aria-label="Notifications">
       <div className={styles.header}>
-        <h2 className={styles.heading}>{isPanel ? 'Notifications' : 'Your notifications'}</h2>
+        {/* The full-page inbox has no other title, so its heading is the page's
+            <h1> (issue #238); the bell's dropdown panel keeps an h2. */}
+        {isPanel ? (
+          <h2 className={styles.heading}>Notifications</h2>
+        ) : (
+          <h1 className={styles.heading}>Your notifications</h1>
+        )}
         <Button
           variant="secondary"
           size="small"

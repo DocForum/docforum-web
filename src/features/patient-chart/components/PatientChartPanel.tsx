@@ -25,13 +25,23 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
     error,
   } = usePatientChart(patientProfileId ?? undefined);
 
-  if (isLoading) return <Skeleton lines={6} height="1.5rem" label="Loading patient chart" />;
+  if (isLoading) {
+    return (
+      <section className={styles.panel}>
+        <h1>Patient chart</h1>
+        <Skeleton lines={6} height="1.5rem" label="Loading patient chart" />
+      </section>
+    );
+  }
   if (error) {
     return (
-      <InlineError
-        title="The patient chart couldn't be loaded"
-        message={queryErrorMessage(error)}
-      />
+      <section className={styles.panel}>
+        <h1>Patient chart</h1>
+        <InlineError
+          title="The patient chart couldn't be loaded"
+          message={queryErrorMessage(error)}
+        />
+      </section>
     );
   }
 
@@ -42,7 +52,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
   return (
     <section className={styles.panel}>
-      <h2>Patient chart</h2>
+      <h1>Patient chart</h1>
 
       {/* Health Profile */}
       <div className={styles.section}>

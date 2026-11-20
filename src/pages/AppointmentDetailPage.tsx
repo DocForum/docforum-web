@@ -79,6 +79,7 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card" aria-busy="true">
+          <h1 className={styles.title}>Your appointment</h1>
           <p className={styles.loading}>
             <Spinner size={16} /> Loading your appointment…
           </p>

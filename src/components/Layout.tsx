@@ -19,8 +19,6 @@ import { OfflineBanner } from './OfflineBanner';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
-import { PageHeader } from './PageHeader';
-import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
 import styles from './Layout.module.css';
@@ -33,32 +31,6 @@ import { patientNavItems } from '../navigation/patient';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
 type Role = 'patient' | 'doctor' | 'facility' | 'admin';
-
-/** Derive a human-readable page title from the current route path. */
-function routeTitle(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Home';
-
-  const last = segments[segments.length - 1];
-  const label = last
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/Id\b/g, 'ID')
-    .replace(/Url\b/g, 'URL');
-
-  const roleRoots: Record<string, string> = {
-    patient: 'Patient',
-    doctor: 'Doctor',
-    facility: 'Facility',
-    admin: 'Admin',
-  };
-
-  if (segments.length === 1 && roleRoots[last]) return `${roleRoots[last]} dashboard`;
-  if (segments.length >= 2 && roleRoots[segments[0]]) {
-    return `${roleRoots[segments[0]]} · ${label}`;
-  }
-  return label;
-}
 
 /**
  * Role-aware navigation entries, one file per role in src/navigation/. Items
@@ -93,7 +65,6 @@ export function Layout() {
   const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
-  const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -326,9 +297,9 @@ export function Layout() {
         role="main"
         tabIndex={-1}
       >
-        {/* Public information pages (#120) render their own <header>/<h1>;
-            the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
+        {/* Each page renders its own single <h1> (issue #238). The shell used
+            to add a route-derived one, which gave every page two level-one
+            headings and a title built from URL segments. */}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>

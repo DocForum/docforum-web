@@ -29,3 +29,27 @@ for (const { path, role } of routes) {
     expect(newViolations, `New axe violations on ${path}`).toEqual([]);
   });
 }
+
+// Issue #238: one meaningful <h1> per route. The app shell used to add a
+// second, route-derived <h1> ("Doctor · Apt Demo 2") on top of the page's own.
+for (const { path, role } of routes) {
+  test(`${path} has exactly one h1, without a raw id`, async ({ page, visit }) => {
+    await visit(path, role);
+    const h1 = page.locator('h1');
+    await expect(h1.first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(h1, `Expected exactly one <h1> on ${path}`).toHaveCount(1);
+
+    const text = (await h1.textContent())?.trim() ?? '';
+    expect(text, `<h1> on ${path} is empty`).not.toBe('');
+    // Dynamic route segments (fixture ids such as "apt-demo-2") must not leak
+    // into the heading, raw or title-cased.
+    for (const segment of path.split('/').filter((s) => /\d/.test(s))) {
+      const titled = segment.replace(/[-_]/g, ' ').toLowerCase();
+      expect(text.toLowerCase(), `<h1> on ${path} contains the id "${segment}"`).not.toContain(segment.toLowerCase());
+      expect(text.toLowerCase(), `<h1> on ${path} contains the id "${segment}"`).not.toContain(titled);
+    }
+    const id = await h1.getAttribute('id');
+    if (id !== null) expect(id, `<h1> id on ${path} is not a valid token`).toMatch(/^\S+$/);
+  });
+}
