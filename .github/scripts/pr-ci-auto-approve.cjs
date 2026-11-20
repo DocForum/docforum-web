@@ -27,6 +27,8 @@
 // It runs from `main` via workflow_run and never checks out or executes the
 // PR. Never add a step that does.
 
+// CommonJS on purpose: actions/github-script loads these scripts with require().
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const scan = require('./pr-malware-scan.cjs');
 
 const LABEL = 'ci-needs-manual-approval';

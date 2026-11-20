@@ -29,9 +29,9 @@ concurrency:
 jobs:
   approve:
     name: Approve CI after security review
-    # Only PR scans (not manual backfills), and only ones that passed.
+    # Only scans of PR pushes (not manual backfills), and only ones that passed.
     if: >-
-      github.event.workflow_run.event == 'pull_request_target' &&
+      github.event.workflow_run.event != 'workflow_dispatch' &&
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
