@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { WalletLinkForm } from '../features/payments/components/WalletLinkForm';
+import { PayoutBlockedBanner } from '../features/payments/components/PayoutBlockedBanner';
 import { FacilityQueuePanel } from '../features/facility-queue/components/FacilityQueuePanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useT } from '../i18n/useT';
@@ -40,6 +41,8 @@ export function FacilityDashboardPage() {
           Settings
         </Link>
       </nav>
+
+      <PayoutBlockedBanner />
 
       <div className={styles.header}>
         <div>

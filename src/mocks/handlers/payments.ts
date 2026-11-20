@@ -3,7 +3,10 @@
 // here (hard rule 1). Amounts stay BigInt-as-string.
 import { http, HttpResponse } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
+import { conflict, notFound, paramId, payoutBlocked, respond } from '../helpers';
+import { useMockStore } from '../mock-store';
+import { DEFAULT_MOCK_LEDGER_PAGE } from '../../features/payments/demo-ledger';
+import { FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING } from '../../services/error-catalogue';
 import { FACILITY_ID } from '../fixtures';
 import type { PaymentIntent } from '../../types/models';
 
@@ -35,7 +38,29 @@ export const paymentsHandlers = [
     }),
   ),
 
-  http.get('*/payments/wallet-link', respond('nullable', () => db.walletLink)),
+  http.get(
+    '*/payments/wallet-link',
+    respond('nullable', () => {
+      if (useMockStore.getState().scenario === 'wallet_missing') {
+        return notFound('payout wallet');
+      }
+      return db.walletLink;
+    }),
+  ),
+
+  // Facility payout ledger (issue #53 contract). Served here so the
+  // payout-block scenarios can answer with docforum-core's real blocking
+  // codes: the UI must learn about a missing wallet/trustline from the API,
+  // never from Stellar directly (hard rule 1).
+  http.get(
+    '*/facilities/:id/payout-ledger',
+    respond('json', () => {
+      const { scenario } = useMockStore.getState();
+      if (scenario === 'wallet_missing') return payoutBlocked(FACILITY_WALLET_NOT_LINKED);
+      if (scenario === 'trustline_missing') return payoutBlocked(PAYEE_TRUSTLINE_MISSING);
+      return DEFAULT_MOCK_LEDGER_PAGE;
+    }),
+  ),
 
   http.post(
     '*/payments/intents',
@@ -132,6 +157,10 @@ export const paymentsHandlers = [
     http.post(
       `*/payments/intents/:id/${action}`,
       respond('json', ({ params }) => {
+        const { scenario } = useMockStore.getState();
+        if (scenario === 'wallet_missing') return payoutBlocked(FACILITY_WALLET_NOT_LINKED);
+        if (scenario === 'trustline_missing') return payoutBlocked(PAYEE_TRUSTLINE_MISSING);
+
         const intent = db.paymentIntents.find((i) => i.id === paramId(params));
         if (!intent) return notFound('payment intent');
         if (intent.status !== 'created' && action === 'fund') {

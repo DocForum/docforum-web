@@ -218,7 +218,56 @@ const CATALOGUE: Record<string, Entry> = {
     defaultMessage: 'A wallet is already linked to this facility.',
     action: 'none',
   },
+  // Payout setup (issue #279): docforum-core refuses to create/settle a
+  // facility's payments outright with these codes. The facility pages turn
+  // them into a persistent banner; the generic copy here covers every other
+  // surface that receives the same failure.
+  FACILITY_WALLET_NOT_LINKED: {
+    messageId: 'errors.facilityWalletNotLinked',
+    defaultMessage: 'Your facility has no payout wallet linked, so DocForum cannot create or settle its payments yet.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PAYEE_TRUSTLINE_MISSING: {
+    messageId: 'errors.payeeTrustlineMissing',
+    defaultMessage: 'The linked payout wallet cannot hold this payment type yet, so payouts are on hold.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
 };
+
+/** docforum-core refuses to create or settle a facility's payments while no
+ * payout wallet is linked (issue #279). */
+export const FACILITY_WALLET_NOT_LINKED = 'FACILITY_WALLET_NOT_LINKED';
+
+/** docforum-core refuses to settle because the linked payout wallet has no
+ * trustline for the payout asset (issue #279). */
+export const PAYEE_TRUSTLINE_MISSING = 'PAYEE_TRUSTLINE_MISSING';
+
+/** docforum-core codes that mean this facility's payout setup is incomplete
+ * (issue #279). */
+export const PAYOUT_BLOCK_CODES = [FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING] as const;
+export type PayoutBlockCode = (typeof PAYOUT_BLOCK_CODES)[number];
+
+export function isPayoutBlockCode(value: string | null | undefined): value is PayoutBlockCode {
+  return Boolean(value && (PAYOUT_BLOCK_CODES as readonly string[]).includes(value));
+}
+
+/**
+ * The payout-block code carried by `error`, or `null` for anything else.
+ *
+ * Branches only on the backend's machine-readable code (the transport exposes
+ * it as `ApiError.code`, with the raw body as a fallback) — never on the
+ * message text, and never by asking Stellar from the browser (hard rule 1).
+ */
+export function getPayoutBlockCode(error: unknown): PayoutBlockCode | null {
+  if (!(error instanceof ApiError)) return null;
+  const bodyCode = (error.body as { code?: unknown } | undefined)?.code;
+  const code = error.code ?? (typeof bodyCode === 'string' ? bodyCode : null);
+  return isPayoutBlockCode(code) ? code : null;
+}
 
 /** HTTP-status fallback when the backend did not send a code. */
 const STATUS_CODES: Record<number, string> = {
