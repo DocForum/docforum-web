@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FormError } from '../components/FormError';
 import { Spinner } from '../components/Spinner';
+import { useErrorMessage } from '../hooks/useErrorText';
 import { CredentialList } from '../features/verification/components/CredentialList';
 import { CredentialUploadForm } from '../features/verification/components/CredentialUploadForm';
 import { SpecialtyClaimPicker } from '../features/verification/components/SpecialtyClaimPicker';
@@ -40,6 +41,7 @@ export function DoctorVerificationPage() {
   const credentialsQuery = useCredentials();
   const catalogQuery = useSpecialtyCatalog();
   const claimsQuery = useSpecialtyClaims();
+  const errorText = useErrorMessage();
 
   const credentials = credentialsQuery.data ?? [];
   const claims = claimsQuery.data ?? [];
@@ -86,7 +88,7 @@ export function DoctorVerificationPage() {
         <VerificationChecklist credentials={credentials} claims={claims} />
       </div>
 
-      <div className="card">
+      <div className="card" id="credential-upload">
         <CredentialUploadForm />
       </div>
 
@@ -95,7 +97,12 @@ export function DoctorVerificationPage() {
         <CredentialList
           credentials={credentials}
           isLoading={credentialsQuery.isPending}
-          error={credentialsQuery.isError ? messageFrom(credentialsQuery.error, 'Could not load your documents.') : null}
+          error={
+            credentialsQuery.isError
+              ? errorText(credentialsQuery.error) ?? 'Your documents could not be loaded.'
+              : null
+          }
+          onRetry={() => void credentialsQuery.refetch()}
         />
       </section>
 
@@ -105,7 +112,12 @@ export function DoctorVerificationPage() {
           catalog={catalogQuery.data ?? []}
           claims={claims}
           isLoading={catalogQuery.isPending}
-          error={catalogQuery.isError ? messageFrom(catalogQuery.error, 'Could not load the specialty catalog.') : null}
+          error={
+            catalogQuery.isError
+              ? errorText(catalogQuery.error) ?? 'The specialty catalog could not be loaded.'
+              : null
+          }
+          onRetry={() => void catalogQuery.refetch()}
         />
       </section>
     </div>

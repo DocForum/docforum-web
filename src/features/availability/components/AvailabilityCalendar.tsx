@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Button } from '../../../components/Button';
-import { FormError } from '../../../components/FormError';
-import { Spinner } from '../../../components/Spinner';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { SlotSelection } from './SlotSelection';
 import {
   buildCells,
@@ -103,18 +103,11 @@ export function AvailabilityCalendar({
 
       {error && (
         <div className={styles.errorState}>
-          <FormError message={error} />
-          <Button variant="secondary" onClick={onRetry}>
-            Try again
-          </Button>
+          <InlineError title="Slots couldn't be loaded" message={error} onRetry={onRetry} />
         </div>
       )}
 
-      {isLoading && (
-        <p className={styles.loading}>
-          <Spinner size={18} /> Loading slots in {zone}.
-        </p>
-      )}
+      {isLoading && <Skeleton lines={3} label={`Loading slots in ${zone}`} />}
 
       {!isLoading && !error && dates.length === 0 && <p className={styles.empty}>No dates selected.</p>}
 

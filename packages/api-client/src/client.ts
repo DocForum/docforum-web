@@ -100,23 +100,27 @@ export function createApiClient(transport: ApiTransport) {
     },
 
     account: {
-      requestDataExport(
-        input: Schemas['RequestDataExportInput'],
-        options: CallOptions = {},
-      ): Promise<Res<'/account/data-export', 'post'>> {
-        return transport.request('/account/data-export', { ...options, method: 'POST', body: input });
+      requestDataExport(options: CallOptions = {}): Promise<Res<'/patients/me/export', 'post'>> {
+        // `POST /patients/me/export` reads no body (docforum-core #40). The
+        // 202 body carries the export `id`; the `Location` header points at
+        // the same `/patients/me/export/:id` status resource.
+        return transport.request('/patients/me/export', { ...options, method: 'POST' });
       },
-      getDataExport(options: CallOptions = {}): Promise<Res<'/account/data-export', 'get'>> {
-        return transport.request('/account/data-export', options);
+      getDataExportStatus(
+        exportId: string,
+        options: CallOptions = {},
+      ): Promise<Res<'/patients/me/export/{exportId}', 'get'>> {
+        return transport.request(`/patients/me/export/${encodeURIComponent(exportId)}`, options);
       },
       downloadDataExport(exportId: string, options: CallOptions = {}): Promise<Blob> {
-        return transport.requestBlob(`/account/data-export/${encodeURIComponent(exportId)}/download`, options);
+        return transport.requestBlob(
+          `/patients/me/export/${encodeURIComponent(exportId)}/download`,
+          options,
+        );
       },
-      deleteAccount(
-        input: Schemas['DeleteAccountInput'],
-        options: CallOptions = {},
-      ): Promise<Res<'/account/delete', 'post'>> {
-        return transport.request('/account/delete', { ...options, method: 'POST', body: input });
+      deleteAccount(input: Schemas['DeleteAccountInput'], options: CallOptions = {}): Promise<void> {
+        // `DELETE /patients/me` answers 204 with no body (docforum-core #41).
+        return transport.request<void>('/patients/me', { ...options, method: 'DELETE', body: input });
       },
     },
 

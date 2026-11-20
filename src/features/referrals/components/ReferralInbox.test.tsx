@@ -101,15 +101,28 @@ describe('ReferralInbox', () => {
 
     render(<ReferralInbox />);
 
-    expect(screen.getByText(/loading referrals/i)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading referrals/i);
   });
 
-  it('shows an empty state when there are no referrals', async () => {
+  it('shows an empty state with the next action when there are no referrals', async () => {
     vi.mocked(referralsService.listReferrals).mockResolvedValue(makePage([], null));
 
     render(<ReferralInbox />);
 
-    expect(await screen.findByText(/no referrals yet/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /no referrals yet/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to the doctor area/i })).toHaveAttribute('href', '/doctor');
+  });
+
+  it('turns a filtered empty state into a way back to every referral', async () => {
+    vi.mocked(referralsService.listReferrals).mockResolvedValue(makePage([], null));
+    const user = userEvent.setup();
+
+    render(<ReferralInbox />);
+    await user.click(screen.getByRole('tab', { name: 'Pending' }));
+
+    expect(await screen.findByRole('heading', { name: /no pending referrals/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /view all referrals/i }));
+    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('switching tabs refetches through the referrals service with the status filter', async () => {
@@ -142,13 +155,36 @@ describe('ReferralInbox', () => {
     expect(pending).toHaveFocus();
   });
 
-  it('shows an error with a retry when the first page fails', async () => {
-    vi.mocked(referralsService.listReferrals).mockRejectedValue(new ApiError('Referral service unavailable.', 503));
+  it('shows the catalogue error with a retry when the first page fails', async () => {
+    vi.mocked(referralsService.listReferrals).mockRejectedValue(
+      new ApiError('Internal service detail that must not be rendered.', 503),
+    );
+    const user = userEvent.setup();
 
     render(<ReferralInbox />);
 
-    expect(await screen.findByText(/referral service unavailable/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/temporarily unavailable/i);
+    expect(alert).not.toHaveTextContent(/internal service detail/i);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(referralsService.listReferrals).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps loaded referrals on screen when a background refetch fails', async () => {
+    vi.mocked(referralsService.listReferrals)
+      .mockResolvedValueOnce(makePage([makeSummary('ref-1')], null))
+      .mockRejectedValueOnce(new ApiError('Upstream is down.', 500));
+
+    const { queryClient } = render(<ReferralInbox />);
+    await screen.findByText('Notes for ref-1');
+
+    await queryClient.refetchQueries({ queryKey: ['referrals', 'inbox', 'all'] });
+
+    // A refetch keeps the rendered page; the failure is reported beside it.
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/still loaded/i);
+    expect(screen.getByText('Notes for ref-1')).toBeInTheDocument();
   });
 
   it('appends page two on "Load more" and hides the button once the cursor runs out', async () => {

@@ -91,6 +91,12 @@
   margin-left: auto;
 }
 
+@media (max-height: 480px) {
+  .pageHeader {
+    padding: var(--space-2) var(--space-4);
+  }
+}
+
 @media (max-width: 639px) {
   .pageHeader {
     padding: var(--space-3) var(--space-4);
