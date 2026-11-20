@@ -6,6 +6,8 @@ import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
 import { FacilityFinderPage } from './FacilityFinderPage';
 import { CareThreadPage } from './CareThreadPage';
+import { PatientOrdersPage } from './PatientOrdersPage';
+import { PatientOrderDetailPage } from './PatientOrderDetailPage';
 
 function PatientHome() {
   const user = useAuthStore((state) => state.user);
@@ -18,6 +20,7 @@ function PatientHome() {
         <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
         <p>Doctor search, booking, and your appointments will live here — see ROADMAP.md Phase W2.</p>
         <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+          <Link to="orders">My orders</Link>
           <Link to="dependents">Manage dependents</Link>
           <Link to="health">Health profile</Link>
           <Link to="/care">Care journey timeline</Link>
@@ -33,6 +36,8 @@ export function PatientDashboardPage() {
   return (
     <Routes>
       <Route index element={<PatientHome />} />
+      <Route path="orders" element={<PatientOrdersPage />} />
+      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />

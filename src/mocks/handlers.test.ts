@@ -21,6 +21,7 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
+import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
@@ -410,5 +411,55 @@ describe('dev panel scenarios', () => {
     const started = Date.now();
     await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(Date.now() - started).toBeGreaterThanOrEqual(180);
+  });
+});
+
+describe('patient order fulfilment progress (#262)', () => {
+  it('derives all three states from the seeded item rows', async () => {
+    const orders = await ordersService.listMyOrders(MOCK_ACCESS_TOKEN);
+    const progressFor = (id: string) => {
+      const order = orders.find((candidate) => candidate.id === id)!;
+      return ordersService.getOrderFulfillmentProgress(
+        order.id,
+        order.orderType,
+        MOCK_ACCESS_TOKEN,
+      );
+    };
+
+    await expect(progressFor('ord-demo-rx-1')).resolves.toEqual({
+      totalItems: 3,
+      dispensedItems: 2,
+      status: 'partially_fulfilled',
+    });
+    await expect(progressFor('ord-demo-lab-1')).resolves.toEqual({
+      totalItems: 2,
+      dispensedItems: 0,
+      status: 'issued',
+    });
+    await expect(progressFor('ord-demo-rx-2')).resolves.toEqual({
+      totalItems: 1,
+      dispensedItems: 1,
+      status: 'fulfilled',
+    });
+  });
+
+  it('rejects an orderType that does not match the order', async () => {
+    await expect(
+      ordersService.getOrderFulfillmentProgress(
+        'ord-demo-lab-1',
+        'prescription',
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('refuses to report progress for a superseded version', async () => {
+    await expect(
+      ordersService.getOrderFulfillmentProgress(
+        'ord-demo-rx-0',
+        'prescription',
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
   });
 });

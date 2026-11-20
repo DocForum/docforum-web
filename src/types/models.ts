@@ -777,3 +777,113 @@ export interface LabResult {
   isCritical: boolean;
   issuedAt: string;
 }
+
+// --- Phase W2 — Patient orders & item-level fulfilment progress (#5, #262) ---
+// `PatientOrder` mirrors docforum-core's order versions (issue #5). The
+// fulfilment progress endpoint (#262) returns its own compact shape below,
+// derived by core from the order's item rows; the UI does not recompute it.
+
+export type OrderLifecycleStatus = 'active' | 'completed' | 'cancelled' | 'superseded';
+
+export interface OrderFacilitySummary {
+  id: string;
+  name: string;
+  type: FacilityType;
+  isOpen?: boolean;
+}
+
+interface OrderVersionBase {
+  id: string;
+  patientProfileId: string;
+  version: number;
+  /** The order version this one replaces, if any. */
+  supersedesId: string | null;
+  status: OrderLifecycleStatus;
+  issuedAt: string;
+  issuedByDoctorName?: string | null;
+  requiresFacilitySelection: boolean;
+  selectedFacility?: OrderFacilitySummary | null;
+  patientName?: string;
+  medicationOrTest?: string;
+  expiresAt?: string;
+  facilityId?: string | null;
+  facilityName?: string | null;
+  items?: OrderItemFulfillment[];
+}
+
+export interface Prescription extends OrderVersionBase {
+  orderType: 'prescription';
+  medication: string;
+  dose: string;
+  quantity?: string | null;
+  instructions?: string | null;
+}
+
+export interface LabOrder extends OrderVersionBase {
+  orderType: 'lab_order';
+  testName: string;
+  fastingRequired?: boolean | null;
+  instructions?: string | null;
+}
+
+export type PatientOrder = Prescription | LabOrder;
+
+export interface QualifiedOrderFacility extends FacilityProfile {
+  location?: FacilityLocation;
+  isOpen: boolean;
+  capabilities: string[];
+}
+
+export interface SelectOrderFacilityInput {
+  facilityId: string;
+  expectedVersion: number;
+}
+
+export type OrderItemFulfillmentStatus =
+  | 'pending'
+  | 'partially_dispensed'
+  | 'dispensed'
+  | 'dispensed_elsewhere'
+  | 'rejected';
+
+/** One item row on a patient order, as returned by the order endpoints. */
+export interface OrderItemFulfillment {
+  id: string;
+  orderId: string;
+  name: string;
+  instructions?: string | null;
+  quantityPrescribed: number;
+  quantityDispensed: number;
+  quantityOutstanding: number;
+  unit: string;
+  status: OrderItemFulfillmentStatus;
+  dispensedByFacilityId?: string | null;
+  dispensedByFacilityName?: string | null;
+  dispensedAt?: string | null;
+  routedToFacilityId?: string | null;
+  routedToFacilityName?: string | null;
+  canDispense: boolean;
+  blockedReason?: string | null;
+}
+
+export interface OrderPaymentSummary {
+  status: 'held' | 'partially_released' | 'released' | 'refunded' | 'none';
+  heldStroops: string;
+  releasedStroops: string;
+  refundedStroops: string;
+  rule: string;
+}
+
+export interface RouteRemainingItemsInput {
+  facilityId: string;
+  itemIds: string[];
+}
+
+/** `GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=` (#262). */
+export type OrderFulfillmentProgressStatus = 'issued' | 'partially_fulfilled' | 'fulfilled';
+
+export interface OrderFulfillmentProgress {
+  totalItems: number;
+  dispensedItems: number;
+  status: OrderFulfillmentProgressStatus;
+}
