@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '../test/render';
+import { render, screen, fireEvent, within } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -36,28 +36,59 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument();
   });
 
-  it('shows patient nav items', () => {
+  function desktopNavHrefs(): string[] {
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    return within(nav)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href') ?? '')
+      .filter((href) => href !== '/settings/notifications');
+  }
+
+  it('shows every routed patient screen in the nav, with secondary entries grouped', () => {
     renderLayout('patient');
     expect(screen.getByRole('link', { name: 'Care journey' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Dependents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Health profile' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Facilities' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/patient/orders');
+    expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/payments');
+    expect(desktopNavHrefs()).toEqual([
+      '/patient/search',
+      '/care',
+      '/patient/dependents',
+      '/patient/health',
+      '/patient/facilities',
+      '/patient/orders',
+      '/payments',
+      '/patient/settings',
+    ]);
   });
 
   it('shows doctor nav items', () => {
     renderLayout('doctor');
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/doctor');
     expect(screen.getByRole('link', { name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Insights' })).toBeInTheDocument();
+    expect(desktopNavHrefs()).toEqual(['/doctor', '/doctor/messages', '/doctor/insights']);
   });
 
-  it('shows facility nav items', () => {
+  it('shows every routed facility screen in the nav, with settings grouped', () => {
     renderLayout('facility');
     expect(screen.getByRole('link', { name: 'Queue' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Verify Order' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Payouts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Insights' })).toHaveAttribute('href', '/facility/insights');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/facility/settings');
+    expect(desktopNavHrefs()).toEqual([
+      '/facility',
+      '/facility/verify',
+      '/facility/team',
+      '/facility/payments',
+      '/facility/integrations',
+      '/facility/insights',
+      '/facility/settings',
+    ]);
   });
 
   it('shows admin nav items', () => {
@@ -67,13 +98,24 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Audit trail' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Flags' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'System' })).toBeInTheDocument();
+    expect(desktopNavHrefs()).toEqual([
+      '/admin',
+      '/admin/verifications',
+      '/admin/verification',
+      '/admin/referrals',
+      '/admin/disputes',
+      '/admin/audit',
+      '/admin/flags',
+      '/admin/catalogs',
+      '/admin/system',
+    ]);
   });
 
   it('hides role-inappropriate items for other roles', () => {
     renderLayout('patient');
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Queue' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Payments' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verifications' })).not.toBeInTheDocument();
   });
 
   it('shows user email and role badge when signed in', () => {

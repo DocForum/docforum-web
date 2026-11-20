@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { InlineError } from '../../../components/states/InlineError';
@@ -10,53 +11,89 @@ import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime } from '../../../i18n/time-zone';
 import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
-import { PasswordField } from '../../../components/PasswordField';
+import { ApiError } from '../../../services/api-client';
+import { accountKeys } from '../../../query-keys';
+import type { DataExport, DataExportFailure } from '../../../types/models';
 import styles from './DataExportSection.module.css';
 
-function formatBytes(bytes?: number | null): string {
-  if (!bytes) return 'Unknown size';
+function formatBytes(bytes: number | null | undefined, unknownSize: string): string {
+  if (!bytes) return unknownSize;
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
+function failureText(
+  t: ReturnType<typeof useT>,
+  failure: DataExportFailure | null | undefined,
+): string {
+  if (!failure) {
+    return t('account.dataExport.fallbackError', 'An error occurred while compiling your export.');
+  }
+  if (failure.code === 'SECTION_FAILED') {
+    return failure.section
+      ? t(
+          'account.dataExport.sectionFailed',
+          'Part of your export ({section}) could not be generated. Request a new export to try again.',
+          { section: failure.section },
+        )
+      : t(
+          'account.dataExport.sectionFailedUnknown',
+          'Part of your export could not be generated. Request a new export to try again.',
+        );
+  }
+  if (failure.code === 'GENERATION_TIMEOUT') {
+    return t(
+      'account.dataExport.generationTimeout',
+      'Generating your export took too long. Request a new export to try again.',
+    );
+  }
+  return t(
+    'account.dataExport.generationFailed',
+    'We could not generate your export. Request a new export to try again.',
+  );
+}
+
 export function DataExportSection() {
   const { timeZone } = useTimeZone();
-  const { data: exportData, isLoading, error: queryError, refetch } = useDataExport();
+  const queryClient = useQueryClient();
+  // The id is the only handle the API gives us (there is no list endpoint).
+  // It lives in memory / the query cache for this session only — never in
+  // localStorage, because it is server-derived (hard rule). Re-mounting the
+  // page can recover it from the cache; a reload cannot, and the copy below
+  // says so honestly.
+  const [exportId, setExportId] = useState<string | null>(
+    () => queryClient.getQueryData<DataExport>(accountKeys.dataExport())?.id ?? null,
+  );
+  const { data: exportData, isLoading, error: queryError, refetch } = useDataExport(exportId);
   const requestMutation = useRequestDataExport();
-  const { download, isDownloading, downloadError } = useDownloadExport();
+  const { download, isDownloading, downloadError, downloadProblem, resetDownload } = useDownloadExport();
   const t = useT();
   const errorMessage = useErrorMessage();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [password, setPassword] = useState('');
   const [modalError, setModalError] = useState<string | null>(null);
 
   const handleOpenModal = () => {
-    setPassword('');
+    resetDownload();
     setModalError(null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setPassword('');
     setModalError(null);
   };
 
-  const handleSubmitRequest = async (e: React.FormEvent) => {
+  const handleSubmitRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) {
-      setModalError('Please enter your password to confirm re-authentication.');
-      return;
-    }
     setModalError(null);
 
-    requestMutation.mutate(password, {
-      onSuccess: () => {
+    requestMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        setExportId(data.id);
         setIsModalOpen(false);
-        setPassword('');
       },
       onError: (err) => {
         setModalError(errorMessage(err));
@@ -66,14 +103,15 @@ export function DataExportSection() {
 
   const downloadErrorMessage = errorMessage(downloadError);
   const status = exportData?.status;
+  const exportMissing = queryError instanceof ApiError && queryError.status === 404;
 
   return (
     <section className={styles.section} aria-labelledby="export-heading">
       <div className={styles.header}>
         <div>
           <h2 id="export-heading" className={styles.title}>
-                {t('account.dataExport.downloadHeading', 'Download my data')}
-              </h2>
+            {t('account.dataExport.downloadHeading', 'Download my data')}
+          </h2>
           <p className={styles.description}>
             {t('account.dataExport.description', 'Patients have the right to access and download a full, machine-readable copy of their personal health records.')}
           </p>
@@ -90,7 +128,7 @@ export function DataExportSection() {
           <li>{t('account.dataExport.paymentLogs', 'Cryptographic payment intent receipts and escrow settlement logs')}</li>
         </ul>
         <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-          {t('account.dataExport.note24h', 'Note: Ready exports are protected and remain available for download for <strong>24 hours</strong> before expiring for security.')}
+          {t('account.dataExport.note24h', 'Note: Ready exports are protected and remain available for download for 24 hours before expiring for security.')}
         </p>
       </div>
 
@@ -98,24 +136,100 @@ export function DataExportSection() {
         <Skeleton lines={2} label={t('account.dataExport.checkingStatus', 'Checking export status…')} />
       )}
 
-      {queryError && (
+      {exportMissing && (
+        <div className={styles.statusCard} role="status">
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            {t(
+              'account.dataExport.notFound',
+              "We couldn't find that export. It may have expired, or it belongs to another session. Request a new export to start again.",
+            )}
+          </p>
+          <div>
+            <Button type="button" onClick={handleOpenModal}>
+              {t('account.dataExport.requestNew', 'Request a new export')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {queryError && !exportMissing && (
         <InlineError
           title="Export status couldn't be checked"
           message={errorMessage(queryError) ?? 'Error loading export'}
           onRetry={() => void refetch()}
         />
       )}
-      {downloadErrorMessage && <FormError message={downloadErrorMessage} />}
 
-      {!isLoading && !exportData && (
-        <div>
-          <Button type="button" onClick={handleOpenModal}>
-                {t('account.dataExport.requestExport', 'Request personal data export')}
-              </Button>
+      {downloadProblem === 'not_ready' && (
+        <div className={styles.statusCard} role="status">
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            {t(
+              'account.dataExport.notReady',
+              "This export isn't ready yet. Its status has been refreshed — try again once it says ready.",
+            )}
+          </p>
+          <div className={styles.modalActions} style={{ marginTop: 0 }}>
+            <Button type="button" variant="secondary" onClick={() => void refetch()}>
+              {t('account.dataExport.refreshStatus', 'Refresh status')}
+            </Button>
+            <Button type="button" onClick={handleOpenModal}>
+              {t('account.dataExport.requestNew', 'Request a new export')}
+            </Button>
+          </div>
         </div>
       )}
 
-      {exportData && (
+      {downloadProblem === 'expired' && status !== 'expired' && (
+        <div className={styles.statusCard} role="status">
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-danger)' }}>
+            {t(
+              'account.dataExport.downloadExpired',
+              'This export expired before it could be downloaded. Request a new export to get a fresh copy.',
+            )}
+          </p>
+          <div>
+            <Button type="button" onClick={handleOpenModal}>
+              {t('account.dataExport.requestNew', 'Request a new export')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {downloadProblem === 'not_found' && (
+        <div className={styles.statusCard} role="status">
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            {t(
+              'account.dataExport.downloadNotFound',
+              "That export is no longer available. Request a new export to get a fresh copy.",
+            )}
+          </p>
+          <div>
+            <Button type="button" onClick={handleOpenModal}>
+              {t('account.dataExport.requestNew', 'Request a new export')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {downloadProblem === 'other' && downloadErrorMessage && <FormError message={downloadErrorMessage} />}
+
+      {!isLoading && !exportData && !exportMissing && !queryError && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div>
+            <Button type="button" onClick={handleOpenModal}>
+              {t('account.dataExport.requestExport', 'Request personal data export')}
+            </Button>
+          </div>
+          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            {t(
+              'account.dataExport.sessionOnly',
+              "DocForum doesn't list earlier exports. If you requested one before (or on another device), request again — if it is still being generated, we'll reconnect to the existing export.",
+            )}
+          </p>
+        </div>
+      )}
+
+      {exportData && !exportMissing && (
         <div className={styles.statusCard} role="status" aria-live="polite">
           <div className={styles.statusHeader}>
             <span
@@ -137,8 +251,8 @@ export function DataExportSection() {
             </span>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
               Requested:{' '}
-              <time dateTime={exportData.requestedAt}>
-                {formatDateTime(exportData.requestedAt, timeZone)}
+              <time dateTime={exportData.createdAt}>
+                {formatDateTime(exportData.createdAt, timeZone)}
               </time>
             </span>
           </div>
@@ -164,7 +278,10 @@ export function DataExportSection() {
                 .
               </p>
               <div className={styles.metaInfo} style={{ marginBottom: 'var(--space-3)' }}>
-                <span>{t('account.dataExport.fileSize', 'File size:')} {formatBytes(exportData.fileSizeBytes)}</span>
+                <span>
+                  {t('account.dataExport.fileSize', 'File size:')}{' '}
+                  {formatBytes(exportData.sizeBytes, t('account.dataExport.unknownSize', 'Unknown size'))}
+                </span>
                 <span>{t('account.dataExport.format', 'Format:')} JSON bundle (FHIR-compatible)</span>
               </div>
               <Button
@@ -180,12 +297,13 @@ export function DataExportSection() {
           {status === 'expired' && (
             <div>
               <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--color-danger)' }}>
-                {t('account.dataExport.expired', 'This export link expired on')}{' '}
-                {formatDateTime(exportData.expiresAt, timeZone)}. For privacy and security, temporary
-                files are removed. You can generate a fresh export anytime.
+                {exportData.expiresAt
+                  ? `${t('account.dataExport.expired', 'This export link expired on')} ${formatDateTime(exportData.expiresAt, timeZone)}.`
+                  : t('account.dataExport.expiredUnknown', 'This export has expired.')}{' '}
+                {t('account.dataExport.expiredRemoved', 'For privacy and security, temporary files are removed. You can generate a fresh export anytime.')}
               </p>
               <Button type="button" onClick={handleOpenModal}>
-                Request new export
+                {t('account.dataExport.requestNew', 'Request a new export')}
               </Button>
             </div>
           )}
@@ -193,7 +311,7 @@ export function DataExportSection() {
           {status === 'failed' && (
             <div>
               <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--color-danger)' }}>
-                {t('account.dataExport.failed', 'Generation failed:')} {exportData.errorMessage ?? t('account.dataExport.fallbackError', 'An error occurred while compiling your export.')}
+                {t('account.dataExport.failed', 'Generation failed:')} {failureText(t, exportData.failure)}
               </p>
               <Button type="button" onClick={handleOpenModal}>
                 {t('common.tryAgain', 'Try again')}
@@ -206,35 +324,30 @@ export function DataExportSection() {
       <Dialog
         open={isModalOpen}
         onClose={handleCloseModal}
-        labelledBy="modal-reauth-title"
-        describedBy="modal-reauth-description"
+        labelledBy="modal-export-title"
+        describedBy="modal-export-description"
         overlayClassName={styles.modalOverlay}
         panelClassName={styles.modal}
       >
-        <h3 id="modal-reauth-title" className={styles.modalTitle}>
-          {t('account.dataExport.modalTitle', 'Confirm your password')}
+        <h3 id="modal-export-title" className={styles.modalTitle}>
+          {t('account.dataExport.modalTitle', 'Request a data export?')}
         </h3>
-        <p id="modal-reauth-description" className={styles.modalText}>
-          {t('account.dataExport.modalDescription', 'To protect sensitive health information, please enter your account password to confirm this data export request.')}
+        <p id="modal-export-description" className={styles.modalText}>
+          {t(
+            'account.dataExport.modalDescription',
+            "DocForum will compile a machine-readable copy of your records. It can take a few minutes, and this section updates automatically while it is open. The API doesn't list past exports, so after a reload you'll need to request again.",
+          )}
         </p>
         <form onSubmit={handleSubmitRequest} noValidate>
-          <PasswordField
-            name="password"
-            label={t('account.dataExport.passwordLabel', 'Account password')}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            error={modalError ?? undefined}
-            required
-          />
+          {modalError && <FormError message={modalError} />}
           <div className={styles.modalActions}>
             <Button type="button" variant="secondary" onClick={handleCloseModal}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="submit" loading={requestMutation.isPending}>
               {requestMutation.isPending
-                ? t('account.dataExport.verifying', 'Verifying…')
-                : t('account.dataExport.confirmRequest', 'Confirm & request')}
+                ? t('account.dataExport.requesting', 'Requesting…')
+                : t('account.dataExport.confirmRequest', 'Request export')}
             </Button>
           </div>
         </form>

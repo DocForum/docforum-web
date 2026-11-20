@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Controller, FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
-import { ErrorSummary } from '../../../components/ErrorSummary';
-import { TextField } from '../../../components/TextField';
+import { FormError } from '../../../components/FormError';
+import { FormField } from '../../../components/form/FormField';
+import { useZodForm } from '../../../hooks/useZodForm';
+import { useErrorMessage } from '../../../hooks/useErrorText';
+import { mapServerErrors } from '../../../utils/form';
+import { ApiError } from '../../../services/api-client';
 import type {
   ConsultationIssuedOrder,
   ConsultationOutcome,
@@ -13,6 +18,11 @@ import {
   useIssueConsultationOrder,
   useRecordConsultation,
 } from '../hooks/useConsultationOutcome';
+import {
+  consultationOutcomeDefaults,
+  consultationOutcomeSchema,
+  type ConsultationOutcomeFormData,
+} from '../outcome-schema';
 import styles from './ConsultationOutcomePanel.module.css';
 
 interface ConsultationOutcomePanelProps {
@@ -36,140 +46,131 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
   const recordConsultation = useRecordConsultation();
   const createReferral = useCreateConsultationReferral();
   const issueOrder = useIssueConsultationOrder();
+  const errorMessage = useErrorMessage();
 
-  const [outcome, setOutcome] = useState<ConsultationOutcome>('resolved');
-  const [followUpDays, setFollowUpDays] = useState('7');
-  const [specialty, setSpecialty] = useState('');
-  const [referralReason, setReferralReason] = useState('');
-  const [wantsOrder, setWantsOrder] = useState(false);
-  const [orderType, setOrderType] = useState<'prescription' | 'lab_order'>('prescription');
-  const [medication, setMedication] = useState('');
-  const [dose, setDose] = useState('');
-  const [testName, setTestName] = useState('');
-  const [orderInstructions] = useState('');
-  const [errors, setErrors] = useState<Record<string, { message: string }>>({});
+  const form = useZodForm(consultationOutcomeSchema, consultationOutcomeDefaults);
+  const { errors } = form.formState;
+  const outcome = form.watch('outcome');
+  const wantsOrder = form.watch('wantsOrder');
+  const orderType = form.watch('orderType');
+
+  // The record is kept here between attempts so that a failure in the
+  // referral/order step can be retried without recording the consultation
+  // twice (issue #286).
+  const recordedRef = useRef<ConsultationRecord | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<OutcomeResult | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Move focus to the first invalid field after a failed submit, in DOM order.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   const isSubmitting =
     recordConsultation.isPending || createReferral.isPending || issueOrder.isPending;
 
-  const reset = () => {
+  const clearAttemptState = () => {
     setResult(null);
     setSubmitError(null);
-    setErrors({});
+    form.clearErrors();
   };
 
-  const submit = async () => {
-    const nextErrors: Record<string, { message: string }> = {};
-    if (!notes.trim()) nextErrors.notes = { message: 'Add consultation notes above before recording an outcome.' };
-    if (outcome === 'referred') {
-      if (!specialty.trim()) nextErrors.specialty = { message: 'Target specialty is required.' };
-      if (!referralReason.trim()) nextErrors.referralReason = { message: 'Referral reason is required.' };
-    }
-    if (outcome === 'follow_up_needed') {
-      const days = Number(followUpDays);
-      if (!Number.isInteger(days) || days < 1 || days > 90) {
-        nextErrors.followUpDays = { message: 'Enter a whole number of days between 1 and 90.' };
-      }
-    }
-    if (wantsOrder) {
-      if (orderType === 'prescription') {
-        if (!medication.trim()) nextErrors.medication = { message: 'Medication is required.' };
-        if (!dose.trim()) nextErrors.dose = { message: 'Dose is required.' };
-      } else if (!testName.trim()) {
-        nextErrors.testName = { message: 'Test name is required.' };
-      }
-    }
-
-    setErrors(nextErrors);
+  const onSubmit = async (data: ConsultationOutcomeFormData) => {
     setSubmitError(null);
-    if (Object.keys(nextErrors).length > 0) return;
-    let recorded: ConsultationRecord | null = null;
     try {
-      recorded = await recordConsultation.mutateAsync({
-        appointmentId,
-        input: {
-          notes: notes.trim(),
-          outcome,
-          followUpAfterDays: outcome === 'follow_up_needed' ? Number(followUpDays) : null,
-        },
-      });
+      const recorded =
+        recordedRef.current ??
+        (await recordConsultation.mutateAsync({
+          appointmentId,
+          input: {
+            notes: notes.trim(),
+            outcome: data.outcome,
+            followUpAfterDays:
+              data.outcome === 'follow_up_needed' ? Number(data.followUpDays) : null,
+          },
+        }));
+      recordedRef.current = recorded;
 
       const referral =
-        outcome === 'referred'
+        data.outcome === 'referred'
           ? await createReferral.mutateAsync({
               consultationId: recorded.id,
-              input: { targetSpecialty: specialty.trim(), reason: referralReason.trim() },
+              input: {
+                targetSpecialty: data.specialty.trim(),
+                reason: data.referralReason.trim(),
+              },
             })
           : undefined;
 
-      const issued = wantsOrder
+      const issued = data.wantsOrder
         ? await issueOrder.mutateAsync({
             consultationId: recorded.id,
             input:
-              orderType === 'prescription'
+              data.orderType === 'prescription'
                 ? {
-                    orderType,
-                    medication: medication.trim(),
-                    dose: dose.trim(),
-                    instructions: orderInstructions.trim() || null,
+                    orderType: 'prescription',
+                    medication: data.medication.trim(),
+                    dose: data.dose.trim(),
+                    instructions: data.orderInstructions.trim() || null,
                   }
                 : {
-                    orderType,
-                    testName: testName.trim(),
-                    instructions: orderInstructions.trim() || null,
+                    orderType: 'lab_order',
+                    testName: data.testName.trim(),
+                    instructions: data.orderInstructions.trim() || null,
                   },
           })
         : undefined;
 
+      recordedRef.current = null;
       setResult({ record: recorded, referral, order: issued });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not record this consultation.';
-      setSubmitError(
-        recorded
-          ? `Consultation was recorded, but the next step failed: ${message}`
-          : message,
-      );
-      if (recorded) setResult({ record: recorded });
+      const message = errorMessage(error) ?? 'Could not record this consultation.';
+
+      // A failure after the record was saved is a partial success: say so and
+      // leave the form available so the remaining step can be retried.
+      if (recordedRef.current) {
+        setSubmitError(`Consultation was recorded, but the next step failed: ${message}`);
+        return;
+      }
+
+      if (error instanceof ApiError) {
+        const fieldErrors = mapServerErrors(error.body);
+        const entries = Object.entries(fieldErrors);
+        if (entries.length > 0) {
+          entries.forEach(([field, fieldMessage]) => {
+            form.setError(field as keyof ConsultationOutcomeFormData, {
+              message: fieldMessage,
+            });
+          });
+          form.setFocus(entries[0][0] as keyof ConsultationOutcomeFormData);
+          return;
+        }
+      }
+
+      setSubmitError(message);
     }
   };
 
+  const recordAnother = () => {
+    recordedRef.current = null;
+    form.reset(consultationOutcomeDefaults);
+    setResult(null);
+    setSubmitError(null);
+  };
+
   return (
-    <section className={styles.panel} aria-labelledby="consultation-outcome-heading">
-      <ErrorSummary errors={errors} idPrefix="consultation-outcome" />
-      <h2 id="consultation-outcome-heading" className={styles.heading}>
-        Outcome & next steps
-      </h2>
+    <FormProvider {...form}>
+      <section className={styles.panel} aria-labelledby="consultation-outcome-heading">
+        <h2 id="consultation-outcome-heading" className={styles.heading}>
+          Outcome &amp; next steps
+        </h2>
 
-      {errors.notes ? (
-        <p className={styles.error} role="alert">
-          {errors.notes.message}
-        </p>
-      ) : !notes.trim() ? (
-        <p className={styles.hint}>Add consultation notes above before recording an outcome.</p>
-      ) : null}
-
-      <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>Outcome</legend>
-        <div className={styles.radioRow}>
-          {OUTCOMES.map((option) => (
-            <label key={option.value} className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="consultation-outcome"
-                value={option.value}
-                checked={outcome === option.value}
-                onChange={() => {
-                  setOutcome(option.value);
-                  reset();
-                }}
-              />
-              {option.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+        {!notes.trim() ? (
+          <p className={styles.hint}>Add consultation notes above before recording an outcome.</p>
+        ) : null}
 
       {outcome === 'referred' ? (
         <div className={styles.subsection}>
@@ -210,95 +211,126 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
         </div>
       ) : null}
 
-      <div className={styles.subsection}>
-        <label className={styles.checkboxLabel}>
-          <input
-            type="checkbox"
-            checked={wantsOrder}
-            onChange={(event) => {
-              setWantsOrder(event.target.checked);
-              reset();
-            }}
-          />
-          Issue a prescription or lab order with this consultation
-        </label>
+          {outcome === 'follow_up_needed' ? (
+            <div className={styles.subsection}>
+              <FormField
+                name="followUpDays"
+                label="Follow up in days"
+                type="number"
+                min={1}
+                max={90}
+                inputMode="numeric"
+              />
+            </div>
+          ) : null}
 
-        {wantsOrder ? (
           <div className={styles.subsection}>
-            <fieldset className={styles.fieldset}>
-              <legend className={styles.legend}>Order type</legend>
-              <div className={styles.radioRow}>
-                <label className={styles.radioLabel}>
+            <Controller
+              control={form.control}
+              name="wantsOrder"
+              render={({ field }) => (
+                <label className={styles.checkboxLabel}>
                   <input
-                    type="radio"
-                    name="consultation-order-type"
-                    value="prescription"
-                    checked={orderType === 'prescription'}
-                    onChange={() => setOrderType('prescription')}
+                    type="checkbox"
+                    name={field.name}
+                    checked={field.value}
+                    onChange={(event) => {
+                      field.onChange(event.target.checked);
+                      clearAttemptState();
+                    }}
                   />
-                  Prescription
+                  Issue a prescription or lab order with this consultation
                 </label>
-                <label className={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="consultation-order-type"
-                    value="lab_order"
-                    checked={orderType === 'lab_order'}
-                    onChange={() => setOrderType('lab_order')}
-                  />
-                  Lab order
-                </label>
-              </div>
-            </fieldset>
+              )}
+            />
 
-            {orderType === 'prescription' ? (
+            {wantsOrder ? (
               <div className={styles.subsection}>
-                <TextField
-                  label="Medication"
-                  value={medication}
-                  onChange={(event) => setMedication(event.target.value)}
-                  error={errors.medication?.message}
+                <Controller
+                  control={form.control}
+                  name="orderType"
+                  render={({ field }) => (
+                    <fieldset className={styles.fieldset}>
+                      <legend className={styles.legend}>Order type</legend>
+                      <div className={styles.radioRow}>
+                        <label className={styles.radioLabel}>
+                          <input
+                            type="radio"
+                            name={field.name}
+                            value="prescription"
+                            checked={field.value === 'prescription'}
+                            onChange={() => {
+                              field.onChange('prescription');
+                              clearAttemptState();
+                            }}
+                          />
+                          Prescription
+                        </label>
+                        <label className={styles.radioLabel}>
+                          <input
+                            type="radio"
+                            name={field.name}
+                            value="lab_order"
+                            checked={field.value === 'lab_order'}
+                            onChange={() => {
+                              field.onChange('lab_order');
+                              clearAttemptState();
+                            }}
+                          />
+                          Lab order
+                        </label>
+                      </div>
+                    </fieldset>
+                  )}
                 />
-                <TextField
-                  label="Dose"
-                  value={dose}
-                  onChange={(event) => setDose(event.target.value)}
-                  error={errors.dose?.message}
+
+                {orderType === 'prescription' ? (
+                  <div className={styles.subsection}>
+                    <FormField name="medication" label="Medication" />
+                    <FormField name="dose" label="Dose" />
+                  </div>
+                ) : (
+                  <FormField name="testName" label="Test name" />
+                )}
+
+                <label className={styles.textareaLabel}>
+                  Order instructions
+                  <textarea
+                    id="order-instructions"
+                    className={styles.textarea}
+                    {...form.register('orderInstructions')}
                   />
+                </label>
               </div>
-            ) : (
-              <TextField
-                label="Test name"
-                value={testName}
-                onChange={(event) => setTestName(event.target.value)}
-                error={errors.testName?.message}
-                />)}
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      {submitError ? (
-        <p className={styles.error} role="alert">
-          {submitError}
-        </p>
-      ) : null}
+          <FormError message={submitError} />
 
-      {result ? (
-        <div className={styles.result} role="status">
-          <p>
-            Consultation recorded as <strong>{OUTCOMES.find((option) => option.value === outcome)?.label}</strong>.
-          </p>
-          {result.referral ? <p>Referral created for {result.referral.targetSpecialty}.</p> : null}
-          {result.order ? <p>{result.order.medicationOrTest} issued.</p> : null}
-          <Button variant="secondary" onClick={reset}>
-            Record another outcome
-          </Button>
-        </div>
-      ) : (
-        <Button onClick={submit} loading={isSubmitting} disabled={!notes.trim()}>
-          Record consultation
-        </Button>
-      )}
-    </section>
+          {result ? (
+            <div className={styles.result} role="status">
+              <p>
+                Consultation recorded as{' '}
+                <strong>
+                  {OUTCOMES.find((option) => option.value === result.record.outcome)?.label}
+                </strong>
+                .
+              </p>
+              {result.referral ? (
+                <p>Referral created for {result.referral.targetSpecialty}.</p>
+              ) : null}
+              {result.order ? <p>{result.order.medicationOrTest} issued.</p> : null}
+              <Button type="button" variant="secondary" onClick={recordAnother}>
+                Record another outcome
+              </Button>
+            </div>
+          ) : (
+            <Button type="submit" loading={isSubmitting} disabled={!notes.trim()}>
+              Record consultation
+            </Button>
+          )}
+        </form>
+      </section>
+    </FormProvider>
   );
 }

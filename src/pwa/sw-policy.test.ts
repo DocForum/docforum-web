@@ -8,7 +8,7 @@ describe('service worker caching policy', () => {
     expect(shouldBypassCache('https://docforum-core-api.onrender.com/auth/login', ORIGIN)).toBe(true);
     expect(shouldBypassCache('https://docforum-core-api.onrender.com/patients/me/dependents', ORIGIN)).toBe(true);
     expect(shouldBypassCache(`${ORIGIN}/api/patients`, ORIGIN)).toBe(true);
-    expect(shouldBypassCache(`${ORIGIN}/account/data-export`, ORIGIN)).toBe(true);
+    expect(shouldBypassCache(`${ORIGIN}/patients/me/export/exp-1`, ORIGIN)).toBe(true);
     expect(shouldBypassCache(`${ORIGIN}/auth/logout`, ORIGIN)).toBe(true);
   });
 

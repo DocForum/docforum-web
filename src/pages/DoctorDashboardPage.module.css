@@ -22,7 +22,7 @@
 
 .dashboardGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
 }
 
@@ -31,6 +31,9 @@
   border-radius: var(--radius-md);
   padding: var(--space-5);
   background: var(--color-bg);
+  /* Wide tables scroll inside their own card instead of widening this grid
+     track and pushing the sibling card off-screen. */
+  min-width: 0;
 }
 
 .card h2 {
@@ -60,6 +63,6 @@
 
 @media (min-width: 768px) {
   .dashboardGrid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
