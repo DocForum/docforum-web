@@ -11,6 +11,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/',
+      'dist-ssr/',
       'node_modules/',
       'coverage/',
       'docforum-core/',

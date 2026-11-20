@@ -112,11 +112,9 @@ export function createApiClient(transport: ApiTransport) {
       downloadDataExport(exportId: string, options: CallOptions = {}): Promise<Blob> {
         return transport.requestBlob(`/account/data-export/${encodeURIComponent(exportId)}/download`, options);
       },
-      deleteAccount(
-        input: Schemas['DeleteAccountInput'],
-        options: CallOptions = {},
-      ): Promise<Res<'/account/delete', 'post'>> {
-        return transport.request('/account/delete', { ...options, method: 'POST', body: input });
+      deleteAccount(input: Schemas['DeleteAccountInput'], options: CallOptions = {}): Promise<void> {
+        // `DELETE /patients/me` answers 204 with no body (docforum-core #41).
+        return transport.request<void>('/patients/me', { ...options, method: 'DELETE', body: input });
       },
     },
 

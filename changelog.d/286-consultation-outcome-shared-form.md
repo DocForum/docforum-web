@@ -1,0 +1,2 @@
+Phase W3: consultation outcome panel now uses the shared form system ([issue #286](https://github.com/DocForum/docforum-web/issues/286)).
+Outcome, referral and order fields are validated by a zod schema, server field errors are mapped onto the matching fields, and the first invalid field is focused on submit. A consultation recorded before a failed referral/order step is cached and reused on retry, so retrying never records the same consultation twice.

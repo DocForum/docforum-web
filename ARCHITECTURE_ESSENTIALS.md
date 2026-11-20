@@ -418,11 +418,11 @@ store). Every patient API call and React Query key includes the selected
 - `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
 - Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
 
-#### Account deletion (docforum-core#41, issue #27)
-- `POST /account/delete` (body: `{password, confirmation: 'DELETE'}`) → `{success, message, deletedAt}`
+#### Account deletion (docforum-core#41, issue #27; real API since #260)
+- `DELETE /patients/me` (body: `{password}`) → `204 No Content`. A wrong password is `403 PASSWORD_CONFIRMATION_FAILED`. The typed `DELETE` phrase is a client-side check only.
 - Clinical and statutory retention: identity credentials (name, email, password hashes, guardian links) are permanently scrubbed/anonymized. Clinical consultation notes, diagnostic orders, and cryptographic payment/escrow records are retained by law in de-identified form.
-- Deletion is blocked if there are active orders or unreleased funded escrows.
-- Client clears all QueryClient cache and Zustand session/profile state.
+- Guardians may delete their account: core revokes every guardianship and keeps dependents' profiles and appointments. Deletion is otherwise not blocked on the client.
+- Client clears all QueryClient cache and Zustand session/profile state, then redirects to `/account-deleted`.
 
 #### Confirm receipt or report problem (issue #35)
 - Fulfilled orders include a `confirmationWindow` field with `deadlineAt` and `inactionConsequence`.
