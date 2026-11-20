@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { CreateApiKeyDialog } from './CreateApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
 import type { FacilityApiKey } from '../../../types/models';
@@ -36,11 +39,15 @@ interface ApiKeysPanelProps {
 
 export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { data: keysData, isLoading } = useApiKeys(facilityId);
+  const { data: keysData, isLoading, isError, error, refetch } = useApiKeys(facilityId);
   const revokeMutation = useRevokeApiKey(facilityId);
+  const errorText = useErrorMessage();
 
-  const keys: FacilityApiKey[] = keysData ?? DEFAULT_MOCK_API_KEYS;
+  const keys: FacilityApiKey[] = keysData ?? [];
   const activeKeys = keys.filter((k) => !k.revokedAt);
+  const errorMessage = isError
+    ? errorText(error) ?? 'API keys could not be loaded.'
+    : null;
 
   const handleRevoke = (keyId: string, keyName: string) => {
     if (
@@ -55,10 +62,22 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   if (isLoading) {
     return (
       <div className={styles.card}>
-        <div className={styles.emptyState}>
-          <Spinner size={24} />
-          <p>Loading API keys…</p>
+        <Skeleton lines={3} label="Loading API keys" />
+      </div>
+    );
+  }
+
+  if (errorMessage && keysData === undefined) {
+    return (
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>API Keys</h2>
         </div>
+        <InlineError
+          title="API keys couldn't be loaded"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }
@@ -74,10 +93,16 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
         Each key is scoped and can be revoked at any time.
       </p>
 
+      {errorMessage && (
+        <InlineError title="API keys may be out of date" message={errorMessage} onRetry={() => void refetch()} />
+      )}
+
       {activeKeys.length === 0 ? (
-        <div className={styles.emptyState}>
-          No active API keys. Create one to let your systems integrate with DocForum.
-        </div>
+        <EmptyState
+          title="No active API keys"
+          description="Create one to let your lab or pharmacy systems integrate with DocForum."
+          action={{ label: 'Create your first key', onClick: () => setCreateDialogOpen(true) }}
+        />
       ) : (
         <div className={styles.tableWrapper}>
           <table className={styles.dataTable}>

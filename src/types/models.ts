@@ -13,7 +13,6 @@
 // used to have). Import from here as before; add new types to the feature's
 // file, or a new file plus one line below (alphabetical).
 
-export type * from './models/account-deletion';
 export type * from './models/acting-for-profile';
 export type * from './models/active-sessions';
 export type * from './models/admin-audit';
@@ -45,6 +44,7 @@ export type * from './models/feature-flags-console';
 export type * from './models/first-run-onboarding';
 export type * from './models/fulfilment-disputes';
 export type * from './models/health-profile';
+export type * from './models/intake';
 export type * from './models/invitation-redemption';
 export type * from './models/lab-results';
 export type * from './models/live-visit-queue';
@@ -55,6 +55,7 @@ export type * from './models/orders';
 export type * from './models/partial-fulfilment';
 export type * from './models/patient-appointment-view';
 export type * from './models/patient-orders';
+export type * from './models/patient-referrals';
 export type * from './models/pay-with-wallet';
 export type * from './models/payment-history';
 export type * from './models/payments';
@@ -67,3 +68,4 @@ export type * from './models/specialty-verification-review';
 export type * from './models/stuck-referrals';
 export type * from './models/system-health';
 export type * from './models/typed-client-aliases';
+export type * from './models/waitlist';

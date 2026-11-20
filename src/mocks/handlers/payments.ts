@@ -37,6 +37,60 @@ export const paymentsHandlers = [
 
   http.get('*/payments/wallet-link', respond('nullable', () => db.walletLink)),
 
+  // Patient payment history (GET /payments/mine) supporting filters: status, from, to, limit, cursor.
+  http.get(
+    '*/payments/mine',
+    respond('json', ({ request }) => {
+      const url = new URL(request.url);
+      const status = url.searchParams.get('status');
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+      const cursor = url.searchParams.get('cursor');
+      const limit = Number(url.searchParams.get('limit')) || 50;
+
+      let filtered = [...db.paymentIntents];
+      if (status && status !== 'all') {
+        filtered = filtered.filter((i) => i.status === status);
+      }
+      if (from) {
+        filtered = filtered.filter((i) => i.createdAt >= from);
+      }
+      if (to) {
+        const toIso = to.length === 10 ? `${to}T23:59:59.999Z` : to;
+        filtered = filtered.filter((i) => i.createdAt <= toIso);
+      }
+
+      let startIndex = 0;
+      if (cursor) {
+        const found = filtered.findIndex((i) => i.id === cursor);
+        if (found >= 0) startIndex = found + 1;
+      }
+
+      const slice = filtered.slice(startIndex, startIndex + limit);
+      const nextItem = filtered[startIndex + limit];
+      const nextCursor = nextItem ? nextItem.id : null;
+
+      const intents = slice.map((intent) => ({
+        ...intent,
+        facilityName: 'Bello Lab',
+      }));
+
+      return { intents, nextCursor };
+    }),
+  ),
+
+  http.get(
+    '*/payments/mine/:id',
+    respond('json', ({ params }) => {
+      const intent = db.paymentIntents.find((i) => i.id === paramId(params));
+      if (!intent) return notFound('payment entry');
+      return {
+        ...intent,
+        facilityName: 'Bello Lab',
+      };
+    }),
+  ),
+
   http.post(
     '*/payments/intents',
     respond('json', async ({ request }) => {

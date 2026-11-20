@@ -277,17 +277,10 @@ export function createSeedDb(): MockDb {
     },
   ];
 
-  const dataExport: DataExport = {
-    id: 'exp-demo-1',
-    patientProfileId: PATIENT_PROFILE_ID,
-    status: 'ready',
-    requestedAt: '2026-10-17T09:00:00.000Z',
-    readyAt: '2026-10-17T09:02:00.000Z',
-    expiresAt: '2026-10-18T09:02:00.000Z',
-    fileSizeBytes: 20480,
-    downloadUrl: null,
-    errorMessage: null,
-  };
+  // No export by default: core has no list endpoint, so the client can only
+  // know an export by the id from its own 202. The mock creates one on
+  // `POST /patients/me/export`.
+  const dataExport: DataExport | null = null;
 
   const careThreads: CareThread[] = [
     {
@@ -849,7 +842,7 @@ export function createSeedDb(): MockDb {
       asset: 'XLM',
       versions: [
         { amountStroops: '250000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
-        { amountStroops: '275000000', effectiveFrom: '2026-10-15T00:00:00.000Z' },
+        { amountStroops: '275000000', effectiveFrom: '2026-11-10T00:00:00.000Z' },
       ],
     },
     {
@@ -1061,6 +1054,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       medication: 'Demo Amoxicillin 500mg (fake)',
+      catalogItemCode: 'MED-AMOX-500',
       dose: 'One capsule three times daily',
       quantity: '30 capsules',
       instructions: 'Demo instructions (fake): take with food for ten days.',
@@ -1093,6 +1087,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       testName: 'Demo full blood count (fake)',
+      catalogItemCode: 'LAB-FBC',
       fastingRequired: true,
       instructions: 'Demo instructions (fake): fasting sample required.',
     },

@@ -146,29 +146,24 @@ export interface components {
 
   "DataExport": {
     "id": string;
-    "patientProfileId": string;
     "status": components["schemas"]["DataExportStatus"];
-    "requestedAt": string;
-    "readyAt"?: (string) | null;
+    "schemaVersion": number;
+    "createdAt": string;
+    "startedAt"?: (string) | null;
+    "generatedAt"?: (string) | null;
     "expiresAt"?: (string) | null;
-    "fileSizeBytes"?: (number) | null;
+    "sizeBytes"?: (number) | null;
+    "failure"?: components["schemas"]["DataExportFailure"];
     "downloadUrl"?: (string) | null;
-    "errorMessage"?: (string) | null;
   };
 
-  "RequestDataExportInput": {
-    "password": string;
-  };
+  "DataExportFailure": ({
+    "code": string;
+    "section"?: (string) | null;
+  }) | null;
 
   "DeleteAccountInput": {
     "password": string;
-    "confirmation": string;
-  };
-
-  "DeleteAccountResponse": {
-    "success": boolean;
-    "message": string;
-    "deletedAt": string;
   };
 
   "CareStepType": "appointment" | "consultation" | "referral" | "order" | "fulfillment" | "payment";
@@ -487,21 +482,23 @@ export interface paths {
     };
   };
 
-  "/account/data-export": {
-    get: {
-      responses: {
-          200: { content: { "application/json": (components["schemas"]["DataExport"]) | null } };
-      };
-    };
+  "/patients/me/export": {
     post: {
-      requestBody: { content: { "application/json": components["schemas"]["RequestDataExportInput"] } };
       responses: {
           202: { content: { "application/json": components["schemas"]["DataExport"] } };
       };
     };
   };
 
-  "/account/data-export/{exportId}/download": {
+  "/patients/me/export/{exportId}": {
+    get: {
+      responses: {
+          200: { content: { "application/json": components["schemas"]["DataExport"] } };
+      };
+    };
+  };
+
+  "/patients/me/export/{exportId}/download": {
     get: {
       responses: {
           200: { content: { "application/json": string } };
@@ -509,11 +506,11 @@ export interface paths {
     };
   };
 
-  "/account/delete": {
-    post: {
+  "/patients/me": {
+    delete: {
       requestBody: { content: { "application/json": components["schemas"]["DeleteAccountInput"] } };
       responses: {
-          200: { content: { "application/json": components["schemas"]["DeleteAccountResponse"] } };
+          403: { content: { "application/json": components["schemas"]["ErrorEnvelope"] } };
       };
     };
   };

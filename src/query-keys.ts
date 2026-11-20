@@ -116,6 +116,22 @@ export const facilitySearchKeys = {
   all: ['facilities'] as const,
   list: (params: { type?: string; lat?: number; lng?: number; query?: string }) =>
     ['facilities', params.type ?? null, params.lat ?? null, params.lng ?? null, params.query ?? null] as const,
+  /** Eligible facilities for one catalog item, with their price in force (#258). */
+  eligible: (
+    catalogItemCode: string,
+    params: { type?: string; lat?: number; lng?: number; query?: string },
+  ) =>
+    [
+      'facilities',
+      'eligible',
+      catalogItemCode,
+      params.type ?? null,
+      params.lat ?? null,
+      params.lng ?? null,
+      params.query ?? null,
+    ] as const,
+  /** One facility's public price history (#258) — read per card, never mutated. */
+  priceHistory: (facilityId: string) => ['facilities', 'prices', facilityId] as const,
 };
 
 /** Admin audit tables: one root, one key per tab+filter combination. */
@@ -192,7 +208,10 @@ export const paymentKeys = {
   ledger: (facilityId: string, filters: unknown) =>
     ['payments', 'ledger', facilityId, filters] as const,
   /** The patient's payment history (infinite list + one entry). */
-  history: () => ['payments', 'mine'] as const,
+  history: (filters?: unknown) =>
+    filters !== undefined
+      ? (['payments', 'mine', filters] as const)
+      : (['payments', 'mine'] as const),
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
   /** The intent attached to an order — `null` when the order has none (issue #61). */
   orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
@@ -247,6 +266,8 @@ export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+  threadIdsForPatients: (patientProfileIds: readonly string[]) =>
+    ['doctor', 'messages', 'thread-ids-for-patients', patientProfileIds] as const,
 };
 
 /** First-run onboarding summary (#121). One key per role: the server scopes
