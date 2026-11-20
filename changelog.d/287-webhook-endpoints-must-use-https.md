@@ -1,0 +1,2 @@
+Phase W4: webhook endpoints must use HTTPS ([issue #287](https://github.com/DocForum/docforum-web/issues/287)).
+The create-endpoint dialog now validates the URL with the shared form system: HTTPS only, `http://localhost` and `http://127.0.0.1` allowed solely in dev/mock builds, URLs with embedded credentials rejected, and at least one event required. **The server must enforce the same rules**: a client-side check alone can be bypassed, so docforum-core needs the matching validation on the create-webhook endpoint.
