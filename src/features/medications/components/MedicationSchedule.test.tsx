@@ -82,12 +82,14 @@ describe('MedicationSchedule', () => {
     vi.mocked(prescriptionsService.listActivePrescriptions).mockResolvedValue([]);
     render(<MedicationSchedule />);
     expect(await screen.findByText('No active prescriptions.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to care summary/i })).toHaveAttribute('href', '/patient');
   });
 
   it('surfaces the API error message', async () => {
     vi.mocked(prescriptionsService.listActivePrescriptions).mockRejectedValue(new ApiError('Prescriptions unavailable.', 500));
     render(<MedicationSchedule />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Prescriptions unavailable.');
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('lists finished courses under a completed heading', async () => {
