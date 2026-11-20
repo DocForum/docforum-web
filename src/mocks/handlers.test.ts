@@ -259,10 +259,15 @@ describe('account', () => {
     expect(text).toContain('FAKE DATA EXPORT');
   });
 
-  it('deletes the account with a confirmation message', async () => {
-    const response = await accountService.deleteAccount('pw', 'DELETE', MOCK_ACCESS_TOKEN);
-    expect(response.success).toBe(true);
-    expect(response.message).toContain('Mock API');
+  it('deletes the account against DELETE /patients/me with a 204 response', async () => {
+    await expect(accountService.deleteAccount('pw', MOCK_ACCESS_TOKEN)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a wrong password as PASSWORD_CONFIRMATION_FAILED', async () => {
+    await expect(accountService.deleteAccount('wrong-password', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 403,
+      code: 'PASSWORD_CONFIRMATION_FAILED',
+    });
   });
 });
 

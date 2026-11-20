@@ -13,7 +13,6 @@
 // used to have). Import from here as before; add new types to the feature's
 // file, or a new file plus one line below (alphabetical).
 
-export type * from './models/account-deletion';
 export type * from './models/acting-for-profile';
 export type * from './models/active-sessions';
 export type * from './models/admin-audit';
