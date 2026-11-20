@@ -1,5 +1,6 @@
-import { Spinner } from '../../../components/Spinner';
-import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { Button } from '../../../components/Button';
 import { ApiError } from '../../../services/api-client';
 import { useMedicationSchedule } from '../hooks/useMedicationSchedule';
@@ -29,13 +30,13 @@ function hasScheduledDoses(schedule: Schedule): boolean {
 }
 
 export function MedicationSchedule() {
-  const { data: prescriptions, isLoading, error, schedule } = useMedicationSchedule();
+  const scheduleQuery = useMedicationSchedule();
+  const { data: prescriptions, isLoading, error, schedule } = scheduleQuery;
 
   if (isLoading) {
     return (
-      <div className={styles.loading} role="status">
-        <Spinner size={24} />
-        <span>Loading your medication schedule…</span>
+      <div className={styles.root}>
+        <Skeleton lines={5} height="1.5rem" label="Loading your medication schedule" />
       </div>
     );
   }
@@ -43,7 +44,13 @@ export function MedicationSchedule() {
   const apiError =
     error instanceof ApiError ? error.message : error ? 'Failed to load your medication schedule.' : null;
   if (apiError) {
-    return <FormError message={apiError} />;
+    return (
+      <InlineError
+        title="Medication schedule couldn't be loaded"
+        message={apiError}
+        onRetry={() => void scheduleQuery.refetch()}
+      />
+    );
   }
 
   const isEmpty = (prescriptions?.length ?? 0) === 0;
@@ -59,7 +66,13 @@ export function MedicationSchedule() {
         prescriber — if anything here differs from what they told you, their instructions take priority.
       </p>
 
-      {isEmpty && <p className={styles.empty}>No active prescriptions.</p>}
+      {isEmpty && (
+        <EmptyState
+          title="No active prescriptions."
+          description="When your prescriber issues an active prescription, your daily dose schedule and timings will appear here."
+          action={{ label: 'Back to care summary', to: '/patient' }}
+        />
+      )}
 
       {schedule.overlaps.map((overlap) => (
         <p key={overlap.drugName} className={styles.overlap} role="alert">

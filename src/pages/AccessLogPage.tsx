@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/Button';
-import { AccessLogError } from '../features/account/components/AccessLogError';
+import { EmptyState } from '../components/states/EmptyState';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
 import { AccessLogFiltersForm } from '../features/account/components/AccessLogFilters';
 import { AccessLogList } from '../features/account/components/AccessLogList';
 import { reportConcernHref } from '../features/account/copy';
 import { useAccessLog } from '../features/account/hooks/useAccessLog';
+import { ApiError } from '../services/api-client';
 import type { AccessLogFilters } from '../services/access-log-service';
 import styles from './AccessLogPage.module.css';
 
@@ -21,10 +24,28 @@ export function AccessLogPage() {
   // instead — including when docforum-core#45 has not landed and the route
   // answers 404.
   let body: ReactNode;
-  if (events.length > 0) body = <AccessLogList events={events} />;
-  else if (logQuery.isError) body = null;
-  else if (logQuery.isFetching) body = <p className={styles.loading}>Loading your access log…</p>;
-  else body = <AccessLogList events={[]} />;
+  if (events.length > 0) {
+    body = <AccessLogList events={events} />;
+  } else if (logQuery.isError) {
+    body = null;
+  } else if (logQuery.isFetching) {
+    body = <Skeleton lines={5} height="2rem" label="Loading your access log" />;
+  } else {
+    body = (
+      <EmptyState
+        title="No one has opened your record yet."
+        description="When a clinician or facility does, it will appear here with the reason for the visit or order."
+        action={{ label: 'Back to care summary', to: '/patient' }}
+      />
+    );
+  }
+
+  const errorMessage =
+    logQuery.error instanceof ApiError && logQuery.error.status === 404
+      ? 'Your access log is not available yet — DocForum has not started recording who opens records for this deployment.'
+      : logQuery.error instanceof ApiError
+        ? logQuery.error.message
+        : 'Your access log could not be loaded.';
 
   return (
     <div className="container">
@@ -38,7 +59,13 @@ export function AccessLogPage() {
 
         <AccessLogFiltersForm onApply={setFilters} busy={logQuery.isFetching} />
 
-        {logQuery.isError ? <AccessLogError error={logQuery.error} /> : null}
+        {logQuery.isError ? (
+          <InlineError
+            title={events.length > 0 ? "Older entries couldn't be loaded" : "Access log couldn't be loaded"}
+            message={events.length > 0 ? 'Older access log entries could not be loaded.' : errorMessage}
+            onRetry={() => void logQuery.refetch()}
+          />
+        ) : null}
         {body}
 
         {logQuery.hasNextPage ? (
