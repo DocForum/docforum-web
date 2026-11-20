@@ -14,7 +14,7 @@ import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
-import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { useUnreadMessageCount } from '../features/messaging/hooks/useMessageThreads';
 import { OfflineBanner } from './OfflineBanner';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
@@ -92,7 +92,16 @@ export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const isFirstRender = useRef(true);
 
-  const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  // One unread count, attached to the Messages nav entry (issue #235). It is
+  // the same query the inbox uses, so a `message.created` event refreshes it.
+  const unreadMessages = useUnreadMessageCount(user?.role === 'doctor');
+  const items = useMemo(
+    () =>
+      roleNavItems(user?.role ?? null).map((item) =>
+        item.badgeKey === 'unreadMessages' ? { ...item, badge: unreadMessages } : item,
+      ),
+    [user?.role, unreadMessages],
+  );
   const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
 
   // Close the drawer on route change.
@@ -177,23 +186,27 @@ export function Layout() {
         </div>
 
         <nav className={styles.desktopNav} role="navigation" aria-label="Main">
-          {items.map((item) => (
-            <RRNavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
-              }
-              end={item.to === '/'}
-            >
-              {item.messageId ? t(item.messageId, item.label) : item.label}
-              {item.badge != null && item.badge > 0 && (
-                <span className={styles.badge} aria-label={`${item.label}, ${item.badge} new`}>
-                  {item.badge > 99 ? '99+' : item.badge}
-                </span>
-              )}
-            </RRNavLink>
-          ))}
+          {items.map((item) => {
+            const count = item.badge ?? 0;
+            return (
+              <RRNavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+                }
+                end={item.to === '/'}
+                aria-label={count > 0 ? `${item.label}, ${count} new` : undefined}
+              >
+                {item.messageId ? t(item.messageId, item.label) : item.label}
+                {count > 0 && (
+                  <span className={styles.badge} aria-hidden="true">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </RRNavLink>
+            );
+          })}
           {user && (
             <Flag name="notification_preferences">
               <RRNavLink
@@ -208,7 +221,6 @@ export function Layout() {
           )}
           {user && (
             <>
-              {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
                 {user.email} <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               </span>
@@ -267,8 +279,18 @@ export function Layout() {
                   }
                   end={item.to === '/'}
                   onClick={closeDrawer}
+                  aria-label={
+                    item.badge != null && item.badge > 0
+                      ? `${item.label}, ${item.badge} new`
+                      : undefined
+                  }
                 >
                   {item.messageId ? t(item.messageId, item.label) : item.label}
+                  {item.badge != null && item.badge > 0 && (
+                    <span className={styles.badge} aria-hidden="true">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
                 </RRNavLink>
               ))}
               <Flag name="notification_preferences">

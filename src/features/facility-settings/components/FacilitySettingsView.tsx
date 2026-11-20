@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { Button } from '../../../components/Button';
+import { Dialog } from '../../../components/Dialog';
 import { Spinner } from '../../../components/Spinner';
+import { useT } from '../../../i18n/useT';
 import { useFacilitySettings } from '../hooks/useFacilitySettings';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { LocationContactEditor } from './LocationContactEditor';
@@ -14,8 +17,9 @@ export function FacilitySettingsView({ facilityId = 'fac-main' }: FacilitySettin
   const [locationDirty, setLocationDirty] = useState(false);
   const [priceDirty, setPriceDirty] = useState(false);
   const { data: settings, isLoading, error } = useFacilitySettings(facilityId);
+  const t = useT();
 
-  useUnsavedChangesGuard(locationDirty || priceDirty);
+  const unsavedGuard = useUnsavedChangesGuard(locationDirty || priceDirty);
 
   return (
     <div className={styles.container}>
@@ -51,6 +55,33 @@ export function FacilitySettingsView({ facilityId = 'fac-main' }: FacilitySettin
           <PriceListEditor facilityId={facilityId} onDirtyChange={setPriceDirty} />
         </>
       )}
+
+      <Dialog
+        open={unsavedGuard.pendingHref !== null}
+        onClose={unsavedGuard.cancelLeave}
+        labelledBy="unsaved-settings-title"
+        describedBy="unsaved-settings-description"
+        overlayClassName={styles.modalOverlay}
+        panelClassName={styles.modalContent}
+      >
+        <h3 id="unsaved-settings-title">
+          {t('facilitySettings.unsaved.title', 'Discard unsaved changes?')}
+        </h3>
+        <p id="unsaved-settings-description" className={styles.modalDescription}>
+          {t(
+            'facilitySettings.unsaved.description',
+            'You have unsaved facility settings. If you leave this page, those changes will be lost.',
+          )}
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="secondary" onClick={unsavedGuard.cancelLeave}>
+            {t('facilitySettings.unsaved.cancel', 'Keep editing')}
+          </Button>
+          <Button variant="danger" onClick={unsavedGuard.confirmLeave}>
+            {t('facilitySettings.unsaved.confirm', 'Discard and leave')}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
