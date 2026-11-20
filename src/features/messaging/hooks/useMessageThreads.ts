@@ -64,3 +64,19 @@ export function useMessageThreads(input: ListThreadsInput) {
 }
 
 export type ListThreadsResult = { threads: DoctorMessageThread[]; nextCursor: string | null };
+
+/** Patient profile id → thread id for the given patients. One lookup for a
+ * whole inbox, so a screen can decide per row whether a message action is
+ * possible without firing a request per row. */
+export function useThreadIdsForPatients(patientProfileIds: readonly string[]) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const uniqueIds = [...new Set(patientProfileIds)].sort();
+
+  return useQuery({
+    queryKey: messageKeys.threadIdsForPatients(uniqueIds),
+    queryFn: ({ signal }) =>
+      messagingService.findThreadIdsForPatients(uniqueIds, accessToken!, signal),
+    enabled: Boolean(accessToken && uniqueIds.length > 0),
+    staleTime: 30_000,
+  });
+}

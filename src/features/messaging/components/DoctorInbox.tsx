@@ -108,54 +108,56 @@ export function DoctorInbox() {
           }
         />
       ) : (
-        <table className={styles.table}>
-          <caption className="srOnly">
-            Patient message threads, oldest unanswered first, with waiting time and unread count
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">{t('messaging.col.patient', 'Patient')}</th>
-              <th scope="col">{t('messaging.col.lastMessage', 'Last message')}</th>
-              <th scope="col" className={styles.waitingCol}>{t('messaging.col.waiting', 'Waiting')}</th>
-              <th scope="col" className={styles.unreadCol}>{t('messaging.col.unread', 'Unread')}</th>
-              <th scope="col" className={styles.actionCol}>{t('messaging.col.action', 'Action')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {threads.map((thread) => (
-              <tr key={thread.id} className={styles.row}>
-                <th scope="row" className={styles.name}>
-                  <Link to={'/care/threads/' + thread.id}>{thread.patientName}</Link>
-                </th>
-                <td className={styles.preview}>{truncate(thread.lastPreview)}</td>
-                <td className={styles.waitingCol}>
-                  {thread.waitingMinutes == null
-            ? '—'
-            : `${formatNumber(thread.waitingMinutes)} min`}
-                </td>
-                <td className={styles.unreadCol}>
-                  {thread.unreadCount > 0 ? (
-                    <span className={styles.unreadBadge}>{thread.unreadCount}</span>
-                  ) : (
-                    <span className={styles.unreadZero}>—</span>
-                  )}
-                </td>
-                <td className={styles.actionCol}>
-                  {thread.unreadCount > 0 && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleMarkRead(thread.id)}
-                      disabled={markRead.isPending}
-                      loading={markRead.isPending}
-                    >
-                      {t('messaging.markRead', 'Mark read')}
-                    </Button>
-                  )}
-                </td>
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <caption className="srOnly">
+              Patient message threads, oldest unanswered first, with waiting time and unread count
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('messaging.col.patient', 'Patient')}</th>
+                <th scope="col">{t('messaging.col.lastMessage', 'Last message')}</th>
+                <th scope="col" className={styles.waitingCol}>{t('messaging.col.waiting', 'Waiting')}</th>
+                <th scope="col" className={styles.unreadCol}>{t('messaging.col.unread', 'Unread')}</th>
+                <th scope="col" className={styles.actionCol}>{t('messaging.col.action', 'Action')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {threads.map((thread) => (
+                <tr key={thread.id} className={styles.row}>
+                  <th scope="row" className={styles.name}>
+                    <Link to={'/care/threads/' + thread.id}>{thread.patientName}</Link>
+                  </th>
+                  <td className={styles.preview}>{truncate(thread.lastPreview)}</td>
+                  <td className={styles.waitingCol}>
+                    {thread.waitingMinutes == null
+                      ? '—'
+                      : `${formatNumber(thread.waitingMinutes)} min`}
+                  </td>
+                  <td className={styles.unreadCol}>
+                    {thread.unreadCount > 0 ? (
+                      <span className={styles.unreadBadge}>{thread.unreadCount}</span>
+                    ) : (
+                      <span className={styles.unreadZero}>—</span>
+                    )}
+                  </td>
+                  <td className={styles.actionCol}>
+                    {thread.unreadCount > 0 && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleMarkRead(thread.id)}
+                        disabled={markRead.isPending}
+                        loading={markRead.isPending}
+                      >
+                        {t('messaging.markRead', 'Mark read')}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {hasMore && !isFetching && (
