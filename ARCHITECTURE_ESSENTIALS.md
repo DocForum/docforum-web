@@ -180,7 +180,7 @@ the full request lifecycle — services pass options through, never wire
   deliberately longer than docforum-core's ~1 minute cold start so the
   `useSlowRequestHint` message at 4 s explains a wait that then *succeeds*
   instead of being killed mid-cold-start), or `SLOW_REQUEST_TIMEOUT_MS`
-  (120 s) for the genuinely slow endpoints (`POST /account/data-export`,
+  (120 s) for the genuinely slow endpoints (`POST /patients/me/export`,
   its download, `POST /admin/jobs/:name/run`). Expiry rejects with a
   typed `ApiTimeoutError` — never silently, and never disguised as an
   `ApiError` (which always means "a response arrived").
@@ -411,12 +411,12 @@ No new backend endpoint. The switcher is client-only UI state (Zustand
 store). Every patient API call and React Query key includes the selected
 `patientProfileId` so caches never mix profiles.
 
-#### Data export (docforum-core#40, issue #26)
-- `POST /account/data-export` (body: `{password}`) → `DataExport`
-- `GET /account/data-export` → `DataExport | null`
-- `GET /account/data-export/:id/download` → file stream (`application/json`)
-- `DataExport` shape: `{id, patientProfileId, status: 'pending'|'processing'|'ready'|'expired'|'failed', requestedAt, readyAt?, expiresAt?, fileSizeBytes?, downloadUrl?, errorMessage?}`
-- Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory.
+#### Data export (docforum-core#40, issue #26; real API since #259)
+- `POST /patients/me/export` (no body) → `202 DataExport` plus `Location: /patients/me/export/:id`; returns an existing pending/processing export instead of queuing a second one.
+- `GET /patients/me/export/:id` → `DataExport` (`404` for an id that is not the caller's, the same as an unknown one).
+- `GET /patients/me/export/:id/download` → file stream (`application/json`); `409 EXPORT_NOT_READY`, `410 EXPORT_EXPIRED`.
+- `DataExport` shape: `{id, status: 'pending'|'processing'|'ready'|'expired'|'failed', schemaVersion, createdAt, startedAt?, generatedAt?, expiresAt?, sizeBytes?, failure?: {code, section?}, downloadUrl?}`; there is no list endpoint, so the client keeps the id in memory/query cache only and says so after a reload.
+- Ready exports expire after 24 hours. Downloads require bearer authorization and avoid keeping export contents in memory or in the query cache.
 
 #### Account deletion (docforum-core#41, issue #27; real API since #260)
 - `DELETE /patients/me` (body: `{password}`) → `204 No Content`. A wrong password is `403 PASSWORD_CONFIRMATION_FAILED`. The typed `DELETE` phrase is a client-side check only.
