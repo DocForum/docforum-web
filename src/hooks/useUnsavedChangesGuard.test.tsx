@@ -19,8 +19,8 @@ function GuardHarness() {
   );
 }
 
-// One link per navigation the guard has to tell apart. Rendered as a group so
-// a single test can dispatch against each without re-mounting.
+// Every navigation the guard has to tell apart, in one dirty harness, so each
+// test can pick the link its case is about without restating the others.
 function GuardedLinksHarness() {
   useUnsavedChangesGuard(true, CUSTOM_MESSAGE);
   return (
