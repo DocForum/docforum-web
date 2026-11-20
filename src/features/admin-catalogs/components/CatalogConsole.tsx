@@ -34,7 +34,7 @@ export function CatalogConsole() {
   const startEdit = (item: AdminCatalogItem) => { setEditing(item); setDraft({ name: item.name, slug: item.slug, description: item.description ?? '' }); };
 
   return <main className={styles.page}>
-    <header><p className={styles.eyebrow}>ADMIN · PHASE W6</p><h1>Catalog management</h1><p>Curate the controlled vocabularies used for search, routing and fulfilment.</p></header>
+    <header><p className={styles.eyebrow}>ADMIN</p><h1>Catalog management</h1><p>Curate the controlled vocabularies used for search, routing and fulfilment.</p></header>
     <div className={styles.tabs} role="tablist" aria-label="Catalogs">{TABS.map((item) => <button key={item.key} role="tab" aria-selected={tab === item.key} className={tab === item.key ? styles.activeTab : ''} onClick={() => { setTab(item.key); setPage(1); setEditing(null); setNotice(''); }}>{item.label}</button>)}</div>
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {tab === 'mappings' ? <section className={styles.mapping}><h2>Symptom to specialty weights</h2><p>Choose a symptom to review its specialty routing weights.</p><label>Symptom<select value={editing?.id ?? ''} onChange={(e) => { const item = query.data?.items.find((candidate) => candidate.id === e.target.value); setEditing(item ?? null); }}><option value="">Select a symptom</option>{query.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{editing && <MappingEditor symptom={editing} token={token} onSaved={() => { setNotice('Symptom mappings saved.'); setEditing(null); }} />}</section> : <>

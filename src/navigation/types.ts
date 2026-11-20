@@ -7,6 +7,8 @@ export interface NavItem {
   /** Roles allowed to see this item. Omit for unauthenticated items. */
   roles?: Role[];
   badge?: number;
+  /** Dynamic badge source resolved by `Layout` instead of a static number. */
+  badgeKey?: 'unreadMessages';
   /** Existing i18n id for the visible label; English `label` is the fallback. */
   messageId?: string;
   /**

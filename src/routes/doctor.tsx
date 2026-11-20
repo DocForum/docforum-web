@@ -24,7 +24,7 @@ export function doctorRoutes({ queryClient }: RouteContext): RouteObject[] {
       },
       {
         path: 'doctor/messages',
-        lazy: lazyPage(() => import('./DoctorMessagesRoute'), 'DoctorMessagesRoute'),
+        lazy: lazyPage(() => import('../pages/DoctorMessagesPage'), 'DoctorMessagesPage'),
       },
       {
         path: 'doctor/messages/:threadId',

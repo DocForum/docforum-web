@@ -540,3 +540,51 @@
     height: 200px;
   }
 }
+
+/* Unsaved-changes dialog (issue #241) */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 24, 21, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 100;
+}
+
+.modalContent {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modalContent h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-family: var(--font-display);
+  color: var(--color-text);
+}
+
+.modalDescription {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { Dialog } from '../../../components/Dialog';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
@@ -43,6 +44,15 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   const t = useT();
   const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [pendingRevoke, setPendingRevoke] = useState<FacilityApiKey | null>(null);
+  const [refocusAfterRevoke, setRefocusAfterRevoke] = useState<{ id: string; index: number } | null>(
+    null,
+  );
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  // Blocks a second mutate from a double-click before React re-renders the
+  // button into its pending state (issue #241).
+  const revokeInFlightRef = useRef(false);
   const { data: keysData, isLoading, isError, error, refetch } = useApiKeys(facilityId);
   const revokeMutation = useRevokeApiKey(facilityId);
   const errorText = useErrorMessage();
@@ -53,16 +63,33 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     ? errorText(error) ?? 'API keys could not be loaded.'
     : null;
 
-  const handleRevoke = (keyId: string, keyName: string) => {
-    if (
-      window.confirm(
-        t('integrations.apiKeys.revokeConfirm', 'Revoke "{name}"? Integrations using this key will immediately lose access. This cannot be undone.', {
-          name: keyName,
-        }),
-      )
-    ) {
-      revokeMutation.mutate(keyId);
-    }
+  // Once the revoked row is actually gone, move focus to the row that took its
+  // place, or to the list heading when no keys are left (issue #241).
+  useEffect(() => {
+    if (!refocusAfterRevoke) return;
+    if (activeKeys.some((k) => k.id === refocusAfterRevoke.id)) return;
+    const buttons = tableRef.current?.querySelectorAll<HTMLButtonElement>('[data-revoke-key]');
+    const next = buttons && buttons.length > 0
+      ? buttons[Math.min(refocusAfterRevoke.index, buttons.length - 1)]
+      : null;
+    (next ?? headingRef.current)?.focus();
+    setRefocusAfterRevoke(null);
+  }, [activeKeys, refocusAfterRevoke]);
+
+  const confirmRevoke = () => {
+    if (!pendingRevoke || revokeInFlightRef.current) return;
+    revokeInFlightRef.current = true;
+    const revoked = pendingRevoke;
+    const index = activeKeys.findIndex((key) => key.id === revoked.id);
+    revokeMutation.mutate(revoked.id, {
+      onSuccess: () => {
+        setPendingRevoke(null);
+        setRefocusAfterRevoke({ id: revoked.id, index: Math.max(index, 0) });
+      },
+      onSettled: () => {
+        revokeInFlightRef.current = false;
+      },
+    });
   };
 
   if (isLoading) {
@@ -91,7 +118,9 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
-        <h2>{t('integrations.apiKeys.title', 'API Keys')}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {t('integrations.apiKeys.title', 'API Keys')}
+        </h2>
         <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.apiKeys.create', 'Create key')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
@@ -109,7 +138,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
           action={{ label: 'Create your first key', onClick: () => setCreateDialogOpen(true) }}
         />
       ) : (
-        <div className={styles.tableWrapper}>
+        <div className={styles.tableWrapper} ref={tableRef}>
           <table className={styles.dataTable}>
             <thead>
               <tr>
@@ -150,7 +179,8 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                   <td className={styles.actionCell}>
                     <Button
                       variant="danger"
-                      onClick={() => handleRevoke(key.id, key.name)}
+                      data-revoke-key
+                      onClick={() => setPendingRevoke(key)}
                       loading={revokeMutation.isPending && revokeMutation.variables === key.id}
                     >
                       {t('integrations.apiKeys.revoke', 'Revoke')}
@@ -200,6 +230,40 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
       {createDialogOpen && (
         <CreateApiKeyDialog facilityId={facilityId} onClose={() => setCreateDialogOpen(false)} />
       )}
+
+      <Dialog
+        open={Boolean(pendingRevoke)}
+        onClose={() => setPendingRevoke(null)}
+        labelledBy="revoke-key-title"
+        describedBy="revoke-key-description"
+        overlayClassName={styles.modalOverlay}
+        panelClassName={styles.modalContent}
+      >
+        <h3 id="revoke-key-title">{t('integrations.revokeKey.title', 'Revoke API key?')}</h3>
+        <p id="revoke-key-description" className={styles.modalDescription}>
+          {t(
+            'integrations.revokeKey.description',
+            'Revoking {name} ({prefix}…) immediately cuts off every integration that uses it. This cannot be undone.',
+            { name: pendingRevoke?.name ?? '', prefix: pendingRevoke?.prefix ?? '' },
+          )}
+        </p>
+        <div className={styles.modalActions}>
+          <Button
+            variant="secondary"
+            onClick={() => setPendingRevoke(null)}
+            disabled={revokeMutation.isPending}
+          >
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={confirmRevoke}
+            loading={revokeMutation.isPending}
+          >
+            {t('integrations.revokeKey.confirm', 'Revoke key')}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

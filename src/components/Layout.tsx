@@ -14,7 +14,7 @@ import { useLogout } from '../features/auth/hooks/useLogout';
 import { ProfileSwitcher } from '../features/dependents/components/ProfileSwitcher';
 import { Button } from './Button';
 import { Logo } from './Logo';
-import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
+import { useUnreadMessageCount } from '../features/messaging/hooks/useMessageThreads';
 import { OfflineBanner } from './OfflineBanner';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
@@ -53,6 +53,25 @@ function roleNavItems(userRole: Role | null): NavItem[] {
   return NAV_ITEMS[userRole].filter((item) => !item.roles || item.roles.includes(userRole));
 }
 
+/**
+ * Unread count on a nav entry (issue #235). The visible number is hidden from
+ * assistive tech and the count is exposed as visually hidden text instead, so
+ * the link's accessible name still contains its visible label — an `aria-label`
+ * like "Messages, 6 new" would fail WCAG 2.5.3 (label in name).
+ */
+function UnreadCount({ count }: { count: number }) {
+  const t = useT();
+  if (count <= 0) return null;
+  return (
+    <>
+      <span className={styles.badge} aria-hidden="true">
+        {count > 99 ? '99+' : count}
+      </span>
+      <span className="srOnly">{t('shell.nav.unreadCount', '{count} new', { count })}</span>
+    </>
+  );
+}
+
 export function Layout() {
   const t = useT();
   const user = useAuthStore((state) => state.user);
@@ -67,7 +86,16 @@ export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const isFirstRender = useRef(true);
 
-  const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  // One unread count, attached to the Messages nav entry (issue #235). It is
+  // the same query the inbox uses, so a `message.created` event refreshes it.
+  const unreadMessages = useUnreadMessageCount(user?.role === 'doctor');
+  const items = useMemo(
+    () =>
+      roleNavItems(user?.role ?? null).map((item) =>
+        item.badgeKey === 'unreadMessages' ? { ...item, badge: unreadMessages } : item,
+      ),
+    [user?.role, unreadMessages],
+  );
   // Secondary entries (payments, settings) sit behind a divider so the
   // primary workflow stays on one line at 1280px. The drawer stays flat.
   const primaryItems = items.filter((item) => item.group !== 'secondary');
@@ -170,17 +198,7 @@ export function Layout() {
               end={item.to === '/'}
             >
               {item.messageId ? t(item.messageId, item.label) : item.label}
-              {item.badge != null && item.badge > 0 && (
-                <span
-                  className={styles.badge}
-                  aria-label={t('shell.nav.badge', '{label}, {count} new', {
-                    label: item.messageId ? t(item.messageId, item.label) : item.label,
-                    count: item.badge,
-                  })}
-                >
-                  {item.badge > 99 ? '99+' : item.badge}
-                </span>
-              )}
+              <UnreadCount count={item.badge ?? 0} />
             </RRNavLink>
           ))}
           {secondaryItems.length > 0 && (
@@ -195,6 +213,7 @@ export function Layout() {
               }
             >
               {item.messageId ? t(item.messageId, item.label) : item.label}
+              <UnreadCount count={item.badge ?? 0} />
             </RRNavLink>
           ))}
           {user && (
@@ -211,7 +230,6 @@ export function Layout() {
           )}
           {user && (
             <>
-              {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
                 {user.email} <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               </span>
@@ -284,6 +302,7 @@ export function Layout() {
                   onClick={closeDrawer}
                 >
                   {item.messageId ? t(item.messageId, item.label) : item.label}
+                  <UnreadCount count={item.badge ?? 0} />
                 </RRNavLink>
               ))}
               <Flag name="notification_preferences">
