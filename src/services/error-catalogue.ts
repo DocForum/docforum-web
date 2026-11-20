@@ -17,6 +17,8 @@ export type ErrorAction =
   | 'fix_input'
   | 'wait'
   | 'contact_support'
+  | 'resend_verification'
+  | 'reload'
   | 'none';
 
 export interface ErrorDescriptor {
@@ -75,6 +77,48 @@ const CATALOGUE: Record<string, Entry> = {
     action: 'fix_input',
     actionMessageId: 'errors.actions.reviewFields',
     defaultActionMessage: 'Review fields',
+  },
+  PASSWORD_CONFIRMATION_FAILED: {
+    messageId: 'errors.passwordConfirmationFailed',
+    defaultMessage: 'The confirmation password is incorrect. Check your password and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Email verification (Phase 8, issue #34)
+  EMAIL_NOT_VERIFIED: {
+    messageId: 'errors.emailNotVerified',
+    defaultMessage: 'Please verify your email address before continuing.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.resendVerification',
+    defaultActionMessage: 'Resend verification',
+  },
+  INVALID_VERIFICATION_TOKEN: {
+    messageId: 'errors.invalidVerificationToken',
+    defaultMessage: 'That verification link is invalid or has already been used. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  VERIFICATION_TOKEN_EXPIRED: {
+    messageId: 'errors.verificationTokenExpired',
+    defaultMessage: 'That verification link has expired. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  EMAIL_ALREADY_VERIFIED: {
+    messageId: 'errors.emailAlreadyVerified',
+    defaultMessage: 'This email address is already verified.',
+    action: 'none',
+  },
+  EMAIL_VERIFICATION_RATE_LIMITED: {
+    messageId: 'errors.emailVerificationRateLimited',
+    defaultMessage: 'A verification email was recently sent. Wait a moment before requesting another.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
   },
 
   // Session / authorisation
@@ -167,6 +211,55 @@ const CATALOGUE: Record<string, Entry> = {
     defaultMessage: 'That invitation has expired. Ask for a new one.',
     action: 'none',
   },
+  GUARDIANSHIP_INACTIVE: {
+    messageId: 'errors.guardianshipInactive',
+    defaultMessage: 'Guardianship for this dependent is no longer active.',
+    action: 'none',
+  },
+  DEPENDENT_NOT_A_MINOR: {
+    messageId: 'errors.dependentNotAMinor',
+    defaultMessage: 'Dependents must be minors under the age of majority.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Data export (Phase 8, issue #40)
+  EXPORT_NOT_READY: {
+    messageId: 'errors.exportNotReady',
+    defaultMessage: 'Your data export is still being generated. Please wait and try again.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  EXPORT_EXPIRED: {
+    messageId: 'errors.exportExpired',
+    defaultMessage: 'This data export has expired. Request a new export to download your records.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.requestNewExport',
+    defaultActionMessage: 'Request new export',
+  },
+  SECTION_FAILED: {
+    messageId: 'errors.sectionFailed',
+    defaultMessage: 'A section of the export could not be compiled. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_FAILED: {
+    messageId: 'errors.generationFailed',
+    defaultMessage: 'Export generation failed. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_TIMEOUT: {
+    messageId: 'errors.generationTimeout',
+    defaultMessage: 'Export generation timed out. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
 
   // Health records
   HEALTH_ENTRY_CONFLICT: {
@@ -191,10 +284,71 @@ const CATALOGUE: Record<string, Entry> = {
     action: 'none',
   },
 
-  // Consultation
+  // Consultation & Referrals
   CONSULTATION_NOTE_SIGNED: {
     messageId: 'errors.consultationNoteSigned',
     defaultMessage: 'This note is signed and can no longer be edited. Add an addendum instead.',
+    action: 'none',
+  },
+  REFERRAL_NO_ELIGIBLE_TARGET: {
+    messageId: 'errors.referralNoEligibleTarget',
+    defaultMessage: 'No eligible doctor could be found for this specialty. Choose a specific doctor or try again later.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Lab results & object storage (Phase 5, issue #16)
+  LAB_RESULT_UNSUPPORTED_TYPE: {
+    messageId: 'errors.labResultUnsupportedType',
+    defaultMessage: 'Unsupported file type. Please upload a PDF, PNG, or JPEG file.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_CONTENT_MISMATCH: {
+    messageId: 'errors.labResultContentMismatch',
+    defaultMessage: 'The file contents do not match the selected format. Check the file and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_TOO_LARGE: {
+    messageId: 'errors.labResultTooLarge',
+    defaultMessage: 'The file is too large. Lab results must be under 10 MB.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_ALREADY_ATTACHED: {
+    messageId: 'errors.labResultAlreadyAttached',
+    defaultMessage: 'A result has already been attached to this lab order.',
+    action: 'none',
+  },
+  LAB_RESULT_NOT_FOUND: {
+    messageId: 'errors.labResultNotFound',
+    defaultMessage: 'No result has been uploaded for this lab order yet.',
+    action: 'none',
+  },
+  LAB_ORDER_SUPERSEDED: {
+    messageId: 'errors.labOrderSuperseded',
+    defaultMessage: 'This lab order has been superseded by a correction. Attach results to the new order.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+  OBJECT_STORAGE_NOT_CONFIGURED: {
+    messageId: 'errors.objectStorageNotConfigured',
+    defaultMessage: 'File storage is not currently configured. Try again later or contact support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+
+  // Feature flags
+  FEATURE_DISABLED: {
+    messageId: 'errors.featureDisabled',
+    defaultMessage: 'This feature is currently unavailable.',
     action: 'none',
   },
 
@@ -217,6 +371,50 @@ const CATALOGUE: Record<string, Entry> = {
     messageId: 'errors.walletAlreadyLinked',
     defaultMessage: 'A wallet is already linked to this facility.',
     action: 'none',
+  },
+  WALLET_NOT_LINKED: {
+    messageId: 'errors.walletNotLinked',
+    defaultMessage: 'You must link a wallet before you can fund payments.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.linkWallet',
+    defaultActionMessage: 'Link wallet',
+  },
+  FACILITY_WALLET_NOT_LINKED: {
+    messageId: 'errors.facilityWalletNotLinked',
+    defaultMessage: 'The facility has not linked a payment wallet yet. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PAYEE_TRUSTLINE_MISSING: {
+    messageId: 'errors.payeeTrustlineMissing',
+    defaultMessage: 'The recipient wallet does not accept this payment asset. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PRICE_ON_REQUEST: {
+    messageId: 'errors.priceOnRequest',
+    defaultMessage: 'This service requires price on request. Contact the facility before creating an order.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  ESCROW_SDK_PREPARE_UNSUPPORTED: {
+    messageId: 'errors.escrowSdkPrepareUnsupported',
+    defaultMessage: 'Escrow payment preparation is temporarily unavailable. Try again later.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Pagination / Keyset cursors
+  INVALID_CURSOR: {
+    messageId: 'errors.invalidCursor',
+    defaultMessage: 'The pagination position is invalid. Reload the list to start from the beginning.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.reloadList',
+    defaultActionMessage: 'Reload list',
   },
 };
 
