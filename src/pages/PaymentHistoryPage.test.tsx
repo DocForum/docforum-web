@@ -7,7 +7,15 @@ import { ApiError } from '../services/api-client';
 import { useAuthStore } from '../store/auth-store';
 import type { PaymentHistoryEntry, PaymentHistoryPage as Page } from '../types/models';
 
-vi.mock('../services/payment-history-service');
+vi.mock('../services/payment-history-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/payment-history-service')>();
+  return {
+    ...actual,
+    listPaymentHistory: vi.fn(),
+    fetchAllPaymentHistory: vi.fn(),
+    getPaymentHistoryEntry: vi.fn(),
+  };
+});
 
 function entry(overrides: Partial<PaymentHistoryEntry> = {}): PaymentHistoryEntry {
   return {
@@ -35,6 +43,7 @@ describe('PaymentHistoryPage', () => {
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'test-token', user: null });
     vi.mocked(paymentHistoryService.listPaymentHistory).mockReset();
+    vi.mocked(paymentHistoryService.fetchAllPaymentHistory).mockReset();
   });
 
   it('shows the amount with its unit and the status in plain words', async () => {
@@ -140,5 +149,134 @@ describe('PaymentHistoryPage', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(document.body.textContent).not.toMatch(/\bescrowed\b/);
+  });
+
+  it('reads filters from URL and drives server query', async () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory).mockResolvedValue(
+      page([entry({ id: 'pi-filtered', amountStroops: '50000000' })], null),
+    );
+
+    render(<PaymentHistoryPage />, {
+      route: '/payments?payments-f-status=escrowed&payments-f-from=2026-10-01&payments-f-to=2026-10-31',
+    });
+
+    expect(await screen.findByText('5 XLM')).toBeInTheDocument();
+    expect(paymentHistoryService.listPaymentHistory).toHaveBeenCalledWith(
+      {
+        status: 'escrowed',
+        from: '2026-10-01',
+        to: '2026-10-31',
+        cursor: undefined,
+      },
+      'test-token',
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('updates filters and queries server with new parameters', async () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory)
+      .mockResolvedValueOnce(page([entry({ id: 'pi-1' })], null))
+      .mockResolvedValueOnce(page([entry({ id: 'pi-2', status: 'released' })], null));
+
+    render(<PaymentHistoryPage />);
+    await screen.findByText('2.5 XLM');
+
+    const statusSelect = screen.getByLabelText(/status/i);
+    await userEvent.selectOptions(statusSelect, 'released');
+
+    await waitFor(() => {
+      expect(paymentHistoryService.listPaymentHistory).toHaveBeenLastCalledWith(
+        {
+          status: 'released',
+          cursor: undefined,
+        },
+        'test-token',
+        expect.any(AbortSignal),
+      );
+    });
+  });
+
+  it('shows dedicated empty state when filters have no matches and allows clearing filters', async () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory)
+      .mockResolvedValueOnce(page([], null))
+      .mockResolvedValueOnce(page([entry()], null));
+
+    render(<PaymentHistoryPage />, {
+      route: '/payments?payments-f-status=failed',
+    });
+
+    expect(await screen.findByText(/no payments match your filters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/have not paid for anything through docforum yet/i)).not.toBeInTheDocument();
+
+    const clearButton = screen.getByRole('button', { name: /clear filters/i });
+    await userEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(paymentHistoryService.listPaymentHistory).toHaveBeenLastCalledWith(
+        undefined,
+        'test-token',
+        expect.any(AbortSignal),
+      );
+    });
+  });
+
+  it('exports filtered results as CSV with progress indicator and formatted amounts', async () => {
+    let exportedBlob: Blob | undefined;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      exportedBlob = blob as Blob;
+      return 'blob:payment-csv';
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    vi.mocked(paymentHistoryService.listPaymentHistory).mockResolvedValueOnce(
+      page([entry({ id: 'pi-1', amountStroops: '25000000', stellarTxHash: 'hash-1' })], null),
+    );
+    vi.mocked(paymentHistoryService.fetchAllPaymentHistory).mockImplementation(
+      async (_filters, _token, onProgress) => {
+        onProgress?.(1);
+        onProgress?.(2);
+        return [
+          entry({ id: 'pi-1', amountStroops: '25000000', stellarTxHash: 'hash-1' }),
+          entry({ id: 'pi-2', amountStroops: '9007199254740993', stellarTxHash: null, status: 'created' }),
+        ];
+      },
+    );
+
+    render(<PaymentHistoryPage />, {
+      route: '/payments?payments-f-status=escrowed',
+    });
+
+    await screen.findByText('2.5 XLM');
+
+    const exportBtn = screen.getByRole('button', { name: /export/i });
+    await userEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(exportedBlob).toBeDefined();
+    });
+
+    const csvText = (await exportedBlob!.text()).replace(/^\uFEFF/, '');
+    const lines = csvText.trim().split('\r\n');
+
+    expect(lines[0]).toBe('ID,Date,Type,Facility,Status,Amount,Explorer Link');
+    expect(lines).toHaveLength(3);
+    // Page 1 entry: 2.5 XLM with explorer link
+    expect(lines[1]).toContain('pi-1,2026-10-01T10:00:00Z,Prescription,,Held in escrow,2.5 XLM,https://testnet.stellar.expert/explorer/public/transaction/hash-1');
+    // Page 2 entry: Large stroop amount formatted without float precision loss
+    expect(lines[2]).toContain('pi-2,2026-10-01T10:00:00Z,Prescription,,Not funded,"900,719,925.4740993 XLM",');
+  });
+
+  it('displays an error message when export fails', async () => {
+    vi.mocked(paymentHistoryService.listPaymentHistory).mockResolvedValueOnce(page([entry()], null));
+    vi.mocked(paymentHistoryService.fetchAllPaymentHistory).mockRejectedValueOnce(new Error('Network disconnected'));
+
+    render(<PaymentHistoryPage />);
+    await screen.findByText('2.5 XLM');
+
+    const exportBtn = screen.getByRole('button', { name: /export/i });
+    await userEvent.click(exportBtn);
+
+    expect(await screen.findByText(/payment export failed/i)).toBeInTheDocument();
   });
 });
