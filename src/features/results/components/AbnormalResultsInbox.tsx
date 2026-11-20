@@ -1,14 +1,23 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePendingAbnormalResults, useAcknowledgeAbnormalResult } from '../hooks/useResults';
+import { useThreadIdsForPatients } from '../../messaging/hooks/useMessageThreads';
 import { Button } from '../../../components/Button';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type { AbnormalResult } from '../../../types/models';
 import styles from './AbnormalResultsInbox.module.css';
 
 export function AbnormalResultsInbox() {
-  const { data: results = [], isLoading, error } = usePendingAbnormalResults();
+  const { data: results = [], isLoading, error, refetch } = usePendingAbnormalResults();
   const acknowledgeMutation = useAcknowledgeAbnormalResult();
+  const navigate = useNavigate();
   const [acknowledgeOpen, setAcknowledgeOpen] = useState<{ id: string; patientName: string } | null>(null);
   const [acknowledgeNote, setAcknowledgeNote] = useState('');
+  const threadIds = useThreadIdsForPatients(results.map((result) => result.patientProfileId));
+  const threadIdByPatient = threadIds.data ?? {};
 
   // Sort: critical first, then by issuedAt ascending (older first)
   const sortedResults = [...results].sort((a, b) => {
@@ -33,8 +42,16 @@ export function AbnormalResultsInbox() {
     setAcknowledgeOpen(null);
   };
 
-  if (isLoading) return <p>Loading results...</p>;
-  if (error) return <p>Error loading results.</p>;
+  if (isLoading) return <Skeleton lines={4} height="1.5rem" label="Loading results" />;
+  if (error) {
+    return (
+      <InlineError
+        title="Results couldn't be loaded"
+        message={queryErrorMessage(error)}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
 
   const criticalCount = results.filter(r => r.isCritical).length;
   const totalCount = results.length;
@@ -76,52 +93,59 @@ export function AbnormalResultsInbox() {
       )}
 
       {sortedResults.length === 0 && !acknowledgeOpen ? (
-        <p className={styles.empty}>No results awaiting review.</p>
+        <EmptyState
+          title="No results awaiting review"
+          description="Abnormal and critical results appear here as soon as docforum-core issues them, newest first."
+          action={{ label: 'Refresh inbox', onClick: () => void refetch() }}
+        />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Patient</th>
-              <th>Test</th>
-              <th>Value</th>
-              <th>Issued</th>
-              <th className={styles.actionsCol}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedResults.map((result) => {
-              const isPendingAcknowledge = acknowledgeMutation.isPending && acknowledgeMutation.variables?.resultId === result.id;
-              return (
-                <tr key={result.id} className={`${styles.row} ${result.isCritical ? styles.criticalRow : ''}`}>
-                  <td>{result.patientName}</td>
-                  <td>{result.testName}</td>
-                  <td>{result.value}</td>
-                  <td>
-                    {new Date(result.issuedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </td>
-                  <td className={styles.actionsCol}>
-                    <Button
-                      onClick={() => handleAcknowledge(result)}
-                      disabled={isPendingAcknowledge}
-                      loading={isPendingAcknowledge}
-                    >
-                      Acknowledge
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        // TODO: navigate to messaging thread for this patient
-                        console.log('Message patient:', result.patientName);
-                      }}
-                    >
-                      Message patient
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Test</th>
+                <th>Value</th>
+                <th>Issued</th>
+                <th className={styles.actionsCol}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedResults.map((result) => {
+                const isPendingAcknowledge = acknowledgeMutation.isPending && acknowledgeMutation.variables?.resultId === result.id;
+                const threadId = threadIdByPatient[result.patientProfileId];
+                return (
+                  <tr key={result.id} className={`${styles.row} ${result.isCritical ? styles.criticalRow : ''}`}>
+                    <td>{result.patientName}</td>
+                    <td>{result.testName}</td>
+                    <td>{result.value}</td>
+                    <td>
+                      {new Date(result.issuedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className={styles.actionsCol}>
+                      <Button
+                        onClick={() => handleAcknowledge(result)}
+                        disabled={isPendingAcknowledge}
+                        loading={isPendingAcknowledge}
+                      >
+                        Acknowledge
+                      </Button>
+                      {threadId && (
+                        <Button
+                          variant="secondary"
+                          aria-label={`Message ${result.patientName}`}
+                          onClick={() => navigate(`/doctor/messages/${threadId}`)}
+                        >
+                          Message patient
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

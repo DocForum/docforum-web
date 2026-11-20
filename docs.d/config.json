@@ -1,0 +1,7 @@
+{
+  "protected": [
+    "ROADMAP.md",
+    "ARCHITECTURE_ESSENTIALS.md",
+    "README.md"
+  ]
+}

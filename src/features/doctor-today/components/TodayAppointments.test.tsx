@@ -1,154 +1,117 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor, within } from '../../../test/render';
-import { TodayAppointments } from './TodayAppointments';
+import { render, screen, waitFor } from '../../../test/render';
 import { useAuthStore } from '../../../store/auth-store';
-import { ApiError } from '../../../services/api-client';
 import * as queueService from '../../../services/queue-service';
-import type { Appointment } from '../../../types/models';
+import * as doctorTodayService from '../../../services/doctor-today-service';
+import { ApiError } from '../../../services/api-client';
+import type { Appointment, IntakeForm } from '../../../types/models';
+import { TodayAppointments } from './TodayAppointments';
 
 vi.mock('../../../services/queue-service');
+vi.mock('../../../services/doctor-today-service');
 
-const ADA: Appointment = {
-  id: 'appt-ada',
-  doctorProfileId: 'doc-1',
-  patientProfileId: 'pat-1',
-  patientName: 'Ada Patient',
-  startsAt: '2026-01-01T09:00:00Z',
-  endsAt: '2026-01-01T09:30:00Z',
-  status: 'scheduled',
-  reason: 'Demo follow-up (fake)',
-  referral: {
-    id: 'ref-1',
-    targetSpecialtyName: 'Cardiology',
-    priorNoShows: 0,
+const APPOINTMENTS: Appointment[] = [
+  {
+    id: 'apt-2',
+    doctorProfileId: 'doc-1',
+    patientProfileId: 'pat-2',
+    patientName: 'Second Patient (fake)',
+    startsAt: '2026-10-20T10:00:00Z',
+    endsAt: '2026-10-20T10:30:00Z',
+    status: 'scheduled',
+    reason: 'Demo follow-up (fake)',
   },
-};
+  {
+    id: 'apt-1',
+    doctorProfileId: 'doc-1',
+    patientProfileId: 'pat-1',
+    patientName: 'First Patient (fake)',
+    startsAt: '2026-10-20T09:00:00Z',
+    endsAt: '2026-10-20T09:30:00Z',
+    status: 'checked_in',
+    reason: 'Demo cough (fake)',
+  },
+];
 
-const FUTURE: Appointment = {
-  id: 'appt-future',
-  doctorProfileId: 'doc-1',
-  patientProfileId: 'pat-2',
-  patientName: 'Ben Future',
-  startsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-  endsAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
-  status: 'scheduled',
-};
-
-const COMPLETED: Appointment = {
-  id: 'appt-done',
-  doctorProfileId: 'doc-1',
-  patientProfileId: 'pat-3',
-  patientName: 'Cleo Done',
-  startsAt: '2026-01-01T08:00:00Z',
-  endsAt: '2026-01-01T08:30:00Z',
-  status: 'completed',
+const INTAKE: IntakeForm = {
+  id: 'intake-1',
+  appointmentId: 'apt-1',
+  patientProfileId: 'pat-1',
+  submittedAt: '2026-10-20T08:45:00Z',
+  chiefComplaint: 'Demo cough for three days (fake)',
+  symptomDuration: '3 days',
+  severity: 6,
+  currentMedications: ['Demo inhaler (fake)'],
+  allergies: ['Demo penicillin allergy (fake)'],
+  notes: 'Demo intake note (fake).',
 };
 
 beforeEach(() => {
   useAuthStore.setState({ accessToken: 'test-token', user: null });
-  vi.mocked(queueService.listTodayAppointments).mockReset();
-  vi.mocked(queueService.listTodayAppointments).mockResolvedValue([ADA, FUTURE, COMPLETED]);
-  vi.mocked(queueService.updateAppointmentStatus).mockReset();
-  vi.mocked(queueService.updateAppointmentStatus).mockResolvedValue({ ...ADA, status: 'no_show' });
+  vi.mocked(queueService.listTodayAppointments).mockResolvedValue(APPOINTMENTS);
+  vi.mocked(doctorTodayService.getAppointmentIntake).mockResolvedValue(INTAKE);
 });
 
-describe('TodayAppointments — no-show and cancel', () => {
-  it("lists the day's appointments and only offers status actions for scheduled visits", async () => {
+describe('TodayAppointments', () => {
+  it("lists today's appointments in start-time order", async () => {
     render(<TodayAppointments />);
 
-    expect(await screen.findByText('Ada Patient')).toBeInTheDocument();
-    expect(screen.getByText('Ben Future')).toBeInTheDocument();
-    expect(screen.getByText('Cleo Done')).toBeInTheDocument();
-
-    expect(screen.getByRole('button', { name: 'Mark Ada Patient as no-show' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: "Cancel Ada Patient's visit" })).toBeInTheDocument();
-
-    // Completed visits are read-only: no no-show/cancel actions.
-    expect(screen.queryByRole('button', { name: /Cleo Done/i })).not.toBeInTheDocument();
-  });
-
-  it('does not offer no-show before the appointment start time', async () => {
-    render(<TodayAppointments />);
-
-    const noShow = await screen.findByRole('button', { name: 'Mark Ben Future as no-show' });
-    expect(noShow).toBeDisabled();
-    expect(noShow).toHaveAttribute('title', expect.stringContaining('start time'));
-    expect(screen.getByText(/no-show after/i)).toBeInTheDocument();
-  });
-
-  it('confirms a no-show, calls the status endpoint and refreshes the list', async () => {
-    const user = userEvent.setup();
-    vi.mocked(queueService.listTodayAppointments)
-      .mockResolvedValueOnce([ADA, FUTURE, COMPLETED])
-      .mockResolvedValue([{ ...ADA, status: 'no_show' }, FUTURE, COMPLETED]);
-
-    render(<TodayAppointments />);
-    await user.click(await screen.findByRole('button', { name: 'Mark Ada Patient as no-show' }));
-
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText(/recorded as a no-show/i)).toBeInTheDocument();
-    // The linked referral consequence is spelled out before confirming.
-    expect(within(dialog).getByText(/referral goes back to pending/i)).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: 'Mark as no-show' }));
-
-    await waitFor(() => {
-      expect(queueService.updateAppointmentStatus).toHaveBeenCalledWith(
-        'appt-ada',
-        'no_show',
-        'test-token',
-      );
-    });
-    expect(await screen.findByText('No-show')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('says a referral will expire after repeated no-shows', async () => {
-    vi.mocked(queueService.listTodayAppointments).mockResolvedValue([
-      { ...ADA, referral: { ...ADA.referral!, priorNoShows: 2 } },
+    const names = await screen.findAllByText(/Patient \(fake\)/);
+    expect(names.map((node) => node.textContent)).toEqual([
+      'First Patient (fake)',
+      'Second Patient (fake)',
     ]);
-    const user = userEvent.setup();
-
-    render(<TodayAppointments />);
-    await user.click(await screen.findByRole('button', { name: 'Mark Ada Patient as no-show' }));
-
-    expect(screen.getByRole('dialog')).toHaveTextContent(/will expire after this one/i);
+    expect(screen.getByText(/2 scheduled/i)).toBeInTheDocument();
   });
 
-  it('confirms a cancellation and explains the referral returns to pending', async () => {
+  it('expands an appointment to show the structured intake', async () => {
     const user = userEvent.setup();
-    vi.mocked(queueService.updateAppointmentStatus).mockResolvedValue({ ...ADA, status: 'cancelled' });
-
     render(<TodayAppointments />);
-    await user.click(await screen.findByRole('button', { name: "Cancel Ada Patient's visit" }));
 
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText(/will be cancelled/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/goes back to pending/i)).toBeInTheDocument();
+    const firstRow = await screen.findByRole('button', { name: /First Patient/i });
+    expect(firstRow).toHaveAttribute('aria-expanded', 'false');
 
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel visit' }));
+    await user.click(firstRow);
 
+    expect(firstRow).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Demo cough for three days (fake)')).toBeInTheDocument();
+    expect(screen.getByText('3 days')).toBeInTheDocument();
+    expect(screen.getByText('6 / 10')).toBeInTheDocument();
+    expect(screen.getByText('Demo inhaler (fake)')).toBeInTheDocument();
+    expect(screen.getByText('Demo intake note (fake).')).toBeInTheDocument();
     await waitFor(() => {
-      expect(queueService.updateAppointmentStatus).toHaveBeenCalledWith(
-        'appt-ada',
-        'cancelled',
+      expect(doctorTodayService.getAppointmentIntake).toHaveBeenCalledWith(
+        'apt-1',
         'test-token',
+        expect.any(AbortSignal),
       );
     });
   });
 
-  it('explains a 409 conflict when the visit is no longer scheduled', async () => {
-    const user = userEvent.setup();
-    vi.mocked(queueService.updateAppointmentStatus).mockRejectedValue(
-      new ApiError('Mock API: appointment is no longer scheduled', 409),
+  it('says when no intake was submitted', async () => {
+    vi.mocked(doctorTodayService.getAppointmentIntake).mockRejectedValue(
+      new ApiError('not found', 404),
     );
-
+    const user = userEvent.setup();
     render(<TodayAppointments />);
-    await user.click(await screen.findByRole('button', { name: 'Mark Ada Patient as no-show' }));
-    await user.click(screen.getByRole('button', { name: 'Mark as no-show' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/no longer scheduled/i);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /First Patient/i }));
+
+    expect(
+      await screen.findByText(/no intake was submitted for this appointment/i),
+    ).toBeInTheDocument();
+  });
+
+  it('surfaces other intake failures', async () => {
+    vi.mocked(doctorTodayService.getAppointmentIntake).mockRejectedValue(
+      new ApiError('service down', 503),
+    );
+    const user = userEvent.setup();
+    render(<TodayAppointments />);
+
+    await user.click(await screen.findByRole('button', { name: /First Patient/i }));
+
+    expect(await screen.findByText(/could not load this intake/i)).toBeInTheDocument();
   });
 });

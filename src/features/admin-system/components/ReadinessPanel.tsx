@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { readinessVerdict } from '../errors';
 import { COLD_START_THRESHOLD_MS, checkDisplay, checkName, formatDuration, readinessDisplay } from '../status';
@@ -23,13 +23,13 @@ export function ReadinessPanel({ readiness, now }: ReadinessPanelProps) {
   let body;
   if (readiness.isLoading) {
     body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>
-          {slow
-            ? 'Still waiting — the preview backend sleeps when idle and can take about a minute to wake up.'
-            : 'Checking readiness…'}
-        </span>
+      <div>
+        <Skeleton lines={3} height="1.75rem" label="Checking readiness" />
+        {slow && (
+          <p className={styles.staleNote}>
+            Still waiting — the preview backend sleeps when idle and can take about a minute to wake up.
+          </p>
+        )}
       </div>
     );
   } else if (readiness.error) {
