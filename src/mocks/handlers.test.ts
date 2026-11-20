@@ -35,6 +35,7 @@ import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
+import * as referralsService from '../services/referrals-service';
 import * as searchService from '../services/search-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
@@ -319,6 +320,19 @@ describe('consultation notes', () => {
       MOCK_ACCESS_TOKEN,
     );
     expect(order.medicationOrTest).toBe('Demo blood panel (fake)');
+  });
+});
+
+describe('referrals I\'ve sent (issue #265)', () => {
+  it('lists the doctor-created referrals from every status, newest first, with both attention flags', async () => {
+    const referrals = await referralsService.listCreatedReferrals(MOCK_ACCESS_TOKEN);
+
+    expect(referrals.map((referral) => referral.status)).toEqual(
+      expect.arrayContaining(['pending', 'accepted', 'declined', 'completed', 'expired', 'cancelled']),
+    );
+    expect(referrals.some((referral) => referral.referringDoctorNotifiedAt !== null)).toBe(true);
+    expect(referrals.some((referral) => referral.loopFlaggedAt !== null)).toBe(true);
+    expect(referrals[0].createdAt >= referrals[referrals.length - 1].createdAt).toBe(true);
   });
 });
 

@@ -9,6 +9,7 @@ const LABELS: Record<ReferralStatus, string> = {
   declined: 'Declined',
   completed: 'Completed',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
 export function ReferralStatusPill({ status }: { status: ReferralStatus }) {

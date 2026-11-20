@@ -7,7 +7,9 @@ import type { DoctorProfile } from './session-idle-timeout';
 // docforum-core#68 (admin referral operations) and #65 (loop detection)
 // haven't landed. See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
 
-export type ReferralStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
+// `cancelled` is core's admin-initiated exit (issue #68), distinct from
+// `expired` (no-show cascade gave up) and `declined` (patient said no).
+export type ReferralStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired' | 'cancelled';
 
 export interface Specialty {
   id: string;
