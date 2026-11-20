@@ -8,6 +8,7 @@
 import type {
   Appointment,
   CareThread,
+  Consultation,
   ConsultationAddendum,
   ConsultationNote,
   DataExport,
@@ -18,7 +19,10 @@ import type {
   FacilityWithDistance,
   FulfillmentQueueItem,
   HealthEntry,
+  IssuedLabOrder,
+  IssuedPrescription,
   MessageThread,
+  MyDoctorProfile,
   PaymentIntent,
   RunningDelay,
   User,
@@ -86,6 +90,11 @@ export interface MockDb {
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  // --- Order issuance (issue #267, real docforum-core contract) ---
+  doctorProfile: MyDoctorProfile | null;
+  consultations: Consultation[];
+  prescriptions: IssuedPrescription[];
+  labOrders: IssuedLabOrder[];
 }
 
 export function createSeedDb(): MockDb {
@@ -644,6 +653,19 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Issue #267: the signed-in doctor, verified so order issuance is allowed.
+  // Tests flip `verificationStatus` to 'pending' to exercise the 403 gate.
+  const doctorProfile: MyDoctorProfile = {
+    id: DOCTOR_PROFILE_ID,
+    userId: DOCTOR_USER.id,
+    fullName: 'Dr. Demo Doctor (fake)',
+    verificationStatus: 'verified',
+    timeZone: 'Europe/London',
+    version: 1,
+    createdAt: '2026-01-06T09:00:00.000Z',
+    updatedAt: '2026-01-06T09:00:00.000Z',
+  };
+
   return {
     dependents,
     healthEntries,
@@ -661,5 +683,9 @@ export function createSeedDb(): MockDb {
     walletLink,
     paymentIntents,
     consultationAddenda,
+    doctorProfile,
+    consultations: [],
+    prescriptions: [],
+    labOrders: [],
   };
 }

@@ -1,7 +1,30 @@
 // Facility finder service (#29) with location-based distance sorting.
 // Calls docforum-core's API per ARCHITECTURE_ESSENTIALS.md.
 import { apiFetch } from './api-client';
-import type { FacilityType, FacilityWithDistance } from '../types/models';
+import type {
+  EligibleFacility,
+  FacilityType,
+  FacilityWithDistance,
+} from '../types/models';
+
+/**
+ * Facilities qualified to fulfil an order kind, with the price in force for
+ * a catalog code — the REAL `GET /facilities/eligible` (docforum-core issue
+ * #127). Order issuance needs one of these ids as `facilityProfileId`.
+ */
+export async function listEligibleFacilities(
+  type: 'lab' | 'pharmacy',
+  accessToken: string,
+  catalogItemCode?: string,
+): Promise<EligibleFacility[]> {
+  const params = new URLSearchParams({ type });
+  if (catalogItemCode) params.set('catalogItemCode', catalogItemCode);
+  const response = await apiFetch<{ facilities: EligibleFacility[] }>(
+    `/facilities/eligible?${params.toString()}`,
+    { accessToken },
+  );
+  return response.facilities ?? [];
+}
 
 export interface FacilitySearchParams {
   type?: FacilityType;

@@ -12,7 +12,8 @@ import { ClaimAccountPage } from './pages/ClaimAccountPage';
 import { CareThreadPage } from './pages/CareThreadPage';
 import { AccountDeletedPage } from './pages/AccountDeletedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { ConsultationNote } from './features/consultation/components/ConsultationNote';
+import { DoctorConsultationPage } from './pages/DoctorConsultationPage';
+import { DoctorVerificationPage } from './pages/DoctorVerificationPage';
 import { DoctorInbox } from './features/messaging/components/DoctorInbox';
 import { DoctorPracticeInsightsPage } from './pages/DoctorPracticeInsightsPage';
 import { FacilityTeamPage } from './pages/FacilityTeamPage';
@@ -61,7 +62,12 @@ export default function App() {
         } />
         <Route path="doctor/consultation/:appointmentId" element={
           <RequireAuth allowedRoles={['doctor']}>
-            <ConsultationNote />
+            <DoctorConsultationPage />
+          </RequireAuth>
+        } />
+        <Route path="doctor/verification" element={
+          <RequireAuth allowedRoles={['doctor']}>
+            <DoctorVerificationPage />
           </RequireAuth>
         } />
         <Route path="doctor/messages" element={

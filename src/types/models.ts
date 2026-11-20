@@ -777,3 +777,129 @@ export interface LabResult {
   isCritical: boolean;
   issuedAt: string;
 }
+
+// --- Phase W3 — Order issuance (issue #267) ---------------------------------
+// REAL contract (docforum-core `backend/src/modules/orders`): a verified
+// doctor closes the visit with `POST /orders/consultations` and then issues
+// orders against that consultation. Shapes mirror
+// `backend/prisma/schema/{consultations,prescriptions-labs}.prisma` and the
+// `201` bodies the orders controllers serialize.
+
+export type ConsultationOutcome = 'resolved' | 'referred' | 'follow_up_needed';
+
+export interface Consultation {
+  id: string;
+  appointmentId: string;
+  outcome: ConsultationOutcome | null;
+  /** Clinical free text — PHI, never logged or put in analytics. */
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateConsultationInput {
+  appointmentId: string;
+  outcome?: ConsultationOutcome | null;
+  notes?: string | null;
+}
+
+export type OrderStatus =
+  | 'issued'
+  | 'partially_fulfilled'
+  | 'fulfilled'
+  | 'expired'
+  | 'superseded';
+
+export interface PrescriptionItemInput {
+  drugName: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+}
+
+export interface PrescriptionItem extends PrescriptionItemInput {
+  id: string;
+  prescriptionId: string;
+}
+
+/** Append-only: corrections are new rows with `supersedesPrescriptionId`. */
+export interface Prescription {
+  id: string;
+  consultationId: string;
+  patientProfileId: string;
+  prescribingDoctorId: string;
+  facilityProfileId: string;
+  /** Positive integer stroops, carried as a string (BigInt on the server). */
+  amountStroops: string;
+  status: OrderStatus;
+  supersedesPrescriptionId: string | null;
+  createdAt: string;
+  items: PrescriptionItem[];
+}
+
+export type LabOrderUrgency = 'routine' | 'urgent';
+
+export interface LabOrder {
+  id: string;
+  consultationId: string;
+  patientProfileId: string;
+  orderingDoctorId: string;
+  facilityProfileId: string;
+  amountStroops: string;
+  testType: string;
+  urgency: LabOrderUrgency;
+  /** Clinical free text — PHI. */
+  notes: string | null;
+  status: OrderStatus;
+  supersedesLabOrderId: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+/** Exactly one of these is sent, never both (docforum-core rejects both). */
+export interface OrderPricingInput {
+  amountStroops?: string;
+  catalogItemCode?: string;
+}
+
+export interface IssuePrescriptionInput extends OrderPricingInput {
+  facilityProfileId: string;
+  items: PrescriptionItemInput[];
+  supersedesPrescriptionId?: string;
+}
+
+export interface IssueLabOrderInput extends OrderPricingInput {
+  facilityProfileId: string;
+  testType: string;
+  urgency?: LabOrderUrgency;
+  notes?: string;
+  supersedesLabOrderId?: string;
+}
+
+/** The `201` body: the immutable order plus its payment intent. */
+export interface IssuedPrescription extends Prescription {
+  paymentIntent: PaymentIntent;
+}
+
+export interface IssuedLabOrder extends LabOrder {
+  paymentIntent: PaymentIntent;
+}
+
+/** A facility that can fulfil the order kind, with its price for a code. */
+export interface EligibleFacility {
+  facilityId: string;
+  name: string;
+  type: FacilityType;
+  address: string | null;
+  distanceKm: number | null;
+  priceOnRequest: boolean;
+  price: { amountStroops: string; effectiveFrom: string } | null;
+}
+
+/** `GET /doctors/me` — the signed-in doctor's own profile. */
+export interface MyDoctorProfile extends DoctorProfile {
+  timeZone: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}

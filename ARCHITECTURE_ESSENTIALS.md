@@ -165,6 +165,16 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - `POST /consultation-notes/:id/addenda` (body: `{content}`) → `ConsultationAddendum` — append-only; no edit/delete UI for addenda.
 - Auto sign-off deadline, if present, is exposed as `autoSignOffAt` on the note.
 
+#### Order issuance (issue #267 — REAL, not assumed)
+`POST /orders/consultations`, `POST /orders/consultations/:consultationId/{prescriptions,lab-orders}`,
+`GET /facilities/eligible` and `GET /doctors/me` are docforum-core's real
+contracts (see issue #267's `docs.d` fragment for the exact bodies, the
+verified-profile `403`, and the `PRICE_ON_REQUEST` `422`). Two reads are
+still missing there and shape this UI: no read for an issued
+prescription/lab order (full detail is rendered from the `201` response) and
+no consultation lookup by appointment id (the id comes from the create
+response in the current session).
+
 #### Doctor practice insights (issue #50, depends on docforum-core#124)
 - `GET /doctor/insights?preset=&startDate=&endDate=` → `DoctorPracticeInsights`
 - Scoped strictly to the authenticated doctor's own practice data; peer-comparison suppression guarantees no benchmarking against other named doctors.

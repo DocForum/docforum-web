@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { setupServer } from 'msw/node';
 import { handlers } from './handlers';
-import { resetDb } from './db';
+import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError } from '../services/api-client';
@@ -22,6 +22,7 @@ import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
 import * as messagingService from '../services/messaging-service';
 import * as paymentsService from '../services/payments-service';
+import * as prescriptionsService from '../services/prescriptions-service';
 import * as queueService from '../services/queue-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
@@ -208,6 +209,115 @@ describe('consultation notes', () => {
     await expect(
       consultationService.signOffNote('not-demo-signed', MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('order issuance (issue #267)', () => {
+  const medication = {
+    drugName: 'Amoxicillin (fake)',
+    dosage: '500 mg',
+    frequency: 'every 8 hours',
+    duration: '5 days',
+  };
+
+  it('closes a consultation then issues a multi-item prescription', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved', notes: 'Fake notes.' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(consultation.appointmentId).toBe('apt-demo-1');
+
+    const issued = await prescriptionsService.issuePrescription(
+      consultation.id,
+      {
+        facilityProfileId: FACILITY_ID,
+        items: [medication, { ...medication, drugName: 'Ibuprofen (fake)' }],
+        amountStroops: '25000000',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(issued.items).toHaveLength(2);
+    expect(issued.amountStroops).toBe('25000000');
+    expect(issued.paymentIntent.orderType).toBe('prescription');
+    expect(issued.paymentIntent.status).toBe('created');
+
+    // One consultation per appointment, enforced by core.
+    await expect(
+      consultationService.createConsultation(
+        { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('prices a lab order from the facility catalog and defaults urgency to routine', async () => {
+    const labs = await facilityService.listEligibleFacilities('lab', MOCK_ACCESS_TOKEN);
+    expect(labs.map((lab) => lab.facilityId)).toEqual(['fac-demo-lab']);
+
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-2', outcome: 'follow_up_needed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    const labOrder = await prescriptionsService.issueLabOrder(
+      consultation.id,
+      {
+        facilityProfileId: 'fac-demo-lab',
+        testType: 'Full blood count',
+        catalogItemCode: 'cbc-panel',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(labOrder.amountStroops).toBe('25000000');
+    expect(labOrder.urgency).toBe('routine');
+    expect(labOrder.paymentIntent.orderType).toBe('lab_order');
+  });
+
+  it('rejects orders when the doctor profile is not verified', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+    db.doctorProfile = { ...db.doctorProfile!, verificationStatus: 'pending' };
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        { facilityProfileId: FACILITY_ID, items: [medication], amountStroops: '10000000' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('enforces exactly one price and a known catalog code', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-3', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          amountStroops: '10000000',
+          catalogItemCode: 'amox-500-cap',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          catalogItemCode: 'not-in-the-price-list',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
   });
 });
 
