@@ -53,6 +53,66 @@ jobs:
 
       - run: npm run check:dist
 
+      # Performance budget (issue #99): first-load JS and every lazy chunk,
+      # gzip, against performance-budget.json. Also writes the numbers to
+      # the job summary.
+      - run: npm run check:bundle
+
+      # Bundle composition (rollup visualiser treemap) for reviewers.
+      - name: Bundle composition report
+        run: npm run analyze
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats
+          path: bundle-stats/
+          if-no-files-found: error
+
+  lighthouse:
+    name: Lighthouse (performance budgets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The same mock-only build as the PR preview (#104): hash routing (so
+      # the static server needs no SPA rewrites), every request answered by
+      # MSW, and a reserved-invalid API origin — Lighthouse can never reach
+      # a real backend. `?previewRole=` opens signed-in pages.
+      - name: Build mock-API preview
+        run: npm run build:preview
+        env:
+          VITE_USE_HASH_ROUTER: 'true'
+          VITE_PREVIEW_MOCKS: 'true'
+          VITE_ENABLE_MOCKS: 'true'
+          VITE_API_BASE_URL: https://mock-api.invalid
+          VITE_SENTRY_DSN: ''
+
+      - name: Prove the build is mock-only
+        run: npm run check:preview
+
+      # Budgets and pages live in .lighthouserc.json; any assertion over
+      # budget fails this job. The script-size budget (450 kB transferred)
+      # covers this *mock* build, which also loads the MSW mock layer
+      # (~120 kB gzip) that production never ships; production first-load JS
+      # is held to performance-budget.json by `check:bundle` above.
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: lighthouse-report/
+          if-no-files-found: ignore
+
   browser:
     name: Browser (journeys + accessibility + visual)
     runs-on: ubuntu-latest

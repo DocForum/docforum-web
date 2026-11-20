@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { DatePicker } from '../../../components/DatePicker';
 import { FormError } from '../../../components/FormError';
-import { TextField } from '../../../components/TextField';
 import { useGenerateSlots } from '../hooks/useSlotManagement';
 import { ApiError } from '../../../services/api-client';
 import {
@@ -109,20 +109,20 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
       </p>
 
       <div className={styles.grid}>
-        <TextField
+        <DatePicker
           label="From"
-          type="date"
           value={fromDate}
           error={fieldErrors.fromDate}
-          onChange={(event) => setFromDate(event.target.value)}
+          onChange={setFromDate}
+          timeZone={timeZone}
           required
         />
-        <TextField
+        <DatePicker
           label="To"
-          type="date"
           value={toDate}
           error={fieldErrors.toDate}
-          onChange={(event) => setToDate(event.target.value)}
+          onChange={setToDate}
+          timeZone={timeZone}
           required
         />
         <div className={styles.field}>

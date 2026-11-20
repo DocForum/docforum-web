@@ -1,48 +1,39 @@
-import { Route } from 'react-router-dom';
-import { ConsultationNote } from '../features/consultation/components/ConsultationNote';
-import { DoctorDashboardPage } from '../pages/DoctorDashboardPage';
-import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
-import { DoctorPracticeInsightsPage } from '../pages/DoctorPracticeInsightsPage';
-import { MessageThreadPage } from '../pages/MessageThreadPage';
-import { PatientChartPage } from '../pages/PatientChartPage';
-import { RequireAuth } from '../components/RequireAuth';
+import type { RouteObject } from 'react-router-dom';
+import { todayAppointmentsQueryOptions } from '../features/doctor-today/hooks/useDoctorToday';
+import { lazyPage } from './lazy';
+import { guardedSection, settlePrefetch, type RouteContext } from './route-helpers';
 
-/** Doctor routes. Mounted under the layout in App.tsx. React Router ranks
- * routes by how specific their path is, so order between files doesn't matter. */
-export const doctorRoutes = (
-  <>
-    <Route path="doctor" element={
-      <RequireAuth allowedRoles={['doctor']}>
-        <DoctorDashboardPage />
-      </RequireAuth>
-    } />
-    <Route path="doctor/insights" element={
-      <RequireAuth allowedRoles={['doctor']}>
-        <DoctorPracticeInsightsPage />
-      </RequireAuth>
-    } />
-    <Route path="doctor/consultation/:appointmentId" element={
-      <RequireAuth allowedRoles={['doctor']}>
-        <ConsultationNote />
-      </RequireAuth>
-    } />
-    <Route path="doctor/messages" element={
-      <RequireAuth allowedRoles={['doctor']}>
-        <div className="container"><h1>Messages</h1><DoctorInbox /></div>
-      </RequireAuth>
-    } />
-    <Route path="doctor/messages/:threadId" element={
-      <RequireAuth allowedRoles={['doctor']}>
-        <MessageThreadPage />
-      </RequireAuth>
-    } />
-    <Route
-      path="doctor/patient-chart/:patientProfileId"
-      element={
-        <RequireAuth allowedRoles={["doctor"]}>
-          <PatientChartPage />
-        </RequireAuth>
-      }
-    />
-  </>
-);
+/** Doctor routes. Mounted under the layout in `routes/index.tsx`. React Router
+ * ranks routes by how specific their path is, so order between files doesn't matter. */
+export function doctorRoutes({ queryClient }: RouteContext): RouteObject[] {
+  return [
+    guardedSection('doctor', ['doctor'], [
+      {
+        path: 'doctor',
+        lazy: lazyPage(() => import('../pages/DoctorDashboardPage'), 'DoctorDashboardPage'),
+        prefetch: (_args, token) =>
+          settlePrefetch([queryClient.ensureQueryData(todayAppointmentsQueryOptions(token))]),
+      },
+      {
+        path: 'doctor/insights',
+        lazy: lazyPage(() => import('../pages/DoctorPracticeInsightsPage'), 'DoctorPracticeInsightsPage'),
+      },
+      {
+        path: 'doctor/consultation/:appointmentId',
+        lazy: lazyPage(() => import('../features/consultation/components/ConsultationNote'), 'ConsultationNote'),
+      },
+      {
+        path: 'doctor/messages',
+        lazy: lazyPage(() => import('./DoctorMessagesRoute'), 'DoctorMessagesRoute'),
+      },
+      {
+        path: 'doctor/messages/:threadId',
+        lazy: lazyPage(() => import('../pages/MessageThreadPage'), 'MessageThreadPage'),
+      },
+      {
+        path: 'doctor/patient-chart/:patientProfileId',
+        lazy: lazyPage(() => import('../pages/PatientChartPage'), 'PatientChartPage'),
+      },
+    ]),
+  ];
+}

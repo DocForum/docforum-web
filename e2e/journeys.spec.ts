@@ -32,7 +32,7 @@ test('patient facility search retries a one-time network failure', async ({ page
     state.failNext = false;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (new URL(url).pathname === '/facilities') {
+      if (new URL(url).pathname === '/facilities/eligible') {
         state.requests = (state.requests ?? 0) + 1;
         if (state.failNext) {
           state.failNext = false;
@@ -62,7 +62,9 @@ test('doctor can start a queued visit and sign its consultation note', async ({ 
   await row.getByRole('button', { name: 'Start' }).click();
   await expect(row.getByText('In progress')).toBeVisible();
   await page.goto('/?previewRole=doctor#/doctor/consultation/apt-demo-2');
-  await expect(page.getByRole('heading', { name: 'Consultation note' })).toBeVisible();
+  // The layout's page header and the note itself both title the page
+  // "Consultation note"; wait for the note's own editor rather than either.
+  await expect(page.getByRole('textbox', { name: 'Consultation note content' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign and lock' }).first().click();
   await page.getByRole('button', { name: 'Sign and lock' }).click();
   await expect(page.getByText('Signed · locked')).toBeVisible();

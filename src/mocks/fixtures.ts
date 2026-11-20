@@ -262,17 +262,10 @@ export function createSeedDb(): MockDb {
     },
   ];
 
-  const dataExport: DataExport = {
-    id: 'exp-demo-1',
-    patientProfileId: PATIENT_PROFILE_ID,
-    status: 'ready',
-    requestedAt: '2026-10-17T09:00:00.000Z',
-    readyAt: '2026-10-17T09:02:00.000Z',
-    expiresAt: '2026-10-18T09:02:00.000Z',
-    fileSizeBytes: 20480,
-    downloadUrl: null,
-    errorMessage: null,
-  };
+  // No export by default: core has no list endpoint, so the client can only
+  // know an export by the id from its own 202. The mock creates one on
+  // `POST /patients/me/export`.
+  const dataExport: DataExport | null = null;
 
   const careThreads: CareThread[] = [
     {
