@@ -14,6 +14,7 @@ import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { getSessionTimeoutSettings } from '../services/session-timeout-service';
 import { logout } from '../services/auth-service';
 import { SessionTimeoutWarning } from './SessionTimeoutWarning';
+import { paths } from '../routes/paths';
 
 export function SessionTimeoutController() {
   const user = useAuthStore((state) => state.user);

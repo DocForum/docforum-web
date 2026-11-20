@@ -1,3 +1,4 @@
+import { paths } from '../routes/paths';
 import type { NavItem } from './types';
 
 /** Patient navigation, in display order. */

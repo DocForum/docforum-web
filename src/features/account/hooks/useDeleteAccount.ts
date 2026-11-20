@@ -16,7 +16,7 @@ export function useDeleteAccount() {
       // same helper as every other sign-out path (issue #227).
       await signOut('account-deleted', { queryClient });
       // Navigate to post-deletion confirmation page
-      navigate('/account-deleted');
+      navigate(paths.accountDeleted);
     },
   });
 }

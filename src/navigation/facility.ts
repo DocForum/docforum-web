@@ -1,3 +1,4 @@
+import { paths } from '../routes/paths';
 import type { NavItem } from './types';
 
 /** Facility navigation, in display order. */

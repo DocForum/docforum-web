@@ -9,6 +9,7 @@ import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import type { AbnormalResult } from '../../../types/models';
 import styles from './AbnormalResultsInbox.module.css';
+import { paths } from '../../../routes/paths';
 
 export function AbnormalResultsInbox() {
   const { data: results = [], isLoading, error, refetch } = usePendingAbnormalResults();
@@ -134,7 +135,7 @@ export function AbnormalResultsInbox() {
                         <Button
                           variant="secondary"
                           aria-label={`Message ${result.patientName}`}
-                          onClick={() => navigate(`/doctor/messages/${threadId}`)}
+                          onClick={() => navigate(paths.doctor.message(threadId))}
                         >
                           Message patient
                         </Button>
