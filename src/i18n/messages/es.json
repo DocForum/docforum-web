@@ -38,6 +38,8 @@
   "account.delete.exportFirst": "Export your records first:",
   "account.delete.heading": "Delete account",
   "account.delete.irreversible": "Irreversible Action",
+  "account.delete.passwordIncorrect": "Esa contraseña es incorrecta. Inténtalo de nuevo.",
+  "account.delete.passwordRequired": "Introduce tu contraseña para confirmar la eliminación de la cuenta.",
   "account.delete.permanentlyDelete": "Permanently delete account",
   "account.delete.permanentlyDeleted": "Permanently Deleted & Anonymized",
   "account.delete.policy1": "Account credentials and password hashes",

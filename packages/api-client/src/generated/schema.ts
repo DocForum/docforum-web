@@ -162,13 +162,6 @@ export interface components {
 
   "DeleteAccountInput": {
     "password": string;
-    "confirmation": string;
-  };
-
-  "DeleteAccountResponse": {
-    "success": boolean;
-    "message": string;
-    "deletedAt": string;
   };
 
   "CareStepType": "appointment" | "consultation" | "referral" | "order" | "fulfillment" | "payment";
@@ -509,11 +502,11 @@ export interface paths {
     };
   };
 
-  "/account/delete": {
-    post: {
+  "/patients/me": {
+    delete: {
       requestBody: { content: { "application/json": components["schemas"]["DeleteAccountInput"] } };
       responses: {
-          200: { content: { "application/json": components["schemas"]["DeleteAccountResponse"] } };
+          403: { content: { "application/json": components["schemas"]["ErrorEnvelope"] } };
       };
     };
   };
