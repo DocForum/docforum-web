@@ -118,6 +118,8 @@ export function useNotifications({ enabled = true, limit = NOTIFICATIONS_PAGE_SI
     unreadCount,
     hasMore: Boolean(query.hasNextPage),
     isLoading: query.isPending,
+    /** True once a page has loaded (stays true through refetches and refetch errors). */
+    hasData: query.data !== undefined,
     isFetching: query.isFetching,
     isFetchingMore: query.isFetchingNextPage,
     error: query.error,

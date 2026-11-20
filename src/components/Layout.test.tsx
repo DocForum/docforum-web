@@ -111,6 +111,10 @@ describe('Layout — role-aware navigation', () => {
 
     // Close button closes it
     const close = screen.getByRole('button', { name: 'Close navigation menu' });
+    // Icon-only: the name comes from aria-label, never from a text glyph.
+    expect(close).not.toHaveTextContent(/\S/);
+    const icon = close.querySelector('svg');
+    expect(icon).toHaveAttribute('aria-hidden', 'true');
     fireEvent.click(close);
     expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
   });

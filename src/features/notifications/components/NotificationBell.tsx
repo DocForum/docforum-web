@@ -4,6 +4,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import { NOTIFICATIONS_PAGE_SIZE } from '../../../services/notifications-service';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationLiveUpdates } from '../hooks/useNotificationLiveUpdates';
+import { useNewNotificationAnnouncement } from '../hooks/useNewNotificationAnnouncement';
 import { notificationDestination } from '../notification-meta';
 import { formatNotificationTime } from '../notification-time';
 import { NotificationIcon } from './NotificationIcon';
@@ -20,7 +21,9 @@ const PANEL_LIMIT = 6;
  * Accessibility: a labelled toggle with `aria-expanded`/`aria-controls`, Escape
  * closes and returns focus to the button, clicking outside closes it, and the
  * panel closes on navigation. The badge is decorative for screen readers
- * because the button's label already states the count.
+ * because the button's label already states the count. When the count goes
+ * up, a polite live region says so once per burst (issue #246); see
+ * `useNewNotificationAnnouncement` for the rules.
  */
 export function NotificationBell() {
   const user = useAuthStore((state) => state.user);
@@ -28,6 +31,11 @@ export function NotificationBell() {
   const enabled = Boolean(user);
   const inbox = useNotifications({ enabled, limit: NOTIFICATIONS_PAGE_SIZE });
   useNotificationLiveUpdates(enabled, NOTIFICATIONS_PAGE_SIZE);
+  const announcement = useNewNotificationAnnouncement({
+    unreadCount: inbox.unreadCount,
+    ready: enabled && inbox.hasData,
+    resetKey: user?.id ?? null,
+  });
 
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -89,6 +97,10 @@ export function NotificationBell() {
           </span>
         )}
       </button>
+      {/* Kept mounted so screen readers pick up changes reliably. */}
+      <p className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
 
       {open && (
         <div id={panelId} className={styles.panel}>
