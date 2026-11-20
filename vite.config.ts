@@ -102,7 +102,9 @@ export default defineConfig(({ command }) => {
           theme_color: '#1f4d3a',
           background_color: '#faf6f0',
           display: 'standalone',
-          orientation: 'portrait',
+          // WCAG 1.3.4: the installed app must follow the device orientation.
+          // Tablet/phone mounts are often landscape, so no portrait lock.
+          orientation: 'any',
           // Relative URLs resolve against the manifest's own location, which is
           // what makes the same manifest work at / and at /docforum-web/.
           start_url: '.',

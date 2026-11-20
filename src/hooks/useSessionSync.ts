@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
+import { signOut } from '../services/sign-out';
 
 const CHANNEL_NAME = 'docforum-session-sync';
 
@@ -51,9 +51,9 @@ export function startSessionSync(queryClient: QueryClient): () => void {
     if (!isSessionMessage(event.data)) return;
     if (event.data.type === 'logout') {
       pendingProfileId = null;
-      queryClient.clear();
-      useAuthStore.getState().clearSession();
-      useProfileStore.getState().clearProfiles();
+      // Same cleanup as a local sign-out; no BroadcastChannel is added by
+      // the sign-out helper itself (issue #124 scope).
+      void signOut('logout', { queryClient });
     } else {
       applyProfile(event.data.profileId);
     }
