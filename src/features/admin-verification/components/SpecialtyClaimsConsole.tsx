@@ -1,7 +1,9 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useSpecialtyCatalog, useSpecialtyClaims } from '../hooks/useSpecialtyClaims';
 import { describeClaimsQueueError } from '../errors';
 import {
@@ -72,30 +74,36 @@ export function SpecialtyClaimsConsole() {
 
   let body;
   if (queue.isLoading) {
-    body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading specialty claims…</span>
-      </div>
-    );
+    body = <Skeleton lines={5} height="2.5rem" label="Loading specialty claims" />;
   } else if (queue.error) {
     body = (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeClaimsQueueError(queue.error)}</p>
-        <Button variant="secondary" onClick={() => void queue.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title="Specialty claims couldn't be loaded"
+        message={describeClaimsQueueError(queue.error)}
+        onRetry={() => void queue.refetch()}
+      />
     );
   } else if (groups.length === 0) {
     body = (
-      <p className={styles.empty}>
-        {loaded.length === 0
-          ? filters.specialtyId || filters.olderThan
-            ? 'No pending claims match these filters.'
-            : 'No specialty claims are waiting for review. Every attached specialty has been decided.'
-          : 'No claims match these filters.'}
-      </p>
+      <EmptyState
+        title={
+          loaded.length === 0
+            ? filters.specialtyId || filters.olderThan
+              ? 'No pending claims match these filters.'
+              : 'No specialty claims are waiting for review. Every attached specialty has been decided.'
+            : 'No claims match these filters.'
+        }
+        description={
+          loaded.length === 0 && !(filters.specialtyId || filters.olderThan)
+            ? 'When a doctor claims a specialty, it will appear here for review.'
+            : 'Try adjusting or clearing the filters above.'
+        }
+        action={
+          filters.specialtyId || filters.olderThan
+            ? { label: 'Reset filters', onClick: () => updateFilters({ specialtyId: '', olderThan: null }) }
+            : { label: 'Refresh queue', onClick: () => void queue.refetch() }
+        }
+      />
     );
   } else {
     body = (
