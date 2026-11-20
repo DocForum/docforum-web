@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { ErrorSummary } from '../../../components/ErrorSummary';
 import { TextField } from '../../../components/TextField';
 import type {
   ConsultationIssuedOrder,
@@ -45,8 +46,8 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
   const [medication, setMedication] = useState('');
   const [dose, setDose] = useState('');
   const [testName, setTestName] = useState('');
-  const [orderInstructions, setOrderInstructions] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [orderInstructions] = useState('');
+  const [errors, setErrors] = useState<Record<string, { message: string }>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<OutcomeResult | null>(null);
 
@@ -60,31 +61,30 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
   };
 
   const submit = async () => {
-    const nextErrors: Record<string, string> = {};
-    if (!notes.trim()) nextErrors.notes = 'Add consultation notes above before recording an outcome.';
+    const nextErrors: Record<string, { message: string }> = {};
+    if (!notes.trim()) nextErrors.notes = { message: 'Add consultation notes above before recording an outcome.' };
     if (outcome === 'referred') {
-      if (!specialty.trim()) nextErrors.specialty = 'Target specialty is required.';
-      if (!referralReason.trim()) nextErrors.referralReason = 'Referral reason is required.';
+      if (!specialty.trim()) nextErrors.specialty = { message: 'Target specialty is required.' };
+      if (!referralReason.trim()) nextErrors.referralReason = { message: 'Referral reason is required.' };
     }
     if (outcome === 'follow_up_needed') {
       const days = Number(followUpDays);
       if (!Number.isInteger(days) || days < 1 || days > 90) {
-        nextErrors.followUpDays = 'Enter a whole number of days between 1 and 90.';
+        nextErrors.followUpDays = { message: 'Enter a whole number of days between 1 and 90.' };
       }
     }
     if (wantsOrder) {
       if (orderType === 'prescription') {
-        if (!medication.trim()) nextErrors.medication = 'Medication is required.';
-        if (!dose.trim()) nextErrors.dose = 'Dose is required.';
+        if (!medication.trim()) nextErrors.medication = { message: 'Medication is required.' };
+        if (!dose.trim()) nextErrors.dose = { message: 'Dose is required.' };
       } else if (!testName.trim()) {
-        nextErrors.testName = 'Test name is required.';
+        nextErrors.testName = { message: 'Test name is required.' };
       }
     }
 
     setErrors(nextErrors);
     setSubmitError(null);
     if (Object.keys(nextErrors).length > 0) return;
-
     let recorded: ConsultationRecord | null = null;
     try {
       recorded = await recordConsultation.mutateAsync({
@@ -137,13 +137,14 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
 
   return (
     <section className={styles.panel} aria-labelledby="consultation-outcome-heading">
+      <ErrorSummary errors={errors} idPrefix="consultation-outcome" />
       <h2 id="consultation-outcome-heading" className={styles.heading}>
-        Outcome &amp; next steps
+        Outcome & next steps
       </h2>
 
       {errors.notes ? (
         <p className={styles.error} role="alert">
-          {errors.notes}
+          {errors.notes.message}
         </p>
       ) : !notes.trim() ? (
         <p className={styles.hint}>Add consultation notes above before recording an outcome.</p>
@@ -176,7 +177,7 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
             label="Target specialty"
             value={specialty}
             onChange={(event) => setSpecialty(event.target.value)}
-            error={errors.specialty}
+            error={errors.specialty?.message}
           />
           <label className={styles.textareaLabel}>
             Referral reason
@@ -189,7 +190,7 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
           </label>
           {errors.referralReason ? (
             <p className={styles.error} role="alert">
-              {errors.referralReason}
+              {errors.referralReason.message}
             </p>
           ) : null}
         </div>
@@ -204,7 +205,7 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
             max={90}
             value={followUpDays}
             onChange={(event) => setFollowUpDays(event.target.value)}
-            error={errors.followUpDays}
+            error={errors.followUpDays?.message}
           />
         </div>
       ) : null}
@@ -256,32 +257,22 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
                   label="Medication"
                   value={medication}
                   onChange={(event) => setMedication(event.target.value)}
-                  error={errors.medication}
+                  error={errors.medication?.message}
                 />
                 <TextField
                   label="Dose"
                   value={dose}
                   onChange={(event) => setDose(event.target.value)}
-                  error={errors.dose}
-                />
+                  error={errors.dose?.message}
+                  />
               </div>
             ) : (
               <TextField
                 label="Test name"
                 value={testName}
                 onChange={(event) => setTestName(event.target.value)}
-                error={errors.testName}
-              />
-            )}
-
-            <label className={styles.textareaLabel}>
-              Order instructions
-              <textarea
-                className={styles.textarea}
-                value={orderInstructions}
-                onChange={(event) => setOrderInstructions(event.target.value)}
-              />
-            </label>
+                error={errors.testName?.message}
+                />)}
           </div>
         ) : null}
       </div>

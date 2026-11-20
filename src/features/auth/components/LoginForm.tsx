@@ -4,6 +4,7 @@ import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
 import { FormField } from '../../../components/form/FormField';
+import { PasswordField } from '../../../components/PasswordField';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
@@ -89,10 +90,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </p>
         )}
         <FormField name="email" label={t('auth.email', 'Email')} type="email" autoComplete="email" />
-        <FormField
+        <PasswordField
           name="password"
           label={t('auth.password', 'Password')}
-          type="password"
           autoComplete="current-password"
         />
         <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>

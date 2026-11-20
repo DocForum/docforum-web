@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
@@ -11,6 +10,7 @@ import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime } from '../../../i18n/time-zone';
 import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { PasswordField } from '../../../components/PasswordField';
 import styles from './DataExportSection.module.css';
 
 function formatBytes(bytes?: number | null): string {
@@ -218,9 +218,9 @@ export function DataExportSection() {
           {t('account.dataExport.modalDescription', 'To protect sensitive health information, please enter your account password to confirm this data export request.')}
         </p>
         <form onSubmit={handleSubmitRequest} noValidate>
-          <TextField
+          <PasswordField
+            name="password"
             label={t('account.dataExport.passwordLabel', 'Account password')}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
