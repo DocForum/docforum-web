@@ -184,7 +184,10 @@ export const paymentKeys = {
   ledger: (facilityId: string, filters: unknown) =>
     ['payments', 'ledger', facilityId, filters] as const,
   /** The patient's payment history (infinite list + one entry). */
-  history: () => ['payments', 'mine'] as const,
+  history: (filters?: unknown) =>
+    filters !== undefined
+      ? (['payments', 'mine', filters] as const)
+      : (['payments', 'mine'] as const),
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
   /** The intent attached to an order — `null` when the order has none (issue #61). */
   orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,

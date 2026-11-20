@@ -66,6 +66,7 @@ describe('query key factories', () => {
       [appointmentKeys.queue('appt-1'), appointmentKeys.all],
       [accountKeys.accessLog({ entityType: 'Appointment' }), accountKeys.all],
       [paymentKeys.history(), paymentKeys.all],
+      [paymentKeys.history({ status: 'escrowed' }), paymentKeys.history()],
       [paymentKeys.historyEntry('ph-1'), paymentKeys.history()],
       [resultKeys.pendingAbnormal(), resultKeys.all],
       [calendarKeys.feed(), calendarKeys.all],
