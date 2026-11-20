@@ -355,6 +355,13 @@ code,
   margin: 0 0 var(--space-4);
 }
 
+/* Route fallback while a lazy route's chunk/loader resolves (issues #99,
+   #112). Reserves roughly a page header + first card so the swap to the
+   real page does not push the footer (CLS budget). */
+.routeFallback {
+  min-height: 12rem;
+}
+
 .statusPill {
   display: inline-block;
   font-size: var(--text-xs);

@@ -43,7 +43,7 @@ those first if you're new to the org, not just this file.
   compose them.
 - `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 - `src/prerender/` — build-time prerendering for the public pages (issue
-  #120). `entry-server.tsx` renders the real `<App/>` with an empty auth
+  #120). `entry-server.tsx` renders the real route table with an empty auth
   store; `html.ts` is pure HTML assembly/validation (head metadata, link
   rewriting, `#root` injection). `scripts/prerender.mjs` does the file I/O
   and fails the build on any validation problem. See "Public pages &
@@ -218,8 +218,8 @@ between this repo's `github.io` domain and Render's, so it's required for
 the cookie to be sent/received at all). Session restore on reload landed
 2026-10-20 (issue #9):
 - The boot refresh is `POST /auth/refresh` from `src/services/session.ts`,
-  kicked off by `main.tsx` without blocking first render. `RequireAuth`
-  shows a `Restoring your session…` state while the store's `status` is
+  kicked off by `main.tsx` without blocking first render. The route guard
+  loaders (`src/routes/guards.ts`, issue #112) wait while the store's `status` is
   `resolving`, instead of bouncing a signed-in user to `/login`.
 - A `401` on an authenticated request triggers **one** refresh and one
   retry. Concurrent 401s share the same in-flight promise in
@@ -377,7 +377,7 @@ shape is worth mirroring in an issue there.
   `/login?reason=idle-timeout`. The login page shows its explanation
   when EITHER the query param is present OR the in-memory
   `auth-store.signOutReason` says `idle-timeout` — a route guard's
-  redirect (e.g. `RequireAuth` on the page being left) can win the
+  redirect (e.g. `RoleGate` on the page being left) can win the
   navigation race and strip the query param, and the reason must not be
   lost with it. `setSession` clears the in-memory reason.
 - The warning modal (`SessionTimeoutWarning`) says when unsaved form
@@ -945,7 +945,7 @@ and typed errors.
 - Plausible/Umami event body: `{event, path, domain, referrer, screenWidth, props?}`. If the self-hosted endpoint expects a different shape, only `send()` in `analytics.ts` needs updating.
 
 #### Configurable router contract (issue #119, docs/adr/0001-routing-strategy.md)
-- `VITE_USE_HASH_ROUTER=true` → `HashRouter`; absent or `false` → `BrowserRouter`.
+- `VITE_USE_HASH_ROUTER=true` → `createHashRouter`; absent or `false` → `createBrowserRouter` (data routers since issue #112; see `src/router.ts`).
 - GitHub Pages builds always pass `VITE_USE_HASH_ROUTER: "true"` (set in `deploy-pages.yml`).
 - `HashRedirectShim` is mounted only in BrowserRouter mode; it reads `window.location.hash` directly to detect `#/` prefixes on the root path.
 - Email links from docforum-core should use clean paths (`/reset?token=…`), not hash paths. Old hash-format links are transparently redirected by the shim.

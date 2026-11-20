@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DatePicker } from '../../../components/DatePicker';
 import { useFormat } from '../../../i18n/useFormat';
 import type { DateRangePreset } from '../../../types/models';
 import styles from './PracticeInsights.module.css';
@@ -62,23 +63,23 @@ export function DateRangeSelector({
           <fieldset className={styles.customFieldset}>
             <legend className="srOnly">Custom date range</legend>
             <div className={styles.customInputs}>
-              <label htmlFor="custom-start-date" className={styles.srOnly}>Start date</label>
-              <input
+              <DatePicker
                 id="custom-start-date"
-                type="date"
-                className={styles.dateInput}
+                label="Start date"
+                hideLabel
                 value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
+                onChange={setCustomStart}
+                max={customEnd || undefined}
                 required
               />
               <span aria-hidden="true">to</span>
-              <label htmlFor="custom-end-date" className={styles.srOnly}>End date</label>
-              <input
+              <DatePicker
                 id="custom-end-date"
-                type="date"
-                className={styles.dateInput}
+                label="End date"
+                hideLabel
                 value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
+                onChange={setCustomEnd}
+                min={customStart || undefined}
                 required
               />
               <button type="submit" className={styles.presetButton}>
