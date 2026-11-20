@@ -18,10 +18,6 @@ interface RemainingItemsFacilityPickerProps {
   onRouted: (order: PatientOrder) => void;
 }
 
-/**
- * The existing remaining-items picker, reused from the partial-fulfilment
- * flow (#54). It only lists facilities qualified for the outstanding items.
- */
 export function RemainingItemsFacilityPicker({
   order,
   items,
@@ -99,6 +95,11 @@ export function RemainingItemsFacilityPicker({
             </li>
           ))}
         </ul>
+
+        <div className={styles.paymentNote} role="note">
+          <strong>Payment:</strong> {order.payment?.rule} The second facility is paid only for the
+          items it dispenses.
+        </div>
 
         <div className={styles.facilityList} aria-busy={isLoading}>
           {isLoading && (

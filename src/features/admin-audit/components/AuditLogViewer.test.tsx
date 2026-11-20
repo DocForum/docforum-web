@@ -11,6 +11,9 @@ import { useAuthStore } from '../../../store/auth-store';
 import type { AccessLog, AuditEvent, Role } from '../../../types/models';
 
 vi.mock('../../../services/audit-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const BOOKED: AuditEvent = {
   id: 'evt-1',
@@ -308,7 +311,7 @@ describe('AuditLogViewer — rows', () => {
 
     await user.click(screen.getByRole('button', { name: 'Export page as CSV' }));
 
-    const text = (await exported!.text()).replace(/^﻿/, '');
+    const text = (await exported!.text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');
     expect(lines[0]).toBe('createdAt,action,entityType,entityId,fromState,toState,actorUserId,actorRole,requestId,metadata,id');
     expect(lines).toHaveLength(2);

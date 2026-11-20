@@ -1,3 +1,6 @@
+import { InlineError } from '../../../components/states/InlineError';
+import { queryErrorMessage } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { usePatientChart } from '../hooks/usePatientChart';
 import styles from './PatientChartPanel.module.css';
 
@@ -22,8 +25,15 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
     error,
   } = usePatientChart(patientProfileId ?? undefined);
 
-  if (isLoading) return <p>Loading patient chart…</p>;
-  if (error) return <p>Error loading patient chart.</p>;
+  if (isLoading) return <Skeleton lines={6} height="1.5rem" label="Loading patient chart" />;
+  if (error) {
+    return (
+      <InlineError
+        title="The patient chart couldn't be loaded"
+        message={queryErrorMessage(error)}
+      />
+    );
+  }
 
   // Extract prior consultations from care thread steps
   const priorConsultations = careThread?.steps
@@ -129,9 +139,9 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
             <tbody>
               {activeOrders.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.orderType === 'prescription' ? 'Prescription' : 'Lab order'}</td>
-                  <td>{o.medicationOrTest}</td>
-                  <td>{o.instructions ?? ''}</td>
+                  <td>{o.type === 'prescription' ? 'Prescription' : 'Lab order'}</td>
+                  <td>{o.items.map((item) => item.name).join(', ')}</td>
+                  <td>{o.items.map((item) => item.note).filter(Boolean).join('; ') || ''}</td>
                   <td>{formatDate(o.issuedAt)}</td>
                   <td>{formatDate(o.expiresAt)}</td>
                 </tr>

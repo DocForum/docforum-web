@@ -1,21 +1,18 @@
-import type { OrderFulfillmentProgressStatus } from '../types/models';
+import type { PartialFulfillmentStatus } from '../types/models';
 import styles from './FulfillmentStatusBadge.module.css';
 
-const LABELS: Record<OrderFulfillmentProgressStatus, string> = {
-  issued: 'Issued',
+const LABELS: Record<PartialFulfillmentStatus, string> = {
+  unfulfilled: 'Unfulfilled',
   partially_fulfilled: 'Partially filled',
   fulfilled: 'Fulfilled',
+  rejected: 'Rejected',
 };
 
-/**
- * Progress is never colour-only: the badge always renders the status as
- * text, and the screen pairs it with "2 of 3 items dispensed".
- */
 export function FulfillmentStatusBadge({
   status,
   className,
 }: {
-  status: OrderFulfillmentProgressStatus;
+  status: PartialFulfillmentStatus;
   className?: string;
 }) {
   return (
@@ -28,6 +25,6 @@ export function FulfillmentStatusBadge({
   );
 }
 
-export function fulfillmentStatusLabel(status: OrderFulfillmentProgressStatus): string {
+export function fulfillmentStatusLabel(status: PartialFulfillmentStatus): string {
   return LABELS[status];
 }

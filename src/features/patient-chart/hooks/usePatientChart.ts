@@ -3,6 +3,7 @@ import * as patientChartService from '../../../services/patient-chart-service';
 import * as healthProfileService from '../../../services/health-profile-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
+import { patientChartKeys } from '../../../query-keys';
 import type {
   CareThread,
   Order,
@@ -19,44 +20,44 @@ export function usePatientChart(patientProfileId?: string) {
   const healthQueries = useQueries({
     queries: [
       {
-        queryKey: ['patient', targetId, 'health', 'allergies'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'allergies', accessToken!),
+        queryKey: patientChartKeys.health(targetId!, 'allergies'),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'allergies', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
       {
-        queryKey: ['patient', targetId, 'health', 'conditions'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'conditions', accessToken!),
+        queryKey: patientChartKeys.health(targetId!, 'conditions'),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'conditions', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
       {
-        queryKey: ['patient', targetId, 'health', 'medications'],
-        queryFn: () =>
-          healthProfileService.listHealthEntries(targetId!, 'medications', accessToken!),
+        queryKey: patientChartKeys.health(targetId!, 'medications'),
+        queryFn: ({ signal }) =>
+          healthProfileService.listHealthEntries(targetId!, 'medications', accessToken!, signal),
         enabled: Boolean(accessToken && targetId),
       },
     ],
   });
 
   const careThreadQuery = useQuery<CareThread | null>({
-    queryKey: ['patient', targetId, 'care-thread'],
-    queryFn: () =>
-      patientChartService.getCareThreadById(targetId!, accessToken!),
+    queryKey: patientChartKeys.careThread(targetId!),
+    queryFn: ({ signal }) =>
+      patientChartService.getCareThreadById(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 
   const activeOrdersQuery = useQuery<Order[]>({
-    queryKey: ['patient', targetId, 'active-orders'],
-    queryFn: () =>
-      patientChartService.listActiveOrders(targetId!, accessToken!),
+    queryKey: patientChartKeys.activeOrders(targetId!),
+    queryFn: ({ signal }) =>
+      patientChartService.listActiveOrders(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 
   const recentResultsQuery = useQuery<LabResult[]>({
-    queryKey: ['patient', targetId, 'recent-results'],
-    queryFn: () =>
-      patientChartService.listRecentResults(targetId!, accessToken!),
+    queryKey: patientChartKeys.recentResults(targetId!),
+    queryFn: ({ signal }) =>
+      patientChartService.listRecentResults(targetId!, accessToken!, signal),
     enabled: Boolean(accessToken && targetId),
   });
 

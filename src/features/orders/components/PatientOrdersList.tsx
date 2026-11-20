@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Spinner } from '../../../components/Spinner';
+import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import type { PatientOrder } from '../../../types/models';
 import { useMyOrders } from '../hooks/useOrders';
-import { OrderProgress } from './OrderProgress';
 import styles from './PatientOrders.module.css';
 
 function formatDate(value: string | null | undefined): string {
@@ -18,9 +18,13 @@ export function orderTypeLabel(order: PatientOrder): string {
   return order.orderType === 'prescription' ? 'Prescription' : 'Lab order';
 }
 
-export function orderTitle(order: PatientOrder): string {
-  if (order.orderType === 'prescription') return order.medicationOrTest ?? order.medication;
-  return order.medicationOrTest ?? order.testName;
+export function orderItemSummary(order: PatientOrder): string {
+  const items = order.items ?? [];
+  const total = items.length;
+  const outstanding = items.filter((item) => item.quantityOutstanding > 0).length;
+  if (total === 1) return '1 item';
+  if (outstanding > 0) return `${total} items · ${outstanding} still outstanding`;
+  return `${total} items`;
 }
 
 export function PatientOrdersList() {
@@ -43,12 +47,6 @@ export function PatientOrdersList() {
     );
   }
 
-  // Superseded versions describe a replaced order. Only the current
-  // version's rows are meaningful, so they leave the list (with a note
-  // rather than silently disappearing).
-  const currentOrders = orders.filter((order) => order.status !== 'superseded');
-  const supersededCount = orders.length - currentOrders.length;
-
   return (
     <section className={styles.page} aria-labelledby="orders-heading">
       <div className={styles.pageHeader}>
@@ -60,23 +58,25 @@ export function PatientOrdersList() {
         </div>
       </div>
 
-      {currentOrders.length === 0 ? (
-        <p className={styles.empty}>You have no current orders.</p>
+      {orders.length === 0 ? (
+        <p className={styles.empty}>You have no orders.</p>
       ) : (
         <ul className={styles.orderList}>
-          {currentOrders.map((order) => (
+          {orders.map((order) => (
             <li key={order.id} className={styles.orderCard}>
               <div className={styles.orderCardHeader}>
                 <div>
                   <p className={styles.orderType}>{orderTypeLabel(order)}</p>
-                  <h2 className={styles.orderTitle}>{orderTitle(order)}</h2>
+                  <h2 className={styles.orderTitle}>{order.medicationOrTest}</h2>
                   <p className={styles.orderMeta}>
                     Issued {formatDate(order.issuedAt)}
                     {order.facilityName ? ` · ${order.facilityName}` : ''}
                   </p>
                 </div>
-                <OrderProgress order={order} />
+                <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
               </div>
+
+              <p className={styles.orderSummary}>{orderItemSummary(order)}</p>
 
               <div className={styles.orderFooter}>
                 <span className={styles.expiry}>Expires {formatDate(order.expiresAt)}</span>
@@ -87,14 +87,6 @@ export function PatientOrdersList() {
             </li>
           ))}
         </ul>
-      )}
-
-      {supersededCount > 0 && (
-        <p className={styles.hiddenVersions}>
-          {supersededCount === 1
-            ? '1 earlier version was replaced by a newer order and is not shown.'
-            : `${supersededCount} earlier versions were replaced by newer orders and are not shown.`}
-        </p>
       )}
     </section>
   );

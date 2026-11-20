@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { Spinner } from '../../../components/Spinner';
-import type { OrderItemFulfillment, PatientOrder } from '../../../types/models';
-import { orderTypeLabel, orderTitle } from './PatientOrdersList';
+import type { OrderItemFulfillment, OrderPaymentSummary, PatientOrder } from '../../../types/models';
+import { ITEM_STATUS_LABELS } from '../../fulfillment/status';
+import { useOrder } from '../hooks/useOrders';
+import { orderTypeLabel } from './PatientOrdersList';
 import { RemainingItemsFacilityPicker } from './RemainingItemsFacilityPicker';
-import { fulfillmentProgressText } from './OrderProgress';
-import { useOrder, useOrderFulfillmentProgress } from '../hooks/useOrders';
 import styles from './PatientOrders.module.css';
 
 function formatDate(value: string | null | undefined): string {
@@ -19,15 +19,24 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
-const ITEM_STATUS_LABELS: Record<OrderItemFulfillment['status'], string> = {
-  pending: 'Pending',
-  partially_dispensed: 'Partially dispensed',
-  dispensed: 'Dispensed',
-  dispensed_elsewhere: 'Dispensed elsewhere',
-  rejected: 'Rejected',
-};
+function paymentStatusLabel(status: OrderPaymentSummary['status']): string {
+  switch (status) {
+    case 'held':
+      return 'Held in escrow';
+    case 'partially_released':
+      return 'Partially released';
+    case 'released':
+      return 'Released';
+    case 'refunded':
+      return 'Refunded';
+    default:
+      return 'No payment';
+  }
+}
 
 function ItemCard({ item }: { item: OrderItemFulfillment }) {
+  const isOutstanding = item.quantityOutstanding > 0;
+
   return (
     <li className={styles.detailItem} data-status={item.status}>
       <div className={styles.detailItemHeader}>
@@ -93,20 +102,17 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
         </p>
       )}
 
-      {item.quantityOutstanding > 0 &&
-        item.status !== 'rejected' &&
-        !item.routedToFacilityId && (
-          <p className={styles.itemMeta}>
-            {item.quantityOutstanding} {item.unit} still to be dispensed.
-          </p>
-        )}
+      {isOutstanding && item.status !== 'rejected' && !item.routedToFacilityId && (
+        <p className={styles.itemMeta}>
+          {item.quantityOutstanding} {item.unit} still to be dispensed.
+        </p>
+      )}
     </li>
   );
 }
 
 export function PatientOrderDetail({ orderId }: { orderId: string }) {
   const { data: order, isLoading, error } = useOrder(orderId);
-  const progressQuery = useOrderFulfillmentProgress(order);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -118,10 +124,9 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
     [order],
   );
 
-  const progress = progressQuery.data;
-  const isPartiallyFulfilled = progress?.status === 'partially_fulfilled';
-  const isFulfilled = progress?.status === 'fulfilled';
   const hasRoutedItems = (order?.items ?? []).some((item) => item.routedToFacilityId);
+  const allDispensed =
+    (order?.items ?? []).every((item) => item.quantityOutstanding <= 0);
 
   if (isLoading) {
     return (
@@ -142,26 +147,6 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
           Back to my orders
         </Link>
       </div>
-    );
-  }
-
-  if (order.status === 'superseded') {
-    return (
-      <section className={styles.page} aria-labelledby="order-detail-heading">
-        <Link to="/patient/orders" className={styles.backLink}>
-          ← Back to my orders
-        </Link>
-        <div className={styles.supersededNote} role="note">
-          <h1 id="order-detail-heading" className={styles.detailTitle}>
-            This order was superseded
-          </h1>
-          <p>
-            A newer version replaced this order. Fulfilment progress is only shown for the
-            current version, so it is not displayed here.
-          </p>
-          <Link to="/patient/orders">View your current orders</Link>
-        </div>
-      </section>
     );
   }
 
@@ -186,32 +171,24 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
         <div>
           <p className={styles.orderType}>{orderTypeLabel(order)}</p>
           <h1 id="order-detail-heading" className={styles.detailTitle}>
-            {orderTitle(order)}
+            {order.medicationOrTest}
           </h1>
           <p className={styles.orderMeta}>
             Order {order.id} · issued {formatDate(order.issuedAt)}
             {order.facilityName ? ` · ${order.facilityName}` : ''}
           </p>
         </div>
+        <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
+      </div>
 
-        <div className={styles.progressPanel}>
-          {progressQuery.isLoading && (
-            <span className={styles.progressLoading} role="status">
-              Checking fulfilment…
-            </span>
-          )}
-          {progressQuery.isError && (
-            <span className={styles.progressError} role="status">
-              Fulfilment progress unavailable
-            </span>
-          )}
-          {progress && (
-            <>
-              <FulfillmentStatusBadge status={progress.status} />
-              <p className={styles.progressSummary}>{fulfillmentProgressText(progress)}</p>
-            </>
-          )}
+      <div className={styles.paymentCallout} role="note">
+        <div>
+          <strong>Payment implications</strong>
+          <p>{order.payment?.rule ?? 'Payment details are not available for this order.'}</p>
         </div>
+        <span className={styles.paymentStatus}>
+          {paymentStatusLabel(order.payment?.status ?? 'none')}
+        </span>
       </div>
 
       {successMessage && (
@@ -232,47 +209,36 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
 
         <aside className={styles.detailAside}>
           <h2 className={styles.sectionTitle}>What happens next?</h2>
-
-          {isFulfilled ? (
+          {allDispensed ? (
             <p className={styles.asideText}>
-              All {progress.totalItems} {progress.totalItems === 1 ? 'item has' : 'items have'}{' '}
-              been dispensed. Nothing else is outstanding.
+              All items on this order have been dispensed. Nothing else is outstanding.
             </p>
-          ) : isPartiallyFulfilled ? (
+          ) : outstandingItems.length > 0 ? (
             <>
               <p className={styles.asideText}>
-                {progress.dispensedItems} of {progress.totalItems} items are dispensed.
-                You can collect the remaining items from another facility; that facility will
-                only receive the items listed above as outstanding.
+                You can collect the outstanding items from another facility. That facility will
+                only receive the items listed here.
               </p>
-              {outstandingItems.length > 0 && !hasRoutedItems ? (
-                <Button type="button" onClick={() => setIsPickerOpen(true)}>
-                  Get remaining items elsewhere
-                </Button>
-              ) : hasRoutedItems ? (
-                <p className={styles.asideText}>
-                  The remaining items have been routed. Check the item list for the receiving
-                  facility.
-                </p>
-              ) : (
-                <p className={styles.asideText}>
-                  There are no outstanding items available to route. Items already dispensed
-                  elsewhere cannot be moved again.
-                </p>
-              )}
+              <Button type="button" onClick={() => setIsPickerOpen(true)}>
+                Get remaining items elsewhere
+              </Button>
             </>
+          ) : hasRoutedItems ? (
+            <p className={styles.asideText}>
+              The remaining items have been routed. Check the item list for the receiving
+              facility.
+            </p>
           ) : (
             <p className={styles.asideText}>
-              Nothing has been dispensed yet. Take this order to{' '}
-              {order.facilityName ?? 'a participating facility'} to collect it. If only some
-              items can be filled there, the rest can be routed elsewhere.
+              There are no outstanding items available to route. Items already dispensed elsewhere
+              cannot be moved again.
             </p>
           )}
 
           <p className={styles.asideFinePrint}>
-            Progress comes from docforum-core, counted from the order&apos;s item rows. A
-            partially filled order does not release the full escrow amount; the backend applies
-            its partial-fulfilment release rule.
+            A partially filled order does not release the full escrow amount. DocForum&apos;s
+            backend applies its partial-fulfilment release rule; this screen shows the rule it
+            returns rather than calculating a payout.
           </p>
         </aside>
       </div>

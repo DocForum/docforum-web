@@ -1,0 +1,217 @@
+/* Public information pages (issue #120) — a single editorial column on
+   the existing token set: Fraunces for display, IBM Plex Sans for body,
+   the same max-width measure the landing page uses. No new colors, no
+   gradients, no shadows — light and dark themes come from the tokens. */
+
+.page {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-6) var(--space-16);
+}
+
+.header {
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+}
+
+.body {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+.body > :first-child {
+  margin-top: 0;
+}
+
+.body p {
+  margin: 0 0 var(--space-4);
+  max-width: 68ch;
+}
+
+.body h2 {
+  margin: var(--space-8) 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  font-weight: 600;
+}
+
+.body h3 {
+  margin: var(--space-6) 0 var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.body ul,
+.body ol {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-6);
+  max-width: 68ch;
+}
+
+.body li {
+  margin-bottom: var(--space-2);
+}
+
+.body li::marker {
+  color: var(--color-accent);
+}
+
+.body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.body a:hover {
+  color: var(--color-accent-hover);
+}
+
+.body a:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.body strong {
+  font-weight: 600;
+}
+
+.body dt {
+  font-weight: 600;
+  margin-top: var(--space-4);
+}
+
+.body dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.body dl {
+  margin: 0 0 var(--space-4);
+}
+
+/* Numbered "how it works" steps read as a sequence, not a checklist. */
+.body ol.steps {
+  list-style: none;
+  counter-reset: step;
+  padding: 0;
+  margin: 0 0 var(--space-6);
+}
+
+.body ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+
+.body ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.body ol.steps h3 {
+  margin-top: 0;
+}
+
+.body ul.plain {
+  list-style: none;
+  padding: 0;
+}
+
+.body ul.plain > li {
+  padding-left: var(--space-6);
+  position: relative;
+}
+
+.body ul.plain > li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-2);
+}
+
+.callout {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.callout[data-tone='notice'] {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-surface);
+}
+
+.calloutTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.callout p {
+  margin-bottom: var(--space-2);
+}
+
+.callout p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+
+  .heading {
+    font-size: var(--text-2xl);
+  }
+
+  .body h2 {
+    font-size: var(--text-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body a {
+    transition: none;
+  }
+}

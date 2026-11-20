@@ -2,17 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as paymentsService from '../../../services/payments-service';
 import type { CreatePaymentIntentInput } from '../../../services/payments-service';
 import { useAuthStore } from '../../../store/auth-store';
-
-function intentQueryKey(id: string) {
-  return ['payments', 'intent', id] as const;
-}
+import { invalidateFor } from '../../../invalidations';
+import { paymentKeys } from '../../../query-keys';
 
 export function usePaymentIntent(id: string | null) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: intentQueryKey(id ?? ''),
-    queryFn: () => paymentsService.getPaymentIntent(id!, accessToken!),
+    queryKey: paymentKeys.intent(id ?? ''),
+    queryFn: ({ signal }) => paymentsService.getPaymentIntent(id!, accessToken!, signal),
     enabled: Boolean(accessToken && id),
   });
 }
@@ -31,7 +29,12 @@ function useIntentAction(action: (id: string, accessToken: string) => ReturnType
 
   return useMutation({
     mutationFn: (id: string) => action(id, accessToken!),
-    onSuccess: (intent) => queryClient.setQueryData(intentQueryKey(intent.id), intent),
+    onSuccess: (intent) => {
+      // Instant row update from the authoritative response, then refresh the
+      // ledgers whose held/released totals moved with it.
+      queryClient.setQueryData(paymentKeys.intent(intent.id), intent);
+      return invalidateFor(queryClient, 'payments.intent-action', intent.id);
+    },
   });
 }
 

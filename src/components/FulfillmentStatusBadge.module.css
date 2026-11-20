@@ -11,19 +11,25 @@
   white-space: nowrap;
 }
 
-.issued {
+.unfulfilled {
   background: var(--color-surface-alt);
   color: var(--color-text-muted);
 }
 
 .partially_fulfilled {
-  background: var(--color-accent-2-subtle);
-  border-color: var(--color-accent-2);
+  background: color-mix(in srgb, var(--color-accent-2) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-2) 40%, transparent);
   color: var(--color-accent-2);
 }
 
 .fulfilled {
-  background: var(--color-success-surface);
-  border-color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
   color: var(--color-success);
+}
+
+.rejected {
+  background: color-mix(in srgb, #b3261e 12%, transparent);
+  border-color: color-mix(in srgb, #b3261e 35%, transparent);
+  color: #b3261e;
 }

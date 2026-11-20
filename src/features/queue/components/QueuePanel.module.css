@@ -64,7 +64,7 @@
 }
 
 .table th {
-  text-align: left;
+  text-align: start;
   color: var(--color-text-muted);
   font-weight: 600;
   padding: var(--space-3) var(--space-4);
@@ -74,6 +74,19 @@
 .table td {
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* Row headers name the patient; they must not inherit the column-header
+   surface treatment. */
+.table tbody th {
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: start;
+}
+
+.nameCell {
+  font-weight: 500;
 }
 
 .row {
