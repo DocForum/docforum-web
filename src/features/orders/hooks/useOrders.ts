@@ -1,13 +1,17 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ordersService from '../../../services/orders-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { useProfileStore } from '../../../store/profile-store';
 import type {
   PatientOrder,
   RouteRemainingItemsInput,
   SelectOrderFacilityInput,
 } from '../../../types/models';
 
-const ORDERS_KEY = ['patient', 'orders'] as const;
+// One list per acting profile: a guardian switching to a dependent must never
+// keep seeing the previous profile's orders (issue #295).
+const ORDERS_KEY = ['patient', 'orders', 'mine'] as const;
+const ORDERS_KEY_FOR = (profileId: string | null) => [...ORDERS_KEY, profileId ?? 'all'] as const;
 const ORDER_KEY = (orderId: string) => ['patient', 'orders', orderId] as const;
 const FACILITIES_KEY = (orderId: string) => ['patient', 'orders', orderId, 'facilities'] as const;
 const REMAINING_FACILITIES_KEY = (orderId: string, itemIds: string[]) =>
@@ -58,13 +62,14 @@ export function useQualifiedFacilities(orderId: string | null) {
 
 export function useSelectFulfillingFacility() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const profileId = useProfileStore((state) => state.selectedProfileId);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ orderId, input }: { orderId: string; input: SelectOrderFacilityInput }) =>
       ordersService.selectFulfillingFacility(orderId, input, accessToken!),
     onSuccess: (updated) => {
-      queryClient.setQueryData<PatientOrder[]>(ORDERS_KEY, (old) => {
+      queryClient.setQueryData<PatientOrder[]>(ORDERS_KEY_FOR(profileId), (old) => {
         if (!old) return old;
         return old.map((order) => (order.id === updated.id ? updated : order));
       });

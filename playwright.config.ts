@@ -28,6 +28,11 @@ export default defineConfig({
     { name: 'a11y-reduced', testMatch: /accessibility\.spec\.ts/, use: { ...devices['Desktop Chrome'], colorScheme: 'light', reducedMotion: 'reduce' } },
     { name: 'visual-desktop', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' } },
     { name: 'visual-mobile', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
+    // Extra themes (issue #296): desktop only, because a theme regression shows
+    // up in colour and contrast, not in layout, and doubling the mobile set
+    // would double CI time for little extra signal.
+    { name: 'visual-dark', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, colorScheme: 'dark', reducedMotion: 'reduce' } },
+    { name: 'visual-hc', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce' } },
     // Landscape phone/tablet mount (WCAG 1.3.4, issue #240).
     { name: 'landscape', testMatch: /landscape\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 740, height: 360 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
   ],
