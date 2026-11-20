@@ -22,7 +22,9 @@ import {
   todayInZone,
 } from '../features/availability/calendar';
 import type { IsoDate, SlotTimeRange } from '../features/availability/calendar';
-import { ApiError } from '../services/api-client';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
+import { useErrorMessage } from '../hooks/useErrorText';
 import { Button } from '../components/Button';
 import type { AvailabilitySlot, SlotAppointment } from '../types/models';
 
@@ -62,11 +64,6 @@ function conflictEntry(appointment: SlotAppointment): ConflictEntry {
   };
 }
 
-function readErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.message.trim()) return error.message.trim();
-  return 'The availability could not be loaded.';
-}
-
 export function DoctorAvailabilityPage() {
   const [timeZone] = useState(systemTimeZone);
   const [anchorDate, setAnchorDate] = useState<IsoDate>(() => todayInZone(new Date(), timeZone));
@@ -79,6 +76,7 @@ export function DoctorAvailabilityPage() {
 
   const profileQuery = useMyDoctorProfile();
   const doctorProfileId = profileQuery.data?.id ?? null;
+  const errorText = useErrorMessage();
 
   const dates = useMemo(
     () => (view === 'week' ? buildWeekDates(anchorDate) : [anchorDate]),
@@ -148,7 +146,12 @@ export function DoctorAvailabilityPage() {
     setSelectedIds([]);
   }
 
-  const profileError = profileQuery.error ? readErrorMessage(profileQuery.error) : null;
+  const profileError = profileQuery.isError
+    ? errorText(profileQuery.error) ?? 'Your doctor profile could not be loaded.'
+    : null;
+  const slotsError = slotsQuery.isError
+    ? errorText(slotsQuery.error) ?? 'The availability could not be loaded.'
+    : null;
   const shift = (direction: number) =>
     setAnchorDate((current) => addDays(current, view === 'week' ? 7 * direction : direction));
 
@@ -192,9 +195,11 @@ export function DoctorAvailabilityPage() {
         )}
 
         {profileError && (
-          <p role="alert" style={{ color: 'var(--color-danger)', fontSize: 'var(--text-sm)', margin: 0 }}>
-            {profileError}
-          </p>
+          <InlineError
+            title="Your doctor profile couldn't be loaded"
+            message={profileError}
+            onRetry={() => void profileQuery.refetch()}
+          />
         )}
 
         {serverConflicts.length > 0 && blockedRange && (
@@ -212,9 +217,9 @@ export function DoctorAvailabilityPage() {
           />
         )}
 
-        {doctorProfileId === null && !profileError ? (
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>Loading your doctor profile&hellip;</p>
-        ) : (
+        {profileQuery.isPending ? (
+          <Skeleton lines={2} label="Loading your doctor profile" />
+        ) : profileError ? null : (
           <AvailabilityCalendar
             slots={slots}
             dates={dates}
@@ -224,14 +229,18 @@ export function DoctorAvailabilityPage() {
             onSelectionChange={setSelectedIds}
             onAction={handleAction}
             pendingSlotIds={blockRange.isPending || removeSlots.isPending ? selectedIds : []}
-            isLoading={slotsQuery.isLoading || profileQuery.isLoading}
-            error={slotsQuery.error ? readErrorMessage(slotsQuery.error) : null}
+            isLoading={slotsQuery.isLoading}
+            error={slotsError}
             onRetry={() => void slotsQuery.refetch()}
           />
         )}
       </div>
 
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div
+        className="card"
+        id="generate-slots"
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+      >
         <GenerateSlotsForm doctorProfileId={doctorProfileId} timeZone={timeZone} />
       </div>
     </div>

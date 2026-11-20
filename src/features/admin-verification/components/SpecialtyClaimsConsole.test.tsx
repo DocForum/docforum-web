@@ -220,11 +220,18 @@ describe('SpecialtyClaimsConsole — queue', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
   });
 
+  it('shows a loading skeleton while specialty claims are loading', () => {
+    vi.mocked(verificationService.listSpecialtyClaims).mockReturnValue(new Promise(() => {}));
+    renderConsole();
+    expect(screen.getByText(/loading specialty claims/i)).toBeInTheDocument();
+  });
+
   it('says so when the queue is empty', async () => {
     vi.mocked(verificationService.listSpecialtyClaims).mockResolvedValue({ items: [], nextCursor: null });
     renderConsole();
 
     expect(await screen.findByText(/No specialty claims are waiting for review/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh queue/i })).toBeInTheDocument();
   });
 
   it('distinguishes an empty filtered view from an empty queue', async () => {
@@ -232,6 +239,7 @@ describe('SpecialtyClaimsConsole — queue', () => {
     renderConsole('/admin/verification?olderThan=168h');
 
     expect(await screen.findByText('No pending claims match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset filters/i })).toBeInTheDocument();
   });
 
   it("explains when docforum-core doesn't serve the queue yet", async () => {
@@ -239,6 +247,7 @@ describe('SpecialtyClaimsConsole — queue', () => {
     renderConsole();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/per-specialty verification yet \(docforum-core#51\)/);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });
 

@@ -9,10 +9,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 // #105). This file used to create a second one; two MSW servers in one worker
 // double-intercept every request, so it now shares the single instance and
 // only resets the in-memory database between cases.
-import { resetDb } from './db';
+import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
-import { ApiError } from '../services/api-client';
+import { ApiError, apiFetch } from '../services/api-client';
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -33,6 +33,7 @@ import * as myFlagsService from '../services/my-flags-service';
 import * as notificationPreferencesService from '../services/notification-preferences-service';
 import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
+import * as paymentHistoryService from '../services/payment-history-service';
 import * as paymentsService from '../services/payments-service';
 import * as queueService from '../services/queue-service';
 import * as searchService from '../services/search-service';
@@ -247,22 +248,65 @@ describe('health profile', () => {
 });
 
 describe('account', () => {
-  it('requests, reads and downloads a data export', async () => {
-    const requested = await accountService.requestDataExport('pw', MOCK_ACCESS_TOKEN);
+  it('requests, polls and downloads a data export through the real paths', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
     expect(requested.status).toBe('ready');
+    expect(requested.id).toMatch(/^exp-mock-/);
 
-    const current = await accountService.getDataExportStatus(MOCK_ACCESS_TOKEN);
-    expect(current?.id).toBe(requested.id);
+    const current = await accountService.getDataExportStatus(requested.id, MOCK_ACCESS_TOKEN);
+    expect(current.id).toBe(requested.id);
 
     const blob = await accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN);
     const text = await blob.text();
     expect(text).toContain('FAKE DATA EXPORT');
   });
 
-  it('deletes the account with a confirmation message', async () => {
-    const response = await accountService.deleteAccount('pw', 'DELETE', MOCK_ACCESS_TOKEN);
-    expect(response.success).toBe(true);
-    expect(response.message).toContain('Mock API');
+  it('returns an existing pending export instead of queuing a second one', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'processing', generatedAt: null };
+
+    const again = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    expect(again.id).toBe(requested.id);
+    expect(again.status).toBe('processing');
+  });
+
+  it('returns 409 EXPORT_NOT_READY while the bundle is still generating', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'processing', generatedAt: null };
+
+    await expect(accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 409,
+      code: 'EXPORT_NOT_READY',
+    });
+  });
+
+  it('returns 410 EXPORT_EXPIRED once the export has expired', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'expired', expiresAt: new Date(Date.now() - 1000).toISOString() };
+
+    await expect(accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 410,
+      code: 'EXPORT_EXPIRED',
+    });
+  });
+
+  it('returns 404 for an export id that is not the current one', async () => {
+    await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+
+    await expect(
+      accountService.getDataExportStatus('someone-elses-export', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('deletes the account against DELETE /patients/me with a 204 response', async () => {
+    await expect(accountService.deleteAccount('pw', MOCK_ACCESS_TOKEN)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a wrong password as PASSWORD_CONFIRMATION_FAILED', async () => {
+    await expect(accountService.deleteAccount('wrong-password', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 403,
+      code: 'PASSWORD_CONFIRMATION_FAILED',
+    });
   });
 });
 
@@ -500,6 +544,49 @@ describe('facility finder', () => {
     );
     expect(nearby[0].id).toBe('fac-main');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
+  });
+
+  it('returns each facility’s price in force for a catalog item, price on request otherwise', async () => {
+    const eligible = await facilityService.getEligibleFacilities(
+      'MED-AMOX-500',
+      {},
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(eligible).toHaveLength(3);
+
+    const priced = eligible.find((facility) => facility.id === 'fac-main');
+    expect(priced?.price?.amountStroops).toBe('275000000');
+    expect(priced?.priceOnRequest).toBe(false);
+
+    const lab = eligible.find((facility) => facility.id === 'fac-demo-lab');
+    expect(lab?.price).toBeNull();
+    expect(lab?.priceOnRequest).toBe(true);
+  });
+
+  it('filters the free-text area query client-side, since core has no `query` param', async () => {
+    const matches = await facilityService.getFacilities({ query: 'example' }, MOCK_ACCESS_TOKEN);
+    expect(matches.map((f) => f.id)).toEqual(['fac-demo-pharmacy-2']);
+  });
+
+  it('rejects a missing type and radiusKm without near, like docforum-core', async () => {
+    await expect(
+      apiFetch('/facilities/eligible', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      apiFetch('/facilities/eligible?type=lab&radiusKm=5', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('accepts near=lat,lng with a radius and lists unknown distances last', async () => {
+    const nearby = await apiFetch<{ id: string; distanceKm: number | null }[]>(
+      '/facilities/eligible?type=pharmacy&near=6.5244,3.3792&radiusKm=5',
+      { accessToken: MOCK_ACCESS_TOKEN },
+    );
+    expect(nearby.length).toBeGreaterThan(0);
+    expect(nearby.every((f) => f.distanceKm !== null && f.distanceKm <= 5)).toBe(true);
+
+    const withoutLocation = await facilityService.getFacilities({}, MOCK_ACCESS_TOKEN);
+    expect(withoutLocation.every((f) => f.distanceKm == null)).toBe(true);
   });
 });
 
@@ -869,6 +956,22 @@ describe('payments', () => {
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  it('lists patient payment history with filtering by status and date range', async () => {
+    const all = await paymentHistoryService.listPaymentHistory(undefined, MOCK_ACCESS_TOKEN);
+    expect(all.intents.length).toBeGreaterThan(0);
+
+    const escrowedOnly = await paymentHistoryService.listPaymentHistory(
+      { status: 'escrowed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(escrowedOnly.intents.every((i) => i.status === 'escrowed')).toBe(true);
+
+    const first = all.intents[0];
+    const detail = await paymentHistoryService.getPaymentHistoryEntry(first.id, MOCK_ACCESS_TOKEN);
+    expect(detail.id).toBe(first.id);
+    expect(detail.facilityName).toBe('Bello Lab');
+  });
 });
 
 describe('doctor & symptom search', () => {
@@ -1192,7 +1295,6 @@ describe('dev panel scenarios', () => {
     await expect(
       facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN),
     ).resolves.toEqual([]);
-    await expect(accountService.getDataExportStatus(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(searchService.searchSymptoms('rash', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
     await expect(
