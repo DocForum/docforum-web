@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Spinner } from '../../../components/Spinner';
 import { useFacilitySettings } from '../hooks/useFacilitySettings';
-import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { LocationContactEditor } from './LocationContactEditor';
 import { PriceListEditor } from './PriceListEditor';
 import styles from './FacilitySettings.module.css';

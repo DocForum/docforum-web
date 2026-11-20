@@ -25,6 +25,8 @@ import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
+import { useIntakeDraftStore } from '../store/intake-draft-store';
+import { useMessageDraftStore } from '../store/message-draft-store';
 import type { Role, User } from '../types/models';
 import { makeUser } from './factories';
 
@@ -64,6 +66,8 @@ export function resetTestStores(): void {
   useAuthStore.setState({ user: null, accessToken: null, signOutReason: null });
   useProfileStore.setState({ profiles: [], selectedProfileId: null });
   useUnsavedChangesStore.setState({ count: 0 });
+  useIntakeDraftStore.setState({ drafts: {} });
+  useMessageDraftStore.setState({ drafts: {} });
 }
 
 export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {

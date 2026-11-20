@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen } from '../../../test/render';
+import { render, screen } from '../test/render';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
 
 function GuardHarness() {
@@ -34,7 +34,7 @@ describe('useUnsavedChangesGuard', () => {
 
     await user.click(screen.getByRole('link', { name: /leave settings/i }));
     expect(confirm).toHaveBeenCalledWith(
-      expect.stringMatching(/unsaved facility settings/i),
+      expect.stringMatching(/unsaved changes/i),
     );
   });
 
