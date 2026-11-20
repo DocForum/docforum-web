@@ -324,6 +324,14 @@ describe('consultation notes', () => {
 });
 
 describe('referrals I\'ve sent (issue #265)', () => {
+  it('serves an empty received-referral inbox so the Received tab loads in mock mode', async () => {
+    const inbox = await referralsService.listReferrals(
+      { status: null, cursor: null, limit: 20 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(inbox).toEqual({ items: [], nextCursor: null });
+  });
+
   it('lists the doctor-created referrals from every status, newest first, with both attention flags', async () => {
     const referrals = await referralsService.listCreatedReferrals(MOCK_ACCESS_TOKEN);
 
