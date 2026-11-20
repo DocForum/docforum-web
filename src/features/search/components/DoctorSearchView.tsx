@@ -8,6 +8,7 @@ import { useSearchUrlState } from '../hooks/useSearchUrlState';
 import { formatSpecialtyList } from '../specialty-list';
 import { AvailabilityFilter } from './AvailabilityFilter';
 import { DoctorResultCard } from './DoctorResultCard';
+import { JoinWaitlistDialog } from '../../waitlist/components/JoinWaitlistDialog';
 import { SymptomCombobox } from './SymptomCombobox';
 import type { AvailabilityFilter as AvailabilityFilterValue } from '../../../types/models';
 import styles from './DoctorSearch.module.css';
@@ -130,6 +131,20 @@ export function DoctorSearchView() {
               Show doctors with any availability
             </Button>
           )}
+          <div className={styles.emptyActions}>
+            <JoinWaitlistDialog
+              specialty={
+                mapping?.specialties[0]
+                  ? { id: mapping.specialties[0].id, name: mapping.specialties[0].name }
+                  : null
+              }
+              label={
+                mapping?.specialties[0]
+                  ? `Join the waitlist for ${mapping.specialties[0].name}`
+                  : 'Join the waitlist'
+              }
+            />
+          </div>
         </div>
       );
     }

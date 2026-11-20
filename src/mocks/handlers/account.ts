@@ -57,13 +57,22 @@ export const accountHandlers = [
     },
   ),
 
-  http.post(
-    '*/account/delete',
-    respond('json', () => ({
-      success: true,
-      message:
-        'Mock API: account "deleted" (nothing is persisted — fixtures reset on reload).',
-      deletedAt: new Date().toISOString(),
-    })),
-  ),
+  // docforum-core's real contract: `DELETE /patients/me` with `{ password }`,
+  // `204 No Content`, and `403 PASSWORD_CONFIRMATION_FAILED` for a wrong
+  // password. The mock accepts any password except "wrong-password" (used by
+  // the tests to exercise the field-error path); nothing is persisted, so
+  // fixtures reset on reload.
+  http.delete('*/patients/me', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as { password?: unknown } | null;
+    if (!body || typeof body.password !== 'string' || body.password.length === 0) {
+      return HttpResponse.json({ message: 'Password is required.' }, { status: 400 });
+    }
+    if (body.password === 'wrong-password') {
+      return HttpResponse.json(
+        { message: 'Password confirmation failed.', code: 'PASSWORD_CONFIRMATION_FAILED' },
+        { status: 403 },
+      );
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];

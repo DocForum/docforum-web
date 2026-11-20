@@ -13,6 +13,7 @@ import { useAuthStore } from './store/auth-store';
 import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
+import { pingHealthLive } from './services/system-health-service';
 import App from './App';
 import './styles/global.css';
 
@@ -94,6 +95,13 @@ async function boot(): Promise<void> {
   // session already exists (mock mode / ?previewRole=), this resolves
   // immediately without a network call.
   void bootstrapSession();
+
+  // Wake the cold-started backend early on boot (non-blocking) before the user
+  // submits login or hits scattered per-section errors. Mock and preview builds
+  // must not ping the real host.
+  if (!mocksEnabled) {
+    void pingHealthLive();
+  }
 
   const rootElement = document.getElementById('root');
   if (!rootElement) throw new Error('#root element not found');
