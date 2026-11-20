@@ -3,6 +3,7 @@ import { myAppointmentsQueryOptions } from '../features/appointments/hooks/useAp
 import { patientOrderQueryOptions } from '../features/orders/hooks/useOrders';
 import { paymentHistoryQueryOptions } from '../features/payments/hooks/usePaymentHistory';
 import { lazyPage } from './lazy';
+import { needsMyAppointments } from './patient-prefetch';
 import { guardedSection, settlePrefetch, type RouteContext } from './route-helpers';
 
 /** Patient routes. Mounted under the layout in `routes/index.tsx`. React Router
@@ -50,8 +51,13 @@ export function patientRoutes({ queryClient }: RouteContext): RouteObject[] {
       {
         path: 'patient/*',
         lazy: lazyPage(() => import('../pages/PatientDashboardPage'), 'PatientDashboardPage'),
-        prefetch: (_args, token) =>
-          settlePrefetch([queryClient.ensureQueryData(myAppointmentsQueryOptions(token))]),
+        // Only the hub's home and its appointment pages read
+        // `/appointments/mine`. Every other `/patient/*` page (facilities,
+        // orders, settings, …) must not wait on a request it never uses.
+        prefetch: ({ params }, token) =>
+          needsMyAppointments(params['*'])
+            ? settlePrefetch([queryClient.ensureQueryData(myAppointmentsQueryOptions(token))])
+            : undefined,
       },
     ]),
     // Care threads are shared by both sides of the conversation.

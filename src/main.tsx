@@ -13,7 +13,7 @@ import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
-import App from './App';
+import { createAppRouter } from './router';
 import './styles/global.css';
 
 // Mock API for local development (issue #95) — only runs under

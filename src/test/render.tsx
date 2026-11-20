@@ -67,6 +67,7 @@ export function resetTestStores(): void {
   useAuthStore.setState({ user: null, accessToken: null, signOutReason: null });
   useProfileStore.setState({ profiles: [], selectedProfileId: null });
   useUnsavedChangesStore.setState({ count: 0 });
+  useToastStore.setState({ toasts: [] });
   useIntakeDraftStore.setState({ drafts: {} });
   useMessageDraftStore.setState({ drafts: {} });
 }

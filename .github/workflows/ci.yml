@@ -98,7 +98,10 @@ jobs:
         run: npm run check:preview
 
       # Budgets and pages live in .lighthouserc.json; any assertion over
-      # budget fails this job.
+      # budget fails this job. The script-size budget (450 kB transferred)
+      # covers this *mock* build, which also loads the MSW mock layer
+      # (~120 kB gzip) that production never ships; production first-load JS
+      # is held to performance-budget.json by `check:bundle` above.
       - name: Lighthouse CI
         run: npx --yes @lhci/cli@0.15.1 autorun
 
