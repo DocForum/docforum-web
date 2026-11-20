@@ -56,11 +56,11 @@ export function selectFulfillingFacility(
   input: SelectOrderFacilityInput,
   accessToken: string,
 ): Promise<PatientOrder> {
-  return apiFetch<PatientOrder>(`/orders/${orderId}/fulfillment-facility`, {
+  return apiFetch<unknown>('/pharmacy-orders/fulfillments', {
     method: 'POST',
-    body: input,
+    body: { orderType: 'prescription', orderId, facilityId: input.facilityId },
     accessToken,
-  });
+  }).then(() => getPatientOrder(orderId, accessToken));
 }
 
 /** Patient confirms receipt of a fulfilled order (issue #35). */
@@ -109,9 +109,9 @@ export function routeRemainingItems(
   input: RouteRemainingItemsInput,
   accessToken: string,
 ): Promise<PatientOrder> {
-  return apiFetch<PatientOrder>(`/orders/${orderId}/route-remaining`, {
+  return apiFetch<unknown>('/pharmacy-orders/fulfillments', {
     method: 'POST',
-    body: input,
+    body: { orderType: 'prescription', orderId, facilityId: input.facilityId, orderItemIds: input.itemIds },
     accessToken,
-  });
+  }).then(() => getPatientOrder(orderId, accessToken));
 }

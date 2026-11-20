@@ -670,6 +670,124 @@ export interface UploadOptions {
   onProgress?: (percent: number) => void;
 }
 
+/** Raw-body upload for create-once endpoints. Uses XHR only here for upload
+ * progress, sets the exact caller-provided content type, and deliberately
+ * has no replay/retry behavior. */
+export function apiUploadRaw<T>(
+  path: string,
+  body: Blob,
+  contentType: string,
+  options: UploadOptions = {},
+): Promise<T> {
+  const { accessToken, signal, onProgress } = options;
+
+  // Happy DOM and other non-browser runtimes do not implement XMLHttpRequest.
+  // Preserve the shared-transport path and raw body semantics in those runtimes;
+  // browser callers still get real upload progress.
+  if (typeof XMLHttpRequest === 'undefined') {
+    const controller = new AbortController();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+    return fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': contentType,
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body,
+      signal: controller.signal,
+    }).then(async (response) => {
+      const payload = await response.json().catch(() => undefined);
+      if (response.ok) return payload as T;
+      const envelope = (payload ?? {}) as ApiErrorEnvelope;
+      const source = (envelope.error && typeof envelope.error === 'object')
+        ? (envelope.error as ApiErrorEnvelope)
+        : envelope;
+      throw new ApiError(
+        asString(source.message) ?? response.statusText,
+        response.status,
+        payload,
+        {
+          code: asString(source.code),
+          details: source.details,
+          requestId: asString(source.requestId) ?? response.headers.get('x-request-id'),
+        },
+      );
+    });
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError('Upload cancelled', 0, undefined, { cancelled: true }));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('Content-Type', contentType);
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    const handleAbort = () => xhr.abort();
+    signal?.addEventListener('abort', handleAbort);
+    const cleanup = () => signal?.removeEventListener('abort', handleAbort);
+
+    xhr.onload = () => {
+      cleanup();
+      const isJson = xhr.getResponseHeader('content-type')?.includes('application/json');
+      let payload: unknown;
+      if (isJson) {
+        try {
+          payload = JSON.parse(xhr.responseText);
+        } catch {
+          payload = undefined;
+        }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+      const envelope = (payload ?? {}) as ApiErrorEnvelope;
+      const source = (envelope.error && typeof envelope.error === 'object')
+        ? (envelope.error as ApiErrorEnvelope)
+        : envelope;
+      reject(new ApiError(
+        asString(source.message) ?? xhr.statusText,
+        xhr.status,
+        payload,
+        {
+          code: asString(source.code),
+          details: source.details,
+          requestId: asString(source.requestId) ?? xhr.getResponseHeader('x-request-id'),
+        },
+      ));
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new ApiError('Network error during upload', 0, undefined, { code: NETWORK_ERROR_CODE }));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new ApiError('Upload cancelled', 0, undefined, { cancelled: true }));
+    };
+
+    xhr.send(body);
+  });
+}
+
 /** Multipart upload with real progress + cancellation. `fetch()` can't
  * report upload progress, so this is the one deliberate exception to the
  * fetch-only rule above — XMLHttpRequest, still confined here so feature

@@ -50,8 +50,22 @@ export function useUploadLabResult(facilityId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ itemId, file }: { itemId: string; file: File }) =>
-      fulfillmentService.uploadFulfillmentLabResult(facilityId, itemId, file, accessToken!),
+    mutationFn: ({
+      itemId,
+      file,
+      onProgress,
+    }: {
+      itemId: string;
+      file: File;
+      onProgress?: (percent: number) => void;
+    }) =>
+      fulfillmentService.uploadFulfillmentLabResult(
+        facilityId,
+        itemId,
+        file,
+        accessToken!,
+        onProgress,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKey(facilityId) });
     },

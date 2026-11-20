@@ -4,6 +4,7 @@ import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { ApiError } from '../../../services/api-client';
 import type {
   FulfillmentLabResult,
   FulfillmentQueueItem,
@@ -64,15 +65,41 @@ interface LabResultUploaderProps {
   itemId: string;
   result?: FulfillmentLabResult | null;
   isUploading: boolean;
-  onUpload: (itemId: string, file: File) => Promise<unknown>;
+  onUpload: (
+    itemId: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ) => Promise<unknown>;
 }
 
 function LabResultUploader({ itemId, result, isUploading, onUpload }: LabResultUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
-  const selectFile = (selected: File | null) => {
+  const matchesMagicBytes = async (selected: File) => {
+    const bytes = new Uint8Array(await selected.slice(0, 16).arrayBuffer());
+    if (selected.type === 'application/pdf') {
+      return String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-';
+    }
+    if (selected.type === 'image/png') {
+      return bytes.length >= 8
+        && bytes[0] === 0x89
+        && String.fromCharCode(...bytes.slice(1, 4)) === 'PNG'
+        && bytes[4] === 0x0d
+        && bytes[5] === 0x0a
+        && bytes[6] === 0x1a
+        && bytes[7] === 0x0a;
+    }
+    if (selected.type === 'image/jpeg') {
+      return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    }
+    return false;
+  };
+
+  const selectFile = async (selected: File | null) => {
     setError(null);
+    setProgress(0);
     if (!selected) {
       setFile(null);
       return;
@@ -87,16 +114,41 @@ function LabResultUploader({ itemId, result, isUploading, onUpload }: LabResultU
       setFile(null);
       return;
     }
+    if (!(await matchesMagicBytes(selected))) {
+      setError('The file contents do not match the selected PDF, JPEG, or PNG type.');
+      setFile(null);
+      return;
+    }
     setFile(selected);
   };
 
   const upload = async () => {
     if (!file) return;
     try {
-      await onUpload(itemId, file);
+      await onUpload(itemId, file, setProgress);
       setFile(null);
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Could not upload the file.');
+      if (uploadError instanceof ApiError) {
+        if (uploadError.code === 'LAB_RESULT_UNSUPPORTED_TYPE') {
+          setError('This file type is not supported. Upload a PDF, JPEG, or PNG.');
+        } else if (uploadError.code === 'LAB_RESULT_CONTENT_MISMATCH') {
+          setError('The file contents do not match its declared PDF, JPEG, or PNG type.');
+        } else if (uploadError.code === 'LAB_RESULT_TOO_LARGE') {
+          setError('The file must be 10 MB or smaller.');
+        } else if (uploadError.code === 'LAB_RESULT_ALREADY_ATTACHED') {
+          setError('A lab result is already attached to this order item.');
+        } else if (uploadError.code === 'LAB_ORDER_SUPERSEDED') {
+          setError('This lab order was superseded. Open the correction before uploading.');
+        } else if (uploadError.code === 'OBJECT_STORAGE_NOT_CONFIGURED') {
+          setError('Lab result storage is temporarily unavailable. Try again later.');
+        } else if (uploadError.status === 409) {
+          setError('This lab result cannot be attached because the order changed. Refresh and try again.');
+        } else {
+          setError(uploadError.message);
+        }
+      } else {
+        setError(uploadError instanceof Error ? uploadError.message : 'Could not upload the file.');
+      }
     }
   };
 
@@ -134,6 +186,12 @@ function LabResultUploader({ itemId, result, isUploading, onUpload }: LabResultU
       {error ? (
         <p className={styles.error} role="alert">
           {error}
+        </p>
+      ) : null}
+
+      {isUploading ? (
+        <p className={styles.hint} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+          Uploading lab result… {progress}%
         </p>
       ) : null}
 
@@ -336,7 +394,9 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
                     isUploading={
                       uploadMutation.isPending && uploadMutation.variables?.itemId === item.id
                     }
-                    onUpload={(itemId, file) => uploadMutation.mutateAsync({ itemId, file })}
+                    onUpload={(itemId, file, onProgress) =>
+                      uploadMutation.mutateAsync({ itemId, file, onProgress })
+                    }
                   />
                 ) : null}
               </li>

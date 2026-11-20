@@ -787,6 +787,43 @@ export interface paths {
     };
   };
 
+  "/pharmacy-orders/fulfillments": {
+    post: {
+      requestBody: { content: { "application/json": {
+        "orderType": "prescription";
+        "orderId": string;
+        "facilityId": string;
+        "orderItemIds"?: Array<string>;
+      } } };
+      responses: {
+          200: { content: { "application/json": { [key: string]: unknown } } };
+      };
+    };
+  };
+
+  "/consultations/{consultationId}/referrals": {
+    post: {
+      requestBody: { content: { "application/json": {
+        "targets": Array<{
+          "targetDoctorId"?: string;
+          "targetSpecialtyId"?: string;
+          "snapshotNotes"?: string;
+        }>;
+      } } };
+      responses: {
+          201: { content: { "application/json": Array<{ [key: string]: unknown }> } };
+      };
+    };
+  };
+
+  "/orders/lab-orders/{id}/result": {
+    post: {
+      responses: {
+          200: { content: { "application/json": { [key: string]: unknown } } };
+      };
+    };
+  };
+
   "/payments/intents": {
     post: {
       requestBody: { content: { "application/json": components["schemas"]["CreatePaymentIntentInput"] } };

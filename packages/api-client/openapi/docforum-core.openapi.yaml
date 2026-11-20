@@ -686,6 +686,98 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WalletLink' }
 
+  /pharmacy-orders/fulfillments:
+    post:
+      tags: [orders]
+      operationId: fulfillPharmacyOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderType, orderId, facilityId]
+              properties:
+                orderType: { type: string, enum: [prescription] }
+                orderId: { type: string }
+                facilityId: { type: string }
+                orderItemIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Fulfillment routed
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /consultations/{consultationId}/referrals:
+    post:
+      tags: [consultations]
+      operationId: createConsultationReferrals
+      parameters:
+        - name: consultationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetDoctorId: { type: string }
+                      targetSpecialtyId: { type: string }
+                      snapshotNotes: { type: string }
+      responses:
+        '201':
+          description: Referrals created atomically
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /orders/lab-orders/{id}/result:
+    post:
+      tags: [fulfillment]
+      operationId: uploadLabResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: Lab result attached
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
   /payments/intents:
     post:
       tags: [payments]
@@ -855,6 +947,26 @@ components:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     Gone:
       description: Resource is no longer available (e.g. expired invite)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    UnprocessableEntity:
+      description: The request is valid but conflicts with referral routing rules
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    PayloadTooLarge:
+      description: Uploaded file exceeds the size limit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    UnsupportedMediaType:
+      description: Uploaded file type or content mismatch
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ServiceUnavailable:
+      description: Required storage or downstream service is unavailable
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }

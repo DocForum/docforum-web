@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchForm } from './api-client';
+import { apiFetch, apiUploadRaw } from './api-client';
 import type {
   DispenseFulfillmentItemInput,
   FulfillmentQueueItem,
@@ -34,18 +34,17 @@ export function updateFulfillmentStatus(
 }
 
 export function uploadFulfillmentLabResult(
-  facilityId: string,
+  _facilityId: string,
   itemId: string,
   file: File,
   accessToken: string,
+  onProgress?: (percent: number) => void,
 ): Promise<FulfillmentQueueItem> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  return apiFetchForm<FulfillmentQueueItem>(
-    `/facilities/${facilityId}/fulfillment-queue/${itemId}/lab-result`,
-    formData,
-    { accessToken },
+  return apiUploadRaw<FulfillmentQueueItem>(
+    `/orders/lab-orders/${encodeURIComponent(itemId)}/result`,
+    file,
+    file.type,
+    { accessToken, onProgress },
   );
 }
 

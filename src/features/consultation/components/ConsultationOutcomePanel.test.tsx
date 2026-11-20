@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../test/render';
 import { useAuthStore } from '../../../store/auth-store';
 import * as consultationService from '../../../services/consultation-service';
+import * as verificationService from '../../../services/doctor-verification-service';
+import * as searchService from '../../../services/search-service';
 import type {
   ConsultationIssuedOrder,
   ConsultationRecord,
@@ -11,6 +13,8 @@ import type {
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 
 vi.mock('../../../services/consultation-service');
+vi.mock('../../../services/doctor-verification-service');
+vi.mock('../../../services/search-service');
 
 const RECORD: ConsultationRecord = {
   id: 'consult-1',
@@ -43,8 +47,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   useAuthStore.setState({ accessToken: 'test-token', user: null });
   vi.mocked(consultationService.recordConsultation).mockResolvedValue(RECORD);
-  vi.mocked(consultationService.createConsultationReferral).mockResolvedValue(REFERRAL);
+  vi.mocked(consultationService.createConsultationReferral).mockResolvedValue([REFERRAL]);
   vi.mocked(consultationService.issueConsultationOrder).mockResolvedValue(ORDER);
+  vi.mocked(verificationService.listSpecialties).mockResolvedValue([
+    { id: 'spc-cardio', name: 'Cardiology', slug: 'cardiology' },
+  ]);
+  vi.mocked(searchService.searchDoctors).mockResolvedValue([]);
 });
 
 describe('ConsultationOutcomePanel', () => {
@@ -78,15 +86,21 @@ describe('ConsultationOutcomePanel', () => {
     render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Needs a cardiologist." />);
 
     await user.click(screen.getByRole('radio', { name: 'Referred' }));
-    await user.type(screen.getByLabelText('Target specialty'), 'Cardiology');
-    await user.type(screen.getByLabelText('Referral reason'), 'Demo reason.');
+    await user.selectOptions(screen.getByLabelText('Target specialty'), 'spc-cardio');
+    await user.type(screen.getByLabelText('Snapshot notes'), 'Demo reason.');
 
     await user.click(screen.getByRole('button', { name: /record consultation/i }));
 
     await waitFor(() => {
       expect(consultationService.createConsultationReferral).toHaveBeenCalledWith(
         'consult-1',
-        { targetSpecialty: 'Cardiology', reason: 'Demo reason.' },
+        {
+          targets: [{
+            targetSpecialtyId: 'spc-cardio',
+            targetDoctorId: undefined,
+            snapshotNotes: 'Demo reason.',
+          }],
+        },
         'test-token',
       );
     });
@@ -133,10 +147,10 @@ describe('ConsultationOutcomePanel', () => {
     render(<ConsultationOutcomePanel appointmentId="appt-1" notes="Needs referral." />);
 
     await user.click(screen.getByRole('radio', { name: 'Referred' }));
+    await user.selectOptions(screen.getByLabelText('Target specialty'), 'spc-cardio');
     await user.click(screen.getByRole('button', { name: /record consultation/i }));
 
-    expect(await screen.findByText('Target specialty is required.')).toBeInTheDocument();
-    expect(screen.getByText('Referral reason is required.')).toBeInTheDocument();
+    expect(await screen.findByText('Snapshot notes are required.')).toBeInTheDocument();
     expect(consultationService.recordConsultation).not.toHaveBeenCalled();
   });
 });

@@ -167,7 +167,7 @@ describe('PaymentDetailPage', () => {
 
     renderAt('/payments/pi-1');
 
-    expect(await screen.findByText(/not available for this deployment yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/payment not found/i)).toBeInTheDocument();
     expect(screen.queryByTestId('payment-receipt')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to your payments/i })).toHaveAttribute('href', '/payments');
   });

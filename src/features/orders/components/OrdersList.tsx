@@ -68,6 +68,10 @@ function FacilitySelectionDialog({ order, onClose, onSelected }: FacilitySelecti
         setError('This order changed while you were choosing. Close this dialog and try again.');
         return;
       }
+      if (caught instanceof ApiError && caught.status === 400) {
+        setError('One of these items is not valid for this order. Refresh the order and try again.');
+        return;
+      }
       setError(caught instanceof Error ? caught.message : 'Could not select this facility.');
     }
   };

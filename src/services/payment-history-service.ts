@@ -13,5 +13,5 @@ export function listPaymentHistory(cursor: string | undefined, accessToken: stri
 }
 
 export function getPaymentHistoryEntry(id: string, accessToken: string, signal?: AbortSignal): Promise<PaymentHistoryEntry> {
-  return apiFetch<PaymentHistoryEntry>(`/payments/mine/${encodeURIComponent(id)}`, { accessToken, signal });
+  return apiFetch<PaymentHistoryEntry>(`/payments/intents/${encodeURIComponent(id)}`, { accessToken, signal });
 }

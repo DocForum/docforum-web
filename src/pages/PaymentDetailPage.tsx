@@ -4,7 +4,7 @@ import { FormError } from '../components/FormError';
 import { PaymentReceipt } from '../features/payments/components/PaymentReceipt';
 import { contractUrl, transactionUrl } from '../features/payments/explorer';
 import { usePaymentHistoryEntry } from '../features/payments/hooks/usePaymentHistory';
-import { historyErrorCopy, statusLabel } from '../features/payments/status';
+import { paymentDetailErrorCopy, statusLabel } from '../features/payments/status';
 import styles from './PaymentDetailPage.module.css';
 
 export function PaymentDetailPage() {
@@ -17,7 +17,7 @@ export function PaymentDetailPage() {
       <div className="container">
         <div className="card">
           <h1 className={styles.title}>Payment</h1>
-          <FormError message={historyErrorCopy(entryQuery.error)} />
+          <FormError message={paymentDetailErrorCopy(entryQuery.error)} />
           <p className={styles.back}>
             <Link to="/payments">Back to your payments</Link>
           </p>

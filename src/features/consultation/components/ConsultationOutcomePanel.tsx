@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
+import { ApiError } from '../../../services/api-client';
+import { useAuthStore } from '../../../store/auth-store';
 import type {
   ConsultationIssuedOrder,
   ConsultationOutcome,
@@ -11,6 +13,8 @@ import {
   useCreateConsultationReferral,
   useIssueConsultationOrder,
   useRecordConsultation,
+  useReferralSpecialties,
+  useReferralDoctors,
 } from '../hooks/useConsultationOutcome';
 import styles from './ConsultationOutcomePanel.module.css';
 
@@ -21,8 +25,14 @@ interface ConsultationOutcomePanelProps {
 
 interface OutcomeResult {
   record: ConsultationRecord;
-  referral?: ConsultationReferral;
+  referrals?: ConsultationReferral[];
   order?: ConsultationIssuedOrder;
+}
+
+interface ReferralTargetDraft {
+  targetSpecialtyId: string;
+  targetDoctorId: string;
+  snapshotNotes: string;
 }
 
 const OUTCOMES: { value: ConsultationOutcome; label: string }[] = [
@@ -31,15 +41,96 @@ const OUTCOMES: { value: ConsultationOutcome; label: string }[] = [
   { value: 'follow_up_needed', label: 'Follow-up needed' },
 ];
 
+function ReferralTargetEditor({
+  target,
+  index,
+  specialties,
+  currentDoctorId,
+  onChange,
+  onRemove,
+  canRemove,
+  error,
+}: {
+  target: ReferralTargetDraft;
+  index: number;
+  specialties: { id: string; name: string }[];
+  currentDoctorId?: string | null;
+  onChange: (target: ReferralTargetDraft) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+  error?: string;
+}) {
+  const doctorsQuery = useReferralDoctors(target.targetSpecialtyId || null);
+  const eligibleDoctors = (doctorsQuery.data ?? []).filter(
+    (doctor) => doctor.verificationStatus === 'verified' && doctor.id !== currentDoctorId,
+  );
+
+  return (
+    <fieldset className={styles.fieldset}>
+      <legend className={styles.legend}>Referral target {index + 1}</legend>
+      <label className={styles.selectLabel}>
+        Target specialty
+        <select
+          value={target.targetSpecialtyId}
+          onChange={(event) =>
+            onChange({ ...target, targetSpecialtyId: event.target.value, targetDoctorId: '' })
+          }
+          aria-invalid={Boolean(error)}
+        >
+          <option value="">Choose a specialty</option>
+          {specialties.map((specialty) => (
+            <option key={specialty.id} value={specialty.id}>
+              {specialty.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {target.targetSpecialtyId ? (
+        <label className={styles.selectLabel}>
+          Optional doctor
+          <select
+            value={target.targetDoctorId}
+            onChange={(event) => onChange({ ...target, targetDoctorId: event.target.value })}
+          >
+            <option value="">Any eligible doctor</option>
+            {eligibleDoctors.map((doctor) => (
+              <option key={doctor.id} value={doctor.id}>
+                {doctor.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <label className={styles.textareaLabel}>
+        Snapshot notes
+        <textarea
+          className={styles.textarea}
+          value={target.snapshotNotes}
+          onChange={(event) => onChange({ ...target, snapshotNotes: event.target.value })}
+        />
+      </label>
+      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      {canRemove ? (
+        <Button type="button" variant="secondary" onClick={onRemove}>
+          Remove target
+        </Button>
+      ) : null}
+    </fieldset>
+  );
+}
+
 export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationOutcomePanelProps) {
   const recordConsultation = useRecordConsultation();
   const createReferral = useCreateConsultationReferral();
   const issueOrder = useIssueConsultationOrder();
+  const specialtiesQuery = useReferralSpecialties();
+  const user = useAuthStore((state) => state.user);
 
   const [outcome, setOutcome] = useState<ConsultationOutcome>('resolved');
   const [followUpDays, setFollowUpDays] = useState('7');
-  const [specialty, setSpecialty] = useState('');
-  const [referralReason, setReferralReason] = useState('');
+  const [targets, setTargets] = useState<ReferralTargetDraft[]>([
+    { targetSpecialtyId: '', targetDoctorId: '', snapshotNotes: '' },
+  ]);
   const [wantsOrder, setWantsOrder] = useState(false);
   const [orderType, setOrderType] = useState<'prescription' | 'lab_order'>('prescription');
   const [medication, setMedication] = useState('');
@@ -63,8 +154,20 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
     const nextErrors: Record<string, string> = {};
     if (!notes.trim()) nextErrors.notes = 'Add consultation notes above before recording an outcome.';
     if (outcome === 'referred') {
-      if (!specialty.trim()) nextErrors.specialty = 'Target specialty is required.';
-      if (!referralReason.trim()) nextErrors.referralReason = 'Referral reason is required.';
+      targets.forEach((target, index) => {
+        if (!target.targetSpecialtyId && !target.targetDoctorId) {
+          nextErrors[`target-${index}`] = 'Choose a target specialty.';
+        }
+        if (!target.snapshotNotes.trim()) {
+          nextErrors[`notes-${index}`] = 'Snapshot notes are required.';
+        }
+      });
+      const keys = targets.map((target) =>
+        target.targetDoctorId ? `doctor:${target.targetDoctorId}` : `specialty:${target.targetSpecialtyId}`,
+      );
+      if (new Set(keys).size !== keys.length) {
+        nextErrors.targets = 'Remove duplicate referral targets.';
+      }
     }
     if (outcome === 'follow_up_needed') {
       const days = Number(followUpDays);
@@ -96,11 +199,17 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
         },
       });
 
-      const referral =
+      const referrals =
         outcome === 'referred'
           ? await createReferral.mutateAsync({
               consultationId: recorded.id,
-              input: { targetSpecialty: specialty.trim(), reason: referralReason.trim() },
+              input: {
+                targets: targets.map((target) => ({
+                  targetSpecialtyId: target.targetSpecialtyId || undefined,
+                  targetDoctorId: target.targetDoctorId || undefined,
+                  snapshotNotes: target.snapshotNotes.trim(),
+                })),
+              },
             })
           : undefined;
 
@@ -123,9 +232,21 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
           })
         : undefined;
 
-      setResult({ record: recorded, referral, order: issued });
+      setResult({ record: recorded, referrals, order: issued });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not record this consultation.';
+      let message =
+        error instanceof Error ? error.message : 'Could not record this consultation.';
+      if (error instanceof ApiError) {
+        if (error.status === 422 && error.code === 'REFERRAL_NO_ELIGIBLE_TARGET') {
+          message = 'No eligible doctor is available for one of these targets. Nothing was created.';
+        } else if (error.status === 400 && error.code === 'REFERRAL_DUPLICATE_TARGET') {
+          message = 'A referral target is duplicated. Remove duplicate targets and try again.';
+        } else if (error.status === 422) {
+          message = 'The referral would create a loop or prohibited hop. Nothing was created.';
+        } else if (error.status === 400) {
+          message = 'One or more referral targets are invalid. Nothing was created.';
+        }
+      }
       setSubmitError(
         recorded
           ? `Consultation was recorded, but the next step failed: ${message}`
@@ -172,26 +293,40 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
 
       {outcome === 'referred' ? (
         <div className={styles.subsection}>
-          <TextField
-            label="Target specialty"
-            value={specialty}
-            onChange={(event) => setSpecialty(event.target.value)}
-            error={errors.specialty}
-          />
-          <label className={styles.textareaLabel}>
-            Referral reason
-            <textarea
-              className={styles.textarea}
-              value={referralReason}
-              onChange={(event) => setReferralReason(event.target.value)}
-              aria-invalid={Boolean(errors.referralReason)}
+          {targets.map((target, index) => (
+            <ReferralTargetEditor
+              key={index}
+              target={target}
+              index={index}
+              specialties={specialtiesQuery.data ?? []}
+              currentDoctorId={user?.id}
+              canRemove={targets.length > 1}
+              error={errors[`target-${index}`] ?? errors[`notes-${index}`]}
+              onChange={(next) =>
+                setTargets((current) =>
+                  current.map((candidate, candidateIndex) =>
+                    candidateIndex === index ? next : candidate,
+                  ),
+                )
+              }
+              onRemove={() =>
+                setTargets((current) => current.filter((_, candidateIndex) => candidateIndex !== index))
+              }
             />
-          </label>
-          {errors.referralReason ? (
-            <p className={styles.error} role="alert">
-              {errors.referralReason}
-            </p>
-          ) : null}
+          ))}
+          {errors.targets ? <p className={styles.error} role="alert">{errors.targets}</p> : null}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              setTargets((current) => [
+                ...current,
+                { targetSpecialtyId: '', targetDoctorId: '', snapshotNotes: '' },
+              ])
+            }
+          >
+            Add referral target
+          </Button>
         </div>
       ) : null}
 
@@ -297,7 +432,12 @@ export function ConsultationOutcomePanel({ appointmentId, notes }: ConsultationO
           <p>
             Consultation recorded as <strong>{OUTCOMES.find((option) => option.value === outcome)?.label}</strong>.
           </p>
-          {result.referral ? <p>Referral created for {result.referral.targetSpecialty}.</p> : null}
+          {result.referrals?.map((referral) => (
+            <p key={referral.id}>
+              Referral created for {referral.targetSpecialty}
+              {referral.targetDoctorId ? ` → routed to doctor ${referral.targetDoctorId}` : ''}.
+            </p>
+          ))}
           {result.order ? <p>{result.order.medicationOrTest} issued.</p> : null}
           <Button variant="secondary" onClick={reset}>
             Record another outcome
