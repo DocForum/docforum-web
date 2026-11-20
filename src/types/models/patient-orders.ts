@@ -23,6 +23,9 @@ export interface OrderVersionBase {
   issuedByDoctorName?: string | null;
   requiresFacilitySelection: boolean;
   selectedFacility?: OrderFacilitySummary | null;
+  /** Catalog code of the ordered medication/test, used to compare facility
+   * prices for this item (issue #258, assumed field). */
+  catalogItemCode?: string | null;
   // --- Partial fulfilment (issue #54, docforum-core#73 assumed) -----------
   // Optional so main's W2 order screens keep compiling; the partial-fulfilment
   // screens in `features/orders` read these.
