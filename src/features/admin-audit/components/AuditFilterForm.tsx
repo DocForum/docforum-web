@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
 import { checkFilters, FIELD_LABELS } from '../filters';
 import type { AuditTab, FilterDraft, FilterErrors } from '../filters';
@@ -57,8 +58,20 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
         {tab === 'events' && (
           <TextField {...bind('action')} list={actionsId} placeholder="payment_intent" autoComplete="off" />
         )}
-        <TextField {...bind('from')} type="date" max={draft.to || undefined} />
-        <TextField {...bind('to')} type="date" min={draft.from || undefined} />
+        <DatePicker
+          label={FIELD_LABELS.from}
+          value={draft.from}
+          error={errors.from}
+          onChange={(value) => setDraft((current) => ({ ...current, from: value }))}
+          max={draft.to || undefined}
+        />
+        <DatePicker
+          label={FIELD_LABELS.to}
+          value={draft.to}
+          error={errors.to}
+          onChange={(value) => setDraft((current) => ({ ...current, to: value }))}
+          min={draft.from || undefined}
+        />
       </div>
 
       <datalist id={entityTypesId}>

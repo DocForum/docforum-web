@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { TimePicker } from '../../../components/TimePicker';
 import { listTimeZones } from '../../../i18n/time-zone';
 import { isValidClockTime, validateQuietHours } from '../preferences';
 import type { QuietHours } from '../../../types/models';
@@ -50,39 +51,33 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
       </label>
 
       <div className={styles.quietFields} data-enabled={quietHours.enabled}>
+        {/* The zone is chosen in its own field below, so the pickers don't
+            repeat it (issue #114). */}
         <div className={styles.field}>
-          <label htmlFor={startId} className={styles.fieldLabel}>
-            Start
-          </label>
-          <input
+          <TimePicker
             id={startId}
-            type="time"
+            label="Start"
             value={quietHours.start}
+            timeZone={quietHours.timeZone}
+            hideTimeZone
             disabled={saving || !quietHours.enabled}
-            onChange={(event) => {
-              if (isValidClockTime(event.target.value)) {
-                commit({ ...quietHours, start: event.target.value });
-              }
+            onChange={(value) => {
+              if (isValidClockTime(value)) commit({ ...quietHours, start: value });
             }}
-            className={styles.input}
           />
         </div>
 
         <div className={styles.field}>
-          <label htmlFor={endId} className={styles.fieldLabel}>
-            End
-          </label>
-          <input
+          <TimePicker
             id={endId}
-            type="time"
+            label="End"
             value={quietHours.end}
+            timeZone={quietHours.timeZone}
+            hideTimeZone
             disabled={saving || !quietHours.enabled}
-            onChange={(event) => {
-              if (isValidClockTime(event.target.value)) {
-                commit({ ...quietHours, end: event.target.value });
-              }
+            onChange={(value) => {
+              if (isValidClockTime(value)) commit({ ...quietHours, end: value });
             }}
-            className={styles.input}
           />
         </div>
 

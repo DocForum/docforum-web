@@ -1,7 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
-import App from '../App';
+import {
+  createStaticHandler,
+  createStaticRouter,
+  StaticRouterProvider,
+} from 'react-router-dom';
+import { createAppRoutes } from '../routes';
 
 /**
  * Build-time only (issue #120). Renders the real app — real route table,
@@ -10,19 +14,30 @@ import App from '../App';
  * logged-out branch of every auth-aware component can execute, and no
  * authenticated code path runs during prerendering.
  *
+ * Uses React Router's static data APIs (issue #112): `query()` resolves the
+ * matched lazy route modules and runs their loaders (public pages have
+ * none), then the static router renders the result. `hydrate={false}`
+ * because the client boots with `createRoot`, not hydration — and so the
+ * markup carries no inline `<script>` (strict CSP, issue #101).
+ *
  * Never imported by `src/main.tsx`; built to `dist-ssr/` (git-ignored,
  * not part of the Pages artifact) by `npm run prerender`.
  */
-export function renderPublicPage(path: string): string {
+export async function renderPublicPage(path: string): Promise<string> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  const routes = createAppRoutes({ queryClient });
+  const handler = createStaticHandler(routes);
+  const context = await handler.query(new Request(new URL(path, 'http://prerender.local')));
+  if (context instanceof Response) {
+    throw new Error(`Prerender of ${path} redirected (status ${context.status})`);
+  }
+  const router = createStaticRouter(handler.dataRoutes, context);
 
   return renderToString(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
+      <StaticRouterProvider router={router} context={context} hydrate={false} />
     </QueryClientProvider>,
   );
 }

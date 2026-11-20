@@ -262,7 +262,7 @@ describe('Facility price list editor (#56)', () => {
     await user.click(screen.getByRole('button', { name: /search catalog/i }));
     await user.click(await screen.findByRole('button', { name: /set price/i }));
 
-    await user.clear(screen.getByLabelText(/effective from/i));
+    await user.clear(screen.getByLabelText(/effective from \(date\)/i));
     await user.click(screen.getByRole('button', { name: /add price version/i }));
 
     expect(await screen.findByText(/choose when this price takes effect/i)).toBeVisible();

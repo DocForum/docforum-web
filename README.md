@@ -67,7 +67,7 @@ of `docforum-core`'s original (pre-split) Phase 7:
 ```
 src/
   pages/            Route-level components (Home, Login, Signup, role dashboards, 404)
-  components/       Shared, reusable UI (Button, TextField, FormError, Layout, RequireAuth route guard)
+  components/       Shared, reusable UI (Button, TextField, DatePicker, TimePicker, Toast, FormError, Layout)
   features/
     auth/           Phase W1 — LoginForm/SignupForm/RoleSelect, useLogin/useSignup/useLogout, validation
   hooks/            Shared React hooks (useSlowRequestHint — cold-start-aware loading UX)
