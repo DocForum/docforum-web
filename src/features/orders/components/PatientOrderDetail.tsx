@@ -2,10 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
-import { Spinner } from '../../../components/Spinner';
-import { useFormatters } from '../../../i18n/formatters';
-import { useT, type Translator } from '../../../i18n/useT';
-import { ApiError } from '../../../services/api-client';
+import { PageError } from '../../../components/states/PageError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type { OrderItemFulfillment, OrderPaymentSummary, PatientOrder } from '../../../types/models';
 import { itemStatusLabel } from '../../fulfillment/status';
 import { useOrder } from '../hooks/useOrders';
@@ -130,9 +128,8 @@ function ItemCard({
 }
 
 export function PatientOrderDetail({ orderId }: { orderId: string }) {
-  const t = useT();
-  const { date: formatDate } = useFormatters();
-  const { data: order, isLoading, error } = useOrder(orderId);
+  const orderQuery = useOrder(orderId);
+  const { data: order, isLoading, error } = orderQuery;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -150,27 +147,22 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
 
   if (isLoading) {
     return (
-      <div className={styles.loading} role="status">
-        <Spinner />
-        <span>{t('orders.detail.loading', 'Loading order…')}</span>
-      </div>
+      <section className={styles.page}>
+        <Skeleton lines={6} height="2rem" label="Loading order" />
+      </section>
     );
   }
 
   if (error || !order) {
     return (
-      <div className={styles.page}>
-        <p className={styles.error} role="alert">
-          {error instanceof ApiError && error.status === 404
-            ? t('orders.detail.notFound', 'Order not found.')
-            : error instanceof ApiError && (error.status === 401 || error.status === 403)
-              ? t('orders.detail.forbidden', 'Sign in again to view this order.')
-              : t('orders.detail.loadError', 'Could not load this order. Try again shortly.')}
-        </p>
-        <Link to="/patient/orders" className={styles.backLink}>
-          {t('orders.detail.back', 'Back to my orders')}
-        </Link>
-      </div>
+      <section className={styles.page}>
+        <PageError
+          title="Order not found"
+          message={error instanceof Error ? error.message : 'Order not found.'}
+          onRetry={() => void orderQuery.refetch()}
+          fallback={{ label: 'Back to my orders', to: '/patient/orders' }}
+        />
+      </section>
     );
   }
 

@@ -93,16 +93,16 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
           <tbody>
             {rows.map((event) => (
               <tr key={event.id}>
-                <td>
+                <td data-label="When">
                   <Timestamp value={event.createdAt} />
                 </td>
-                <td>
+                <td data-label="Action">
                   <code className={styles.action}>{event.action}</code>
                 </td>
-                <td>
+                <td data-label="Entity">
                   <EntityCell entityType={event.entityType} entityId={event.entityId} filters={filters} />
                 </td>
-                <td>
+                <td data-label="Transition">
                   {event.fromState || event.toState ? (
                     <span className={styles.transition}>
                       <span>{event.fromState ?? '∅'}</span>
@@ -113,10 +113,10 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
                     <span className={styles.muted}>—</span>
                   )}
                 </td>
-                <td>
+                <td data-label="Actor">
                   <ActorCell actorUserId={event.actorUserId} actorRole={event.actorRole} filters={filters} />
                 </td>
-                <td>
+                <td data-label="Request &amp; details">
                   {event.requestId && (
                     <span className={styles.id} title={t('adminAudit.requestIdTitle', 'X-Request-Id')}>
                       {event.requestId}

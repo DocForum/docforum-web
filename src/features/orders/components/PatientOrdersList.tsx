@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { QueryState } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { useFormatters } from '../../../i18n/formatters';
 import { useT, type Translator } from '../../../i18n/useT';
@@ -29,28 +31,8 @@ export function orderItemSummary(order: PatientOrder, t: Translator): string {
 }
 
 export function PatientOrdersList() {
-  const t = useT();
-  const { date: formatDate } = useFormatters();
-  const { data: orders = [], isLoading, error } = useMyOrders();
-
-  if (isLoading) {
-    return (
-      <div className={styles.loading} role="status">
-        <Spinner />
-        <span>{t('orders.list.loading', 'Loading your orders…')}</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className={styles.error} role="alert">
-        {error instanceof ApiError && (error.status === 401 || error.status === 403)
-          ? t('orders.list.forbidden', 'Sign in again to view your orders.')
-          : t('orders.list.loadError', 'Could not load your orders. Try again shortly.')}
-      </p>
-    );
-  }
+  const ordersQuery = useMyOrders();
+  const orders = ordersQuery.data ?? [];
 
   return (
     <section className={styles.page} aria-labelledby="orders-heading">
@@ -63,9 +45,21 @@ export function PatientOrdersList() {
         </div>
       </div>
 
-      {orders.length === 0 ? (
-        <p className={styles.empty}>{t('orders.list.empty', 'You have no orders.')}</p>
-      ) : (
+      <QueryState
+        result={ordersQuery}
+        loading={<Skeleton lines={6} height="2rem" label="Loading your orders" />}
+        errorTitle="Could not load your orders"
+        errorMessage={ordersQuery.error instanceof Error ? ordersQuery.error.message : undefined}
+        onRetry={() => void ordersQuery.refetch()}
+        isEmpty={(data) => (data ?? []).length === 0}
+        empty={
+          <EmptyState
+            title="You have no orders"
+            description="Prescriptions and lab orders will appear here once issued."
+            action={{ label: 'Back to care hub', to: '/patient' }}
+          />
+        }
+      >
         <ul className={styles.orderList}>
           {orders.map((order) => (
             <li key={order.id} className={styles.orderCard}>
@@ -96,7 +90,7 @@ export function PatientOrdersList() {
             </li>
           ))}
         </ul>
-      )}
+      </QueryState>
     </section>
   );
 }

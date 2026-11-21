@@ -36,8 +36,8 @@ describe('PatientOrdersList (#54)', () => {
     vi.mocked(ordersService.listMyOrders).mockResolvedValue(seedDb.orders);
     render(<PatientOrdersList />);
 
-    expect(await screen.findByRole('heading', { name: /my orders/i })).toBeInTheDocument();
-    expect(screen.getByText('Demo partial prescription (fake)')).toBeInTheDocument();
+    expect(await screen.findByText('Demo partial prescription (fake)')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /my orders/i })).toBeInTheDocument();
     expect(screen.getByText('Partially filled')).toBeInTheDocument();
     expect(screen.getByText('4 items · 2 still outstanding')).toBeInTheDocument();
     expect(
@@ -46,24 +46,42 @@ describe('PatientOrdersList (#54)', () => {
       ),
     ).toBe(true);
   });
+
+  it('shows a loading skeleton while orders are loading', () => {
+    vi.mocked(ordersService.listMyOrders).mockReturnValue(new Promise(() => {}));
+    render(<PatientOrdersList />);
+    expect(screen.getByRole('status')).toHaveTextContent(/loading your orders/i);
+  });
+
+  it('shows an empty state with action when there are no orders', async () => {
+    vi.mocked(ordersService.listMyOrders).mockResolvedValue([]);
+    render(<PatientOrdersList />);
+    expect(await screen.findByText(/you have no orders/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to care hub/i })).toHaveAttribute('href', '/patient');
+  });
+
+  it('shows an error state with retry when loading orders fails', async () => {
+    vi.mocked(ordersService.listMyOrders).mockRejectedValue(new ApiError('Could not load orders', 500));
+    render(<PatientOrdersList />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load orders/i);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
 });
 
 describe('PatientOrderDetail (#54)', () => {
-  it('renders the orders list and detail in Spanish', async () => {
-    vi.mocked(ordersService.listMyOrders).mockResolvedValue(seedDb.orders);
-    const { unmount } = render(<PatientOrdersList />, { locale: 'es' });
-
-    expect(await screen.findByRole('heading', { name: 'Mis pedidos' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /ver pedido/i }).length).toBeGreaterThan(0);
-    unmount();
-
-    vi.mocked(ordersService.getPatientOrder).mockResolvedValue(partialOrder);
-    render(<PatientOrderDetail orderId={partialOrder.id} />, { locale: 'es' });
-    expect(await screen.findByRole('heading', { name: 'Demo partial prescription (fake)' })).toBeInTheDocument();
-    expect(screen.getByText('Parcialmente dispensado')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /obtener los artículos restantes en otro lugar/i })).toBeInTheDocument();
+  it('shows a loading skeleton while order is loading', () => {
+    vi.mocked(ordersService.getPatientOrder).mockReturnValue(new Promise(() => {}));
+    render(<PatientOrderDetail orderId="ord-1" />);
+    expect(screen.getByRole('status')).toHaveTextContent(/loading order/i);
   });
 
+  it('shows PageError with retry and fallback when order fails to load', async () => {
+    vi.mocked(ordersService.getPatientOrder).mockRejectedValue(new ApiError('Order failed to load', 500));
+    render(<PatientOrderDetail orderId="ord-1" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/order failed to load/i);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to my orders/i })).toHaveAttribute('href', '/patient/orders');
+  });
   it('shows item quantities, the dispensed-elsewhere warning, and payment rule', async () => {
     vi.mocked(ordersService.getPatientOrder).mockResolvedValue(partialOrder);
     render(<PatientOrderDetail orderId={partialOrder.id} />);

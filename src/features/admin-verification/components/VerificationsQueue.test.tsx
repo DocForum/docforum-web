@@ -104,6 +104,12 @@ beforeEach(() => {
 });
 
 describe('VerificationsQueue', () => {
+  it('shows a loading skeleton while applications are loading', () => {
+    listVerifications.mockReturnValue(new Promise(() => {}));
+    renderQueue();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading applications/i);
+  });
+
   it('lists pending doctors oldest first with submitted date and document count', async () => {
     listVerifications.mockResolvedValue(page([NEWER, OLDER]));
     renderQueue();
@@ -121,6 +127,7 @@ describe('VerificationsQueue', () => {
     listVerifications.mockResolvedValue(page([]));
     renderQueue();
     expect(await screen.findByText(/No doctors are waiting for review/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh queue/i })).toBeInTheDocument();
   });
 
   it('explains a dead session and offers a retry on failure', async () => {

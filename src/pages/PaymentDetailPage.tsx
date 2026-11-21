@@ -1,6 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { FormError } from '../components/FormError';
+import { EmptyState } from '../components/states/EmptyState';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
 import { PaymentReceipt } from '../features/payments/components/PaymentReceipt';
 import { contractUrl, transactionUrl } from '../features/payments/explorer';
 import { usePaymentHistoryEntry } from '../features/payments/hooks/usePaymentHistory';
@@ -20,8 +22,12 @@ export function PaymentDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1 className={styles.title}>{t('payments.detail.title', 'Payment')}</h1>
-          <FormError message={historyErrorCopy(entryQuery.error, t)} />
+          <h1 className={styles.title}>Payment</h1>
+          <InlineError
+            title="Payment couldn't be loaded"
+            message={historyErrorCopy(entryQuery.error)}
+            onRetry={() => void entryQuery.refetch()}
+          />
           <p className={styles.back}>
             <Link to="/payments">{t('payments.detail.back', 'Back to your payments')}</Link>
           </p>
@@ -35,12 +41,16 @@ export function PaymentDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1 className={styles.title}>{t('payments.detail.title', 'Payment')}</h1>
-          <p className={styles.loading}>
-            {entryQuery.isFetching
-              ? t('payments.detail.loading', 'Loading this payment…')
-              : t('payments.detail.signIn', 'Sign in to see this payment.')}
-          </p>
+          <h1 className={styles.title}>Payment</h1>
+          {entryQuery.isFetching ? (
+            <Skeleton lines={6} height="1.75rem" label="Loading this payment" />
+          ) : (
+            <EmptyState
+              title="Sign in to see this payment"
+              description="This payment receipt is tied to a DocForum account."
+              action={{ label: 'Sign in', to: '/login' }}
+            />
+          )}
         </div>
       </div>
     );

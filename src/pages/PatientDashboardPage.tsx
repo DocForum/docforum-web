@@ -8,6 +8,9 @@ import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
+import { AppointmentsPage } from './AppointmentsPage';
+import { BookingPage } from './BookingPage';
+import { DoctorDirectoryPage } from './DoctorDirectoryPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -88,6 +91,8 @@ function PatientHome() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
+          <Link to="appointments">My appointments</Link>
+          <Link to="doctors">Browse doctors by specialty</Link>
           <Link to="search">{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
           <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
           <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
@@ -114,6 +119,9 @@ export function PatientDashboardPage() {
     <Routes>
       <Route index element={<PatientHome />} />
       <Route path="search" element={<DoctorSearchPage />} />
+      <Route path="doctors" element={<DoctorDirectoryPage />} />
+      <Route path="book" element={<BookingPage />} />
+      <Route path="appointments" element={<AppointmentsPage />} />
       <Route path="orders" element={<PatientOrdersPage />} />
       <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
       <Route path="dependents" element={<DependentsPage />} />

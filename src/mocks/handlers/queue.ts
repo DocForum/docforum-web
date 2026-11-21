@@ -25,6 +25,13 @@ function deriveQueue(appointments: Appointment[]): QueueEntry[] {
 }
 
 export const queueHandlers = [
+  // The patient's own appointments. The demo seeds doctor-side appointments
+  // only, so the patient has none yet — but the endpoint must answer: the
+  // patient hub's route loader prefetches it (#112), and an unmocked request
+  // falls through to the network, fails, and flags the API as unreachable.
+  // Goes through `respond`, so the dev panel's error/latency scenarios apply.
+  http.get('*/appointments/mine', respond('list', () => [])),
+
   http.get(
     '*/appointments/doctor/today',
     respond('list', () =>

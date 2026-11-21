@@ -79,7 +79,9 @@ GitHub Pages is ever switched off hash routing.
 **Option C — configurable router.**
 
 - `main.tsx` selects `BrowserRouter` when `VITE_USE_HASH_ROUTER` is absent
-  or `false`, and `HashRouter` when it is `true`.
+  or `false`, and `HashRouter` when it is `true`. Since issue #112 these are
+  the data-router equivalents (`createBrowserRouter` / `createHashRouter`,
+  built in `src/router.ts`); the semantics are unchanged.
 - `.github/workflows/deploy-pages.yml` sets `VITE_USE_HASH_ROUTER: "true"` in
   the build step so the Pages deployment is unaffected.
 - `HashRedirectShim` is mounted inside `App` only in BrowserRouter mode.

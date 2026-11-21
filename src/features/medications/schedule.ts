@@ -280,17 +280,21 @@ function doseTimesOnDay(course: Course, dayStart: Date): Date[] {
   return [];
 }
 
-function dayLabel(dayStart: Date, offset: number): string {
-  if (offset === 0) return 'Today';
-  const weekday = dayStart.toLocaleDateString('en-US', { weekday: 'short' });
-  const day = dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${weekday} ${day}`;
+function dayLabel(dayStart: Date, _offset: number, locale: string): string {
+  // The "Today" heading is copy from the catalogue in the component; this
+  // helper only produces a locale-formatted calendar label for each day.
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(dayStart);
 }
 
 export function buildMedicationSchedule(
   prescriptions: MedicationPrescription[],
   now: Date,
   horizonDays = 7,
+  locale = 'en-US',
 ): MedicationSchedule {
   const courses = buildCourses(prescriptions, now);
   const todayStart = startOfDay(now);
@@ -313,7 +317,7 @@ export function buildMedicationSchedule(
       }
     }
     entries.sort((a, b) => a.time.localeCompare(b.time));
-    days.push({ dateKey: dateKey(dayStart), label: dayLabel(dayStart, i), date: dayStart, entries });
+    days.push({ dateKey: dateKey(dayStart), label: dayLabel(dayStart, i, locale), date: dayStart, entries });
   }
 
   const unscheduled: UnscheduledItem[] = courses
@@ -334,7 +338,7 @@ export function buildMedicationSchedule(
       drugName: c.drugName,
       dosage: c.dosage,
       frequencyText: c.frequencyText,
-      endedOn: c.end ? c.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      endedOn: c.end ? c.end.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' }) : '',
     }));
 
   const overlaps: OverlapWarning[] = [];

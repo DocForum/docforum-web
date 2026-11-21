@@ -75,15 +75,42 @@ export const facilityHandlers = [
     ),
   ),
 
+  // docforum-core's public `GET /facilities/eligible` (issue #257): `type` (or
+  // `capabilityType`) is required, location is `near=lat,lng` with an optional
+  // `radiusKm`, and facilities with an unknown distance are listed last.
   http.get(
     '*/facilities/eligible',
     respond('list', ({ request }) => {
       const url = new URL(request.url);
+      const type = url.searchParams.get('type') ?? url.searchParams.get('capabilityType');
+      const near = url.searchParams.get('near');
+      const radiusKm = url.searchParams.get('radiusKm');
       const catalogItemCode = url.searchParams.get('catalogItemCode');
-      if (!catalogItemCode) return badRequest('catalogItemCode is required');
+      if (!type) return badRequest('type or capabilityType is required');
+      if (radiusKm !== null && near === null) return badRequest('radiusKm requires near');
+
+      let lat: string | null = null;
+      let lng: string | null = null;
+      if (near !== null) {
+        const [nearLat, nearLng, ...rest] = near.split(',');
+        if (rest.length || !Number.isFinite(Number(nearLat)) || !Number.isFinite(Number(nearLng))) {
+          return badRequest('near must be lat,lng');
+        }
+        lat = nearLat;
+        lng = nearLng;
+      }
+      const radius = radiusKm === null ? null : Number(radiusKm);
+      if (radius !== null && !(radius > 0)) return badRequest('radiusKm must be a positive number');
+
+      const facilities = applyFacilityFilters(db.facilities.map((f) => ({ ...f })), {
+        type,
+        query: null,
+        lat,
+        lng,
+      }).filter((f) => radius === null || (f.distanceKm != null && f.distanceKm <= radius));
 
       const now = Date.now();
-      return applyFacilityFilters(db.facilities.map((f) => ({ ...f })), readFilters(url)).map(
+      return facilities.map(
         (facility): EligibleFacility => {
           // Only the version already in force counts — a scheduled
           // (future-dated) price is never shown as the current one.
@@ -96,6 +123,7 @@ export const facilityHandlers = [
             )
             .sort((a, b) => Date.parse(b.effectiveFrom) - Date.parse(a.effectiveFrom))[0];
 
+          if (!catalogItemCode) return { ...facility, price: null, priceOnRequest: false };
           return inForce
             ? {
                 ...facility,
