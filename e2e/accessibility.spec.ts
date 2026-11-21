@@ -6,6 +6,17 @@ import { routes } from './routes';
 type AllowEntry = { route: string; rule: string; target: string; issue: string };
 const allowlist = JSON.parse(readFileSync(new URL('./axe-allowlist.json', import.meta.url), 'utf8')) as AllowEntry[];
 
+// Record lists reflow into labelled cards below the breakpoint instead of
+// requiring a second scroll axis (WCAG 1.4.10). These are the screens whose
+// tables used to rely on `overflow-x: auto`. True analytics data grids (the
+// insights charts' companion tables) are deliberately excluded: those are
+// inherently two-dimensional and keep their horizontal scroll.
+const reflowRoutes: ReadonlyArray<{ path: string; role: 'patient' | 'doctor' | 'facility' | 'admin' }> = [
+  { path: '/admin/audit', role: 'admin' },
+  { path: '/admin/audit?tab=access', role: 'admin' },
+  { path: '/facility/payments', role: 'facility' },
+];
+
 for (const { path, role } of routes) {
   test(`${path} has no new axe violations`, async ({ page, visit }, testInfo) => {
     await visit(path, role);
@@ -82,3 +93,22 @@ test('a new notification is announced in a polite live region', async ({ page, v
   );
   await expect(page.getByRole('status').filter({ hasText: '1 new notification.' })).toHaveAttribute('aria-live', 'polite');
 });
+
+for (const { path, role } of reflowRoutes) {
+  test(`${path} has no horizontal page scroll at 320px`, async ({ page, visit }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await visit(path, role);
+
+    // Wait for the table (and therefore the reflow styling) to be present.
+    await expect(page.locator('table').first()).toBeVisible();
+
+    const widths = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(
+      widths.scroll,
+      `${path} scrolls horizontally at 320px (scrollWidth ${widths.scroll} > clientWidth ${widths.client})`,
+    ).toBeLessThanOrEqual(widths.client + 1);
+  });
+}

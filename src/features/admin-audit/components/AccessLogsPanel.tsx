@@ -54,16 +54,16 @@ export function AccessLogsPanel({ filters, pageNumber, onOlder, onNewer, onNewes
         <tbody>
           {rows.map((entry) => (
             <tr key={entry.id}>
-              <td>
+              <td data-label="When">
                 <Timestamp value={entry.createdAt} />
               </td>
-              <td>
+              <td data-label="Record viewed">
                 <EntityCell entityType={entry.entityType} entityId={entry.entityId} filters={filters} />
               </td>
-              <td>
+              <td data-label="Route">
                 <code className={styles.action}>{entry.route}</code>
               </td>
-              <td>
+              <td data-label="Viewed by">
                 <ActorCell actorUserId={entry.actorUserId} actorRole={entry.actorRole} filters={filters} />
               </td>
             </tr>
