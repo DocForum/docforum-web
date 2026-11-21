@@ -4,6 +4,11 @@
 import { QueryClient } from '@tanstack/react-query';
 import { isAbortError, RateLimitError } from './services/api-client';
 import { registerSignOutQueryClient } from './services/sign-out';
+import {
+  STALE_TIME, accountKeys, appointmentKeys, careThreadKeys, catalogKeys,
+  dependentKeys, doctorKeys, healthKeys, notificationKeys, orderKeys,
+  paymentKeys, profileKeys, queueKeys,
+} from './query-keys';
 
 const BASE_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -36,6 +41,20 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Register broad families before specific keys. Payments, availability and
+// queues remain live; reference lists stay warm between form mounts.
+for (const key of [orderKeys.all, appointmentKeys.all, queueKeys.all, paymentKeys.all]) {
+  queryClient.setQueryDefaults(key, { staleTime: STALE_TIME.live });
+}
+for (const key of [accountKeys.all, careThreadKeys.all, dependentKeys.all, healthKeys.all, profileKeys.all]) {
+  queryClient.setQueryDefaults(key, { staleTime: STALE_TIME.profile });
+}
+queryClient.setQueryDefaults(doctorKeys.all, { staleTime: STALE_TIME.profile });
+queryClient.setQueryDefaults(doctorKeys.slotsRoot, { staleTime: STALE_TIME.live });
+queryClient.setQueryDefaults(doctorKeys.specialties(), { staleTime: STALE_TIME.reference });
+queryClient.setQueryDefaults(catalogKeys.all, { staleTime: STALE_TIME.reference });
+queryClient.setQueryDefaults(notificationKeys.all, { staleTime: STALE_TIME.short });
 
 // Lets the transport's refresh-failure path clear this cache via
 // `signOut` without importing this module (issue #227).

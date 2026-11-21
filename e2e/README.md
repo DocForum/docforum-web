@@ -18,6 +18,10 @@ rendering stable.
   exact route, rule, target and a link to a tracking issue in
   `axe-allowlist.json`; do not add broad rule exclusions. The baseline is
   currently empty after fixing all findings detected at rollout.
+  When adding a route, add a concrete mock URL, role and heading to
+  `e2e/routes.ts`. For dynamic URLs, use a committed fixture id and set
+  `template` to the router pattern. The `e2e-route-coverage` unit test reads
+  the route definitions and fails if a route is missing from this list.
 - `visual.spec.ts` compares desktop and mobile screenshots. Animations and
   carets are disabled, fonts are ready before capture, and each project pins a
   theme through the same `docforum-theme` key the app reads on boot:

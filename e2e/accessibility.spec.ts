@@ -45,6 +45,19 @@ for (const { path, role } of routes) {
 // size (24×24 CSS px) and have an accessible name, at desktop and phone widths.
 const MIN_TARGET = 24;
 
+test('forced colors keeps status badges and insight bars outlined', async ({ page, visit }) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await visit('/patient', 'patient');
+  const badge = page.locator('button[aria-label^="Notifications,"] [class*="badge"]').first();
+  await expect(badge).toBeVisible();
+  expect(await badge.evaluate((element) => getComputedStyle(element).borderStyle)).not.toBe('none');
+
+  await visit('/doctor/insights', 'doctor');
+  const bar = page.locator('svg rect').first();
+  await expect(bar).toBeVisible();
+  expect(await bar.evaluate((element) => getComputedStyle(element).stroke)).not.toBe('none');
+});
+
 async function expectTarget(locator: import('@playwright/test').Locator, label: string) {
   await expect(locator, `${label} is visible`).toBeVisible();
   const box = await locator.boundingBox();

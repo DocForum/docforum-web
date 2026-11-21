@@ -18,7 +18,7 @@ export const MINUTES_PER_DAY = 1440;
 
 /** The generate endpoint is single-day, so a range costs one request per day.
  * Capping the range keeps a click from firing 90 cold-starting requests. */
-export const MAX_GENERATE_DAYS = 14;
+export const MAX_GENERATE_DAYS = 60;
 
 export const DEFAULT_WINDOW_HOURS = { start: 6, end: 20 } as const;
 
@@ -96,6 +96,22 @@ export function isoDatesBetween(from: IsoDate, to: IsoDate, maxDays = MAX_GENERA
     dates.push(addDays(from, offset));
   }
   return dates;
+}
+
+/** Weekdays use JavaScript's Sunday=0 convention. ISO dates are interpreted
+ * at UTC noon so the browser's local zone cannot move a day across midnight. */
+export function weekdayOf(date: IsoDate): number {
+  const { year, month, day } = splitIsoDate(date);
+  return new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+}
+
+export function generationDates(
+  from: IsoDate,
+  to: IsoDate,
+  weekdays: readonly number[],
+  today: IsoDate,
+): IsoDate[] {
+  return isoDatesBetween(from, to).filter((date) => date >= today && weekdays.includes(weekdayOf(date)));
 }
 
 export function startOfWeek(date: IsoDate): IsoDate {
