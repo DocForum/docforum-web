@@ -23,7 +23,7 @@ function formatDayLabel(iso: string, locale?: string): string {
 
 export function FacilityVolumeChart({ days }: FacilityVolumeChartProps) {
   const t = useT();
-  const locale = useLocaleStore((state) => state.locale);
+  const locale = useLocaleStore((state) => state.formattingLocale);
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
   const seriesLabels = {
