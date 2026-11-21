@@ -357,7 +357,7 @@ export function Layout() {
         {/* Router link, not a raw href: under the GitHub Pages base path a bare
             "/…" href leaves the app. The analytics disclosure moved to
             /privacy/analytics when /privacy became the public privacy page. */}
-        <Link to="/privacy/analytics" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+        <Link to="/privacy/analytics" className={styles.footerMutedLink}>
           {t('shell.footer.privacy', 'Privacy & analytics')}
         </Link>
       </footer>
