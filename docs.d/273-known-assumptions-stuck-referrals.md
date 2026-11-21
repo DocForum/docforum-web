@@ -1,3 +1,7 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
 ### Stuck referrals console against `/referrals/admin/*` (issue #273)
 
 - **Queue list:** `GET /referrals/admin/queue?olderThan=<24h|48h|72h|168h>` — returns `{items: StuckReferral[], nextCursor}` oldest first. The `olderThan` parameter is the only server-side filter; the UI's 1/2/3/7-day thresholds map to the durational values `24h`, `48h`, `72h`, `168h`. A `reason` filter is applied client-side over the loaded pages, since docforum-core#68 does not expose a server-side `reason` query parameter (unknown params return `400`).
