@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
-import { Spinner } from '../../../components/Spinner';
+import { PageError } from '../../../components/states/PageError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import type { OrderItemFulfillment, OrderPaymentSummary, PatientOrder } from '../../../types/models';
 import { ITEM_STATUS_LABELS } from '../../fulfillment/status';
 import { useOrder } from '../hooks/useOrders';
@@ -112,7 +113,8 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
 }
 
 export function PatientOrderDetail({ orderId }: { orderId: string }) {
-  const { data: order, isLoading, error } = useOrder(orderId);
+  const orderQuery = useOrder(orderId);
+  const { data: order, isLoading, error } = orderQuery;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -130,23 +132,22 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
 
   if (isLoading) {
     return (
-      <div className={styles.loading} role="status">
-        <Spinner />
-        <span>Loading order…</span>
-      </div>
+      <section className={styles.page}>
+        <Skeleton lines={6} height="2rem" label="Loading order" />
+      </section>
     );
   }
 
   if (error || !order) {
     return (
-      <div className={styles.page}>
-        <p className={styles.error} role="alert">
-          {error instanceof Error ? error.message : 'Order not found.'}
-        </p>
-        <Link to="/patient/orders" className={styles.backLink}>
-          Back to my orders
-        </Link>
-      </div>
+      <section className={styles.page}>
+        <PageError
+          title="Order not found"
+          message={error instanceof Error ? error.message : 'Order not found.'}
+          onRetry={() => void orderQuery.refetch()}
+          fallback={{ label: 'Back to my orders', to: '/patient/orders' }}
+        />
+      </section>
     );
   }
 

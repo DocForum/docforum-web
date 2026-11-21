@@ -3,12 +3,12 @@ import { formatSpecialtyList } from './specialty-list';
 
 describe('formatSpecialtyList', () => {
   it('handles 0, 1, 2 and 3+ names', () => {
-    expect(formatSpecialtyList([])).toBe('');
-    expect(formatSpecialtyList(['Dermatology'])).toBe('Dermatology');
-    expect(formatSpecialtyList(['Dermatology', 'Allergy & immunology'])).toBe(
+    expect(formatSpecialtyList([], 'and')).toBe('');
+    expect(formatSpecialtyList(['Dermatology'], 'and')).toBe('Dermatology');
+    expect(formatSpecialtyList(['Dermatology', 'Allergy & immunology'], 'and')).toBe(
       'Dermatology and Allergy & immunology',
     );
-    expect(formatSpecialtyList(['Cardiology', 'General practice', 'Paediatrics'])).toBe(
+    expect(formatSpecialtyList(['Cardiology', 'General practice', 'Paediatrics'], 'and')).toBe(
       'Cardiology, General practice and Paediatrics',
     );
   });

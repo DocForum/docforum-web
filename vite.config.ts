@@ -1,6 +1,7 @@
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
 // domain root — base must match or every asset URL 404s. Only applied for
@@ -69,18 +70,58 @@ function cspPlugin(isProd: boolean): Plugin {
   };
 }
 
+/**
+ * Preload the landing page's route chunk (issue #99). Every route is a lazy
+ * chunk now, and `/` is where most visitors arrive — preloading its small
+ * chunk (and CSS) lets the browser fetch it in parallel with the entry
+ * instead of after it. Other routes' chunks are fetched on demand.
+ */
+function preloadLandingChunkPlugin(base: string): Plugin {
+  return {
+    name: 'docforum-preload-landing-chunk',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        if (!ctx.bundle) return html;
+        const landing = Object.values(ctx.bundle).find(
+          (chunk) => chunk.type === 'chunk' && chunk.facadeModuleId?.endsWith('/src/pages/HomePage.tsx'),
+        );
+        if (!landing || landing.type !== 'chunk') return html;
+        const css = [...(landing.viteMetadata?.importedCss ?? [])];
+        const tags = [
+          `<link rel="modulepreload" crossorigin href="${base}${landing.fileName}">`,
+          ...css.map((file) => `<link rel="preload" as="style" href="${base}${file}">`),
+        ];
+        return html.replace('</head>', `    ${tags.join('\n    ')}\n  </head>`);
+      },
+    },
+  };
+}
+
 export default defineConfig(({ command }) => {
   const isProd = command === 'build';
+  const base = process.env.VITE_BASE_PATH ?? (process.env.GITHUB_PAGES ? '/docforum-web/' : '/');
   return {
     // `VITE_BASE_PATH` lets a static host serve the app from a subpath without
     // touching the main Pages build. Everything else keeps the GitHub Pages /
     // root behaviour.
-    base:
-      process.env.VITE_BASE_PATH ??
-      (process.env.GITHUB_PAGES ? '/docforum-web/' : '/'),
+    base,
     plugins: [
       react(),
       cspPlugin(isProd),
+      preloadLandingChunkPlugin(base),
+      // Bundle composition report (issue #99): `npm run analyze` writes a
+      // treemap to bundle-stats/bundle-stats.html (git-ignored, outside
+      // dist/, so it can never ship). CI uploads it as an artifact on every
+      // PR. Off for normal builds.
+      process.env.ANALYZE === 'true' &&
+        visualizer({
+          filename: 'bundle-stats/bundle-stats.html',
+          template: 'treemap',
+          gzipSize: true,
+          brotliSize: false,
+        }),
       VitePWA({
         // injectManifest (not generateSW) so the caching policy is real,
         // reviewable source: src/pwa/sw.ts. Only the app shell + hashed static
@@ -102,7 +143,9 @@ export default defineConfig(({ command }) => {
           theme_color: '#1f4d3a',
           background_color: '#faf6f0',
           display: 'standalone',
-          orientation: 'portrait',
+          // WCAG 1.3.4: the installed app must follow the device orientation.
+          // Tablet/phone mounts are often landscape, so no portrait lock.
+          orientation: 'any',
           // Relative URLs resolve against the manifest's own location, which is
           // what makes the same manifest work at / and at /docforum-web/.
           start_url: '.',

@@ -21,6 +21,7 @@ import {
   accountKeys,
   catalogKeys,
   appointmentKeys,
+  doctorKeys,
   auditKeys,
   dependentKeys,
   facilityKeys,
@@ -84,6 +85,9 @@ export const invalidations = {
   'account.data-export': () => [accountKeys.dataExport()],
   /** Confirm receipt or report problem: the order detail and the patient's order list. */
   'order.confirm-action': (orderId: string) => [orderKeys.detail(orderId), orderKeys.mine()],
+  /** A confirmed booking changes the patient's list and makes the chosen
+   * slot disappear from every availability view. */
+  'appointments.book': () => [appointmentKeys.all, doctorKeys.slotsRoot],
 };
 
 export type InvalidationKey = keyof typeof invalidations;

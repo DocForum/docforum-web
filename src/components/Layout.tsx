@@ -20,6 +20,7 @@ import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
+import { pageTitleForPath } from '../navigation/breadcrumbs';
 import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
@@ -33,32 +34,6 @@ import { patientNavItems } from '../navigation/patient';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
 type Role = 'patient' | 'doctor' | 'facility' | 'admin';
-
-/** Derive a human-readable page title from the current route path. */
-function routeTitle(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Home';
-
-  const last = segments[segments.length - 1];
-  const label = last
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/Id\b/g, 'ID')
-    .replace(/Url\b/g, 'URL');
-
-  const roleRoots: Record<string, string> = {
-    patient: 'Patient',
-    doctor: 'Doctor',
-    facility: 'Facility',
-    admin: 'Admin',
-  };
-
-  if (segments.length === 1 && roleRoots[last]) return `${roleRoots[last]} dashboard`;
-  if (segments.length >= 2 && roleRoots[segments[0]]) {
-    return `${roleRoots[segments[0]]} · ${label}`;
-  }
-  return label;
-}
 
 /**
  * Role-aware navigation entries, one file per role in src/navigation/. Items
@@ -93,7 +68,15 @@ export function Layout() {
   const isFirstRender = useRef(true);
 
   const items = useMemo(() => roleNavItems(user?.role ?? null), [user?.role]);
+  // Secondary entries (payments, settings) sit behind a divider so the
+  // primary workflow stays on one line at 1280px. The drawer stays flat.
+  const primaryItems = items.filter((item) => item.group !== 'secondary');
+  const secondaryItems = items.filter((item) => item.group === 'secondary');
   const isPublicContent = PUBLIC_PAGES.some((page) => page.path === location.pathname);
+  const pageTitle = useMemo(() => {
+    const meta = pageTitleForPath(location.pathname);
+    return meta.messageId ? t(meta.messageId, meta.label) : meta.label;
+  }, [location.pathname, t]);
 
   // Close the drawer on route change.
   useEffect(() => {
@@ -149,7 +132,7 @@ export function Layout() {
     <div className={styles.shell}>
       {/* Skip to content for keyboard users */}
       <a href="#main-content" className={styles.skipLink}>
-        Skip to content
+        {t('shell.skipLink', 'Skip to content')}
       </a>
 
       <OfflineBanner />
@@ -163,21 +146,21 @@ export function Layout() {
             className={styles.menuToggle}
             aria-expanded={drawerOpen}
             aria-controls="mobile-drawer"
-            aria-label="Toggle navigation menu"
+            aria-label={t('shell.menuToggle', 'Toggle navigation menu')}
             onClick={() => setDrawerOpen((open) => !open)}
           >
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
           </button>
-          <Link to="/" className={styles.brand} aria-label="DocForum home">
+          <Link to="/" className={styles.brand} aria-label={t('shell.brandAria', 'DocForum home')}>
             <Logo size={24} />
             <span>DocForum</span>
           </Link>
         </div>
 
-        <nav className={styles.desktopNav} role="navigation" aria-label="Main">
-          {items.map((item) => (
+        <nav className={styles.desktopNav} role="navigation" aria-label={t('shell.nav.main', 'Main')}>
+          {primaryItems.map((item) => (
             <RRNavLink
               key={item.to}
               to={item.to}
@@ -188,10 +171,30 @@ export function Layout() {
             >
               {item.messageId ? t(item.messageId, item.label) : item.label}
               {item.badge != null && item.badge > 0 && (
-                <span className={styles.badge} aria-label={`${item.label}, ${item.badge} new`}>
+                <span
+                  className={styles.badge}
+                  aria-label={t('shell.nav.badge', '{label}, {count} new', {
+                    label: item.messageId ? t(item.messageId, item.label) : item.label,
+                    count: item.badge,
+                  })}
+                >
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
+            </RRNavLink>
+          ))}
+          {secondaryItems.length > 0 && (
+            <span className={styles.navGroupDivider} aria-hidden="true" />
+          )}
+          {secondaryItems.map((item) => (
+            <RRNavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+              }
+            >
+              {item.messageId ? t(item.messageId, item.label) : item.label}
             </RRNavLink>
           ))}
           {user && (
@@ -202,7 +205,7 @@ export function Layout() {
                   styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
                 }
               >
-                Notifications
+                {t('shell.nav.notifications', 'Notifications')}
               </RRNavLink>
             </Flag>
           )}
@@ -239,7 +242,7 @@ export function Layout() {
         id="mobile-drawer"
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
         role="navigation"
-        aria-label="Mobile navigation"
+        aria-label={t('shell.drawer.aria', 'Mobile navigation')}
         aria-modal={drawerOpen}
         aria-hidden={!drawerOpen}
       >
@@ -248,10 +251,22 @@ export function Layout() {
           <span className={styles.drawerTitle}>DocForum</span>
           <button
             className={styles.drawerClose}
-            aria-label="Close navigation menu"
+            aria-label={t('shell.drawer.close', 'Close navigation menu')}
             onClick={closeDrawer}
           >
-            ✕
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         {user ? (
@@ -280,15 +295,15 @@ export function Layout() {
                   }
                   onClick={closeDrawer}
                 >
-                  Notifications
+                  {t('shell.nav.notifications', 'Notifications')}
                 </RRNavLink>
               </Flag>
             </nav>
             <div className={styles.drawerUser}>
               <span className={styles.drawerEmail}>{user.email}</span>
-              <span className={styles.roleBadge} data-role={user.role}>{user.role}</span>
+              <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} fullWidth>
-                {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
               </Button>
             </div>
           </>
@@ -328,7 +343,7 @@ export function Layout() {
       >
         {/* Public information pages (#120) render their own <header>/<h1>;
             the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={routeTitle(location.pathname)} />}
+        {isPublicContent ? null : <PageHeader title={pageTitle} />}
         <ErrorBoundary key={location.pathname} level="route">
           <Outlet context={{}} />
         </ErrorBoundary>
@@ -343,7 +358,7 @@ export function Layout() {
             "/…" href leaves the app. The analytics disclosure moved to
             /privacy/analytics when /privacy became the public privacy page. */}
         <Link to="/privacy/analytics" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-          Privacy &amp; analytics
+          {t('shell.footer.privacy', 'Privacy & analytics')}
         </Link>
       </footer>
     </div>
