@@ -8,7 +8,7 @@ const screens: ReadonlyArray<{ name: string; path: string; role: Role; ready: st
   { name: 'doctor-dashboard', path: '/doctor', role: 'doctor', ready: 'Quinn Example' },
   { name: 'consultation', path: '/doctor/consultation/apt-demo-2', role: 'doctor', ready: 'Consultation note' },
   { name: 'facility-dashboard', path: '/facility', role: 'facility', ready: 'Demo Amoxicillin 500mg (fake)' },
-  { name: 'admin-payments', path: '/admin', role: 'admin', ready: 'Create payment intent' },
+  { name: 'admin-payments', path: '/admin/payments/console', role: 'admin', ready: 'Create payment intent' },
 ];
 
 // Mock fixtures carry absolute dates, so a screenshot taken "now" drifts as

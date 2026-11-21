@@ -15,7 +15,15 @@
 //   POST /appointments/:id/reschedule                        (assumed, core#55)
 //   GET  /doctors/:doctorProfileId                           (assumed, core#23)
 import { apiFetch } from './api-client';
-import type { AppointmentQueue, AvailabilitySlot, DoctorProfile, PatientAppointment } from '../types/models';
+import type {
+  CancellationPolicy,
+  CancelAppointmentInput,
+  CancelledAppointment,
+  AppointmentQueue,
+  AvailabilitySlot,
+  DoctorProfile,
+  PatientAppointment,
+} from '../types/models';
 
 export function listMyAppointments(accessToken: string, signal?: AbortSignal): Promise<PatientAppointment[]> {
   return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken, signal });
@@ -59,6 +67,36 @@ export function rescheduleAppointment(
   return apiFetch<PatientAppointment>(`/appointments/${appointmentId}/reschedule`, {
     method: 'POST',
     body: { newSlotId },
+    accessToken,
+  });
+}
+
+/** ASSUMED (docforum-core#56 — cancellation policy). The policy is per
+ * appointment, so the cutoff and slot-release values the dialog quotes are the
+ * ones the backend will enforce, not a hard-coded constant here. */
+export function getCancellationPolicy(
+  appointmentId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<CancellationPolicy> {
+  return apiFetch<CancellationPolicy>(`/appointments/${appointmentId}/cancellation-policy`, {
+    accessToken,
+    signal,
+  });
+}
+
+/** ASSUMED (docforum-core#56). Cancels the patient's own appointment.
+ *   200/201 → the cancelled appointment, including what the backend decided
+ *   409     → the appointment changed since it was loaded (`expectedUpdatedAt`)
+ *   422     → the backend rejected the cancellation under its policy */
+export function cancelAppointment(
+  appointmentId: string,
+  input: CancelAppointmentInput,
+  accessToken: string,
+): Promise<CancelledAppointment> {
+  return apiFetch<CancelledAppointment>(`/appointments/${appointmentId}/cancel`, {
+    method: 'POST',
+    body: input,
     accessToken,
   });
 }
