@@ -54,6 +54,8 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/payments');
     expect(desktopNavHrefs()).toEqual([
       '/patient/search',
+      '/patient/doctors',
+      '/patient/appointments',
       '/care',
       '/patient/dependents',
       '/patient/health',

@@ -36,6 +36,21 @@ export function DoctorDashboardPage() {
         case 'open-help':
           setHelpOpen(true);
           break;
+        case 'next-patient':
+          // TODO: navigate to next patient in queue
+          // For now, just open the palette as placeholder
+          setPaletteOpen(true);
+          break;
+        case 'open-chart':
+          // TODO: open patient chart
+          // For now, just open the palette as placeholder
+          setPaletteOpen(true);
+          break;
+        case 'sign-note':
+          // TODO: sign the current note
+          // For now, just open the palette as placeholder
+          setPaletteOpen(true);
+          break;
         default:
           break;
       }
@@ -50,6 +65,7 @@ export function DoctorDashboardPage() {
       shortcut: 'mod+1',
       run: () => {
         setPaletteOpen(false);
+        navigate('/doctor/messages');
       },
     },
     {
@@ -59,6 +75,7 @@ export function DoctorDashboardPage() {
       shortcut: 'mod+2',
       run: () => {
         setPaletteOpen(false);
+        navigate('/doctor/messages');
       },
     },
     {

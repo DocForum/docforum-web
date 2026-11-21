@@ -15,10 +15,46 @@
 //   POST /appointments/:id/reschedule                        (assumed, core#55)
 //   GET  /doctors/:doctorProfileId                           (assumed, core#23)
 import { apiFetch } from './api-client';
-import type { AppointmentQueue, AvailabilitySlot, DoctorProfile, PatientAppointment } from '../types/models';
+import type {
+  AppointmentQueue,
+  AvailabilitySlot,
+  BookAppointmentInput,
+  BookedAppointment,
+  CreateIntakeInput,
+  DoctorProfile,
+  IntakeRecord,
+  PatientAppointment,
+} from '../types/models';
 
 export function listMyAppointments(accessToken: string, signal?: AbortSignal): Promise<PatientAppointment[]> {
   return apiFetch<PatientAppointment[]>('/appointments/mine', { accessToken, signal });
+}
+
+/** REAL (Phase 1 intake module): creates a structured intake record for the
+ * caller's own patient profile. Must happen before the booking is confirmed
+ * (PRD FR-5); the two writes are separate calls because core's
+ * `POST /appointments` does not accept an intake id yet. */
+export function createIntake(
+  input: CreateIntakeInput,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<IntakeRecord> {
+  return apiFetch<IntakeRecord>('/intake', { method: 'POST', body: input, accessToken, signal });
+}
+
+/** REAL, concurrency-critical booking write. `409` means the slot stopped
+ * being open between the read and this call — the caller must say that
+ * explicitly and let the patient pick another time, never treat it as a
+ * generic failure. */
+export function bookAppointment(
+  input: BookAppointmentInput,
+  accessToken: string,
+): Promise<BookedAppointment> {
+  return apiFetch<BookedAppointment>('/appointments', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
 }
 
 /** assumed (core#129) */
@@ -33,8 +69,8 @@ export function checkIn(appointmentId: string, accessToken: string): Promise<App
 
 /** The same doctor's open, future slots, ascending. Public by design — the
  * backend deliberately requires no auth for availability. */
-export function getOpenSlots(doctorProfileId: string): Promise<AvailabilitySlot[]> {
-  return apiFetch<AvailabilitySlot[]>(`/availability/doctors/${doctorProfileId}/slots`);
+export function getOpenSlots(doctorProfileId: string, signal?: AbortSignal): Promise<AvailabilitySlot[]> {
+  return apiFetch<AvailabilitySlot[]>(`/availability/doctors/${doctorProfileId}/slots`, { signal });
 }
 
 /** ASSUMED: docforum-core has no public clinician read yet (its #23), so
