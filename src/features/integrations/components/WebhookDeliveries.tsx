@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
 import { Spinner } from '../../../components/Spinner';
 import { Button } from '../../../components/Button';
 import { useWebhookDeliveries, useRedeliverWebhook } from '../hooks/useIntegrations';
+import { useT } from '../../../i18n/useT';
+import { webhookEventDescription } from '../webhook-events';
 import type { WebhookDelivery, WebhookDeliveryStatus } from '../../../types/models';
 import styles from './Integrations.module.css';
 
@@ -31,6 +34,7 @@ export const DEFAULT_MOCK_DELIVERIES: WebhookDelivery[] = [
 ];
 
 function StatusPill({ status }: { status: WebhookDeliveryStatus }) {
+  const t = useT();
   const className =
     status === 'success'
       ? styles.statusSuccess
@@ -38,7 +42,14 @@ function StatusPill({ status }: { status: WebhookDeliveryStatus }) {
         ? styles.statusFailed
         : styles.statusPending;
 
-  return <span className={`${styles.statusPill} ${className}`}>{status}</span>;
+  const label =
+    status === 'success'
+      ? t('integrations.delivery.statusSuccess', 'success')
+      : status === 'failed'
+        ? t('integrations.delivery.statusFailed', 'failed')
+        : t('integrations.delivery.statusPending', 'pending');
+
+  return <span className={`${styles.statusPill} ${className}`}>{label}</span>;
 }
 
 interface WebhookDeliveriesProps {
@@ -47,6 +58,8 @@ interface WebhookDeliveriesProps {
 }
 
 export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesProps) {
+  const t = useT();
+  const { locale } = useIntl();
   const { data: deliveriesData, isLoading } = useWebhookDeliveries(facilityId, endpointId);
   const redeliverMutation = useRedeliverWebhook(facilityId);
 
@@ -67,7 +80,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
   if (deliveries.length === 0) {
     return (
       <div className={styles.emptyState} style={{ padding: 'var(--space-4)' }}>
-        No deliveries yet. Send a test event to see delivery history.
+        {t('integrations.delivery.empty', 'No deliveries yet. Send a test event to see delivery history.')}
       </div>
     );
   }
@@ -75,25 +88,25 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
   return (
     <div>
       <div className={styles.deliveriesHeader}>
-        <h3>Recent deliveries</h3>
+        <h3>{t('integrations.delivery.recent', 'Recent deliveries')}</h3>
       </div>
       <div className={styles.tableWrapper}>
         <table className={styles.dataTable}>
           <thead>
             <tr>
-              <th>Event</th>
-              <th>Status</th>
-              <th>Response</th>
-              <th>Attempts</th>
-              <th>Delivered</th>
-              <th>Actions</th>
+              <th>{t('integrations.delivery.colEvent', 'Event')}</th>
+              <th>{t('integrations.delivery.colStatus', 'Status')}</th>
+              <th>{t('integrations.delivery.colResponse', 'Response')}</th>
+              <th>{t('integrations.delivery.colAttempts', 'Attempts')}</th>
+              <th>{t('integrations.delivery.colDelivered', 'Delivered')}</th>
+              <th aria-label={t('integrations.common.actions', 'Actions')} />
             </tr>
           </thead>
           <tbody>
             {deliveries.map((delivery) => (
               <tr key={delivery.id}>
                 <td>
-                  <code style={{ fontSize: 'var(--text-xs)' }}>{delivery.event}</code>
+                  <code style={{ fontSize: 'var(--text-xs)' }} title={webhookEventDescription(t, delivery.event)}>{delivery.event}</code>
                 </td>
                 <td>
                   <StatusPill status={delivery.status} />
@@ -111,7 +124,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
                 <td>{delivery.attemptCount}</td>
                 <td>
                   {delivery.deliveredAt
-                    ? new Date(delivery.deliveredAt).toLocaleTimeString()
+                    ? new Date(delivery.deliveredAt).toLocaleTimeString(locale)
                     : '—'}
                 </td>
                 <td className={styles.actionCell}>
@@ -124,7 +137,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
                         redeliverMutation.variables?.deliveryId === delivery.id
                       }
                     >
-                      Redeliver
+                      {t('integrations.delivery.redeliver', 'Redeliver')}
                     </Button>
                   )}
                 </td>

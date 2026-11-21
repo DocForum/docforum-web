@@ -11,6 +11,10 @@
 
 .select {
   appearance: none;
+  /* Target size (WCAG 2.5.8): the bare select was ~27px tall; match the
+     36px header controls. */
+  min-height: 36px;
+  min-width: 36px;
   border: 1px solid transparent;
   background: transparent;
   padding: 0.25rem 0.25rem;

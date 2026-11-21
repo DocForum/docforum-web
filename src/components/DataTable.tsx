@@ -102,6 +102,7 @@ export function DataTable<T>({
 
   const colCount = columns.length;
   const count = totalLoaded ?? rows.length;
+  const sortableColumns = columns.filter((col) => col.sortable);
 
   return (
     <div className={styles.root}>
@@ -155,6 +156,38 @@ export function DataTable<T>({
           {sort ? `Sorted by ${sort.key} ${sort.direction === 'asc' ? 'ascending' : 'descending'}` : 'Not sorted'}
         </span>
       </div>
+
+      {/*
+       * At narrow widths the table head is hidden (each cell carries its own
+       * label instead), so sorting needs a separate, visible control. This is
+       * display:none on wide screens; only one set of sort buttons is ever
+       * exposed to assistive tech at a given breakpoint.
+       */}
+      {sortableColumns.length > 0 && (
+        <div className={styles.stackedSortBar} role="group" aria-label={`${caption} sort options`}>
+          <span className={styles.stackedSortLabel}>Sort by</span>
+          {sortableColumns.map((col) => {
+            const sortKey = col.sortKey ?? col.key;
+            const isSorted = sort?.key === sortKey;
+            return (
+              <button
+                key={col.key}
+                type="button"
+                className={`${styles.sortButton} ${isSorted ? styles.stackedSortActive : ''}`}
+                onClick={() => handleSort(col)}
+                aria-label={`${col.header}. Activate to sort ${
+                  isSorted ? (sort.direction === 'asc' ? 'descending' : 'ascending') : 'ascending'
+                }`}
+              >
+                {col.header}
+                <span className={styles.sortIcon} aria-hidden="true">
+                  {isSorted ? (sort.direction === 'asc' ? '\u2191' : '\u2193') : '\u2195'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className={styles.tableWrapper} aria-busy={isLoading}>
         <table className={styles.table}>

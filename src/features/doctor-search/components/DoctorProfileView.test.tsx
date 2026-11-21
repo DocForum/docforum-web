@@ -1,0 +1,71 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { Route, Routes } from 'react-router-dom';
+import { render, screen } from '../../../test/render';
+import { DoctorProfileView } from './DoctorProfileView';
+import * as directoryService from '../../../services/doctor-directory-service';
+import * as appointmentsService from '../../../services/appointments-service';
+import type { AvailabilitySlot, PublicDoctor } from '../../../types/models';
+
+vi.mock('../../../services/doctor-directory-service');
+vi.mock('../../../services/appointments-service');
+
+const SPECIALTY = { id: 'spc-derm', name: 'Dermatology', slug: 'dermatology' };
+
+const DOCTOR: PublicDoctor = {
+  id: 'doc-1',
+  fullName: 'Dr. Ada Example',
+  specialties: [SPECIALTY],
+  timeZone: 'Europe/London',
+};
+
+const SLOT: AvailabilitySlot = {
+  id: 'slot-1',
+  doctorProfileId: 'doc-1',
+  status: 'open',
+  startTime: '2026-11-24T09:00:00.000Z',
+  endTime: '2026-11-24T09:30:00.000Z',
+  createdAt: '2026-11-01T00:00:00.000Z',
+  updatedAt: '2026-11-01T00:00:00.000Z',
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  window.localStorage.setItem('docforum-time-zone', 'UTC');
+  vi.mocked(directoryService.getPublicDoctor).mockResolvedValue(DOCTOR);
+  vi.mocked(appointmentsService.getOpenSlots).mockResolvedValue([SLOT]);
+});
+
+function renderProfile() {
+  return render(
+    <Routes>
+      <Route path="/doctors/:doctorId" element={<DoctorProfileView doctorId="doc-1" />} />
+      <Route path="/patient/book" element={<p>Booking page</p>} />
+    </Routes>,
+    { role: 'patient', route: '/doctors/doc-1' },
+  );
+}
+
+describe('DoctorProfileView', () => {
+  it('shows the doctor name, verified specialties and both zones when different', async () => {
+    renderProfile();
+
+    expect(await screen.findByRole('heading', { name: 'Dr. Ada Example' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /Verified specialties/i })).toHaveTextContent('Dermatology');
+    expect(screen.getByText(/Times are shown in your time zone/i)).toHaveTextContent('UTC');
+    expect(screen.getByText(/local time:/i)).toHaveTextContent('Europe/London');
+  });
+
+  it('hands a selected slot off to the booking flow with the slot preselected', async () => {
+    const user = userEvent.setup();
+    renderProfile();
+
+    await user.click(await screen.findByRole('button', { name: /Next week/i }));
+    const slotButton = await screen.findByRole('button', {
+      name: /Book Tuesday 24 November at 09:00-09:30/i,
+    });
+    await user.click(slotButton);
+
+    expect(await screen.findByText('Booking page')).toBeInTheDocument();
+  });
+});
