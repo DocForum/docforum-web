@@ -7,7 +7,7 @@
 // request that could carry user data is left to the network untouched.
 
 /** Paths that must always go straight to the network, even same-origin. */
-const USER_DATA_PATH_PREFIXES = ['/api/', '/account/', '/auth/'];
+const USER_DATA_PATH_PREFIXES = ['/api/', '/account/', '/auth/', '/patients/'];
 
 /**
  * True when a request must bypass the service worker's cache entirely.

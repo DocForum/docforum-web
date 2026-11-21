@@ -17,6 +17,11 @@
       integrity="sha256-kN0VAlFkIqKbljQY9Fi1hLjy4D8LL2mpkM+aIHTzIJg="
       crossorigin
     />
+    <!-- Preload the two faces used above the fold (issue #99): body text
+         (IBM Plex Sans 400) and headings (Fraunces 600). The rest load on
+         demand via fonts.css; font-display: swap keeps text visible. -->
+    <link rel="preload" href="/fonts/ibmplexsans-400.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/fonts/fraunces-600.ttf" as="font" type="font/ttf" crossorigin />
     <!-- Pre-hydration loading shell, styled by an external same-origin sheet -->
     <link rel="stylesheet" href="/loading-shell.css" />
     <!-- Connect to the API origin early in production. -->

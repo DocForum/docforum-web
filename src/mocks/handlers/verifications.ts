@@ -144,4 +144,29 @@ export const verificationHandlers = [
       return { items: events.slice(0, limit), nextCursor: null };
     }),
   ),
+
+  // PHI access logs (#71 / docforum-core#45). The real endpoint is not
+  // available yet, so the mock derives log-shaped rows from the seeded audit
+  // events — ids and codes only, never personal data. This lets the reflow
+  // checks exercise the real access-log table in dev:mock and e2e.
+  http.get(
+    '*/admin/access-logs',
+    respond('json', ({ request }) => {
+      const url = new URL(request.url);
+      const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? '50') || 50));
+      const items = [...db.auditEvents]
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, limit)
+        .map((entry) => ({
+          id: `access-${entry.id}`,
+          createdAt: entry.createdAt,
+          entityType: entry.entityType,
+          entityId: entry.entityId,
+          route: `/${entry.entityType.toLowerCase()}s/${entry.entityId}`,
+          actorUserId: entry.actorUserId,
+          actorRole: entry.actorRole,
+        }));
+      return { items, nextCursor: null };
+    }),
+  ),
 ];

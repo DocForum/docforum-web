@@ -1,19 +1,18 @@
-import { Route, Routes } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { I18nProvider } from './i18n/I18nProvider';
 import { HashRedirectShim } from './components/HashRedirectShim';
+import { ToastRegion } from './components/Toast';
 import { useAnalyticsPageview } from './hooks/useAnalyticsPageview';
-import { Layout } from './components/Layout';
-import { NotFoundPage } from './pages/NotFoundPage';
 import { UpdatePromptContainer } from './pwa/UpdatePromptContainer';
-import { adminRoutes } from './routes/admin';
-import { doctorRoutes } from './routes/doctor';
-import { facilityRoutes } from './routes/facility';
-import { patientRoutes } from './routes/patient';
-import { publicRoutes } from './routes/public';
 
 const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
 
+/**
+ * The root route's element (issue #112): app-wide providers and chrome that
+ * need router context. The route table itself lives in `src/routes/` and is
+ * mounted by a data router in `src/main.tsx`.
+ */
 export default function App() {
   useAnalyticsPageview();
 
@@ -22,18 +21,10 @@ export default function App() {
       <ErrorBoundary level="app">
         <>
           {!useHashRouter && <HashRedirectShim />}
-          <Routes>
-      <Route element={<Layout />}>
-        {/* One file per area in src/routes/. */}
-        {publicRoutes}
-        {patientRoutes}
-        {doctorRoutes}
-        {facilityRoutes}
-        {adminRoutes}
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-          </Routes>
+          <Outlet />
           <UpdatePromptContainer />
+          {/* Toasts for background mutation results (issue #113). */}
+          <ToastRegion />
         </>
       </ErrorBoundary>
     </I18nProvider>

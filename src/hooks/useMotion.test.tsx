@@ -55,6 +55,25 @@ describe('useMotion', () => {
     expect(setup).not.toHaveBeenCalled();
   });
 
+  it('never loads GSAP when the OS asks for reduced motion (issue #99)', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      render(<MotionProbe setup={vi.fn()} />);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      // gsap.matchMedia()/context() run only after the dynamic import.
+      expect(mocks.matchMedia).not.toHaveBeenCalled();
+      expect(mocks.context).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('reverts the scoped animation and setup cleanup on unmount', async () => {
     mocks.noPreference = true;
     const cleanup = vi.fn();

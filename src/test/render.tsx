@@ -24,6 +24,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
+import { useToastStore } from '../store/toast-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
 import { useIntakeDraftStore } from '../store/intake-draft-store';
 import { useMessageDraftStore } from '../store/message-draft-store';
@@ -66,6 +67,7 @@ export function resetTestStores(): void {
   useAuthStore.setState({ user: null, accessToken: null, signOutReason: null });
   useProfileStore.setState({ profiles: [], selectedProfileId: null });
   useUnsavedChangesStore.setState({ count: 0 });
+  useToastStore.setState({ toasts: [] });
   useIntakeDraftStore.setState({ drafts: {} });
   useMessageDraftStore.setState({ drafts: {} });
 }

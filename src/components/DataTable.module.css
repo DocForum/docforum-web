@@ -55,16 +55,48 @@
 
 .sortHint {
   font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+/* Only rendered at the stacked breakpoint; hidden on wide screens so the
+   table head's sort buttons are the single exposed control set. */
+.stackedSortBar {
+  display: none;
+}
+
+.stackedSortLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.stackedSortActive {
+  text-decoration: underline;
 }
 
 .tableWrapper {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .table {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   font-size: var(--text-sm);
+}
+
+/* Long ids, URLs and codes must wrap rather than widen the page (WCAG 1.4.10). */
+.table th,
+.table td {
+  overflow-wrap: anywhere;
+}
+
+.table code,
+.table pre {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .table th,
@@ -148,8 +180,36 @@
   color: var(--color-text-muted);
 }
 
-/* Responsive card layout under 600px */
+/* Stacked, labelled layout under 600px. Each record becomes a card and each
+   cell shows its column header as a label, so no row needs horizontal
+   scrolling at 320 CSS px / 400% zoom (WCAG 1.4.10 Reflow). */
 @media (max-width: 599px) {
+  .statusBar,
+  .pagination {
+    flex-wrap: wrap;
+  }
+
+  /* The table head is hidden, so expose its sort actions here instead. */
+  .stackedSortBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-alt);
+  }
+
+  .stackedSortBar .sortButton {
+    min-height: 2.75rem;
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .tableWrapper {
+    overflow-x: visible;
+  }
+
   .table thead {
     display: none;
   }
@@ -160,6 +220,7 @@
   .table td {
     display: block;
     width: 100%;
+    max-width: 100%;
   }
 
   .table tr {
@@ -173,9 +234,11 @@
     border: none;
     padding: var(--space-1) 0;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: var(--space-3);
+    gap: var(--space-1) var(--space-3);
     text-align: right;
+    min-width: 0;
   }
 
   .table td::before {
@@ -183,7 +246,14 @@
     font-weight: 600;
     color: var(--color-text-muted);
     text-align: left;
-    flex-shrink: 0;
+    flex: 1 1 8rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .table td > * {
+    flex: 1 1 10rem;
+    min-width: 0;
   }
 
   .emptyCell,
@@ -196,5 +266,19 @@
   .errorCell::before,
   .spinnerCell::before {
     display: none;
+  }
+}
+
+/* At the narrowest widths put the label above the value rather than beside
+   it, so even long headers and long values cannot form a two-column row. */
+@media (max-width: 480px) {
+  .table td {
+    display: block;
+    text-align: left;
+  }
+
+  .table td::before {
+    display: block;
+    margin-bottom: 2px;
   }
 }

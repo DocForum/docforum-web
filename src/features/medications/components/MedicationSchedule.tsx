@@ -1,6 +1,8 @@
-import { Spinner } from '../../../components/Spinner';
-import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import { ApiError } from '../../../services/api-client';
 import { useMedicationSchedule } from '../hooks/useMedicationSchedule';
 import { buildIcs, downloadIcs } from '../ics';
@@ -8,8 +10,9 @@ import type { MedicationSchedule as Schedule, ScheduleDay } from '../schedule';
 import styles from './MedicationSchedule.module.css';
 
 function DoseList({ day }: { day: ScheduleDay }) {
+  const t = useT();
   if (day.entries.length === 0) {
-    return <p className={styles.noDoses}>No doses scheduled.</p>;
+    return <p className={styles.noDoses}>{t('meds.noDoses', 'No doses scheduled.')}</p>;
   }
   return (
     <ol className={styles.doseList}>
@@ -29,42 +32,75 @@ function hasScheduledDoses(schedule: Schedule): boolean {
 }
 
 export function MedicationSchedule() {
-  const { data: prescriptions, isLoading, error, schedule } = useMedicationSchedule();
+  const t = useT();
+  const scheduleQuery = useMedicationSchedule();
+  const { data: prescriptions, isLoading, error, schedule } = scheduleQuery;
 
   if (isLoading) {
     return (
-      <div className={styles.loading} role="status">
-        <Spinner size={24} />
-        <span>Loading your medication schedule…</span>
+      <div className={styles.root}>
+        <Skeleton
+          lines={5}
+          height="1.5rem"
+          label={t('meds.loading', 'Loading your medication schedule…')}
+        />
       </div>
     );
   }
 
   const apiError =
-    error instanceof ApiError ? error.message : error ? 'Failed to load your medication schedule.' : null;
+    error instanceof ApiError ? error.message : error ? t('meds.error', 'Failed to load your medication schedule.') : null;
   if (apiError) {
-    return <FormError message={apiError} />;
+    return (
+      <InlineError
+        title={t('meds.errorTitle', "Medication schedule couldn't be loaded")}
+        message={apiError}
+        onRetry={() => void scheduleQuery.refetch()}
+      />
+    );
   }
 
   const isEmpty = (prescriptions?.length ?? 0) === 0;
 
   function handleAddToCalendar() {
-    downloadIcs(buildIcs(schedule.days));
+    downloadIcs(
+      buildIcs(
+        schedule.days,
+        (drugName) =>
+          t('meds.ics.description', "Take {drug} as prescribed. Follow your prescriber's instructions.", {
+            drug: drugName,
+          }),
+      ),
+    );
   }
 
   return (
     <div className={styles.root}>
       <p className={styles.disclaimer}>
-        This schedule is generated from your active prescriptions. Always follow the instructions from your
-        prescriber — if anything here differs from what they told you, their instructions take priority.
+        {t(
+          'meds.disclaimer',
+          'This schedule is generated from your active prescriptions. Always follow the instructions from your prescriber — if anything here differs from what they told you, their instructions take priority.',
+        )}
       </p>
 
-      {isEmpty && <p className={styles.empty}>No active prescriptions.</p>}
+      {isEmpty && (
+        <EmptyState
+          title={t('meds.empty', 'No active prescriptions.')}
+          description={t(
+            'meds.emptyDescription',
+            'When your prescriber issues an active prescription, your daily dose schedule and timings will appear here.',
+          )}
+          action={{ label: t('meds.backToCare', 'Back to care summary'), to: '/patient' }}
+        />
+      )}
 
       {schedule.overlaps.map((overlap) => (
         <p key={overlap.drugName} className={styles.overlap} role="alert">
-          You have more than one current course of {overlap.drugName}. Please contact your prescriber or
-          pharmacist to confirm which to follow — do not choose between them yourself.
+          {t(
+            'meds.overlap',
+            'You have more than one current course of {drug}. Please contact your prescriber or pharmacist to confirm which to follow — do not choose between them yourself.',
+            { drug: overlap.drugName },
+          )}
         </p>
       ))}
 
@@ -72,19 +108,21 @@ export function MedicationSchedule() {
         <>
           <section className={styles.section} aria-labelledby="meds-today">
             <h2 id="meds-today" className={styles.heading}>
-              Today
+              {t('meds.today', 'Today')}
             </h2>
-            {schedule.today ? <DoseList day={schedule.today} /> : <p className={styles.noDoses}>No doses scheduled.</p>}
+            {schedule.today ? <DoseList day={schedule.today} /> : <p className={styles.noDoses}>{t('meds.noDoses', 'No doses scheduled.')}</p>}
           </section>
 
           <section className={styles.section} aria-labelledby="meds-week">
             <h2 id="meds-week" className={styles.heading}>
-              This week
+              {t('meds.week', 'This week')}
             </h2>
             <div className={styles.weekGrid}>
               {schedule.days.slice(1).map((day) => (
                 <div key={day.dateKey} className={styles.weekDay}>
-                  <h3 className={styles.dayLabel}>{day.label}</h3>
+                  <h3 className={styles.dayLabel}>
+                    {day.label}
+                  </h3>
                   <DoseList day={day} />
                 </div>
               ))}
@@ -94,11 +132,13 @@ export function MedicationSchedule() {
           {schedule.unscheduled.length > 0 && (
             <section className={styles.section} aria-labelledby="meds-directed">
               <h2 id="meds-directed" className={styles.heading}>
-                Taken as directed — not scheduled
+                {t('meds.unscheduled.title', 'Taken as directed — not scheduled')}
               </h2>
               <p className={styles.note}>
-                These are shown exactly as written on your prescription. We do not guess start times for
-                "as needed" or free-text instructions, so they never appear as fixed clock times above.
+                {t(
+                  'meds.unscheduled.note',
+                  'These are shown exactly as written on your prescription. We do not guess start times for "as needed" or free-text instructions, so they never appear as fixed clock times above.',
+                )}
               </p>
               <ul className={styles.directedList}>
                 {schedule.unscheduled.map((item) => (
@@ -115,14 +155,16 @@ export function MedicationSchedule() {
           {schedule.ended.length > 0 && (
             <section className={styles.section} aria-labelledby="meds-completed">
               <h2 id="meds-completed" className={styles.heading}>
-                Completed courses
+                {t('meds.completed.title', 'Completed courses')}
               </h2>
               <ul className={styles.completedList}>
                 {schedule.ended.map((item) => (
                   <li key={item.itemId} className={styles.completedItem}>
                     <span className={styles.doseDrug}>{item.drugName}</span>
                     {item.dosage && <span className={styles.doseAmount}>{item.dosage}</span>}
-                    <span className={styles.completedNote}>Ended {item.endedOn}</span>
+                    <span className={styles.completedNote}>
+                      {t('meds.ended', 'Ended {date}', { date: item.endedOn })}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -131,7 +173,7 @@ export function MedicationSchedule() {
 
           <div className={styles.actions}>
             <Button variant="secondary" onClick={handleAddToCalendar} disabled={!hasScheduledDoses(schedule)}>
-              Add to calendar (.ics)
+              {t('meds.calendar', 'Add to calendar (.ics)')}
             </Button>
           </div>
         </>

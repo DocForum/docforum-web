@@ -2,13 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { logout } from '../../../services/auth-service';
 import { broadcastLogout } from '../../../hooks/useSessionSync';
 import { useAuthStore } from '../../../store/auth-store';
-import { useProfileStore } from '../../../store/profile-store';
-import { clearCachedUserData } from '../../../pwa/caches';
+import { signOut } from '../../../services/sign-out';
 
 export function useLogout() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const csrfToken = useAuthStore((state) => state.csrfToken);
-  const clearSession = useAuthStore((state) => state.clearSession);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -17,16 +15,11 @@ export function useLogout() {
     // an unreachable/erroring logout endpoint shouldn't strand the user in
     // a logged-in-looking UI.
     onSettled: async () => {
-      clearSession();
-      useProfileStore.getState().clearProfiles();
+      // One helper clears the auth session, CSRF token, query cache,
+      // profile/acting-for store, unsaved-changes registry and app caches.
+      await signOut('logout', { queryClient });
       // Tell other open tabs to drop their session too (issue #124).
       broadcastLogout();
-      // No server-derived data survives logout: React Query's in-memory cache
-      // is dropped, and any app-owned service-worker cache is purged. The
-      // precache (hashed static shell only) is intentionally kept so the
-      // offline shell still works after signing out.
-      queryClient.clear();
-      await clearCachedUserData();
     },
   });
 }
