@@ -1,3 +1,7 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
 ### Price list editor against `/facilities/me/prices` (issue #270)
 
 - **Endpoint shape:** Calls `GET /facilities/me/prices` and `POST /facilities/me/prices` — the `/me` variant resolves the facility from the authenticated user's session rather than accepting a `facilityId` parameter. The previous `/facilities/:facilityId/prices` shape is still supported for backward compatibility but the `/me` endpoint is the canonical path going forward.

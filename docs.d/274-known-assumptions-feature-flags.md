@@ -1,3 +1,7 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
 ### Feature flags console against `/admin/feature-flags` (issue #274)
 
 - **List endpoint:** `GET /admin/feature-flags` — returns an unpaginated array of `FeatureFlag` items in the current environment. There are typically dozens of flags, not thousands. Each flag has `key`, `description`, `enabled`, `kind` (`boolean` or `percentage`), `rolloutPercentage` (optional), and `targeting` (`roles: Role[]`, `userIds: string[]`).
