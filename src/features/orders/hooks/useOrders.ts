@@ -18,18 +18,23 @@ const REMAINING_FACILITIES_KEY = (orderId: string, itemIds: string[]) =>
   ['patient', 'orders', orderId, 'remaining-items', 'facilities', [...itemIds].sort()] as const;
 
 /** Shared by `useMyOrders` and the route loaders that prefetch it (#112). */
-export function myOrdersQueryOptions(accessToken: string | null) {
+export function myOrdersQueryOptions(
+  accessToken: string | null,
+  patientProfileId: string | null = null,
+) {
   return queryOptions({
-    queryKey: ORDERS_KEY,
-    queryFn: ({ signal }) => ordersService.listMyOrders(accessToken!, signal),
+    queryKey: ORDERS_KEY_FOR(patientProfileId),
+    queryFn: ({ signal }) =>
+      ordersService.listMyOrders(accessToken!, signal, patientProfileId ?? undefined),
     enabled: Boolean(accessToken),
   });
 }
 
 export function useMyOrders() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const profileId = useProfileStore((state) => state.selectedProfileId);
 
-  return useQuery(myOrdersQueryOptions(accessToken));
+  return useQuery(myOrdersQueryOptions(accessToken, profileId));
 }
 
 /** Shared by `useOrder` and the order detail route loader (#112). */
