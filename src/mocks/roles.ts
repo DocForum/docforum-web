@@ -6,14 +6,8 @@ import { signOut } from '../services/sign-out';
 import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
+import { mockNavigate } from './navigation';
 import type { Role } from '../types/models';
-
-const HOME_BY_ROLE: Record<Role, string> = {
-  patient: '#/patient',
-  doctor: '#/doctor',
-  facility: '#/facility',
-  admin: '#/admin',
-};
 
 /**
  * Sign in as the seeded persona for `role` (or switch to it). Sets the
@@ -36,7 +30,7 @@ export function activateMockRole(
         ]
       : [],
   );
-  if (navigate) window.location.hash = HOME_BY_ROLE[role];
+  if (navigate) mockNavigate(ROLE_HOME[role]);
 }
 
 /** Clear the session and land on the login screen (to test the real flow). */

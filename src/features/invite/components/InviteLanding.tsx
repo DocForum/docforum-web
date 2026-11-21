@@ -16,6 +16,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import { validateFullName, validatePassword } from '../../auth/validation';
 import { useLogout } from '../../auth/hooks/useLogout';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
+import { ROLE_HOME } from '../../../navigation/role-home';
 import type { AccountInvite, InviteRole } from '../../../types/models';
 import styles from './InviteLanding.module.css';
 
@@ -31,8 +32,8 @@ const ROLE_LABELS: Record<InviteRole, string> = {
 /** Where each invited role lands after accepting — mirrors RequireAuth's
  * role-gated home for that role. */
 const DASHBOARDS: Record<InviteRole, string> = {
-  facility: '/facility',
-  admin: '/admin',
+  facility: ROLE_HOME.facility,
+  admin: ROLE_HOME.admin,
 };
 
 function formatDate(iso: string): string {
