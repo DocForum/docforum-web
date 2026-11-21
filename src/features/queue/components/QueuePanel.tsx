@@ -1,11 +1,16 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useQueue,
+  useAppointments,
   useVisitActions,
   useRunningDelay,
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import {
+  AppointmentStatusActions,
+  formatVisitTime,
+} from '../../doctor-today/components/AppointmentStatusActions';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
 import { LiveRegion } from '../../../components/LiveRegion';
@@ -62,6 +67,8 @@ export function QueuePanel() {
   const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
+  const { data: appointments = [] } = useAppointments();
+  const [notice, setNotice] = useState<string | null>(null);
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
@@ -150,6 +157,30 @@ export function QueuePanel() {
           <span className={styles.undoHint}>
             reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s
           </span>
+        </div>
+      )}
+
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
+
+      {scheduled.length > 0 && (
+        <div className={styles.scheduled}>
+          <h3 className={styles.scheduledHeading}>Still expected</h3>
+          <ul className={styles.scheduledList}>
+            {scheduled.map((appointment) => (
+              <li key={appointment.id} className={styles.scheduledRow}>
+                <span className={styles.scheduledTime}>{formatVisitTime(appointment.startsAt)}</span>
+                <span className={styles.scheduledPatient}>{appointment.patientName}</span>
+                <span className={styles.statusPill} data-status="scheduled">
+                  Scheduled
+                </span>
+                <AppointmentStatusActions appointment={appointment} onConflict={setNotice} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -387,6 +387,11 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+      referral: {
+        id: 'ref-demo-1',
+        targetSpecialtyName: 'Cardiology (demo)',
+        priorNoShows: 0,
+      },
     },
     {
       id: 'apt-demo-5',

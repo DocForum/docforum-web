@@ -428,6 +428,35 @@ describe('doctor queue', () => {
     });
   });
 
+  it('marks a scheduled appointment no-show, then 409s further changes', async () => {
+    const updated = await queueService.updateAppointmentStatus(
+      'apt-demo-4',
+      'no_show',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.status).toBe('no_show');
+    expect(updated.referral?.priorNoShows).toBe(1);
+
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-4', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // A visit that already started is no longer scheduled either.
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-2', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects an unknown status with 400', async () => {
+    await expect(
+      queueService.updateAppointmentStatus(
+        'apt-demo-4',
+        'postponed' as queueService.AppointmentStatusUpdate,
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
   it('applies the running-delay override', async () => {
     const delay = await queueService.getRunningDelay(MOCK_ACCESS_TOKEN);
     expect(delay.effectiveDelayMin).toBe(delay.computedDelayMin);
