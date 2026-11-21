@@ -12,14 +12,15 @@ import { DEFAULT_LOCALE } from './locales';
  * (English), so there is never a blank frame or a blocking spinner.
  */
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const locale = useLocaleStore((state) => state.locale);
+  const { formattingLocale, currentDirection } = useLocaleStore();
+  const patientLocale = formattingLocale.startsWith('en') ? 'en' : 'es';
   const [messages, setMessages] = useState<Messages>({});
 
   useEffect(() => {
     let cancelled = false;
     setMessages((current) => (Object.keys(current).length === 0 ? current : {}));
 
-    loadMessagesWithFallback(locale)
+    loadMessagesWithFallback(patientLocale)
       .then((loaded) => {
         if (!cancelled) setMessages(loaded);
       })
@@ -32,15 +33,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [locale]);
+  }, [patientLocale]);
 
   useEffect(() => {
-    if (typeof document !== 'undefined') document.documentElement.lang = locale;
-  }, [locale]);
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = formattingLocale;
+      document.documentElement.dir = currentDirection();
+    }
+  }, [formattingLocale]);
 
   return (
     <IntlProvider
-      locale={locale}
+      locale={formattingLocale}
       defaultLocale={DEFAULT_LOCALE}
       messages={messages}
       // Missing ids intentionally fall back to defaultMessage; the CI check
