@@ -1,13 +1,13 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
-import { ROLE_HOME, safeReturnPath } from '../features/auth/return-path';
+import { ROLE_HOME, safeReturnPath, takeReturnPath } from '../features/auth/return-path';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
 
 interface LoginNavState {
   inviteToken?: string;
-  /** Recorded by RequireAuth for the page the user was trying to open. */
+  /** Optional explicit return path; otherwise the route guard's record is used. */
   returnTo?: string;
 }
 
@@ -30,9 +30,11 @@ export function LoginPage() {
   // URL or storage.
   const navState = location.state as LoginNavState | null;
   const inviteToken = navState?.inviteToken ?? null;
-  const returnTo = navState?.returnTo;
 
   function handleLoginSuccess() {
+    // Consume the guard's record once, whatever we end up doing with it.
+    const returnTo = navState?.returnTo ?? takeReturnPath();
+
     if (inviteToken) {
       navigate('/invite', { replace: true, state: { inviteToken } });
       return;

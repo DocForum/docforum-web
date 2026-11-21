@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ROLE_HOME, isPathAllowedForRole, safeReturnPath } from './return-path';
+import {
+  ROLE_HOME,
+  isPathAllowedForRole,
+  rememberReturnPath,
+  safeReturnPath,
+  takeReturnPath,
+} from './return-path';
 
 describe('safeReturnPath (#226)', () => {
   it('keeps a deep link the signed-in role can open', () => {
@@ -44,5 +50,26 @@ describe('safeReturnPath (#226)', () => {
     expect(isPathAllowedForRole('/patients', 'patient')).toBe(false);
     expect(isPathAllowedForRole('/administrator', 'admin')).toBe(false);
     expect(isPathAllowedForRole('/patient', 'patient')).toBe(true);
+  });
+});
+
+describe('rememberReturnPath / takeReturnPath (#226)', () => {
+  it('records the path, search and hash of the attempted URL', () => {
+    rememberReturnPath('http://localhost:5173/patient/orders/abc?tab=items#latest');
+    expect(takeReturnPath()).toBe('/patient/orders/abc?tab=items#latest');
+  });
+
+  it('hands the recorded path over only once', () => {
+    rememberReturnPath('http://localhost:5173/care/threads/t-1');
+    expect(takeReturnPath()).toBe('/care/threads/t-1');
+    expect(takeReturnPath()).toBeUndefined();
+  });
+
+  it('feeds safeReturnPath, so a wrong-role page still falls back home', () => {
+    rememberReturnPath('http://localhost:5173/patient/orders/abc');
+    expect(safeReturnPath(takeReturnPath(), 'doctor')).toBe(ROLE_HOME.doctor);
+
+    rememberReturnPath('http://localhost:5173/patient/orders/abc');
+    expect(safeReturnPath(takeReturnPath(), 'patient')).toBe('/patient/orders/abc');
   });
 });

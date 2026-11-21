@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import * as myFlagsService from '../../../services/my-flags-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { flagEnabled } from '../flags';
@@ -13,11 +13,8 @@ export function myFlagsKey(userId: string | null | undefined) {
  * Flags are server-evaluated; the client only reads booleans. On failure
  * every `useFlag` answer is `false` (safe default).
  */
-export function useMyFlags() {
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const userId = useAuthStore((state) => state.user?.id);
-
-  return useQuery({
+export function myFlagsQueryOptions(userId: string | null | undefined, accessToken: string | null) {
+  return queryOptions({
     queryKey: myFlagsKey(userId),
     queryFn: ({ signal }) => myFlagsService.getMyFlags(accessToken!, signal),
     enabled: Boolean(accessToken && userId),
@@ -26,6 +23,13 @@ export function useMyFlags() {
     staleTime: 5 * 60_000,
     retry: 1,
   });
+}
+
+export function useMyFlags() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const userId = useAuthStore((state) => state.user?.id);
+
+  return useQuery(myFlagsQueryOptions(userId, accessToken));
 }
 
 export function useFlag(name: string): boolean {

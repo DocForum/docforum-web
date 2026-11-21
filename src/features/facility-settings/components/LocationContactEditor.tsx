@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
+import { TimePicker } from '../../../components/TimePicker';
 import { useUpdateFacilitySettings } from '../hooks/useFacilitySettings';
 import type { FacilitySettings, FacilityOpeningHours, Weekday } from '../../../types/models';
 import {
@@ -223,38 +224,26 @@ export function LocationContactEditor({
                     {WEEKDAY_LABELS[day]}
                   </label>
                   <div className={styles.timeField}>
-                    <label htmlFor={`${day}-opens`}>Opens</label>
-                    <input
+                    <TimePicker
                       id={`${day}-opens`}
-                      type="time"
+                      label="Opens"
                       value={entry.opensAt ?? ''}
                       disabled={entry.closed}
-                      aria-invalid={Boolean(dayErrors.opensAt)}
-                      aria-describedby={dayErrors.opensAt ? `${day}-opens-error` : undefined}
-                      onChange={(event) => updateHours(day, { opensAt: event.target.value })}
+                      hideTimeZone
+                      error={dayErrors.opensAt}
+                      onChange={(value) => updateHours(day, { opensAt: value })}
                     />
-                    {dayErrors.opensAt && (
-                      <span id={`${day}-opens-error`} className={styles.timeError} role="alert">
-                        {dayErrors.opensAt}
-                      </span>
-                    )}
                   </div>
                   <div className={styles.timeField}>
-                    <label htmlFor={`${day}-closes`}>Closes</label>
-                    <input
+                    <TimePicker
                       id={`${day}-closes`}
-                      type="time"
+                      label="Closes"
                       value={entry.closesAt ?? ''}
                       disabled={entry.closed}
-                      aria-invalid={Boolean(dayErrors.closesAt)}
-                      aria-describedby={dayErrors.closesAt ? `${day}-closes-error` : undefined}
-                      onChange={(event) => updateHours(day, { closesAt: event.target.value })}
+                      hideTimeZone
+                      error={dayErrors.closesAt}
+                      onChange={(value) => updateHours(day, { closesAt: value })}
                     />
-                    {dayErrors.closesAt && (
-                      <span id={`${day}-closes-error`} className={styles.timeError} role="alert">
-                        {dayErrors.closesAt}
-                      </span>
-                    )}
                   </div>
                 </div>
               );

@@ -95,18 +95,22 @@ describe('NotificationBell', () => {
       unreadCount: 0,
     });
 
-    renderWithProviders(<NotificationBell />, { role: 'patient' });
+    const { unmount } = renderWithProviders(<NotificationBell />, { role: 'patient' });
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: /notifications, 2 unread/i }));
     await user.click(screen.getByRole('button', { name: /mark all as read/i }));
 
-    await waitFor(() =>
-      expect(notificationsService.markAllNotificationsRead).toHaveBeenCalledTimes(1),
-    );
+    // Cleared at once; the server call waits for the undo window (#113).
     expect(
       await screen.findByRole('button', { name: /notifications, none unread/i }),
     ).toBeInTheDocument();
+    expect(notificationsService.markAllNotificationsRead).not.toHaveBeenCalled();
+
+    unmount();
+    await waitFor(() =>
+      expect(notificationsService.markAllNotificationsRead).toHaveBeenCalledTimes(1),
+    );
   });
 
   it('shows a calm empty state when there is nothing to read', async () => {
@@ -124,5 +128,32 @@ describe('NotificationBell', () => {
     renderWithProviders(<NotificationBell />);
     expect(screen.queryByRole('button', { name: /notifications/i })).not.toBeInTheDocument();
     expect(notificationsService.listNotifications).not.toHaveBeenCalled();
+  });
+
+  it('announces new notifications politely once, but not the initial count or a decrease', async () => {
+    const list = vi.mocked(notificationsService.listNotifications);
+    list.mockResolvedValue(page({ unreadCount: 2 }));
+
+    const { queryClient } = renderWithProviders(<NotificationBell />, { role: 'patient' });
+    await screen.findByRole('button', { name: /notifications, 2 unread/i });
+
+    const region = screen.getByRole('status');
+    expect(region).toHaveAttribute('aria-live', 'polite');
+    expect(region).toHaveAttribute('aria-atomic', 'true');
+    // The count that was already there on load is not news.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(region).toHaveTextContent('');
+
+    list.mockResolvedValue(page({ unreadCount: 4 }));
+    await queryClient.invalidateQueries();
+    await screen.findByRole('button', { name: /notifications, 4 unread/i });
+    await waitFor(() => expect(region).toHaveTextContent('2 new notifications. 4 unread.'), { timeout: 2000 });
+
+    list.mockResolvedValue(page({ unreadCount: 1 }));
+    await queryClient.invalidateQueries();
+    await screen.findByRole('button', { name: /notifications, 1 unread/i });
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    // A decrease leaves the last announcement in place rather than speaking.
+    expect(region).toHaveTextContent('2 new notifications. 4 unread.');
   });
 });

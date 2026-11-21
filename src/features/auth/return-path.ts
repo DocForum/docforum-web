@@ -13,7 +13,7 @@ export const ROLE_HOME: Record<Role, string> = {
 
 /**
  * Route areas each role may be returned to after signing in. Deliberately an
- * allowlist, not a blocklist: `RequireAuth` records whatever page was asked
+ * allowlist, not a blocklist: the route guard records whatever page was asked
  * for, and a stale or crafted value must never send a user somewhere another
  * role owns. Shared routes are listed per role exactly as their guards declare
  * them (`/care` is patient+doctor; the notifications pages are all roles).
@@ -46,13 +46,38 @@ export function isPathAllowedForRole(pathname: string, role: Role): boolean {
 }
 
 /**
- * Turn the `returnTo` value recorded by `RequireAuth` into a destination that
- * is safe for `role`.
+ * A loader redirect is an HTTP-style `Response`, so router state cannot ride
+ * along with it. The guard records the attempted path here instead: in memory
+ * for this tab only, never in the URL, `localStorage` or `sessionStorage`.
+ */
+let pendingReturnPath: string | null = null;
+
+/** Record the page a signed-out visitor was trying to open, as a path. */
+export function rememberReturnPath(requestUrl: string): void {
+  try {
+    const url = new URL(requestUrl, PLACEHOLDER_ORIGIN);
+    pendingReturnPath = `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    pendingReturnPath = null;
+  }
+}
+
+/** Read and clear the recorded path, so it is used for one sign-in only. */
+export function takeReturnPath(): string | undefined {
+  const pending = pendingReturnPath;
+  pendingReturnPath = null;
+  return pending ?? undefined;
+}
+
+/**
+ * Turn the path recorded by the route guard into a destination that is safe
+ * for `role`.
  *
  * Only same-app absolute paths are accepted; anything external, relative,
  * protocol-relative, malformed or outside the role's own routes falls back to
- * the role home. Never put this value in a query param: router state keeps it
- * out of the URL (and out of any redirect an attacker could craft a link to).
+ * the role home. Never put this value in a query param: in-memory state keeps
+ * it out of the URL (and out of any redirect an attacker could craft a link
+ * to).
  */
 export function safeReturnPath(raw: unknown, role: Role): string {
   const home = ROLE_HOME[role];
