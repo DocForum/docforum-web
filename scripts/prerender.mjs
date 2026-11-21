@@ -63,7 +63,7 @@ const titles = new Set();
 for (const def of PUBLIC_PAGES) {
   let html;
   try {
-    const appHtml = renderPublicPage(def.path);
+    const appHtml = await renderPublicPage(def.path);
     if (!appHtml || !appHtml.trim()) {
       note(`${def.path}: renderPublicPage returned empty markup`);
       continue;

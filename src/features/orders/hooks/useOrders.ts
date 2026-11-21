@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ordersService from '../../../services/orders-service';
 import { useAuthStore } from '../../../store/auth-store';
 import type {
@@ -13,13 +13,28 @@ const FACILITIES_KEY = (orderId: string) => ['patient', 'orders', orderId, 'faci
 const REMAINING_FACILITIES_KEY = (orderId: string, itemIds: string[]) =>
   ['patient', 'orders', orderId, 'remaining-items', 'facilities', [...itemIds].sort()] as const;
 
-export function useMyOrders() {
-  const accessToken = useAuthStore((state) => state.accessToken);
-
-  return useQuery({
+/** Shared by `useMyOrders` and the route loaders that prefetch it (#112). */
+export function myOrdersQueryOptions(accessToken: string | null) {
+  return queryOptions({
     queryKey: ORDERS_KEY,
     queryFn: ({ signal }) => ordersService.listMyOrders(accessToken!, signal),
     enabled: Boolean(accessToken),
+  });
+}
+
+export function useMyOrders() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useQuery(myOrdersQueryOptions(accessToken));
+}
+
+/** Shared by `useOrder` and the order detail route loader (#112). */
+export function patientOrderQueryOptions(orderId: string | undefined, accessToken: string | null) {
+  return queryOptions({
+    queryKey: ORDER_KEY(orderId ?? ''),
+    queryFn: () => ordersService.getPatientOrder(orderId!, accessToken!),
+    enabled: Boolean(orderId && accessToken),
+    retry: false,
   });
 }
 
@@ -27,12 +42,7 @@ export function useMyOrders() {
 export function useOrder(orderId: string | undefined) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
-  return useQuery({
-    queryKey: ORDER_KEY(orderId ?? ''),
-    queryFn: () => ordersService.getPatientOrder(orderId!, accessToken!),
-    enabled: Boolean(orderId && accessToken),
-    retry: false,
-  });
+  return useQuery(patientOrderQueryOptions(orderId, accessToken));
 }
 
 export function useQualifiedFacilities(orderId: string | null) {

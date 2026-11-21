@@ -3,6 +3,7 @@ import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useT } from '../../../i18n/useT';
 import type { Notification, Role } from '../../../types/models';
 import { notificationDestination, notificationMeta } from '../notification-meta';
 import { formatNotificationTime, formatNotificationTimestamp } from '../notification-time';
@@ -42,7 +43,8 @@ function NotificationRow({
   role: Role | null;
   onMarkRead: (notificationId: string) => void;
 }) {
-  const meta = notificationMeta(notification.kind);
+  const t = useT();
+  const meta = notificationMeta(notification.kind, t);
   const destination = notificationDestination(notification, role);
   const unread = notification.readAt === null;
 
@@ -58,7 +60,7 @@ function NotificationRow({
         <span className={styles.meta}>
           <span className={styles.chip}>{meta.label}</span>
           <time dateTime={notification.createdAt} title={formatNotificationTimestamp(notification.createdAt)}>
-            {formatNotificationTime(notification.createdAt)}
+            {formatNotificationTime(notification.createdAt, undefined, t)}
           </time>
         </span>
       </span>
@@ -70,12 +72,12 @@ function NotificationRow({
       {destination ? (
         <Link className={styles.link} to={destination}>
           {content}
-          {unread && <span className={styles.srOnly}>Unread</span>}
+          {unread && <span className={styles.srOnly}>{t('notifications.row.unread', 'Unread')}</span>}
         </Link>
       ) : (
         <div className={styles.link}>
           {content}
-          {unread && <span className={styles.srOnly}>Unread</span>}
+          {unread && <span className={styles.srOnly}>{t('notifications.row.unread', 'Unread')}</span>}
         </div>
       )}
       {unread && (
@@ -83,9 +85,11 @@ function NotificationRow({
           type="button"
           className={styles.markRead}
           onClick={() => onMarkRead(notification.id)}
-          aria-label={`Mark "${notification.title}" as read`}
+          aria-label={t('notifications.row.markReadAria', 'Mark "{title}" as read', {
+            title: notification.title,
+          })}
         >
-          Mark read
+          {t('notifications.row.markRead', 'Mark read')}
         </button>
       )}
     </li>
@@ -107,12 +111,20 @@ export function NotificationList({
   isMarkingAll = false,
   variant = 'page',
 }: NotificationListProps) {
+  const t = useT();
   const isPanel = variant === 'panel';
 
   return (
-    <section className={`${styles.list} ${isPanel ? styles.panel : ''}`} aria-label="Notifications">
+    <section
+      className={`${styles.list} ${isPanel ? styles.panel : ''}`}
+      aria-label={t('notifications.list.aria', 'Notifications')}
+    >
       <div className={styles.header}>
-        <h2 className={styles.heading}>{isPanel ? 'Notifications' : 'Your notifications'}</h2>
+        <h2 className={styles.heading}>
+          {isPanel
+            ? t('notifications.list.heading.panel', 'Notifications')
+            : t('notifications.list.heading.page', 'Your notifications')}
+        </h2>
         <Button
           variant="secondary"
           size="small"
@@ -120,23 +132,26 @@ export function NotificationList({
           disabled={unreadCount === 0 || isMarkingAll}
           loading={isMarkingAll}
         >
-          Mark all as read
+          {t('notifications.list.markAll', 'Mark all as read')}
         </Button>
       </div>
 
       {isLoading ? (
-        <Skeleton lines={isPanel ? 4 : 6} height="1.15rem" label="Loading notifications" />
+        <Skeleton lines={isPanel ? 4 : 6} height="1.15rem" label={t('notifications.list.loading', 'Loading notifications')} />
       ) : error ? (
         <InlineError
-          message="Your notifications couldn't be loaded."
+          message={t('notifications.list.error', "Your notifications couldn't be loaded.")}
           title={null}
           onRetry={onRetry}
         />
       ) : notifications.length === 0 ? (
         <EmptyState
-          title="You're all caught up"
-          description="Bookings, referrals, orders, results and payment updates will appear here."
-          action={{ label: 'Back to your dashboard', to: role ? roleHome(role) : '/' }}
+          title={t('notifications.empty.title', "You're all caught up")}
+          description={t(
+            'notifications.empty.description',
+            'Bookings, referrals, orders, results and payment updates will appear here.',
+          )}
+          action={{ label: t('notifications.empty.action', 'Back to your dashboard'), to: role ? roleHome(role) : '/' }}
         />
       ) : (
         <>
@@ -153,7 +168,7 @@ export function NotificationList({
           {hasMore && !isPanel && (
             <div className={styles.more}>
               <Button variant="secondary" onClick={onLoadMore} loading={isFetchingMore} disabled={isFetchingMore}>
-                Load older notifications
+                {t('notifications.list.loadOlder', 'Load older notifications')}
               </Button>
             </div>
           )}

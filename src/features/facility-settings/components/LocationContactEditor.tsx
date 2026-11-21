@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
+import { TimePicker } from '../../../components/TimePicker';
 import { useUpdateFacilitySettings } from '../hooks/useFacilitySettings';
+import { useT } from '../../../i18n/useT';
 import type { FacilitySettings, FacilityOpeningHours, Weekday } from '../../../types/models';
 import {
   WEEKDAYS,
-  WEEKDAY_LABELS,
+  weekdayLabel,
   draftToSettingsInput,
   hasFacilitySettingsErrors,
   settingsToDraft,
@@ -30,6 +33,12 @@ export function LocationContactEditor({
   settings,
   onDirtyChange,
 }: LocationContactEditorProps) {
+  const t = useT();
+  const { locale } = useIntl();
+  // `t` is a fresh closure on every render; keep the current one in a ref so
+  // the validation effect does not re-run (and re-set state) each render.
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const [draft, setDraft] = useState<FacilitySettingsDraft>(() => settingsToDraft(settings));
   const [baseline, setBaseline] = useState(() => JSON.stringify(settingsToDraft(settings)));
   const [errors, setErrors] = useState<FacilitySettingsErrors>(EMPTY_ERRORS);
@@ -51,8 +60,8 @@ export function LocationContactEditor({
   }, [settings]);
 
   useEffect(() => {
-    if (showValidation) setErrors(validateFacilitySettings(draft));
-  }, [draft, showValidation]);
+    if (showValidation) setErrors(validateFacilitySettings(draft, translateRef.current));
+  }, [draft, showValidation, locale]);
 
   const updateField = <K extends keyof FacilitySettingsDraft>(
     key: K,
@@ -76,7 +85,7 @@ export function LocationContactEditor({
     event.preventDefault();
     setSaved(false);
     setShowValidation(true);
-    const nextErrors = validateFacilitySettings(draft);
+    const nextErrors = validateFacilitySettings(draft, t);
     setErrors(nextErrors);
     if (hasFacilitySettingsErrors(nextErrors)) return;
 
@@ -107,18 +116,17 @@ export function LocationContactEditor({
     <section className={styles.card} aria-labelledby="facility-location-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="facility-location-heading">Location &amp; contact</h2>
+          <h2 id="facility-location-heading">{t('facilitySettings.location.title', 'Location & contact')}</h2>
           <p className={styles.cardSubtitle}>
-            Keep the address and map pin current so patients see accurate distances, and update the
-            phone and email patients use to reach you.
+            {t('facilitySettings.location.subtitle', 'Keep the address and map pin current so patients see accurate distances, and update the phone and email patients use to reach you.')}
           </p>
         </div>
-        {isDirty && <span className={styles.unsavedBadge}>Unsaved changes</span>}
+        {isDirty && <span className={styles.unsavedBadge}>{t('facilitySettings.common.unsavedChanges', 'Unsaved changes')}</span>}
       </div>
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <TextField
-          label="Street address"
+          label={t('facilitySettings.location.streetAddress', 'Street address')}
           value={draft.address}
           onChange={(event) => updateField('address', event.target.value)}
           error={errors.address}
@@ -127,7 +135,7 @@ export function LocationContactEditor({
         />
         <div className={styles.twoColumn}>
           <TextField
-            label="City"
+            label={t('facilitySettings.location.city', 'City')}
             value={draft.city}
             onChange={(event) => updateField('city', event.target.value)}
             error={errors.city}
@@ -135,7 +143,7 @@ export function LocationContactEditor({
             required
           />
           <TextField
-            label="Contact phone"
+            label={t('facilitySettings.location.contactPhone', 'Contact phone')}
             type="tel"
             value={draft.phone}
             onChange={(event) => updateField('phone', event.target.value)}
@@ -145,7 +153,7 @@ export function LocationContactEditor({
           />
         </div>
         <TextField
-          label="Contact email (optional)"
+          label={t('facilitySettings.location.contactEmail', 'Contact email (optional)')}
           type="email"
           value={draft.email}
           onChange={(event) => updateField('email', event.target.value)}
@@ -154,9 +162,9 @@ export function LocationContactEditor({
         />
 
         <div className={styles.sectionDivider}>
-          <h3>Map pin</h3>
+          <h3>{t('facilitySettings.map.title', 'Map pin')}</h3>
           <p className={styles.helperText}>
-            Coordinates drive distance-sorted results. Click the map or type exact coordinates.
+            {t('facilitySettings.map.subtitle', 'Coordinates drive distance-sorted results. Click the map or type exact coordinates.')}
           </p>
         </div>
 
@@ -171,7 +179,7 @@ export function LocationContactEditor({
 
         <div className={styles.twoColumn}>
           <TextField
-            label="Latitude"
+            label={t('facilitySettings.location.latitude', 'Latitude')}
             type="number"
             inputMode="decimal"
             step="any"
@@ -181,7 +189,7 @@ export function LocationContactEditor({
             required
           />
           <TextField
-            label="Longitude"
+            label={t('facilitySettings.location.longitude', 'Longitude')}
             type="number"
             inputMode="decimal"
             step="any"
@@ -193,9 +201,9 @@ export function LocationContactEditor({
         </div>
 
         <fieldset className={styles.hoursFieldset}>
-          <legend>Opening hours</legend>
+          <legend>{t('facilitySettings.hours.title', 'Opening hours')}</legend>
           <p className={styles.helperText}>
-            Set each day the facility accepts orders. Times use the facility&apos;s local time.
+            {t('facilitySettings.hours.subtitle', "Set each day the facility accepts orders. Times use the facility's local time.")}
           </p>
           <div className={styles.hoursTable}>
             {WEEKDAYS.map((day) => {
@@ -220,41 +228,29 @@ export function LocationContactEditor({
                         })
                       }
                     />
-                    {WEEKDAY_LABELS[day]}
+                    {weekdayLabel(day, locale)}
                   </label>
                   <div className={styles.timeField}>
-                    <label htmlFor={`${day}-opens`}>Opens</label>
-                    <input
+                    <TimePicker
                       id={`${day}-opens`}
-                      type="time"
+                      label={t('facilitySettings.hours.opens', 'Opens')}
                       value={entry.opensAt ?? ''}
                       disabled={entry.closed}
-                      aria-invalid={Boolean(dayErrors.opensAt)}
-                      aria-describedby={dayErrors.opensAt ? `${day}-opens-error` : undefined}
-                      onChange={(event) => updateHours(day, { opensAt: event.target.value })}
+                      hideTimeZone
+                      error={dayErrors.opensAt}
+                      onChange={(value) => updateHours(day, { opensAt: value })}
                     />
-                    {dayErrors.opensAt && (
-                      <span id={`${day}-opens-error`} className={styles.timeError} role="alert">
-                        {dayErrors.opensAt}
-                      </span>
-                    )}
                   </div>
                   <div className={styles.timeField}>
-                    <label htmlFor={`${day}-closes`}>Closes</label>
-                    <input
+                    <TimePicker
                       id={`${day}-closes`}
-                      type="time"
+                      label={t('facilitySettings.hours.closes', 'Closes')}
                       value={entry.closesAt ?? ''}
                       disabled={entry.closed}
-                      aria-invalid={Boolean(dayErrors.closesAt)}
-                      aria-describedby={dayErrors.closesAt ? `${day}-closes-error` : undefined}
-                      onChange={(event) => updateHours(day, { closesAt: event.target.value })}
+                      hideTimeZone
+                      error={dayErrors.closesAt}
+                      onChange={(value) => updateHours(day, { closesAt: value })}
                     />
-                    {dayErrors.closesAt && (
-                      <span id={`${day}-closes-error`} className={styles.timeError} role="alert">
-                        {dayErrors.closesAt}
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -264,18 +260,20 @@ export function LocationContactEditor({
 
         {updateMutation.error && (
           <div className={styles.errorBox} role="alert">
-            Could not save facility settings: {updateMutation.error.message}
+            {t('facilitySettings.location.saveError', 'Could not save facility settings: {message}', {
+              message: updateMutation.error.message,
+            })}
           </div>
         )}
         {saved && (
           <div className={styles.successBox} role="status">
-            Location and contact details saved.
+            {t('facilitySettings.location.saved', 'Location and contact details saved.')}
           </div>
         )}
 
         <div className={styles.actions}>
           <Button type="submit" loading={updateMutation.isPending}>
-            Save location &amp; contact
+            {t('facilitySettings.location.save', 'Save location & contact')}
           </Button>
           <Button
             type="button"
@@ -283,7 +281,7 @@ export function LocationContactEditor({
             onClick={resetDraft}
             disabled={updateMutation.isPending || !isDirty}
           >
-            Discard changes
+            {t('facilitySettings.common.discard', 'Discard changes')}
           </Button>
         </div>
       </form>

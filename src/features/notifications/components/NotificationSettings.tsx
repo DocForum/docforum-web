@@ -1,6 +1,7 @@
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import { useAuthStore } from '../../../store/auth-store';
 import {
   useNotificationPreferences,
@@ -8,15 +9,34 @@ import {
 } from '../hooks/useNotificationPreferences';
 import { PreferenceGrid } from './PreferenceGrid';
 import { QuietHoursForm } from './QuietHoursForm';
-import type { NotificationChannel, NotificationType, QuietHours } from '../../../types/models';
+import type { NotificationChannel, NotificationType, QuietHours, Role } from '../../../types/models';
 import styles from './NotificationPreferences.module.css';
 
-const ROLE_COPY = {
-  patient: 'Defaults are tuned for patients: appointment, order and referral updates are on; product news is off.',
-  doctor: 'Defaults are tuned for doctors: appointment changes and new patient messages are on; product news is off.',
-  facility: 'Defaults are tuned for facility staff: fulfillment and order updates are on; product news is off.',
-  admin: 'Defaults are tuned for administrators: security, order and payment updates are on; product news is off.',
-} as const;
+/** Each role's defaults are catalogue copy — API roles map to static calls. */
+function roleCopy(role: Role, t: ReturnType<typeof useT>): string {
+  switch (role) {
+    case 'patient':
+      return t(
+        'notifications.settings.role.patient',
+        'Defaults are tuned for patients: appointment, order and referral updates are on; product news is off.',
+      );
+    case 'doctor':
+      return t(
+        'notifications.settings.role.doctor',
+        'Defaults are tuned for doctors: appointment changes and new patient messages are on; product news is off.',
+      );
+    case 'facility':
+      return t(
+        'notifications.settings.role.facility',
+        'Defaults are tuned for facility staff: fulfillment and order updates are on; product news is off.',
+      );
+    case 'admin':
+      return t(
+        'notifications.settings.role.admin',
+        'Defaults are tuned for administrators: security, order and payment updates are on; product news is off.',
+      );
+  }
+}
 
 /**
  * Notification preferences (issue #108): type × channel grid with locked
@@ -24,6 +44,7 @@ const ROLE_COPY = {
  * per change (optimistic, with rollback on failure).
  */
 export function NotificationSettings() {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const preferences = useNotificationPreferences();
   const update = useUpdateNotificationPreferences();
@@ -31,7 +52,7 @@ export function NotificationSettings() {
   if (preferences.isLoading) {
     return (
       <div className={styles.loading} role="status">
-        <Spinner size={20} /> Loading notification preferences…
+        <Spinner size={20} /> {t('notifications.settings.loading', 'Loading notification preferences…')}
       </div>
     );
   }
@@ -43,11 +64,11 @@ export function NotificationSettings() {
           message={
             preferences.error instanceof Error
               ? preferences.error.message
-              : 'Could not load notification preferences.'
+              : t('notifications.settings.error', 'Could not load notification preferences.')
           }
         />
         <Button variant="secondary" onClick={() => void preferences.refetch()} loading={preferences.isFetching}>
-          Try again
+          {t('common.tryAgain', 'Try again')}
         </Button>
       </div>
     );
@@ -66,13 +87,16 @@ export function NotificationSettings() {
   return (
     <div className={styles.settings}>
       <div className={styles.intro}>
-        <p className={styles.roleCopy}>{user ? ROLE_COPY[user.role] : ''}</p>
+        <p className={styles.roleCopy}>{user ? roleCopy(user.role, t) : ''}</p>
         <p className={styles.saveNote} role="status" aria-live="polite">
           {update.isPending
-            ? 'Saving…'
+            ? t('notifications.settings.saving', 'Saving…')
             : update.isError
-              ? 'Could not save that change — the previous setting was restored.'
-              : 'Changes save automatically.'}
+              ? t(
+                  'notifications.settings.saveError',
+                  'Could not save that change — the previous setting was restored.',
+                )
+              : t('notifications.settings.saved', 'Changes save automatically.')}
         </p>
       </div>
 
@@ -80,11 +104,13 @@ export function NotificationSettings() {
         <div className={styles.gridHeader}>
           <div>
             <h2 id="notification-grid-heading" className={styles.gridTitle}>
-              Notifications
+              {t('notifications.list.heading.panel', 'Notifications')}
             </h2>
             <p className={styles.gridDescription}>
-              Choose how each notification reaches you. Rows marked “Always on” are
-              safety-critical and cannot be disabled.
+              {t(
+                'notifications.settings.gridDescription',
+                'Choose how each notification reaches you. Rows marked “Always on” are safety-critical and cannot be disabled.',
+              )}
             </p>
           </div>
         </div>
@@ -99,7 +125,7 @@ export function NotificationSettings() {
 
       {update.isPending && (
         <p className={styles.saving} role="status">
-          <Spinner size={15} /> Saving your preference…
+          <Spinner size={15} /> {t('notifications.settings.savingOne', 'Saving your preference…')}
         </p>
       )}
     </div>
