@@ -128,7 +128,32 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:e2e
+      # Journeys, accessibility and landscape checks: real behaviour, so they
+      # block like any test.
+      - name: Journeys + accessibility
+        run: npm run test:e2e
+        env:
+          E2E_SKIP_VISUAL: '1'
+      # Screenshot comparisons only report. Contributors can't reproduce CI's
+      # exact pixels locally, so a diff is a maintainer's to review: after the
+      # merge, visual-baselines.yml regenerates the baselines on a branch for
+      # review. A diff that shows a real layout bug is still the author's.
+      - name: Visual screenshots (report only)
+        id: visual
+        continue-on-error: true
+        run: npx playwright test --project='visual-*'
+      - name: Report screenshot changes
+        if: steps.visual.outcome == 'failure'
+        run: |
+          msg="Some screenshots differ from the committed baselines. This doesn't block the PR: a maintainer reviews the diff (playwright-report artifact) and refreshes the baselines after merging. Only fix it if the change is unintended."
+          echo "::warning title=Visual screenshots changed::$msg"
+          {
+            echo "### Visual screenshots changed (not blocking)"
+            echo
+            echo "$msg"
+            echo
+            find test-results -name '*-actual.png' | sed 's|^test-results/|- |'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

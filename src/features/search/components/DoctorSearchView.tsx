@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
@@ -204,6 +205,8 @@ export function DoctorSearchView() {
             'search.subtitle',
             'Describe a symptom — like “rash” or “chest pain” — and we’ll show doctors from the specialties that treat it. No medical training required.',
           )}
+          {' '}
+          <Link to="/patient/doctors">Browse by specialty</Link>
         </p>
       </header>
 
