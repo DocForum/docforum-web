@@ -61,7 +61,9 @@ test('doctor can start a queued visit and sign its consultation note', async ({ 
   await row.getByRole('button', { name: 'Start' }).click();
   await expect(row.getByText('In progress')).toBeVisible();
   await page.goto('/?previewRole=doctor#/doctor/consultation/apt-demo-2');
-  await expect(page.getByRole('heading', { name: 'Consultation note' })).toBeVisible();
+  // The layout's page header and the note itself both title the page
+  // "Consultation note"; wait for the note's own editor rather than either.
+  await expect(page.getByRole('textbox', { name: 'Consultation note content' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign and lock' }).first().click();
   await page.getByRole('button', { name: 'Sign and lock' }).click();
   await expect(page.getByText('Signed · locked')).toBeVisible();

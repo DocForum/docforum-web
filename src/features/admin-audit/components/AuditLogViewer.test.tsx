@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderAppAt } from '../../../test/render-app';
 import { AuditLogViewer } from './AuditLogViewer';
 import { ApiError } from '../../../services/api-client';
 import * as auditService from '../../../services/audit-service';
@@ -119,8 +119,9 @@ describe('AuditLogViewer — URL-synced filters', () => {
     expect(screen.getByLabelText('Entity type')).toHaveValue('PaymentIntent');
     expect(screen.getByLabelText('Entity id')).toHaveValue('pi-42');
     expect(screen.getByLabelText('Actor user id')).toHaveValue('user-admin-1');
-    expect(screen.getByLabelText('From')).toHaveValue('2026-10-01');
-    expect(screen.getByLabelText('To')).toHaveValue('2026-10-18');
+    // DatePicker (issue #114) shows the locale's format; the value is ISO.
+    expect(screen.getByLabelText('From')).toHaveValue('10/01/2026');
+    expect(screen.getByLabelText('To')).toHaveValue('10/18/2026');
   });
 
   it('writes applied filters to the URL and resets to the first page', async () => {
@@ -334,29 +335,19 @@ describe('AuditLogViewer — rows', () => {
 });
 
 describe('/admin/audit route', () => {
-  function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/audit']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-  }
-
   it('is reachable by admins', async () => {
-    renderApp();
+    renderAppAt('/admin/audit');
     expect(await screen.findByRole('heading', { name: 'Audit trail' })).toBeInTheDocument();
   });
 
-  // RequireAuth sends them to `/`, which forwards signed-in users to their own dashboard.
+  // The admin guard loader sends them to `/`, which forwards signed-in users
+  // to their own dashboard.
   it.each<Role>(['patient', 'doctor', 'facility'])('redirects a %s away without fetching anything', async (role) => {
     signIn(role);
-    renderApp();
+    const { router } = renderAppAt('/admin/audit');
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Audit trail' })).not.toBeInTheDocument();
     expect(auditService.listAuditEvents).not.toHaveBeenCalled();
   });

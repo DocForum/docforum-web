@@ -246,12 +246,18 @@
   color: var(--color-text);
 }
 .drawerClose {
-  padding: var(--space-1);
+  /* Icon-only control: at least 24×24 CSS px (WCAG 2.5.8); 36px matches the
+     menu toggle and the notification bell. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--text-lg);
-  line-height: 1;
   cursor: pointer;
   border-radius: var(--radius-sm);
 }
