@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { act, render, screen } from '@testing-library/react';
 import { RequireAuth } from './RequireAuth';
 import { useAuthStore } from '../store/auth-store';
@@ -13,11 +13,22 @@ const patient: User = {
   updatedAt: new Date().toISOString(),
 };
 
+function LoginPageProbe() {
+  const location = useLocation();
+  const state = location.state as { returnTo?: string } | null;
+  return (
+    <div>
+      <span>Login page</span>
+      <output data-testid="return-to">{state?.returnTo ?? ''}</output>
+    </div>
+  );
+}
+
 function renderGuarded(initialPath: string) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
-        <Route path="/login" element={<div>Login page</div>} />
+        <Route path="/login" element={<LoginPageProbe />} />
         <Route path="/" element={<div>Home page</div>} />
         <Route
           path="/patient"
@@ -40,6 +51,13 @@ describe('RequireAuth', () => {
   it('redirects to /login when no user is signed in', () => {
     renderGuarded('/patient');
     expect(screen.getByText('Login page')).toBeInTheDocument();
+  });
+
+  it('records the attempted path and query in router state, not the URL', () => {
+    renderGuarded('/patient?tab=orders#latest');
+
+    expect(screen.getByText('Login page')).toBeInTheDocument();
+    expect(screen.getByTestId('return-to')).toHaveTextContent('/patient?tab=orders#latest');
   });
 
   it('waits for the boot refresh instead of redirecting to /login', () => {

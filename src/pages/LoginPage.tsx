@@ -1,11 +1,14 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
+import { ROLE_HOME, safeReturnPath } from '../features/auth/return-path';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
 
-interface InviteNavState {
+interface LoginNavState {
   inviteToken?: string;
+  /** Recorded by RequireAuth for the page the user was trying to open. */
+  returnTo?: string;
 }
 
 export function LoginPage() {
@@ -25,13 +28,27 @@ export function LoginPage() {
   // from the invite landing (issue #81) — after logging in, send them back
   // to the invite instead of home. Carried in router state only, never the
   // URL or storage.
-  const inviteToken = (location.state as InviteNavState | null)?.inviteToken ?? null;
+  const navState = location.state as LoginNavState | null;
+  const inviteToken = navState?.inviteToken ?? null;
+  const returnTo = navState?.returnTo;
 
   function handleLoginSuccess() {
-    navigate(inviteToken ? '/invite' : '/', {
-      replace: true,
-      state: inviteToken ? { inviteToken } : undefined,
-    });
+    if (inviteToken) {
+      navigate('/invite', { replace: true, state: { inviteToken } });
+      return;
+    }
+
+    const role = useAuthStore.getState().user?.role;
+
+    // A shared device that sat idle must not deep-link the next person back
+    // into the previous session's page — it may be PHI. The role home is the
+    // deliberate destination instead (issue #226).
+    if (signedOutForIdle || !role) {
+      navigate(role ? ROLE_HOME[role] : '/', { replace: true });
+      return;
+    }
+
+    navigate(safeReturnPath(returnTo, role), { replace: true });
   }
 
   return (
