@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
+import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
@@ -28,7 +29,10 @@ export function LoginPage() {
   const inviteToken = (location.state as InviteNavState | null)?.inviteToken ?? null;
 
   function handleLoginSuccess() {
-    navigate(inviteToken ? '/invite' : '/', {
+    // The session is written by useLogin before this callback runs, so read
+    // the role from the store rather than from a stale render snapshot.
+    const destination = homePathForRole(useAuthStore.getState().user?.role);
+    navigate(inviteToken ? '/invite' : destination, {
       replace: true,
       state: inviteToken ? { inviteToken } : undefined,
     });

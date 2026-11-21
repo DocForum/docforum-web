@@ -25,6 +25,10 @@ for (const screen of screens) {
     await visit(screen.path, screen.role);
     await expect(page.locator('#root h1, #root h2').first()).toBeVisible();
     await expect(page.getByText(screen.ready, { exact: false }).first()).toBeVisible();
+    // The home screen is reached by signing out and clicking the logo, which
+    // can leave the restored scroll position a few pixels off. Pin it so the
+    // screenshot never depends on the previous page's scroll offset.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page).toHaveScreenshot(`${screen.name}.png`);
   });
