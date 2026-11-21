@@ -42,6 +42,23 @@ export const appointmentKeys = {
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
 };
 
+/**
+ * Public doctor directory (issues #1/#13): one list key per filter pair, plus
+ * a stable directory key used to resolve `doctorProfileId` → name. Availability
+ * slots live under their own root so a booking can refresh slot lists without
+ * refetching every doctor.
+ */
+export const doctorKeys = {
+  all: ['doctors'] as const,
+  list: (specialty: string | null, q: string | null) =>
+    ['doctors', 'list', specialty, q] as const,
+  directory: () => ['doctors', 'directory'] as const,
+  profile: (doctorProfileId: string) => ['doctors', 'profile', doctorProfileId] as const,
+  slotsRoot: ['doctors', 'slots'] as const,
+  slots: (doctorProfileId: string) => ['doctors', 'slots', doctorProfileId] as const,
+  specialties: () => ['specialties'] as const,
+};
+
 /** The doctor's queue panel: the live list plus the running-delay knob. */
 export const queueKeys = {
   all: ['queue'] as const,

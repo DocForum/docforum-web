@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider, type LoaderFunctionArgs, type RouteObject } from 'react-router-dom';
+import { takeReturnPath } from '../features/auth/return-path';
 import { useAuthStore } from '../store/auth-store';
 import type { User } from '../types/models';
 import { guardDecision, requireRoles, waitForSessionRestore } from './guards';
@@ -35,6 +36,12 @@ describe('route guards (loader-based)', () => {
     expect(await screen.findByText('Login page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/login');
     expect(prefetch).not.toHaveBeenCalled();
+  });
+
+  it('remembers the attempted page so sign-in can return there (#226)', async () => {
+    renderGuarded('/patient?tab=items');
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
+    expect(takeReturnPath()).toBe('/patient?tab=items');
   });
 
   it('waits for the boot refresh instead of redirecting to /login', async () => {

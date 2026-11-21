@@ -9,6 +9,7 @@
 // yet. While it waits, the guarded route's `HydrateFallback`
 // (`SessionRestoring`) is shown inside the normal layout.
 import { redirect, type LoaderFunctionArgs } from 'react-router-dom';
+import { rememberReturnPath } from '../features/auth/return-path';
 import { useAuthStore } from '../store/auth-store';
 import type { Role } from '../types/models';
 
@@ -51,11 +52,16 @@ export type GuardedPrefetch = (args: LoaderFunctionArgs, accessToken: string) =>
  *
  * Redirects thrown from a loader replace the pending navigation, so the
  * guarded URL never lands in history — the same as `<Navigate replace>`.
+ *
+ * A redirect Response cannot carry router state, so when the visit is bounced
+ * to `/login` the attempted path is remembered in memory for `LoginPage` to
+ * consume after a successful sign-in (issue #226).
  */
 export function requireRoles(allowedRoles: readonly Role[], prefetch?: GuardedPrefetch) {
   return async (args: LoaderFunctionArgs): Promise<null> => {
     await waitForSessionRestore();
     const decision = guardDecision(allowedRoles);
+    if (decision === '/login') rememberReturnPath(args.request.url);
     if (decision !== 'allow') throw redirect(decision);
     const token = useAuthStore.getState().accessToken;
     if (prefetch && token) await prefetch(args, token);
