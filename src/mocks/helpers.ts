@@ -70,6 +70,11 @@ export function notFound(what: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${what} not found` }, { status: 404 });
 }
 
+/** 400 helper carrying docforum-core's `{ message, code }` envelope. */
+export function badRequest(code: string, message: string): AnyHttpResponse {
+  return HttpResponse.json({ message, code }, { status: 400 });
+}
+
 /** 409 helper with the `{ message }` envelope api-client.ts expects. */
 export function conflict(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 409 });
