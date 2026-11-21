@@ -22,6 +22,8 @@ export default defineConfig({
     toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixelRatio: 0.005 },
   },
   snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
+  // E2E_SKIP_VISUAL=1 leaves out the screenshot projects (CI runs those in a
+  // separate, report-only step).
   projects: [
     { name: 'journeys', testMatch: /journeys\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     { name: 'a11y-light', testMatch: /accessibility\.spec\.ts/, use: { ...devices['Desktop Chrome'], colorScheme: 'light', reducedMotion: 'no-preference' } },
@@ -30,7 +32,7 @@ export default defineConfig({
     { name: 'visual-mobile', testMatch: /visual\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
     // Landscape phone/tablet mount (WCAG 1.3.4, issue #240).
     { name: 'landscape', testMatch: /landscape\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 740, height: 360 }, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce' } },
-  ],
+  ].filter((p) => !(process.env.E2E_SKIP_VISUAL && p.name.startsWith('visual-'))),
   webServer: {
     command: 'VITE_USE_HASH_ROUTER=true npm run dev:mock -- --host 127.0.0.1 --port 4173 --strictPort',
     url: baseURL,
