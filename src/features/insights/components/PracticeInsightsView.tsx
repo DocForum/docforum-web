@@ -8,6 +8,7 @@ import { TurnaroundMetricsCard } from './TurnaroundMetricsCard';
 import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useT } from '../../../i18n/useT';
 import type { DateRangePreset, DoctorPracticeInsights } from '../../../types/models';
 import styles from './PracticeInsights.module.css';
 
@@ -97,6 +98,7 @@ export const DEFAULT_MOCK_INSIGHTS: DoctorPracticeInsights = {
 };
 
 export function PracticeInsightsView() {
+  const t = useT();
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string } | undefined>();
 
@@ -119,7 +121,7 @@ export function PracticeInsightsView() {
   if (isLoading) {
     return (
       <div className={styles.container}>
-        <Skeleton lines={6} height="2.75rem" label="Loading practice insights" />
+        <Skeleton lines={6} height="2.75rem" label={t('insights.practice.loading', 'Loading practice insights')} />
       </div>
     );
   }
@@ -128,13 +130,13 @@ export function PracticeInsightsView() {
   const insights: DoctorPracticeInsights = data ?? DEFAULT_MOCK_INSIGHTS;
 
   return (
-    <section className={styles.container} aria-label="Practice insights dashboard">
+    <section className={styles.container} aria-label={t('insights.practice.dashboardLabel', 'Practice insights dashboard')}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
           <div>
-            <h1>Practice insights</h1>
+            <h1>{t('insights.practice.title', 'Practice insights')}</h1>
             <p className={styles.cardSubtitle}>
-              Private performance and operational metrics for your clinical practice.
+              {t('insights.practice.subtitle', 'Private performance and operational metrics for your clinical practice.')}
             </p>
           </div>
         </div>
@@ -142,7 +144,8 @@ export function PracticeInsightsView() {
         <div className={styles.privacyBanner} role="status">
           <span aria-hidden="true">🔒</span>
           <span>
-            <strong>Doctor privacy guarantee:</strong> This view is strictly private to your account. No comparisons are made with named peer doctors.
+            <strong>{t('insights.practice.privacyLabel', 'Doctor privacy guarantee:')}</strong>{' '}
+            {t('insights.practice.privacyBody', 'This view is strictly private to your account. No comparisons are made with named peer doctors.')}
           </span>
         </div>
 
@@ -156,7 +159,7 @@ export function PracticeInsightsView() {
 
       {isError && (
         <InlineError
-          title="Showing preview data"
+          title={t('insights.practice.previewTitle', 'Showing preview data')}
           message={queryErrorMessage(error)}
           onRetry={() => void refetch()}
         />

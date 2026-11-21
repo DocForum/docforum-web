@@ -3,8 +3,10 @@ import { Controller, FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormField } from '../../../components/form/FormField';
 import { useZodForm } from '../../../hooks/useZodForm';
+import { useT } from '../../../i18n/useT';
 import { useCreateWebhookEndpoint } from '../hooks/useIntegrations';
 import { createWebhookSchema, WEBHOOK_EVENT_TYPES } from '../webhook-schema';
+import { webhookEventDescription } from '../webhook-events';
 import type { CreatedWebhookEndpoint } from '../../../types/models';
 import styles from './Integrations.module.css';
 
@@ -25,6 +27,7 @@ interface CreateWebhookDialogProps {
 }
 
 export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialogProps) {
+  const t = useT();
   const form = useZodForm(webhookSchema, {
     url: '',
     events: ['order.created', 'order.assigned', 'order.fulfilled'],
@@ -73,12 +76,16 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
       <div className={styles.modalContent}>
         {createdEndpoint ? (
           <>
-            <h3 id="create-webhook-title">Webhook endpoint created</h3>
+            <h3 id="create-webhook-title">
+              {t('integrations.webhookCreate.createdTitle', 'Webhook endpoint created')}
+            </h3>
             <div className={styles.secretWarning}>
               <span aria-hidden="true">⚠️</span>
               <span>
-                Copy this signing secret now. For security, it will never be shown again.
-                Use it to verify that deliveries are genuinely from DocForum (HMAC-SHA256).
+                {t(
+                  'integrations.webhookCreate.secretWarning',
+                  'Copy this signing secret now. For security, it will never be shown again. Use it to verify that deliveries are genuinely from DocForum (HMAC-SHA256).',
+                )}
               </span>
             </div>
             <div className={styles.secretBox}>
@@ -88,19 +95,27 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
                 className={`${styles.copyButton} ${copied ? styles.copyButtonCopied : ''}`}
                 onClick={handleCopy}
               >
-                {copied ? 'Copied!' : 'Copy'}
+                {copied
+                  ? t('integrations.common.copied', 'Copied!')
+                  : t('integrations.common.copy', 'Copy')}
               </button>
             </div>
             <div className={styles.modalActions}>
-              <Button onClick={handleDone}>I have saved the secret</Button>
+              <Button onClick={handleDone}>
+                {t('integrations.common.savedSecret', 'I have saved the secret')}
+              </Button>
             </div>
           </>
         ) : (
           <>
-            <h3 id="create-webhook-title">Add webhook endpoint</h3>
+            <h3 id="create-webhook-title">
+              {t('integrations.webhookCreate.title', 'Add webhook endpoint')}
+            </h3>
             <p className={styles.modalDescription}>
-              DocForum will send signed HTTP POST requests to this URL when the
-              selected events occur.
+              {t(
+                'integrations.webhookCreate.description',
+                'DocForum will send signed HTTP POST requests to this URL when the selected events occur.',
+              )}
             </p>
             <FormProvider {...form}>
               <form
@@ -110,11 +125,14 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
               >
                 <FormField
                   name="url"
-                  label="Endpoint URL"
+                  label={t('integrations.webhookCreate.urlLabel', 'Endpoint URL')}
                   type="text"
                   inputMode="url"
                   placeholder="https://lab.example.test/webhooks/docforum"
-                  hint="Must use HTTPS. Plain HTTP sends order and patient event data unencrypted, so only http://localhost is allowed during local development. We'll send a test event after creation."
+                  hint={t(
+                    'integrations.webhookCreate.urlHint',
+                    "Must use HTTPS. Plain HTTP sends order and patient event data unencrypted, so only http://localhost is allowed during local development. We'll send a test event after creation.",
+                  )}
                   autoComplete="url"
                   autoFocus
                 />
@@ -128,10 +146,16 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
                       aria-invalid={Boolean(errors.events)}
                       aria-describedby={errors.events ? 'webhook-events-error' : undefined}
                     >
-                      <legend className={styles.formLabel}>Events to subscribe</legend>
+                      <legend className={styles.formLabel}>
+                        {t('integrations.webhookCreate.eventsLabel', 'Events to subscribe')}
+                      </legend>
                       <div className={styles.eventsGrid}>
                         {WEBHOOK_EVENT_TYPES.map((event) => (
-                          <label key={event} className={styles.eventCheckbox}>
+                          <label
+                            key={event}
+                            className={styles.eventCheckbox}
+                            title={webhookEventDescription(t, event)}
+                          >
                             <input
                               type="checkbox"
                               checked={field.value.includes(event)}
@@ -160,7 +184,9 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
                           {errors.events.message}
                         </p>
                       ) : (
-                        <span className={styles.formHint}>Select at least one event.</span>
+                        <span className={styles.formHint}>
+                          {t('integrations.webhookCreate.selectEvent', 'Select at least one event.')}
+                        </span>
                       )}
                     </fieldset>
                   )}
@@ -173,15 +199,20 @@ export function CreateWebhookDialog({ facilityId, onClose }: CreateWebhookDialog
                     onClick={onClose}
                     disabled={createMutation.isPending}
                   >
-                    Cancel
+                    {t('common.cancel', 'Cancel')}
                   </Button>
                   <Button type="submit" loading={createMutation.isPending}>
-                    {createMutation.isPending ? 'Creating…' : 'Create endpoint'}
+                    {createMutation.isPending
+                      ? t('integrations.common.creating', 'Creating…')
+                      : t('integrations.webhookCreate.submit', 'Create endpoint')}
                   </Button>
                 </div>
                 {createMutation.isError && (
                   <p style={{ color: '#b3261e', fontSize: 'var(--text-sm)', margin: 0 }}>
-                    Failed to create endpoint. Please try again.
+                    {t(
+                      'integrations.webhookCreate.error',
+                      'Failed to create endpoint. Please try again.',
+                    )}
                   </p>
                 )}
               </form>

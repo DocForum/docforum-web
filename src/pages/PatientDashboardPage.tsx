@@ -8,6 +8,9 @@ import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
+import { AppointmentsPage } from './AppointmentsPage';
+import { BookingPage } from './BookingPage';
+import { DoctorDirectoryPage } from './DoctorDirectoryPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -87,17 +90,19 @@ function PatientHome() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
-          <Link to={patientSections.search}>{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
-          <Link to={patientSections.dependents}>{t('patient.nav.dependents', 'Manage dependents')}</Link>
-          <Link to={patientSections.health}>{t('patient.nav.health', 'Health profile')}</Link>
-          <Link to={patientSections.referrals}>Referrals</Link>
-          <Link to={patientSections.waitlist}>My waitlists</Link>
-          <Link to={paths.care}>{t('patient.nav.care', 'Care journey timeline')}</Link>
-          <Link to={patientSections.orders}>My prescriptions & lab orders</Link>
-          <Link to={patientSections.facilities}>{t('patient.nav.facilities', 'Find pharmacies & labs')}</Link>
-          <Link to={patientSections.settings}>{t('patient.nav.settings', 'Account settings & privacy')}</Link>
-          <Link to={paths.payments}>Payments</Link>
-          <Link to={paths.accessLog}>Who viewed my records</Link>
+          <Link to="appointments">My appointments</Link>
+          <Link to="doctors">Browse doctors by specialty</Link>
+          <Link to="search">{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
+          <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
+          <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
+          <Link to="referrals">Referrals</Link>
+          <Link to="waitlist">My waitlists</Link>
+          <Link to="/care">{t('patient.nav.care', 'Care journey timeline')}</Link>
+          <Link to="orders">My prescriptions & lab orders</Link>
+          <Link to="facilities">{t('patient.nav.facilities', 'Find pharmacies & labs')}</Link>
+          <Link to="settings">{t('patient.nav.settings', 'Account settings & privacy')}</Link>
+          <Link to="/payments">Payments</Link>
+          <Link to="/account/access-log">Who viewed my records</Link>
         </nav>
       </div>
     </div>
@@ -112,19 +117,24 @@ export function PatientDashboardPage() {
   return (
     <Routes>
       <Route index element={<PatientHome />} />
-      <Route path={patientSections.search} element={<DoctorSearchPage />} />
-      <Route path={patientSections.dependents} element={<DependentsPage />} />
-      <Route path={patientSections.referrals} element={<PatientReferralsPage />} />
-      <Route path={patientSections.waitlist} element={<WaitlistPage />} />
-      <Route path={patientSections.health} element={<HealthProfilePage />} />
-      <Route path={patientSections.facilities} element={<FacilityFinderPage />} />
-      <Route path={patientSections.orders} element={<OrdersPage />} />
-      <Route path={patientSections.order} element={<OrderDetailPage />} />
-      <Route path={patientSections.messages} element={<MessageThreadPage />} />
-      <Route path={patientSections.settings} element={<AccountSettingsPage />} />
-      <Route path={patientSections.care} element={<CareThreadPage />} />
-      <Route path={patientSections.appointment} element={<AppointmentDetailPage />} />
-      <Route path={patientSections.intake} element={<IntakePage />} />
+      <Route path="search" element={<DoctorSearchPage />} />
+      <Route path="doctors" element={<DoctorDirectoryPage />} />
+      <Route path="book" element={<BookingPage />} />
+      <Route path="appointments" element={<AppointmentsPage />} />
+      <Route path="orders" element={<PatientOrdersPage />} />
+      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
+      <Route path="dependents" element={<DependentsPage />} />
+      <Route path="referrals" element={<PatientReferralsPage />} />
+      <Route path="waitlist" element={<WaitlistPage />} />
+      <Route path="health" element={<HealthProfilePage />} />
+      <Route path="facilities" element={<FacilityFinderPage />} />
+      <Route path="orders" element={<OrdersPage />} />
+      <Route path="orders/:orderId" element={<OrderDetailPage />} />
+      <Route path="messages/:threadId" element={<MessageThreadPage />} />
+      <Route path="settings" element={<AccountSettingsPage />} />
+      <Route path="care/*" element={<CareThreadPage />} />
+      <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
+      <Route path="appointments/:appointmentId/intake" element={<IntakePage />} />
     </Routes>
   );
 }

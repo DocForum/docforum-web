@@ -49,9 +49,9 @@ jobs:
 
       - run: npm ci
 
-      # A preview that ships a failing test suite is worse than no preview.
-      - run: npm run typecheck
-      - run: npm run test
+      # Typecheck and unit tests run once, in CI's Frontend job (a required
+      # check). Re-running them here only turned one failing test into two
+      # red checks. build:preview still runs `tsc -b`.
 
       - name: Build preview
         run: npm run build:preview

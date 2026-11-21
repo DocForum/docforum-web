@@ -9,8 +9,8 @@ import styles from './LocaleSwitcher.module.css';
  * layout uses.
  */
 export function LocaleSwitcher() {
-  const locale = useLocaleStore((state) => state.locale);
-  const setLocale = useLocaleStore((state) => state.setLocale);
+  const locale = useLocaleStore((state) => state.formattingLocale);
+  const setLocale = useLocaleStore((state) => state.setFormattingLocale);
 
   return (
     <label className={styles.root}>

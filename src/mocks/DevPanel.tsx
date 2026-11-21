@@ -4,7 +4,8 @@
 // application tree itself never imports anything under src/mocks/.
 import { useState } from 'react';
 import { queryClient } from '../query-client';
-import { resetDb } from './db';
+import { db, resetDb } from './db';
+import { notificationKeys } from '../query-keys';
 import { resetMockSessions } from './handlers/auth';
 import styles from './DevPanel.module.css';
 import { useMockStore, type MockScenario } from './mock-store';
@@ -14,6 +15,27 @@ import type { Role } from '../types/models';
 
 const ROLES: Role[] = ['patient', 'doctor', 'facility', 'admin'];
 const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error', 'network-once'];
+
+let simulatedCount = 0;
+
+/**
+ * Adds an unread notification to the mock inbox and refetches it, so the
+ * bell's "new notification" announcement (issue #246) can be checked with a
+ * screen reader without waiting for the 60s poll.
+ */
+function simulateNotification(): void {
+  simulatedCount += 1;
+  db.notifications.push({
+    id: `ntf-simulated-${simulatedCount}`,
+    kind: 'system_announcement',
+    title: `Simulated notification ${simulatedCount} (fake)`,
+    body: 'Added from the mock API panel to test new-notification announcements.',
+    link: null,
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  });
+  void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+}
 
 export function DevPanel() {
   const [open, setOpen] = useState(true);
@@ -162,6 +184,9 @@ export function DevPanel() {
           }}
         >
           Reset data
+        </button>
+        <button type="button" className={styles.action} onClick={simulateNotification}>
+          Simulate a new notification
         </button>
         <button type="button" className={styles.action} onClick={mockSignOut}>
           Sign out
