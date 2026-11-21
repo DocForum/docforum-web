@@ -3,8 +3,8 @@
 // When the backend adds `locale` to the user profile (issue #87), this store becomes
 // the read-through cache; setLocale will also PATCH the profile.
 import { create } from 'zustand';
-import { resolveLocale, type Locale, isLocale, LOCALE_LABELS, SUPPORTED_LOCALES } from '../i18n/locales';
-import { directionFor, type AppLocale, DEFAULT_LOCALE, type LocaleMeta, LOCALE_META } from '../i18n/format';
+import { resolveLocale, type Locale } from '../i18n/locales';
+import { directionFor, type AppLocale } from '../i18n/format';
 
 // Normalize the patient locale to an AppLocale for formatting consistency
 function patientLocaleToAppLocale(locale: Locale): AppLocale {

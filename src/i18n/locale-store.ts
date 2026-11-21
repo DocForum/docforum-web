@@ -2,7 +2,13 @@
 // is now src/store/locale-store.ts which handles both patient locale (en/es) and
 // formatting locale (en-US, en-GB, de-DE, ar-EG) with proper dir computation.
 // Import from '../store/locale-store' instead.
-import { useLocaleStore as useI18nLocaleStore, currentDirection, directionFor } from '../store/locale-store';
+import { useLocaleStore as useStoreLocaleStore } from '../store/locale-store';
+import { directionFor } from './format';
 
-// Re-export for convenience
-export { useI18nLocaleStore as useLocaleStore, currentDirection, directionFor };
+export { useStoreLocaleStore as useLocaleStore };
+
+export function currentDirection(): 'ltr' | 'rtl' {
+  return useStoreLocaleStore.getState().currentDirection();
+}
+
+export { directionFor };
