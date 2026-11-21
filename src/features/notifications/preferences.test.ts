@@ -96,6 +96,6 @@ describe('validateQuietHours', () => {
   it('rejects equal start and end times but allows a window crossing midnight', () => {
     const base = { enabled: true, start: '21:00', end: '08:00', timeZone: 'UTC' };
     expect(validateQuietHours(base)).toBeNull();
-    expect(validateQuietHours({ ...base, end: '21:00' })).toMatch(/different times/);
+    expect(validateQuietHours({ ...base, end: '21:00' })).toBe('sameTime');
   });
 });

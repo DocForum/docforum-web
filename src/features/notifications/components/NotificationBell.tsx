@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth-store';
 import { NOTIFICATIONS_PAGE_SIZE } from '../../../services/notifications-service';
+import { useT } from '../../../i18n/useT';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationLiveUpdates } from '../hooks/useNotificationLiveUpdates';
 import { useNewNotificationAnnouncement } from '../hooks/useNewNotificationAnnouncement';
@@ -26,6 +27,7 @@ const PANEL_LIMIT = 6;
  * `useNewNotificationAnnouncement` for the rules.
  */
 export function NotificationBell() {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const role = user?.role ?? null;
   const enabled = Boolean(user);
@@ -83,9 +85,11 @@ export function NotificationBell() {
         className={styles.bell}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={
-          unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications, none unread'
-        }
+        aria-label={t(
+          'notifications.bell.label',
+          '{count, plural, =0 {Notifications, none unread} other {Notifications, # unread}}',
+          { count: unreadCount },
+        )}
         onClick={() => setOpen((value) => !value)}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -105,28 +109,28 @@ export function NotificationBell() {
       {open && (
         <div id={panelId} className={styles.panel}>
           {inbox.isLoading ? (
-            <p className={styles.panelNote}>Loading notifications…</p>
+            <p className={styles.panelNote}>{t('notifications.bell.loading', 'Loading notifications…')}</p>
           ) : inbox.error ? (
             <div className={styles.panelNote}>
-              <p>Your notifications couldn't be loaded.</p>
+              <p>{t('notifications.bell.error', "Your notifications couldn't be loaded.")}</p>
               <button type="button" className={styles.retry} onClick={() => void inbox.refetch()}>
-                Try again
+                {t('common.tryAgain', 'Try again')}
               </button>
             </div>
           ) : preview.length === 0 ? (
-            <p className={styles.panelNote}>You're all caught up.</p>
+            <p className={styles.panelNote}>{t('notifications.bell.empty', "You're all caught up.")}</p>
           ) : (
             <ul className={styles.items}>
               {preview.map((notification) => {
                 const destination = notificationDestination(notification, role);
-                const meta = notificationMeta(notification.kind);
+                const meta = notificationMeta(notification.kind, t);
                 const unread = notification.readAt === null;
                 const inner = (
                   <>
                     <NotificationIcon category={meta.category} />
                     <span className={styles.copy}>
                       <span className={styles.title}>{notification.title}</span>
-                      <span className={styles.time}>{formatNotificationTime(notification.createdAt)}</span>
+                      <span className={styles.time}>{formatNotificationTime(notification.createdAt, undefined, t)}</span>
                     </span>
                     {unread && <span className={styles.unreadDot} aria-hidden="true" />}
                   </>
@@ -148,7 +152,7 @@ export function NotificationBell() {
 
           <div className={styles.footer}>
             <Link to="/notifications" className={styles.viewAll}>
-              View all notifications
+              {t('notifications.bell.viewAll', 'View all notifications')}
             </Link>
             <button
               type="button"
@@ -156,7 +160,7 @@ export function NotificationBell() {
               onClick={() => inbox.markAllRead.mutate()}
               disabled={unreadCount === 0 || inbox.markAllRead.isPending}
             >
-              Mark all as read
+              {t('notifications.list.markAll', 'Mark all as read')}
             </button>
           </div>
         </div>

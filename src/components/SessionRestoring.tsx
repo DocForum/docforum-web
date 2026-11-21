@@ -1,5 +1,6 @@
 import { Spinner } from './Spinner';
 import { useSlowRequestHint } from '../hooks/useSlowRequestHint';
+import { useOptionalT } from '../i18n/useOptionalT';
 import { useAuthStore } from '../store/auth-store';
 
 /**
@@ -14,6 +15,7 @@ import { useAuthStore } from '../store/auth-store';
  * swap to real content does not shift the footer (CLS budget, issue #99).
  */
 export function SessionRestoring() {
+  const { t } = useOptionalT();
   const status = useAuthStore((state) => state.status);
   const isResolving = status === 'resolving';
   const isSlow = useSlowRequestHint(isResolving);
@@ -21,12 +23,17 @@ export function SessionRestoring() {
   return (
     <div role="status" aria-live="polite" className="card routeFallback">
       <p>
-        <Spinner size={14} /> {isResolving ? 'Restoring your session…' : 'Loading…'}
+        <Spinner size={14} />{' '}
+        {isResolving
+          ? t('shell.auth.restoring', 'Restoring your session…')
+          : t('shell.auth.loading', 'Loading…')}
       </p>
       {isSlow && (
         <p className="slowHint">
-          Still working — the server may be waking up after being idle. This can take up to a
-          minute.
+          {t(
+            'auth.slowHint',
+            'Still working — the server may be waking up after being idle. This can take up to a minute.',
+          )}
         </p>
       )}
     </div>

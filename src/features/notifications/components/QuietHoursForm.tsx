@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
 import { TimePicker } from '../../../components/TimePicker';
+import { useT } from '../../../i18n/useT';
 import { listTimeZones } from '../../../i18n/time-zone';
-import { isValidClockTime, validateQuietHours } from '../preferences';
+import { isValidClockTime, validateQuietHours, type QuietHoursError } from '../preferences';
 import type { QuietHours } from '../../../types/models';
 import styles from './NotificationPreferences.module.css';
 
@@ -12,11 +13,12 @@ interface QuietHoursFormProps {
 }
 
 export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormProps) {
+  const t = useT();
   const headingId = useId();
   const startId = useId();
   const endId = useId();
   const zoneId = useId();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<QuietHoursError | null>(null);
 
   const commit = (next: QuietHours) => {
     const validation = validateQuietHours(next);
@@ -25,16 +27,27 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
     onChange(next);
   };
 
+  const errorCopy = (code: QuietHoursError): string => {
+    switch (code) {
+      case 'invalidTime':
+        return t('notifications.quiet.error.invalidTime', 'Quiet hours must use a valid 24-hour time.');
+      case 'sameTime':
+        return t('notifications.quiet.error.sameTime', 'Quiet hours must start and end at different times.');
+    }
+  };
+
   return (
     <section className={styles.quietSection} aria-labelledby={headingId}>
       <div className={styles.quietHeader}>
         <div>
           <h2 id={headingId} className={styles.quietTitle}>
-            Quiet hours
+            {t('notifications.quiet.title', 'Quiet hours')}
           </h2>
           <p className={styles.quietDescription}>
-            Pause non-urgent email, SMS and in-app notifications during a daily window.
-            Safety-critical lab results and security alerts still get through.
+            {t(
+              'notifications.quiet.description',
+              'Pause non-urgent email, SMS and in-app notifications during a daily window. Safety-critical lab results and security alerts still get through.',
+            )}
           </p>
         </div>
       </div>
@@ -47,7 +60,7 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
           disabled={saving}
           onChange={(event) => commit({ ...quietHours, enabled: event.target.checked })}
         />
-        <span>Enable quiet hours</span>
+        <span>{t('notifications.quiet.enable', 'Enable quiet hours')}</span>
       </label>
 
       <div className={styles.quietFields} data-enabled={quietHours.enabled}>
@@ -56,7 +69,7 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
         <div className={styles.field}>
           <TimePicker
             id={startId}
-            label="Start"
+            label={t('notifications.quiet.start', 'Start')}
             value={quietHours.start}
             timeZone={quietHours.timeZone}
             hideTimeZone
@@ -70,7 +83,7 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
         <div className={styles.field}>
           <TimePicker
             id={endId}
-            label="End"
+            label={t('notifications.quiet.end', 'End')}
             value={quietHours.end}
             timeZone={quietHours.timeZone}
             hideTimeZone
@@ -83,7 +96,7 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
 
         <div className={`${styles.field} ${styles.zoneField}`}>
           <label htmlFor={zoneId} className={styles.fieldLabel}>
-            Time zone
+            {t('notifications.quiet.timeZone', 'Time zone')}
           </label>
           <select
             id={zoneId}
@@ -103,13 +116,16 @@ export function QuietHoursForm({ quietHours, saving, onChange }: QuietHoursFormP
 
       {quietHours.start > quietHours.end && quietHours.enabled && (
         <p className={styles.quietHint}>
-          This window crosses midnight — it runs from {quietHours.start} through to{' '}
-          {quietHours.end} the next day.
+          {t(
+            'notifications.quiet.crossesMidnight',
+            'This window crosses midnight — it runs from {start} through to {end} the next day.',
+            { start: quietHours.start, end: quietHours.end },
+          )}
         </p>
       )}
       {error && (
         <p className={styles.inlineError} role="alert">
-          {error}
+          {errorCopy(error)}
         </p>
       )}
     </section>
