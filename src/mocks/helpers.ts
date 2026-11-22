@@ -70,19 +70,15 @@ export function notFound(what: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${what} not found` }, { status: 404 });
 }
 
-/** 400 helper carrying docforum-core's `{ message, code }` envelope. */
-export function badRequest(code: string, message: string): AnyHttpResponse {
-  return HttpResponse.json({ message, code }, { status: 400 });
-}
-
 /** 409 helper with the `{ message }` envelope api-client.ts expects. */
 export function conflict(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 409 });
 }
 
-/** 400 helper with the `{ message }` envelope api-client.ts expects. */
-export function badRequest(message: string): AnyHttpResponse {
-  return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 400 });
+/** 400 helper with the `{ message }` envelope api-client.ts expects. Pass a
+ * docforum-core error `code` when the client has to branch on it. */
+export function badRequest(message: string, code?: string): AnyHttpResponse {
+  return HttpResponse.json(code ? { message, code } : { message: `Mock API: ${message}` }, { status: 400 });
 }
 
 export function paramId(params: PathParams, name = 'id'): string {

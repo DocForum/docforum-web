@@ -13,6 +13,15 @@ import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError, apiFetch } from '../services/api-client';
+/** A date of birth exactly `years` ago today: minors vs. the age of majority. */
+function dateYearsAgo(years: number): string {
+  const now = new Date();
+  const date = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';

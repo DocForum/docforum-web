@@ -21,24 +21,24 @@ export const dependentHandlers = [
     respond('json', async ({ request }) => {
       const payload = await request.json().catch(() => null);
       if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-        return badRequest('VALIDATION_ERROR', 'Expected a JSON object.');
+        return badRequest('Expected a JSON object.', 'VALIDATION_ERROR');
       }
 
       const body = payload as Record<string, unknown>;
       const unexpected = Object.keys(body).find((key) => !CREATE_FIELDS.includes(key));
       if (unexpected) {
-        return badRequest('VALIDATION_ERROR', `Unexpected field: ${unexpected}`);
+        return badRequest(`Unexpected field: ${unexpected}`, 'VALIDATION_ERROR');
       }
 
       const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
       const dateOfBirth = typeof body.dateOfBirth === 'string' ? body.dateOfBirth : '';
-      if (!fullName) return badRequest('VALIDATION_ERROR', 'fullName is required.');
+      if (!fullName) return badRequest('fullName is required.', 'VALIDATION_ERROR');
 
       const dobError = validateDependentDob(dateOfBirth);
       if (dobError) {
         const parsed = parseDateOnly(dateOfBirth);
         const code = parsed && !isMinor(dateOfBirth) ? DEPENDENT_NOT_A_MINOR : 'VALIDATION_ERROR';
-        return badRequest(code, dobError);
+        return badRequest(dobError, code);
       }
 
       const now = new Date().toISOString();

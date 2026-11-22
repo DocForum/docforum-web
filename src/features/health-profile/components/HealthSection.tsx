@@ -110,8 +110,8 @@ export function HealthSection({ section }: Props) {
         )}
       </div>
 
-      <FormError message={describeActingForError(listError, 'Failed to load this section.')} />
-      <FormError message={describeActingForError(removeMutation.error, 'Failed to remove.')} />
+      <FormError message={errorMessage(error)} />
+      <FormError message={errorMessage(removeMutation.error)} />
 
       {isLoading && (
         <div className={styles.loading}>

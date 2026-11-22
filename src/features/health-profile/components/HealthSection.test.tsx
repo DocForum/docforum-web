@@ -72,10 +72,12 @@ describe('HealthSection', () => {
 
   it('explains a closed guardianship instead of showing a raw 403', async () => {
     vi.mocked(healthService.listHealthEntries).mockRejectedValue(
-      new ApiError('Forbidden', 403, {
-        code: 'GUARDIANSHIP_INACTIVE',
-        message: 'GUARDIANSHIP_INACTIVE',
-      }),
+      new ApiError(
+        'Forbidden',
+        403,
+        { code: 'GUARDIANSHIP_INACTIVE', message: 'GUARDIANSHIP_INACTIVE' },
+        { code: 'GUARDIANSHIP_INACTIVE' },
+      ),
     );
 
     render(<HealthSection section="allergies" />);

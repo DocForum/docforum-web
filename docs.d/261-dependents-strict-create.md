@@ -1,3 +1,8 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
+
 ### Dependents create body is strict — relationship is edit-only (issue #261)
 
 `POST /patients/me/dependents` in docforum-core accepts exactly
