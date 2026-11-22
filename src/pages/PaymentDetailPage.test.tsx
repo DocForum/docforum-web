@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render as rtlRender, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../i18n/messages/es.json';
 import { PaymentDetailPage } from './PaymentDetailPage';
 import * as paymentHistoryService from '../services/payment-history-service';
 import { ApiError } from '../services/api-client';
@@ -32,18 +34,20 @@ function entry(overrides: Partial<PaymentHistoryEntry> = {}): PaymentHistoryEntr
   };
 }
 
-function renderAt(path: string) {
+function renderAt(path: string, locale: 'en' | 'es' = 'en') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return rtlRender(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/payments/:intentId" element={<PaymentDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/payments/:intentId" element={<PaymentDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
@@ -187,5 +191,16 @@ describe('PaymentDetailPage', () => {
     expect(await screen.findByText(/sign in to see this payment/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/login');
     expect(paymentHistoryService.getPaymentHistoryEntry).not.toHaveBeenCalled();
+  });
+
+  it('renders payment details in Spanish', async () => {
+    vi.mocked(paymentHistoryService.getPaymentHistoryEntry).mockResolvedValue(entry());
+
+    renderAt('/payments/pi-1', 'es');
+
+    const receipt = await screen.findByTestId('payment-receipt');
+    expect(within(receipt).getByRole('heading', { name: 'Comprobante de pago' })).toBeInTheDocument();
+    expect(within(receipt).getByText('En depósito en garantía')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Imprimir comprobante' })).toBeInTheDocument();
   });
 });

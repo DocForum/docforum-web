@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { IntlProvider } from 'react-intl';
 import { render, screen } from '@testing-library/react';
 import { OrderDetailPage } from './OrderDetailPage';
 import { useAuthStore } from '../store/auth-store';
@@ -80,13 +81,15 @@ function renderPage() {
   // Deliberately not test/render's wrapper: this page needs a route
   // param, and react-router refuses to nest two <Router>s.
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/patient/orders/ord-rx-1']}>
-        <Routes>
-          <Route path="/patient/orders/:orderId" element={<OrderDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale="en" defaultLocale="en" onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/patient/orders/ord-rx-1']}>
+          <Routes>
+            <Route path="/patient/orders/:orderId" element={<OrderDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
