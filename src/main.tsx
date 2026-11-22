@@ -13,7 +13,13 @@ import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
 import { createAppRouter } from './router';
+import { applyStoredTheme } from './utils/theme';
 import './styles/global.css';
+
+// Apply the saved light/dark/high-contrast choice before the first paint, so a
+// reload never flashes the default theme (issue #98 / #296). It was added by
+// #359 but lost in a merge from main, which left e2e/visual.spec.ts failing.
+applyStoredTheme();
 
 // Mock API for local development (issue #95) — only runs under
 // `npm run dev:mock` (a DEV build with VITE_ENABLE_MOCKS=true). In
