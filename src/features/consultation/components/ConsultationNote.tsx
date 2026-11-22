@@ -13,6 +13,7 @@ import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
 import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
+import { paths } from '../../../routes/paths';
 
 const NOTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   day: 'numeric',
@@ -128,7 +129,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
         {appointmentQuery.data?.patientProfileId && (
           <Button
             variant="secondary"
-            onClick={() => navigate(`/doctor/patient-chart/${appointmentQuery.data.patientProfileId}`)}
+            onClick={() => navigate(paths.doctor.patientChart(appointmentQuery.data.patientProfileId))}
           >
             View patient chart
           </Button>

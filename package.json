@@ -24,6 +24,8 @@
     "generate:api": "node packages/api-client/scripts/generate.mjs",
     "check:api-client": "node packages/api-client/scripts/check-version.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:no-backups": "node scripts/check-no-backup-files.mjs",
+    "check:contract-drift": "node scripts/check-contract-drift.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "pretypecheck": "npm run generate:api",
     "typecheck": "tsc -b --noEmit",
