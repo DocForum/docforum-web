@@ -85,6 +85,13 @@
   color: var(--color-text-muted);
 }
 
+.statusGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
 .status {
   display: inline-block;
   padding: 0.2rem 0.6rem;

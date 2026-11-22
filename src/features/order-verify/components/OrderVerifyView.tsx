@@ -5,10 +5,12 @@ import { VerificationResultCard } from './VerificationResultCard';
 import { useOrderVerify } from '../hooks/useOrderVerify';
 import { ApiError } from '../../../services/api-client';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import type { VerifyOrderResponse } from '../../../types/models';
 import styles from './OrderVerify.module.css';
 
 export function OrderVerifyView() {
+  const t = useT();
   const [activeMode, setActiveMode] = useState<'camera' | 'manual'>('camera');
   const [result, setResult] = useState<VerifyOrderResponse | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
@@ -41,22 +43,21 @@ export function OrderVerifyView() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Scan to verify order</h1>
+        <h1 className={styles.title}>{t('orderVerify.title', 'Scan to verify order')}</h1>
         <p className={styles.subtitle}>
-          Scan a patient's QR code or enter the order verification token to validate authenticity,
-          expiration, and eligibility before fulfillment.
+          {t('orderVerify.subtitle', "Scan a patient's QR code or enter the order verification token to validate authenticity, expiration, and eligibility before fulfillment.")}
         </p>
       </div>
 
       {rateLimitMessage && (
         <div role="alert" className={styles.rateLimitCard}>
           <h3 className={styles.rateLimitTitle}>
-            <span>⚠️</span> Rate Limit Exceeded (429)
+            <span>⚠️</span> {t('orderVerify.rateLimit.title', 'Rate Limit Exceeded (429)')}
           </h3>
           <p className={styles.rateLimitDesc}>{rateLimitMessage}</p>
           <div>
             <Button variant="secondary" onClick={handleReset}>
-              Try again
+              {t('common.tryAgain', 'Try again')}
             </Button>
           </div>
         </div>
@@ -66,7 +67,7 @@ export function OrderVerifyView() {
         <VerificationResultCard result={result} onReset={handleReset} />
       ) : (
         <>
-          <div className={styles.modeToggle} role="tablist" aria-label="Verification input mode">
+          <div className={styles.modeToggle} role="tablist" aria-label={t('orderVerify.modeLabel', 'Verification input mode')}>
             <button
               type="button"
               role="tab"
@@ -74,7 +75,7 @@ export function OrderVerifyView() {
               className={`${styles.modeButton} ${activeMode === 'camera' ? styles.modeButtonActive : ''}`}
               onClick={() => setActiveMode('camera')}
             >
-              📷 Camera scanner
+              {t('orderVerify.modeCamera', '📷 Camera scanner')}
             </button>
             <button
               type="button"
@@ -83,19 +84,20 @@ export function OrderVerifyView() {
               className={`${styles.modeButton} ${activeMode === 'manual' ? styles.modeButtonActive : ''}`}
               onClick={() => setActiveMode('manual')}
             >
-              ⌨️ Manual code entry
+              {t('orderVerify.modeManual', '⌨️ Manual code entry')}
             </button>
           </div>
 
           {verifyMutation.isPending && (
             <div role="status" className={`${styles.alert} ${styles.alertInfo}`}>
-              Checking order token against DocForum core registry…
+              {t('orderVerify.checking', 'Checking order token against DocForum core registry…')}
             </div>
           )}
 
           {verifyMutation.isError && !rateLimitMessage && (
             <div role="alert" className={`${styles.alert} ${styles.alertError}`}>
-              <strong>Verification Failed:</strong> {verifyMutation.error.message || 'Unable to verify order token.'}
+              <strong>{t('orderVerify.verifyFailed', 'Verification Failed:')}</strong>{' '}
+              {verifyMutation.error.message || t('orderVerify.verifyFailedFallback', 'Unable to verify order token.')}
             </div>
           )}
 

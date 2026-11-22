@@ -12,6 +12,11 @@ export function useMotion<T extends Element>(
     const scope = scopeRef.current;
     if (!scope) return;
 
+    // Reduced-motion users never see an animation, so they never download
+    // GSAP either (~27 kB gzip, issue #99). gsap.matchMedia() below still
+    // guards a preference change made after load.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
     let cancelled = false;
     let revert: (() => void) | undefined;
 

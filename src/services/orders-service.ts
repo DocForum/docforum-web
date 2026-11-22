@@ -18,8 +18,17 @@ import type {
   SelectOrderFacilityInput,
 } from '../types/models';
 
-export function listMyOrders(accessToken: string, signal?: AbortSignal): Promise<PatientOrder[]> {
-  return apiFetch<PatientOrder[]>('/orders/mine', { accessToken, signal });
+/** `patientProfileId` scopes the list to the profile the patient is acting
+ * for (issue #295) — without it a guardian sees their dependents' orders mixed
+ * into their own. It is an assumed query parameter until docforum-core adds
+ * an explicit acting-profile contract. */
+export function listMyOrders(
+  accessToken: string,
+  signal?: AbortSignal,
+  patientProfileId?: string,
+): Promise<PatientOrder[]> {
+  const query = patientProfileId ? `?patientProfileId=${encodeURIComponent(patientProfileId)}` : '';
+  return apiFetch<PatientOrder[]>(`/orders/mine${query}`, { accessToken, signal });
 }
 
 /**

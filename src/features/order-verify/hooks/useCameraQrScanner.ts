@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useIntl } from 'react-intl';
 
 export type CameraStatus = 'idle' | 'starting' | 'active' | 'denied' | 'unsupported' | 'error';
 
@@ -11,6 +12,13 @@ export function useCameraQrScanner({ onScan, enabled = true }: UseCameraQrScanne
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
+  const intl = useIntl();
+  // Stable translator: `intl` changes only with the locale, so the camera
+  // callbacks below do not restart on every render.
+  const t = useCallback(
+    (id: string, defaultMessage: string) => intl.formatMessage({ id, defaultMessage }),
+    [intl],
+  );
 
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,7 +54,9 @@ export function useCameraQrScanner({ onScan, enabled = true }: UseCameraQrScanne
 
     if (!navigator?.mediaDevices?.getUserMedia) {
       setCameraStatus('unsupported');
-      setErrorMessage('Camera access is not supported by your browser or environment.');
+      setErrorMessage(
+        t('orderVerify.camera.unsupported', 'Camera access is not supported by your browser or environment.'),
+      );
       return;
     }
 
@@ -110,17 +120,23 @@ export function useCameraQrScanner({ onScan, enabled = true }: UseCameraQrScanne
       const error = err as Error;
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setCameraStatus('denied');
-        setErrorMessage('Camera permission was denied. Please allow camera access in your browser or enter the order token manually below.');
+        setErrorMessage(
+          t('orderVerify.camera.denied', 'Camera permission was denied. Please allow camera access in your browser or enter the order token manually below.'),
+        );
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         setCameraStatus('unsupported');
-        setErrorMessage('No camera device found on this system. Please use manual code entry.');
+        setErrorMessage(
+          t('orderVerify.camera.notFound', 'No camera device found on this system. Please use manual code entry.'),
+        );
       } else {
         setCameraStatus('error');
-        setErrorMessage(error.message || 'Unable to start camera.');
+        setErrorMessage(
+          error.message || t('orderVerify.camera.startFailed', 'Unable to start camera.'),
+        );
       }
       stopCamera();
     }
-  }, [onScan, stopCamera]);
+  }, [onScan, stopCamera, t]);
 
   useEffect(() => {
     if (enabled) {

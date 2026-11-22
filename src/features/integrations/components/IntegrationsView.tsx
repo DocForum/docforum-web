@@ -3,6 +3,7 @@ import { ApiKeysPanel } from './ApiKeysPanel';
 import { WebhooksPanel } from './WebhooksPanel';
 import { useFacilityMembers } from '../../facility-team/hooks/useFacilityTeam';
 import { useAuthStore } from '../../../store/auth-store';
+import { useT } from '../../../i18n/useT';
 import styles from './Integrations.module.css';
 
 interface IntegrationsViewProps {
@@ -14,6 +15,7 @@ export function IntegrationsView({
   facilityId = 'fac-main',
   isOwnerOverride,
 }: IntegrationsViewProps) {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const { data: membersData, isLoading } = useFacilityMembers(facilityId);
 
@@ -34,9 +36,9 @@ export function IntegrationsView({
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.headerTitle}>
-          <h1>Integrations</h1>
+          <h1>{t('integrations.title', 'Integrations')}</h1>
           <p className={styles.headerSubtitle}>
-            Manage API keys and webhooks to connect your lab or pharmacy systems with DocForum.
+            {t('integrations.subtitle', 'Manage API keys and webhooks to connect your lab or pharmacy systems with DocForum.')}
           </p>
         </div>
         <a
@@ -45,14 +47,14 @@ export function IntegrationsView({
           target="_blank"
           rel="noopener noreferrer"
         >
-          Integration docs →
+          {t('integrations.docsLink', 'Integration docs →')}
         </a>
       </div>
 
       {isLoading ? (
         <div className={styles.emptyState}>
           <Spinner size={24} />
-          <p>Checking access…</p>
+          <p>{t('integrations.checkingAccess', 'Checking access…')}</p>
         </div>
       ) : !isOwner ? (
         <div
@@ -65,8 +67,7 @@ export function IntegrationsView({
             fontSize: 'var(--text-sm)',
           }}
         >
-          Integrations are available to facility owners only. Ask a facility owner to
-          manage API keys and webhooks.
+          {t('integrations.ownerOnly', 'Integrations are available to facility owners only. Ask a facility owner to manage API keys and webhooks.')}
         </div>
       ) : (
         <>
