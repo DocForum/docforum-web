@@ -10,6 +10,7 @@ import { Skeleton } from '../../../components/states/Skeleton';
 import { useT } from '../../../i18n/useT';
 import type { AbnormalResult } from '../../../types/models';
 import styles from './AbnormalResultsInbox.module.css';
+import { paths } from '../../../routes/paths';
 
 export function AbnormalResultsInbox() {
   const t = useT();
@@ -152,7 +153,7 @@ export function AbnormalResultsInbox() {
                           aria-label={t('results.inbox.messageAria', 'Message {patient}', {
                             patient: result.patientName,
                           })}
-                          onClick={() => navigate(`/doctor/messages/${threadId}`)}
+                          onClick={() => navigate(paths.doctor.message(threadId))}
                         >
                           {t('results.inbox.messagePatient', 'Message patient')}
                         </Button>
