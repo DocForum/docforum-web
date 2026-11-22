@@ -149,6 +149,30 @@ describe('OrderDetailPage payment panel', () => {
     expect(screen.queryByRole('heading', { name: 'Payment' })).not.toBeInTheDocument();
   });
 
+  it('shows a loading skeleton while the order is loading', () => {
+    vi.mocked(ordersService.getPatientOrder).mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByRole('status')).toHaveTextContent(/loading order/i);
+  });
+
+  it('shows PageError with retry and fallback when the order fails to load', async () => {
+    vi.mocked(ordersService.getPatientOrder).mockRejectedValue(
+      new ApiError('Order failed to load', 500),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/your order couldn't be loaded/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/the server had a problem/i);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to your orders/i })).toHaveAttribute(
+      'href',
+      '/patient/orders',
+    );
+  });
+
   it('shows an order-not-found state for a 404', async () => {
     vi.mocked(ordersService.getPatientOrder).mockRejectedValue(
       new ApiError('order not found', 404),

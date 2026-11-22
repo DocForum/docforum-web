@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { PatientOnboarding } from '../features/onboarding/components/PatientOnboarding';
@@ -8,6 +9,9 @@ import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
 import { AppointmentDetailPage } from './AppointmentDetailPage';
+import { AppointmentsPage } from './AppointmentsPage';
+import { BookingPage } from './BookingPage';
+import { DoctorDirectoryPage } from './DoctorDirectoryPage';
 import { DependentsPage } from './DependentsPage';
 import { HealthProfilePage } from './HealthProfilePage';
 import { AccountSettingsPage } from './AccountSettingsPage';
@@ -19,13 +23,17 @@ import { PatientReferralsPage } from './PatientReferralsPage';
 import { WaitlistPage } from './WaitlistPage';
 import { IntakePage } from './IntakePage';
 import { WaitlistOfferBanner } from '../features/waitlist/components/WaitlistOfferBanner';
-import { OrderDetailPage } from './OrderDetailPage';
-import { PatientOrdersPage } from './PatientOrdersPage';
-import { PatientOrderDetailPage } from './PatientOrderDetailPage';
 import { MessageThreadPage } from './MessageThreadPage';
 import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import { useT } from '../i18n/useT';
 import styles from './PatientDashboardPage.module.css';
+
+// The order detail page is only needed on one nested route. Loading it lazily
+// keeps its payment panel and fulfilment components out of the dashboard
+// chunk now that the duplicate top-level route no longer splits it (#222).
+const OrderDetailPage = lazy(() =>
+  import('./OrderDetailPage').then((module) => ({ default: module.OrderDetailPage })),
+);
 
 function PatientHome() {
   const { cards, sources } = useCareHub();
@@ -88,6 +96,8 @@ function PatientHome() {
         )}
 
         <nav className={styles.links} aria-label="Your record">
+          <Link to="appointments">My appointments</Link>
+          <Link to="doctors">Browse doctors by specialty</Link>
           <Link to="search">{t('patient.nav.findDoctor', 'Find a doctor by symptom')}</Link>
           <Link to="dependents">{t('patient.nav.dependents', 'Manage dependents')}</Link>
           <Link to="health">{t('patient.nav.health', 'Health profile')}</Link>
@@ -114,15 +124,23 @@ export function PatientDashboardPage() {
     <Routes>
       <Route index element={<PatientHome />} />
       <Route path="search" element={<DoctorSearchPage />} />
-      <Route path="orders" element={<PatientOrdersPage />} />
-      <Route path="orders/:orderId" element={<PatientOrderDetailPage />} />
+      <Route path="doctors" element={<DoctorDirectoryPage />} />
+      <Route path="book" element={<BookingPage />} />
+      <Route path="appointments" element={<AppointmentsPage />} />
       <Route path="dependents" element={<DependentsPage />} />
       <Route path="referrals" element={<PatientReferralsPage />} />
       <Route path="waitlist" element={<WaitlistPage />} />
       <Route path="health" element={<HealthProfilePage />} />
       <Route path="facilities" element={<FacilityFinderPage />} />
       <Route path="orders" element={<OrdersPage />} />
-      <Route path="orders/:orderId" element={<OrderDetailPage />} />
+      <Route
+        path="orders/:orderId"
+        element={
+          <Suspense fallback={<Skeleton lines={4} label="Loading order" />}>
+            <OrderDetailPage />
+          </Suspense>
+        }
+      />
       <Route path="messages/:threadId" element={<MessageThreadPage />} />
       <Route path="settings" element={<AccountSettingsPage />} />
       <Route path="care/*" element={<CareThreadPage />} />

@@ -11,6 +11,7 @@ import { PageError } from '../../../components/states/PageError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useAuthStore } from '../../../store/auth-store';
+import { useT } from '../../../i18n/useT';
 import { csvFilename, downloadCsv, facilityInsightsToCsv } from '../facility-insights';
 import type { DateRangePreset, FacilityPerformanceInsights } from '../../../types/models';
 import styles from './FacilityInsights.module.css';
@@ -25,6 +26,7 @@ export function FacilityInsightsView({
   facilityId = 'fac-main',
   initialData,
 }: FacilityInsightsViewProps) {
+  const t = useT();
   const accessToken = useAuthStore((state) => state.accessToken);
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string }>();
@@ -54,7 +56,7 @@ export function FacilityInsightsView({
   if (!initialData && (query.isLoading || !accessToken)) {
     return (
       <div className={styles.container}>
-        <Skeleton lines={6} height="2.75rem" label="Loading facility performance insights" />
+        <Skeleton lines={6} height="2.75rem" label={t('insights.facility.loading', 'Loading facility performance insights')} />
       </div>
     );
   }
@@ -63,36 +65,35 @@ export function FacilityInsightsView({
     return (
       <div className={styles.container}>
         <PageError
-          title="Could not load facility performance insights"
+          title={t('insights.facility.loadError', 'Could not load facility performance insights')}
           message={queryErrorMessage(query.error)}
           onRetry={() => void query.refetch()}
-          fallback={{ label: 'Back to the queue', to: '/facility' }}
+          fallback={{ label: t('insights.facility.backToQueue', 'Back to the queue'), to: '/facility' }}
         />
       </div>
     );
   }
 
   return (
-    <div className={styles.container} aria-label="Facility performance insights dashboard">
+    <div className={styles.container} aria-label={t('insights.facility.dashboardLabel', 'Facility performance insights dashboard')}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
           <div>
-            <h1>Performance insights</h1>
+            <h1>{t('insights.facility.title', 'Performance insights')}</h1>
             <p className={styles.cardSubtitle}>
-              How quickly this facility fulfils orders and how reliably, so you can spot where to
-              improve and where partner support may help.
+              {t('insights.facility.subtitle', 'How quickly this facility fulfils orders and how reliably, so you can spot where to improve and where partner support may help.')}
             </p>
           </div>
           <Button type="button" variant="secondary" onClick={handleExport} className={styles.exportButton}>
-            Export CSV
+            {t('insights.facility.exportCsv', 'Export CSV')}
           </Button>
         </div>
 
         <div className={styles.aggregateBanner} role="note">
           <span aria-hidden="true">🔒</span>
           <span>
-            <strong>Aggregate data only:</strong> this view never shows patient names, order details
-            or any patient-level information — only totals, rates and distributions.
+            <strong>{t('insights.facility.aggregateLabel', 'Aggregate data only:')}</strong>{' '}
+            {t('insights.facility.aggregateBody', 'this view never shows patient names, order details or any patient-level information — only totals, rates and distributions.')}
           </span>
         </div>
 
@@ -106,7 +107,7 @@ export function FacilityInsightsView({
 
       {query.isError && (
         <InlineError
-          title="Showing the last data loaded"
+          title={t('insights.facility.staleTitle', 'Showing the last data loaded')}
           message={queryErrorMessage(query.error)}
           onRetry={() => void query.refetch()}
         />

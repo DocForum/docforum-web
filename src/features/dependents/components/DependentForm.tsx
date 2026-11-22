@@ -1,4 +1,5 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useState } from 'react';
+import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -62,12 +63,12 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
         error={fieldErrors.fullName}
         required
       />
-      <TextField
+      <DatePicker
         label={t('dependents.dob', 'Date of birth')}
-        type="date"
         value={dateOfBirth}
-        onChange={(e) => setDateOfBirth(e.target.value)}
-        error={fieldErrors.dateOfBirth ?? serverDobError}
+        onChange={setDateOfBirth}
+        max={new Date().toISOString().slice(0, 10)}
+        error={fieldErrors.dateOfBirth}
         required
       />
       <div className={styles.field}>

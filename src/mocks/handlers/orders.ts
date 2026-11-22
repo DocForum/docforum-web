@@ -4,7 +4,18 @@ import { conflict, notFound, paramId, respond } from '../helpers';
 import type { PatientOrder } from '../../types/models';
 
 export const orderHandlers = [
-  http.get('*/orders/mine', respond('list', () => db.patientOrders)),
+  // `patientProfileId` is the acting-profile scope (issue #295): the guardian
+  // and a dependent have separate order lists. Omitted, it returns every
+  // order, as before.
+  http.get(
+    '*/orders/mine',
+    respond('list', ({ request }) => {
+      const profileId = new URL(request.url).searchParams.get('patientProfileId');
+      return profileId
+        ? db.patientOrders.filter((order) => order.patientProfileId === profileId)
+        : db.patientOrders;
+    }),
+  ),
 
   // Single-order detail for the patient order page (issue #61). Must stay
   // after `/orders/mine` above so `mine` isn't captured as an orderId.
