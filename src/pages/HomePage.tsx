@@ -1,15 +1,10 @@
 import { useCallback, useRef } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { motionDuration, motionEase, useMotion } from '../hooks/useMotion';
+import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './HomePage.module.css';
-
-const DASHBOARD_BY_ROLE: Record<string, string> = {
-  patient: '/patient',
-  doctor: '/doctor',
-  facility: '/facility',
-};
 
 // The content genuinely is a sequence — booking leads to referral leads to
 // an order leads to escrow-settled fulfillment — so a connected path, not
@@ -118,8 +113,8 @@ export function HomePage() {
   useMotion(threadSectionRef, animateThread);
 
   if (user) {
-    const destination = DASHBOARD_BY_ROLE[user.role];
-    if (destination) return <Navigate to={destination} replace />;
+    const destination = homePathForRole(user.role);
+    if (destination !== '/') return <Navigate to={destination} replace />;
   }
 
   const steps = THREAD.map((step) => ({
