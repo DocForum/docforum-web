@@ -14,10 +14,8 @@ const FORBIDDEN_MARKERS = [
   'mock-dev-panel-root', // mocks/setup.ts
   'MOCK API', // mocks/DevPanel.tsx (panel title/pill)
   'setupWorker', // msw/browser entry
-  // DEFAULT_MOCK_* fixtures that still live in shipped components (#299);
-  // they must never reach the bundle.
-  'evelyn.reed@centralpharmacy.org', // facility-team/FacilityTeamView.tsx
-  'df_live_a1b2c3d4', // integrations/ApiKeysPanel.tsx
+  'preview-token', // the old production `?previewRole=` fake session
+  'previewRole', // mock-only role preview parameter (mocks/roles.ts)
 ];
 
 // Markers whose fixture already ships today. They are reported as warnings

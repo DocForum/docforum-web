@@ -1,24 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
-import { PageError } from '../../../components/states/PageError';
-import { Skeleton } from '../../../components/states/Skeleton';
-import type { OrderItemFulfillment, OrderPaymentSummary, PatientOrder } from '../../../types/models';
+import type {
+  OrderItemFulfillment,
+  OrderPaymentSummary,
+  PatientOrder,
+} from '../../../types/models';
 import { ITEM_STATUS_LABELS } from '../../fulfillment/status';
-import { useOrder } from '../hooks/useOrders';
-import { orderTypeLabel } from './PatientOrdersList';
+import { formatOrderDate } from './order-display';
 import { RemainingItemsFacilityPicker } from './RemainingItemsFacilityPicker';
-import styles from './PatientOrders.module.css';
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import styles from './OrderFulfillment.module.css';
 
 function paymentStatusLabel(status: OrderPaymentSummary['status']): string {
   switch (status) {
@@ -42,7 +32,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
     <li className={styles.detailItem} data-status={item.status}>
       <div className={styles.detailItemHeader}>
         <div>
-          <h3 className={styles.detailItemName}>{item.name}</h3>
+          <h4 className={styles.detailItemName}>{item.name}</h4>
           {item.instructions && (
             <p className={styles.detailItemInstructions}>{item.instructions}</p>
           )}
@@ -86,7 +76,7 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
       {item.dispensedByFacilityName && item.status !== 'dispensed_elsewhere' && (
         <p className={styles.itemMeta}>
           Dispensed by {item.dispensedByFacilityName}
-          {item.dispensedAt ? ` on ${formatDate(item.dispensedAt)}` : ''}.
+          {item.dispensedAt ? ` on ${formatOrderDate(item.dispensedAt)}` : ''}.
         </p>
       )}
 
@@ -112,44 +102,24 @@ function ItemCard({ item }: { item: OrderItemFulfillment }) {
   );
 }
 
-export function PatientOrderDetail({ orderId }: { orderId: string }) {
-  const orderQuery = useOrder(orderId);
-  const { data: order, isLoading, error } = orderQuery;
+/** Item-level fulfilment, payment implications and the partial-fulfilment
+ * picker for a patient order. Kept separate from the QR/print card so the
+ * single order detail page can compose both without duplicating the request
+ * for the patient order. Loading and error states live in OrderDetailPage. */
+export function OrderFulfillment({ order }: { order: PatientOrder }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const outstandingItems = useMemo(
     () =>
-      (order?.items ?? []).filter(
+      (order.items ?? []).filter(
         (item) => item.quantityOutstanding > 0 && !item.routedToFacilityId,
       ),
     [order],
   );
 
-  const hasRoutedItems = (order?.items ?? []).some((item) => item.routedToFacilityId);
-  const allDispensed =
-    (order?.items ?? []).every((item) => item.quantityOutstanding <= 0);
-
-  if (isLoading) {
-    return (
-      <section className={styles.page}>
-        <Skeleton lines={6} height="2rem" label="Loading order" />
-      </section>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <section className={styles.page}>
-        <PageError
-          title="Order not found"
-          message={error instanceof Error ? error.message : 'Order not found.'}
-          onRetry={() => void orderQuery.refetch()}
-          fallback={{ label: 'Back to my orders', to: '/patient/orders' }}
-        />
-      </section>
-    );
-  }
+  const hasRoutedItems = (order.items ?? []).some((item) => item.routedToFacilityId);
+  const allDispensed = (order.items ?? []).every((item) => item.quantityOutstanding <= 0);
 
   const handleRouted = (updated: PatientOrder) => {
     setIsPickerOpen(false);
@@ -163,24 +133,10 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
   };
 
   return (
-    <section className={styles.page} aria-labelledby="order-detail-heading">
-      <Link to="/patient/orders" className={styles.backLink}>
-        ← Back to my orders
-      </Link>
-
-      <div className={styles.detailHeader}>
-        <div>
-          <p className={styles.orderType}>{orderTypeLabel(order)}</p>
-          <h1 id="order-detail-heading" className={styles.detailTitle}>
-            {order.medicationOrTest}
-          </h1>
-          <p className={styles.orderMeta}>
-            Order {order.id} · issued {formatDate(order.issuedAt)}
-            {order.facilityName ? ` · ${order.facilityName}` : ''}
-          </p>
-        </div>
-        <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
-      </div>
+    <section className={styles.page} aria-labelledby="order-fulfillment-heading">
+      <h2 id="order-fulfillment-heading" className={styles.sectionTitle}>
+        Items &amp; fulfillment
+      </h2>
 
       <div className={styles.paymentCallout} role="note">
         <div>
@@ -200,7 +156,7 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
 
       <div className={styles.detailBody}>
         <div className={styles.itemSection}>
-          <h2 className={styles.sectionTitle}>Items</h2>
+          <h3 className={styles.sectionTitle}>Items</h3>
           <ul className={styles.detailItemList}>
             {(order.items ?? []).map((item) => (
               <ItemCard key={item.id} item={item} />
@@ -209,7 +165,7 @@ export function PatientOrderDetail({ orderId }: { orderId: string }) {
         </div>
 
         <aside className={styles.detailAside}>
-          <h2 className={styles.sectionTitle}>What happens next?</h2>
+          <h3 className={styles.sectionTitle}>What happens next?</h3>
           {allDispensed ? (
             <p className={styles.asideText}>
               All items on this order have been dispensed. Nothing else is outstanding.
