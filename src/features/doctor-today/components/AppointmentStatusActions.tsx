@@ -92,7 +92,7 @@ export function AppointmentStatusActions({ appointment, onConflict }: Appointmen
         variant="secondary"
         onClick={() => open('no_show')}
         disabled={!canMarkNoShow}
-        aria-label={`Mark ${appointment.patientName} as no-show`}
+        aria-label={`Mark no-show: ${appointment.patientName}`}
         title={
           canMarkNoShow
             ? undefined
@@ -105,7 +105,7 @@ export function AppointmentStatusActions({ appointment, onConflict }: Appointmen
       <Button
         variant="secondary"
         onClick={() => open('cancelled')}
-        aria-label={`Cancel ${appointment.patientName}'s visit`}
+        aria-label={`Cancel visit: ${appointment.patientName}`}
       >
         Cancel visit
       </Button>

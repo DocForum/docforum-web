@@ -132,7 +132,7 @@ describe('QueuePanel', () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText('Still expected')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Mark Robin Sample as no-show' }));
+    await user.click(screen.getByRole('button', { name: 'Mark no-show: Robin Sample' }));
 
     expect(screen.getByRole('dialog')).toHaveTextContent(/referral goes back to pending/i);
     await user.click(screen.getByRole('button', { name: 'Mark as no-show' }));
