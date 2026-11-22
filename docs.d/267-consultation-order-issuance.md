@@ -1,3 +1,8 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
+
 ### Phase W3 — Order issuance via the real `/orders/consultations` endpoints (issue #267)
 
 These are **real** docforum-core contracts (`backend/src/modules/orders`,

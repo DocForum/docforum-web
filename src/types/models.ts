@@ -49,6 +49,7 @@ export type * from './models/live-visit-queue';
 export type * from './models/messaging';
 export type * from './models/notification-centre';
 export type * from './models/notification-preferences';
+export type * from './models/order-issuance';
 export type * from './models/orders';
 export type * from './models/partial-fulfilment';
 export type * from './models/patient-appointment-view';

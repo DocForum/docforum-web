@@ -89,7 +89,7 @@ function FacilityField({
           {isLoading ? `Loading ${noun} options…` : `Choose a ${noun}`}
         </option>
         {facilities.map((facility) => (
-          <option key={facility.facilityId} value={facility.facilityId}>
+          <option key={facility.id} value={facility.id}>
             {facility.name}
             {facility.priceOnRequest ? ' — price on request' : ''}
           </option>

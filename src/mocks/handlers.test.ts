@@ -450,7 +450,7 @@ describe('order issuance (issue #267)', () => {
 
   it('prices a lab order from the facility catalog and defaults urgency to routine', async () => {
     const labs = await facilityService.listEligibleFacilities('lab', MOCK_ACCESS_TOKEN);
-    expect(labs.map((lab) => lab.facilityId)).toEqual(['fac-demo-lab']);
+    expect(labs.map((lab) => lab.id)).toEqual(['fac-demo-lab']);
 
     const consultation = await consultationService.createConsultation(
       { appointmentId: 'apt-demo-2', outcome: 'follow_up_needed' },
