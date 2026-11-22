@@ -1,2 +1,0 @@
-Phase W7: deep links survive login ([issue #226](https://github.com/DocForum/docforum-web/issues/226)).
-The route loader guards (`requireRoles`) now remember the attempted path in memory before redirecting a signed-out visitor to `/login`, and `LoginPage` consumes it via `safeReturnPath()` with a role-based allowlist, restoring the originally requested page after authentication while preventing open redirects. An idle-timeout sign-out still lands on the role home, so a shared device never reopens the previous session's page.
