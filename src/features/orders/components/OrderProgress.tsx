@@ -34,7 +34,9 @@ export function OrderProgress({ order }: { order: PatientOrder }) {
 
   return (
     <span className={styles.progressRow}>
-      <FulfillmentStatusBadge status={data.status} />
+      <FulfillmentStatusBadge
+        status={data.status === 'issued' ? 'unfulfilled' : data.status}
+      />
       <span className={styles.progressText}>{fulfillmentProgressText(data)}</span>
     </span>
   );
