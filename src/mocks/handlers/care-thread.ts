@@ -6,7 +6,11 @@ import { notFound, paramId, respond } from '../helpers';
 export const careThreadHandlers = [
   http.get(
     '*/patients/:profileId/care-threads',
-    respond('list', () => db.careThreads),
+    // Scoped to the acting profile: a guardian must never see a dependent's
+    // thread under their own name, or vice versa (issue #295).
+    respond('list', ({ params }) =>
+      db.careThreads.filter((thread) => thread.patientProfileId === paramId(params, 'profileId')),
+    ),
   ),
 
   http.get(

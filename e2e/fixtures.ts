@@ -6,7 +6,12 @@ export const test = base.extend<{
   visit: (route: string, role?: Role) => Promise<void>;
 }>({
   visit: async ({ page }, use) => {
-    await page.addInitScript(() => localStorage.setItem('docforum-theme', 'light'));
+    // Default screenshots to the light theme without clobbering an explicit
+    // choice: the theme projects set their own value in an init script, and
+    // which script runs first is not guaranteed.
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('docforum-theme')) localStorage.setItem('docforum-theme', 'light');
+    });
     await use(async (route, role = 'patient') => {
       await page.goto(`/?previewRole=${role}#${route}`);
       await expect(page.locator('#root')).not.toBeEmpty();
