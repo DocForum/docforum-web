@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { useT } from '../../../i18n/useT';
 import styles from './FacilitySettings.module.css';
 
 interface LocationMapPickerProps {
@@ -28,6 +29,7 @@ export function LocationMapPicker({
   longitude,
   onCoordinateChange,
 }: LocationMapPickerProps) {
+  const t = useT();
   const centerLat = coordinate(latitude, 51.505, -90, 90);
   const centerLng = coordinate(longitude, -0.09, -180, 180);
   const zoom = 13;
@@ -62,9 +64,9 @@ export function LocationMapPicker({
       <div
         className={styles.mapFrame}
         role="region"
-        aria-label="Map preview for the facility pin. Use the latitude and longitude fields below for a keyboard-accessible alternative."
+        aria-label={t('facilitySettings.map.ariaLabel', 'Map preview for the facility pin. Use the latitude and longitude fields below for a keyboard-accessible alternative.')}
         onClick={handleMapClick}
-        title="Click anywhere on the map to move the pin"
+        title={t('facilitySettings.map.clickHint', 'Click anywhere on the map to move the pin')}
       >
         <div className={styles.mapTiles} aria-hidden="true">
           {tiles.map((tile) => (
@@ -79,19 +81,18 @@ export function LocationMapPicker({
         </div>
         <div className={styles.mapPin} aria-hidden="true">
           <span className={styles.mapPinDot} />
-          <span className={styles.mapPinLabel}>Facility</span>
+          <span className={styles.mapPinLabel}>{t('facilitySettings.map.pinLabel', 'Facility')}</span>
         </div>
         <div className={styles.mapAttribution}>
           ©{' '}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
             OpenStreetMap
           </a>{' '}
-          contributors
+          {t('facilitySettings.map.contributors', 'contributors')}
         </div>
       </div>
       <p className={styles.mapHint}>
-        Click the map to move the pin, or enter latitude and longitude below. The coordinate fields
-        are the keyboard-accessible alternative to the map.
+        {t('facilitySettings.map.hint', 'Click the map to move the pin, or enter latitude and longitude below. The coordinate fields are the keyboard-accessible alternative to the map.')}
       </p>
     </div>
   );

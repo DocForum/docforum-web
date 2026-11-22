@@ -30,8 +30,9 @@ describe('GenerateSlotsForm', () => {
 
   it('defaults the range to this week in the doctor\'s own zone', () => {
     renderForm();
-    expect(screen.getByLabelText('From')).toHaveValue('2026-10-12');
-    expect(screen.getByLabelText('To')).toHaveValue('2026-10-16');
+    // DatePicker (issue #114) shows the locale's format; the value is ISO.
+    expect(screen.getByLabelText('From')).toHaveValue('10/12/2026');
+    expect(screen.getByLabelText('To')).toHaveValue('10/16/2026');
     expect(screen.getByText(/Times are in Africa\/Lagos/i)).toBeInTheDocument();
   });
 

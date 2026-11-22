@@ -53,7 +53,7 @@ describe('DependentsList', () => {
 
     await user.click(screen.getByRole('button', { name: /add dependent/i }));
     await user.type(screen.getByLabelText(/full name/i), 'Test Child');
-    await user.type(screen.getByLabelText(/date of birth/i), '2099-01-01');
+    await user.type(screen.getByRole('textbox', { name: /date of birth/i }), '2099-01-01');
     await user.click(screen.getByRole('button', { name: /add dependent/i }));
 
     expect(await screen.findByText(/cannot be in the future/i)).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('DependentsList', () => {
 
     await user.click(screen.getByRole('button', { name: /add dependent/i }));
     await user.type(screen.getByLabelText(/full name/i), 'Child One');
-    await user.type(screen.getByLabelText(/date of birth/i), '2012-05-15');
+    await user.type(screen.getByRole('textbox', { name: /date of birth/i }), '2012-05-15');
     await user.click(screen.getByRole('button', { name: /add dependent/i }));
 
     await waitFor(() => {

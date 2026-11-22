@@ -22,7 +22,16 @@ rendering stable.
   carets are disabled, the light theme is fixed, and fonts are ready before
   capture.
 
-To review a legitimate visual change, run the update command **inside the
+On a PR, screenshot differences are **report only**: the Browser job shows a
+warning and lists the changed screens in its summary, but doesn't fail. You
+don't need to update baselines yourself. After a merge, the `Visual baselines`
+workflow regenerates them on main and pushes the result to the
+`chore/refresh-visual-baselines` branch, where a maintainer reviews the image
+diffs in a PR. Do check the `playwright-report` artifact: if a screen changed
+in a way you didn't intend, that's a bug to fix in your PR. Journeys,
+accessibility and landscape tests still fail the job as usual.
+
+To update baselines yourself anyway, run the update command **inside the
 same pinned container** from the repository root:
 
 ```sh
