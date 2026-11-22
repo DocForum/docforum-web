@@ -19,7 +19,8 @@ const LOADER_BY_PATH: Record<string, PageLoader> = {
   '/for-doctors': () => import('./ForDoctorsPage').then((m) => m.ForDoctorsPage),
   '/for-facilities': () => import('./ForFacilitiesPage').then((m) => m.ForFacilitiesPage),
   '/privacy': () => import('./PublicPrivacyPage').then((m) => m.PublicPrivacyPage),
-  '/accessibility': () => import('./AccessibilityPage').then((m) => m.AccessibilityPage),
+  '/accessibility': () =>
+    import('./AccessibilityStatementPage').then((m) => m.AccessibilityStatementPage),
   '/faq': () => import('./FaqPage').then((m) => m.FaqPage),
 };
 

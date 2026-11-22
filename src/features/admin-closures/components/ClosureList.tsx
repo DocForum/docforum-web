@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- Existing violation tracked by #299 (raw fetch / localStorage in admin-closures); queued for removal with the shared-client migration. */
 import { useClosures } from '../hooks/useClosures';
 import type { Closure } from '../../../types/models';
 

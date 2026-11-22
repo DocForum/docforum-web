@@ -16,6 +16,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { useUnreadMessageCount } from '../features/messaging/hooks/useMessageThreads';
 import { OfflineBanner } from './OfflineBanner';
+import { paths } from '../routes/paths';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
@@ -152,7 +153,7 @@ export function Layout() {
   }, [drawerOpen]);
 
   const logout = () => {
-    logoutMutation.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) });
+    logoutMutation.mutate(undefined, { onSuccess: () => navigate(paths.login, { replace: true }) });
     closeDrawer();
   };
 
@@ -219,7 +220,7 @@ export function Layout() {
           {user && (
             <Flag name="notification_preferences">
               <RRNavLink
-                to="/settings/notifications"
+                to={paths.notificationSettings}
                 className={({ isActive }) =>
                   styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
                 }
@@ -307,7 +308,7 @@ export function Layout() {
               ))}
               <Flag name="notification_preferences">
                 <RRNavLink
-                  to="/settings/notifications"
+                  to={paths.notificationSettings}
                   className={({ isActive }) =>
                     styles.drawerLink +
                     (isActive ? ` ${styles.drawerLinkActive}` : '')
@@ -370,7 +371,7 @@ export function Layout() {
 
       <footer className={styles.footer} role="contentinfo">
         <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
-        <Link to="/accessibility" className={styles.navLink}>
+        <Link to={paths.accessibility} className={styles.navLink}>
           {t('app.accessibility', 'Accessibility')}
         </Link>
         {/* Router link, not a raw href: under the GitHub Pages base path a bare

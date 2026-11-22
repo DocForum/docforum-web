@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
+import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';

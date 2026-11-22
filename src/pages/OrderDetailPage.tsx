@@ -12,6 +12,7 @@ import { useOrder } from '../features/orders/hooks/useOrders';
 import { useOrderPaymentIntent } from '../features/payments/hooks/useOrderPaymentIntent';
 import { OrderPaymentPanel } from '../features/payments/components/OrderPaymentPanel';
 import { OrderDetail } from '../features/orders/components/OrderDetail';
+import { OrderFulfillment } from '../features/orders/components/OrderFulfillment';
 import styles from './OrderDetailPage.module.css';
 
 export function OrderDetailPage() {
@@ -76,6 +77,11 @@ export function OrderDetailPage() {
 
       {/* Single order view: QR code, status, items, print affordance. */}
       <OrderDetail orderId={orderId} />
+
+      {/* Item-level fulfilment, the payment rule and the partial-fulfilment
+          picker — merged here so /patient/orders/:orderId has one detail
+          screen instead of two competing ones. */}
+      <OrderFulfillment order={orderQuery.data} />
 
       {/* Payment panel — hidden entirely when the order has no payment
           intent; degrades to a quiet note on any other lookup failure. */}

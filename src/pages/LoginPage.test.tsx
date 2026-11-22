@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { render, screen } from '../test/render';
@@ -6,15 +6,41 @@ import { LoginPage } from './LoginPage';
 import * as authService from '../services/auth-service';
 import { rememberReturnPath } from '../features/auth/return-path';
 import { useAuthStore } from '../store/auth-store';
-import type { User } from '../types/models';
+import { makeUser } from '../test/factories';
+import type { Role, User } from '../types/models';
 
-vi.mock('../services/auth-service');
+vi.mock('../services/auth-service', () => ({ login: vi.fn() }));
 
 function renderAt(path: string) {
   render(<LoginPage />, { initialEntries: [path] });
 }
 
+function renderLoginFlow() {
+  render(
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<div>Public home</div>} />
+      <Route path="/patient" element={<div>Patient dashboard</div>} />
+      <Route path="/doctor" element={<div>Doctor dashboard</div>} />
+      <Route path="/facility" element={<div>Facility dashboard</div>} />
+      <Route path="/admin" element={<div>Admin dashboard</div>} />
+    </Routes>,
+    { initialEntries: ['/login'] },
+  );
+}
+
+async function signIn() {
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Email'), 'person@example.test');
+  await user.type(screen.getByLabelText('Password'), 'password123');
+  await user.click(screen.getByRole('button', { name: /^log in$/i }));
+}
+
 describe('LoginPage', () => {
+  beforeEach(() => {
+    vi.mocked(authService.login).mockReset();
+  });
+
   afterEach(() => {
     useAuthStore.setState({ user: null, accessToken: null, signOutReason: null });
   });
@@ -93,6 +119,35 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     expect(await screen.findByText('Doctor dashboard')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['patient', 'Patient dashboard'],
+    ['doctor', 'Doctor dashboard'],
+    ['facility', 'Facility dashboard'],
+    ['admin', 'Admin dashboard'],
+  ] as const)('sends a signed-in %s to their dashboard', async (role, heading) => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: makeUser({ role }),
+      accessToken: 'token',
+    });
+
+    renderLoginFlow();
+    await signIn();
+
+    expect(await screen.findByText(heading)).toBeInTheDocument();
+  });
+
+  it('falls back to the public home page for an unknown role', async () => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: makeUser({ role: 'auditor' as Role }),
+      accessToken: 'token',
+    });
+
+    renderLoginFlow();
+    await signIn();
+
+    expect(await screen.findByText('Public home')).toBeInTheDocument();
   });
 
   it('signing back in clears the idle sign-out reason', () => {
