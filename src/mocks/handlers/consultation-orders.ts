@@ -9,7 +9,7 @@
 // type for the order kind.
 import { HttpResponse, http } from 'msw';
 import { db } from '../db';
-import { badRequest, conflict, forbidden, notFound, paramId, respond } from '../helpers';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
 import type {
   Consultation,
   ConsultationOutcome,
@@ -113,6 +113,11 @@ function facilityForOrder(facilityProfileId: string, type: 'pharmacy' | 'lab') {
 
 const nonEmpty = (value: unknown, max: number) =>
   typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max;
+
+/** 403 helper — docforum-core's gate responses carry a `message` too. */
+function forbidden(message: string) {
+  return HttpResponse.json({ message }, { status: 403 });
+}
 
 export const consultationOrderHandlers = [
   http.get(

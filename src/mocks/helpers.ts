@@ -80,11 +80,6 @@ export function badRequest(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 400 });
 }
 
-/** 403 helper — docforum-core's gate responses carry a `message` too. */
-export function forbidden(message: string): AnyHttpResponse {
-  return HttpResponse.json({ message }, { status: 403 });
-}
-
 export function paramId(params: PathParams, name = 'id'): string {
   return String(params[name]);
 }
