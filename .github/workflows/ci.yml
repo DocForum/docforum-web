@@ -24,6 +24,9 @@ jobs:
 
       - run: npm ci
 
+      - name: No tracked backup files
+        run: npm run check:no-backups
+
       - name: Check generated API client version
         run: npm run check:api-client
 
@@ -42,6 +45,14 @@ jobs:
           }
 
       - run: npm run lint
+
+      # Contract drift report (#301). Warn-only by design: the summary goes to
+      # the job log and a drifted call never blocks a merge.
+      - name: Contract drift report (warn-only)
+        continue-on-error: true
+        env:
+          DOCFORUM_CORE_REF: ${{ env.E2E_CORE_REF }}
+        run: npm run check:contract-drift
 
       # Coverage gate (issue #105): thresholds live in vite.config.ts and fail
       # this step when coverage on src/features/ or src/services/ drops below
