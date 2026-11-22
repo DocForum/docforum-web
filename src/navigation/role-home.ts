@@ -13,6 +13,8 @@ export const ROLE_HOME: Record<Role, string> = {
 };
 
 export function homePathForRole(role: string | null | undefined): string {
-  if (role && role in ROLE_HOME) return ROLE_HOME[role as Role];
+  if (role && Object.hasOwn(ROLE_HOME, role)) {
+    return ROLE_HOME[role as Role];
+  }
   return '/';
 }
