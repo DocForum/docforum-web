@@ -1,6 +1,7 @@
 import { createIntl, createIntlCache, useIntl } from 'react-intl';
 
 export type MessageValues = Record<string, string | number | boolean | Date | null | undefined>;
+export type Translator = (id: string, defaultMessage: string, values?: MessageValues) => string;
 
 /** The shape returned by `useT`, so pure helpers can accept a translator
  * without ever hard-coding a message id of their own. */
@@ -24,7 +25,7 @@ export const plainTranslate: Translate = (id, defaultMessage, values) =>
  * Interpolation/pluralisation always goes through ICU `values`, never string
  * concatenation.
  */
-export function useT() {
+export function useT(): Translator {
   const intl = useIntl();
   return (id: string, defaultMessage: string, values?: MessageValues): string =>
     intl.formatMessage({ id, defaultMessage }, values);

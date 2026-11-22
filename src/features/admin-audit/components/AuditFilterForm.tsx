@@ -3,8 +3,9 @@ import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
-import { checkFilters, FIELD_LABELS } from '../filters';
+import { checkFilters, filterFieldLabel } from '../filters';
 import type { AuditTab, FilterDraft, FilterErrors } from '../filters';
+import { useT } from '../../../i18n/useT';
 import styles from './AuditLogViewer.module.css';
 
 // Suggestions only — the inputs accept any well-formed value, since
@@ -29,13 +30,14 @@ interface AuditFilterFormProps {
 }
 
 export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: AuditFilterFormProps) {
+  const t = useT();
   const [draft, setDraft] = useState<FilterDraft>(initial);
   const [errors, setErrors] = useState<FilterErrors>({});
   const entityTypesId = useId();
   const actionsId = useId();
 
   const bind = (field: keyof FilterDraft) => ({
-    label: FIELD_LABELS[field],
+    label: filterFieldLabel(field, t),
     value: draft[field],
     error: errors[field],
     onChange: (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [field]: event.target.value })),
@@ -43,30 +45,55 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    const { filters, errors: found } = checkFilters(draft);
+    const { filters, errors: found } = checkFilters(draft, t);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     onApply(filters);
   };
 
   return (
-    <form className={styles.filters} onSubmit={handleSubmit} aria-label="Filter audit entries" noValidate>
+    <form
+      className={styles.filters}
+      onSubmit={handleSubmit}
+      aria-label={t('adminAudit.filters.label', 'Filter audit entries')}
+      noValidate
+    >
       <div className={styles.filterGrid}>
-        <TextField {...bind('entityType')} list={entityTypesId} placeholder="PaymentIntent" autoComplete="off" />
-        <TextField {...bind('entityId')} placeholder="Record id" autoComplete="off" spellCheck={false} />
-        <TextField {...bind('actor')} placeholder="User id" autoComplete="off" spellCheck={false} />
+        <TextField
+          {...bind('entityType')}
+          list={entityTypesId}
+          placeholder={t('adminAudit.filter.entityTypePlaceholder', 'PaymentIntent')}
+          autoComplete="off"
+        />
+        <TextField
+          {...bind('entityId')}
+          placeholder={t('adminAudit.filter.entityIdPlaceholder', 'Record id')}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <TextField
+          {...bind('actor')}
+          placeholder={t('adminAudit.filter.actorPlaceholder', 'User id')}
+          autoComplete="off"
+          spellCheck={false}
+        />
         {tab === 'events' && (
-          <TextField {...bind('action')} list={actionsId} placeholder="payment_intent" autoComplete="off" />
+          <TextField
+            {...bind('action')}
+            list={actionsId}
+            placeholder={t('adminAudit.filter.actionPlaceholder', 'payment_intent')}
+            autoComplete="off"
+          />
         )}
         <DatePicker
-          label={FIELD_LABELS.from}
+          label={filterFieldLabel('from', t)}
           value={draft.from}
           error={errors.from}
           onChange={(value) => setDraft((current) => ({ ...current, from: value }))}
           max={draft.to || undefined}
         />
         <DatePicker
-          label={FIELD_LABELS.to}
+          label={filterFieldLabel('to', t)}
           value={draft.to}
           error={errors.to}
           onChange={(value) => setDraft((current) => ({ ...current, to: value }))}
@@ -86,10 +113,10 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
       </datalist>
 
       <div className={styles.filterActions}>
-        <Button type="submit">Apply filters</Button>
+        <Button type="submit">{t('adminAudit.filters.apply', 'Apply filters')}</Button>
         {canClear && (
           <Button type="button" variant="secondary" onClick={onClear}>
-            Clear
+            {t('adminAudit.filters.clear', 'Clear')}
           </Button>
         )}
       </div>
