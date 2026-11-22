@@ -1,8 +1,10 @@
+import { useT, plainTranslate, type Translate } from '../../../i18n/useT';
 import {
-  CLAIM_ITEM_STATUS_LABELS,
-  CREDENTIAL_TYPE_LABELS,
-  NO_REJECTION_REASON,
-  NOT_SUBMITTED_LABEL,
+  claimItemStatusLabel,
+  credentialTypeLabel,
+  localizedRequirements,
+  noRejectionReason,
+  notSubmittedLabel,
   REQUIRED_CREDENTIALS,
 } from '../requirements';
 import type {
@@ -34,10 +36,9 @@ export interface ChecklistSummary {
   percent: number;
 }
 
-const STATE_LABELS: Record<ChecklistItemState, string> = {
-  ...CLAIM_ITEM_STATUS_LABELS,
-  not_submitted: NOT_SUBMITTED_LABEL,
-};
+function stateLabel(state: ChecklistItemState, t: Translate): string {
+  return state === 'not_submitted' ? notSubmittedLabel(t) : claimItemStatusLabel(state, t);
+}
 
 /** Latest submission per type wins: resubmitting replaces the rejected file,
  * so the newest row is what the reviewer is actually looking at. */
@@ -60,10 +61,11 @@ export function latestCredentialByType(
 export function deriveChecklistItems(
   credentials: readonly DoctorCredential[],
   claims: readonly DoctorSpecialtyClaim[] = [],
+  t: Translate = plainTranslate,
 ): ChecklistItem[] {
   const byType = latestCredentialByType(credentials);
 
-  const documentItems: ChecklistItem[] = REQUIRED_CREDENTIALS.map((requirement) => {
+  const documentItems: ChecklistItem[] = localizedRequirements(t).map((requirement) => {
     const credential = byType.get(requirement.type);
     return {
       key: `credential:${requirement.type}`,
@@ -76,8 +78,10 @@ export function deriveChecklistItems(
 
   const claimItems: ChecklistItem[] = claims.map((claim) => ({
     key: `claim:${claim.id}`,
-    label: `Specialty claim: ${claim.specialty.name}`,
-    description: 'Reviewed against your specialty certificate.',
+    label: t('verification.checklist.claimLabel', 'Specialty claim: {name}', {
+      name: claim.specialty.name,
+    }),
+    description: t('verification.checklist.claimDescription', 'Reviewed against your specialty certificate.'),
     state: claim.status,
     reason: claim.rejectionReason ?? null,
   }));
@@ -103,13 +107,14 @@ interface Props {
 }
 
 export function VerificationChecklist({ credentials, claims = [] }: Props) {
-  const items = deriveChecklistItems(credentials, claims);
+  const t = useT();
+  const items = deriveChecklistItems(credentials, claims, t);
   const summary = checklistSummary(items);
 
   return (
     <section className={styles.root} aria-labelledby="verification-checklist-title">
       <h2 className={styles.title} id="verification-checklist-title">
-        Verification checklist
+        {t('verification.checklist.title', 'Verification checklist')}
       </h2>
 
       <div className={styles.progressBlock}>
@@ -124,10 +129,21 @@ export function VerificationChecklist({ credentials, claims = [] }: Props) {
           <div className={styles.progressFill} style={{ width: `${summary.percent}%` }} />
         </div>
         <p className={styles.progressLabel} id="verification-checklist-progress">
-          {summary.percent}% complete — {summary.verified} of {summary.total} items verified
-          {summary.pending > 0 && `, ${summary.pending} awaiting review`}
-          {summary.rejected > 0 && `, ${summary.rejected} rejected`}
-          {summary.notSubmitted > 0 && `, ${summary.notSubmitted} not submitted`}
+          {t(
+            'verification.checklist.progress',
+            '{percent}% complete — {verified, plural, one {# of {total} items verified} other {# of {total} items verified}}{hasPending, select, yes {, {pending} awaiting review} other {}}{hasRejected, select, yes {, {rejected} rejected} other {}}{hasNotSubmitted, select, yes {, {notSubmitted} not submitted} other {}}',
+            {
+              percent: summary.percent,
+              verified: summary.verified,
+              total: summary.total,
+              pending: summary.pending,
+              rejected: summary.rejected,
+              notSubmitted: summary.notSubmitted,
+              hasPending: summary.pending > 0 ? 'yes' : 'no',
+              hasRejected: summary.rejected > 0 ? 'yes' : 'no',
+              hasNotSubmitted: summary.notSubmitted > 0 ? 'yes' : 'no',
+            },
+          )}
         </p>
       </div>
 
@@ -137,14 +153,14 @@ export function VerificationChecklist({ credentials, claims = [] }: Props) {
             <div className={styles.itemHeader}>
               <span className={styles.itemLabel}>{item.label}</span>
               <span className={styles.status} data-status={item.state}>
-                {STATE_LABELS[item.state]}
+                {stateLabel(item.state, t)}
               </span>
             </div>
             <p className={styles.itemDescription}>{item.description}</p>
             {item.state === 'rejected' && (
               <p className={styles.reason}>
-                <span className={styles.reasonLabel}>Reason: </span>
-                {item.reason || NO_REJECTION_REASON}
+                <span className={styles.reasonLabel}>{t('verification.reason.label', 'Reason: ')}</span>
+                {item.reason || noRejectionReason(t)}
               </p>
             )}
           </li>
@@ -152,9 +168,11 @@ export function VerificationChecklist({ credentials, claims = [] }: Props) {
       </ul>
 
       <p className={styles.policy}>
-        This list is the current review policy for doctor applications — {REQUIRED_CREDENTIALS.map((r) => CREDENTIAL_TYPE_LABELS[r.type]).join(', ')} —
-        not something stored on your account. An admin reviews every document and every specialty claim
-        separately, which is why each row carries its own status.
+        {t(
+          'verification.checklist.policy',
+          'This list is the current review policy for doctor applications — {types} — not something stored on your account. An admin reviews every document and every specialty claim separately, which is why each row carries its own status.',
+          { types: REQUIRED_CREDENTIALS.map((requirement) => credentialTypeLabel(requirement.type, t)).join(', ') },
+        )}
       </p>
     </section>
   );

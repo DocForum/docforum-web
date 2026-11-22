@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { FLAGS_KEY } from '../hooks/useFeatureFlags';
 import { ApiError } from '../../../services/api-client';
@@ -546,17 +546,13 @@ describe('FeatureFlagsConsole — editing', () => {
 });
 
 describe('/admin/flags route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/flags']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/flags');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins', async () => {
     renderApp();
@@ -567,7 +563,8 @@ describe('/admin/flags route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Feature flags' })).not.toBeInTheDocument();
     expect(flagsService.listFeatureFlags).not.toHaveBeenCalled();
   });

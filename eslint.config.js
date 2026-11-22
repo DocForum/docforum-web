@@ -63,6 +63,16 @@ export default tseslint.config(
     },
   },
   {
+    // Classic browser scripts copied verbatim into the build by Vite. They run
+    // outside the module graph (prehydrate-locale.js), so they get browser
+    // globals rather than the Node ones used by build scripts.
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.browser },
+    },
+  },
+  {
     files: ['e2e/**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.node },

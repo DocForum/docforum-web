@@ -6,6 +6,7 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
+import { useT } from '../../../i18n/useT';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
 import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
@@ -14,17 +15,25 @@ import { useErrorMessage } from '../../../hooks/useErrorText';
 import type { HealthSectionKey } from '../../../types/models';
 import styles from './HealthSection.module.css';
 
-const SECTION_LABELS: Record<HealthSectionKey, string> = {
-  allergies: 'Allergies',
-  conditions: 'Conditions',
-  medications: 'Current medications',
-};
+/** Section ids come from the API: one static catalogue call per id. */
+function sectionLabel(section: HealthSectionKey, t: ReturnType<typeof useT>): string {
+  switch (section) {
+    case 'allergies':
+      return t('health.section.allergies', 'Allergies');
+    case 'conditions':
+      return t('health.section.conditions', 'Conditions');
+    case 'medications':
+      return t('health.section.medications', 'Current medications');
+  }
+}
 
 interface Props {
   section: HealthSectionKey;
 }
 
 export function HealthSection({ section }: Props) {
+  const t = useT();
+  const label = sectionLabel(section, t);
   const { data: entries, isLoading, isError, error, refetch } = useHealthEntries(section);
   const addMutation = useAddHealthEntry();
   const updateMutation = useUpdateHealthEntry();
@@ -93,23 +102,23 @@ export function HealthSection({ section }: Props) {
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h2 className={styles.sectionTitle}>{SECTION_LABELS[section]}</h2>
+        <h2 className={styles.sectionTitle}>{label}</h2>
         {!showAdd && (
           <Button variant="secondary" onClick={() => setShowAdd(true)}>
-            Add
+            {t('health.add', 'Add')}
           </Button>
         )}
       </div>
 
       {isLoading && (
         <div className={styles.loading}>
-          <Skeleton lines={2} label={`Loading ${SECTION_LABELS[section].toLowerCase()}`} />
+          <Skeleton lines={2} label={t('health.loading', 'Loading {section}', { section: label.toLowerCase() })} />
         </div>
       )}
 
       {isError && (
         <InlineError
-          title={`${SECTION_LABELS[section]} couldn't be loaded`}
+          title={t('health.error.title', "{section} couldn't be loaded", { section: label })}
           message={queryErrorMessage(error)}
           onRetry={() => void refetch()}
         />
@@ -117,17 +126,17 @@ export function HealthSection({ section }: Props) {
 
       {showAdd && (
         <form onSubmit={handleAdd} className={styles.inlineForm}>
-          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <TextField label="Details (optional)" value={details} onChange={(e) => setDetails(e.target.value)} />
+          <TextField label={t('health.form.name', 'Name')} value={name} onChange={(e) => setName(e.target.value)} required />
+          <TextField label={t('health.form.details', 'Details (optional)')} value={details} onChange={(e) => setDetails(e.target.value)} />
           <FormError
             message={errorMessage(addMutation.error)}
           />
           <div className={styles.actions}>
             <Button type="submit" loading={addMutation.isPending}>
-              Save
+              {t('health.save', 'Save')}
             </Button>
             <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); addMutation.reset(); }}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
           </div>
         </form>
@@ -135,9 +144,13 @@ export function HealthSection({ section }: Props) {
 
       {entries?.length === 0 && !showAdd && (
         <EmptyState
-          title="None recorded"
-          description={`Doctors see your ${SECTION_LABELS[section].toLowerCase()} at every consultation, so keeping this list current helps them treat you safely.`}
-          action={{ label: 'Record the first one', onClick: () => setShowAdd(true) }}
+          title={t('health.empty.title', 'None recorded')}
+          description={t(
+            'health.empty.description',
+            'Doctors see your {section} at every consultation, so keeping this list current helps them treat you safely.',
+            { section: label.toLowerCase() },
+          )}
+          action={{ label: t('health.empty.action', 'Record the first one'), onClick: () => setShowAdd(true) }}
         />
       )}
 
@@ -145,18 +158,18 @@ export function HealthSection({ section }: Props) {
         <div key={entry.id} className={styles.entry}>
           {editingId === entry.id ? (
             <form onSubmit={handleUpdate} className={styles.inlineForm}>
-              <TextField label="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
-              <TextField label="Details (optional)" value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
+              <TextField label={t('health.form.name', 'Name')} value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              <TextField label={t('health.form.details', 'Details (optional)')} value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
               <FormError
                 message={errorMessage(updateMutation.error)}
               />
               <div className={styles.actions}>
                 <Button type="submit" loading={updateMutation.isPending}>
-                  Save
+                  {t('health.save', 'Save')}
                 </Button>
-            <Button type="button" variant="secondary" onClick={() => { setEditingId(null); setEditOriginals(null); updateMutation.reset(); }}>
-              Cancel
-            </Button>
+                <Button type="button" variant="secondary" onClick={() => { setEditingId(null); setEditOriginals(null); updateMutation.reset(); }}>
+                  {t('common.cancel', 'Cancel')}
+                </Button>
               </div>
             </form>
           ) : (
@@ -165,23 +178,27 @@ export function HealthSection({ section }: Props) {
                 <span className={styles.entryName}>{entry.name}</span>
                 {entry.version > 1 && (
                   <span className={styles.version}>
-                    v{entry.version} — updated{' '}
+                    v{entry.version} — {t('health.version.updated', 'updated')}{' '}
                     <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt, timeZone)}</time>
-                    {entry.previousValue && <span className={styles.prev}> (was: {entry.previousValue})</span>}
+                    {entry.previousValue && (
+                      <span className={styles.prev}>
+                        {t('health.version.previous', '(was: {previous})', { previous: entry.previousValue })}
+                      </span>
+                    )}
                   </span>
                 )}
               </div>
               {entry.details && <p className={styles.entryDetails}>{entry.details}</p>}
               <div className={styles.actions}>
                 <Button variant="secondary" onClick={() => startEdit(entry.id, entry.name, entry.details)}>
-                  Edit
+                  {t('common.edit', 'Edit')}
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={() => handleRemove(entry.id)}
                   loading={removeMutation.isPending && removeMutation.variables?.entryId === entry.id}
                 >
-                  Remove
+                  {t('health.remove', 'Remove')}
                 </Button>
               </div>
             </>

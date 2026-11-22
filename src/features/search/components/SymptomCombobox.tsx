@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '../../../components/Combobox';
+import { useT } from '../../../i18n/useT';
 import {
   MIN_SYMPTOM_QUERY_LENGTH,
   useSymptomSuggestions,
@@ -30,6 +31,7 @@ export function SymptomCombobox({
   onSelect,
   debounceMs,
 }: SymptomComboboxProps) {
+  const t = useT();
   const [inputValue, setInputValue] = useState(selectedTerm ?? '');
 
   const { data: suggestions = NO_SUGGESTIONS, isFetching } = useSymptomSuggestions(
@@ -76,8 +78,8 @@ export function SymptomCombobox({
   return (
     <Combobox
       id="symptom-search"
-      label="What’s bothering you?"
-      placeholder="e.g. rash, chest pain"
+      label={t('search.symptom.label', 'What’s bothering you?')}
+      placeholder={t('search.symptom.placeholder', 'e.g. rash, chest pain')}
       selectedOptionId={selectedSlug}
       inputValue={inputValue}
       onInputChange={handleInputChange}
@@ -85,9 +87,14 @@ export function SymptomCombobox({
       options={options}
       loading={isFetching}
       emptyMessage={
-        minLengthReached ? 'No matching symptoms in our list — try a simpler description.' : ''
+        minLengthReached
+          ? t('search.symptom.empty', 'No matching symptoms in our list — try a simpler description.')
+          : ''
       }
-      helpText="Pick a symptom from the list — we match it to the specialties that treat it. This is guidance, not a diagnosis."
+      helpText={t(
+        'search.symptom.help',
+        'Pick a symptom from the list — we match it to the specialties that treat it. This is guidance, not a diagnosis.',
+      )}
     />
   );
 }

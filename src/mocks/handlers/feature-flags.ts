@@ -29,4 +29,11 @@ export const featureFlagHandlers = [
       evaluatedAt: new Date().toISOString(),
     })),
   ),
+  http.get(
+    '*/admin/feature-flags',
+    respond('json', () => ({
+      flags: currentEvaluatedFlags(),
+      evaluatedAt: new Date().toISOString(),
+    })),
+  ),
 ];
