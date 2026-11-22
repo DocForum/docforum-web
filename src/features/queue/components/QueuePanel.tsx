@@ -21,6 +21,7 @@ import { useT } from '../../../i18n/useT';
 import { formatTime } from '../../../i18n/time-zone';
 import type { QueueEntry } from '../../../types/models';
 import styles from './QueuePanel.module.css';
+import { paths } from '../../../routes/paths';
 
 function statusLabel(status: string, t: ReturnType<typeof useT>) {
   return {
@@ -255,7 +256,7 @@ export function QueuePanel() {
                     <Button
                       variant="secondary"
                       onClick={() => {
-                        navigate(`/doctor/patient-chart/${entry.patientProfileId}`);
+                        navigate(paths.doctor.patientChart(entry.patientProfileId));
                       }}
                     >
                       Chart
