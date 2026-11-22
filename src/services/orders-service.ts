@@ -10,6 +10,7 @@ import type {
   ConfirmReceiptResponse,
   FacilityWithDistance,
   Order,
+  OrderFulfillmentProgress,
   PatientOrder,
   QualifiedOrderFacility,
   ReportProblemInput,
@@ -94,6 +95,24 @@ export function reportProblem(
     body: input,
     accessToken,
   });
+}
+
+/**
+ * Item-level fulfilment progress for one order version (#262). `orderType`
+ * is the order's own `prescription` / `lab_order` value; see
+ * docs.d/262-order-fulfilment-progress.md for the assumed parameter values.
+ */
+export function getOrderFulfillmentProgress(
+  orderId: string,
+  orderType: PatientOrder['orderType'],
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<OrderFulfillmentProgress> {
+  const query = new URLSearchParams({ orderType });
+  return apiFetch<OrderFulfillmentProgress>(
+    `/pharmacy-orders/orders/${encodeURIComponent(orderId)}/fulfillment-status?${query.toString()}`,
+    { accessToken, signal },
+  );
 }
 
 /**
