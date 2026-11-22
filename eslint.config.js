@@ -54,12 +54,12 @@ const RAW_FETCH = {
 const BROWSER_STORAGE = {
   selector: "MemberExpression[object.name=/^(localStorage|sessionStorage)$/]",
   message:
-    'Browser storage is only allowed for the time-zone preference (`src/i18n/time-zone.ts`); session and personal data stay in memory (ARCHITECTURE_ESSENTIALS).',
+    'Browser storage is only allowed for UI preferences (`src/i18n/time-zone.ts`, `src/utils/theme.ts`); session and personal data stay in memory (ARCHITECTURE_ESSENTIALS).',
 };
 const WINDOW_STORAGE = {
   selector: "MemberExpression[object.name='window'][property.name=/^(localStorage|sessionStorage)$/]",
   message:
-    'Browser storage is only allowed for the time-zone preference (`src/i18n/time-zone.ts`); session and personal data stay in memory (ARCHITECTURE_ESSENTIALS).',
+    'Browser storage is only allowed for UI preferences (`src/i18n/time-zone.ts`, `src/utils/theme.ts`); session and personal data stay in memory (ARCHITECTURE_ESSENTIALS).',
 };
 const MOCK_FIXTURE = {
   selector: 'Identifier[name=/^(DEFAULT_)?MOCK_/]',
@@ -141,7 +141,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/i18n/time-zone.ts'],
+    files: ['src/i18n/time-zone.ts', 'src/utils/theme.ts'],
     rules: {
       'no-restricted-syntax': ['error', RAW_FETCH, MOCK_FIXTURE],
     },

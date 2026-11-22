@@ -60,7 +60,7 @@ export function SessionTimeoutController() {
     // RequireAuth on the page being left — can win the navigation race and
     // strip the query param; LoginPage shows the notice when either source
     // says idle-timeout.
-    navigate('/login?reason=idle-timeout', { replace: true });
+    navigate(`${paths.login}?reason=idle-timeout`, { replace: true });
   }, [accessToken, navigate, queryClient]);
 
   const { phase, secondsRemaining, extendSession } = useIdleTimeout({

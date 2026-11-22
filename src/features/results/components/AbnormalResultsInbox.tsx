@@ -153,7 +153,7 @@ export function AbnormalResultsInbox() {
                           aria-label={t('results.inbox.messageAria', 'Message {patient}', {
                             patient: result.patientName,
                           })}
-                          onClick={() => navigate(`/doctor/messages/${threadId}`)}
+                          onClick={() => navigate(paths.doctor.message(threadId))}
                         >
                           {t('results.inbox.messagePatient', 'Message patient')}
                         </Button>

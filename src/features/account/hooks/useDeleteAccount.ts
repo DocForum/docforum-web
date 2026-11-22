@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth-store';
 import { deleteAccount } from '../../../services/account-service';
 import { signOut } from '../../../services/sign-out';
+import { paths } from '../../../routes/paths';
 
 export function useDeleteAccount() {
   const accessToken = useAuthStore((s) => s.accessToken);
