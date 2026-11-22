@@ -84,6 +84,16 @@ export function QueuePanel() {
     [queue],
   );
 
+  // Patients still expected today stay out of the live queue until they
+  // check in, but the doctor can already mark them no-show or cancel.
+  const scheduled = useMemo(
+    () =>
+      [...appointments]
+        .filter((apt) => apt.status === 'scheduled')
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    [appointments],
+  );
+
   const entryName = (appointmentId: string) =>
     byPosition.find((entry) => entry.appointmentId === appointmentId)?.fullName ?? 'patient';
 

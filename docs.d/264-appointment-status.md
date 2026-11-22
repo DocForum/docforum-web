@@ -1,3 +1,8 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
+
 ### Appointment status: no-show and cancellation (issue #264)
 
 `PATCH /appointments/:appointmentId/status` with body `{ status }`, where

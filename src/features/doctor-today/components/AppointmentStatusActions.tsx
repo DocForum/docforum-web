@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
-import { Dialog } from '../../../components/Dialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { ApiError } from '../../../services/api-client';
 import { useAppointmentStatusAction } from '../../queue/hooks/useQueue';
 import type { Appointment } from '../../../types/models';
@@ -117,7 +117,7 @@ export function AppointmentStatusActions({ appointment, onConflict }: Appointmen
       )}
 
       {pending && (
-        <Dialog
+        <ConfirmDialog
           title={
             pending === 'no_show'
               ? `Mark ${appointment.patientName} as no-show?`
