@@ -13,6 +13,15 @@ import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError, apiFetch } from '../services/api-client';
+/** A date of birth exactly `years` ago today: minors vs. the age of majority. */
+function dateYearsAgo(years: number): string {
+  const now = new Date();
+  const date = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -175,11 +184,48 @@ describe('dependents', () => {
     expect(seeded).toHaveLength(2);
 
     await dependentsService.addDependent(
-      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01', relationship: 'parent' },
+      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01' },
       MOCK_ACCESS_TOKEN,
     );
     const after = await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(after).toHaveLength(3);
+  });
+
+  it("rejects create fields docforum-core doesn't accept", async () => {
+    const response = await fetch('http://localhost:4000/patients/me/dependents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: 'Too Much (fake)',
+        dateOfBirth: '2012-01-01',
+        relationship: 'parent',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('adds a 17-year-old dependent', async () => {
+    const created = await dependentsService.addDependent(
+      { fullName: 'Seventeen (fake)', dateOfBirth: dateYearsAgo(17) },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.fullName).toBe('Seventeen (fake)');
+  });
+
+  it('rejects a dependent at the age of majority', async () => {
+    const error = await dependentsService
+      .addDependent(
+        { fullName: 'Eighteen (fake)', dateOfBirth: dateYearsAgo(18) },
+        MOCK_ACCESS_TOKEN,
+      )
+      .then(() => null)
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
+    expect((error as ApiError).body).toMatchObject({ code: 'DEPENDENT_NOT_A_MINOR' });
   });
 
   it('updates a dependent and manages handover invites', async () => {

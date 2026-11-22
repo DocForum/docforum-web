@@ -16,6 +16,12 @@ const ORDER_KEY = (orderId: string) => ['patient', 'orders', orderId] as const;
 const FACILITIES_KEY = (orderId: string) => ['patient', 'orders', orderId, 'facilities'] as const;
 const REMAINING_FACILITIES_KEY = (orderId: string, itemIds: string[]) =>
   ['patient', 'orders', orderId, 'remaining-items', 'facilities', [...itemIds].sort()] as const;
+const FULFILLMENT_KEY = (orderId: string, orderType: PatientOrder['orderType']) =>
+  ['patient', 'orders', orderId, 'fulfillment', orderType] as const;
+
+/** Progress changes when a facility dispenses an item, so it refetches on
+ * focus and periodically while mounted (#262). */
+const PROGRESS_REFETCH_MS = 30_000;
 
 /** Shared by `useMyOrders` and the route loaders that prefetch it (#112). */
 export function myOrdersQueryOptions(
@@ -82,6 +88,31 @@ export function useSelectFulfillingFacility() {
   });
 }
 
+/**
+ * Progress for the current order version only. Superseded versions are not
+ * queried at all: their item rows describe a replaced order.
+ */
+export function useOrderFulfillmentProgress(
+  order: Pick<PatientOrder, 'id' | 'orderType' | 'status'> | undefined,
+) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useQuery({
+    queryKey: FULFILLMENT_KEY(order?.id ?? '', order?.orderType ?? 'prescription'),
+    queryFn: ({ signal }) =>
+      ordersService.getOrderFulfillmentProgress(
+        order!.id,
+        order!.orderType,
+        accessToken!,
+        signal,
+      ),
+    enabled: Boolean(accessToken && order && order.status !== 'superseded'),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: PROGRESS_REFETCH_MS,
+  });
+}
+
 /** Facilities qualified for the outstanding items only (issue #54). */
 export function useEligibleFacilitiesForRemainingItems(
   orderId: string,
@@ -109,6 +140,7 @@ export function useRouteRemainingItems(orderId: string) {
       ordersService.routeRemainingItems(orderId, input, accessToken!),
     onSuccess: (order) => {
       queryClient.setQueryData(ORDER_KEY(orderId), order);
+      queryClient.invalidateQueries({ queryKey: FULFILLMENT_KEY(orderId, order.orderType) });
       queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
     },
   });

@@ -110,6 +110,9 @@ export function HealthSection({ section }: Props) {
         )}
       </div>
 
+      <FormError message={errorMessage(error)} />
+      <FormError message={errorMessage(removeMutation.error)} />
+
       {isLoading && (
         <div className={styles.loading}>
           <Skeleton lines={2} label={t('health.loading', 'Loading {section}', { section: label.toLowerCase() })} />

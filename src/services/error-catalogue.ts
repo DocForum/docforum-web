@@ -33,6 +33,51 @@ export interface ErrorDescriptor {
 
 export const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR';
 
+// Dependents (issue #261) — core's strict create body and its field-targeted
+// error codes. Kept here so the form and the acting-for screens agree.
+export const DEPENDENT_NOT_A_MINOR = 'DEPENDENT_NOT_A_MINOR';
+export const GUARDIANSHIP_INACTIVE = 'GUARDIANSHIP_INACTIVE';
+
+export type FormField = 'fullName' | 'dateOfBirth';
+
+export interface FormErrorInfo {
+  message: string;
+  /** When set, the message belongs under this field instead of the form. */
+  field?: FormField;
+}
+
+export const DEPENDENT_NOT_A_MINOR_MESSAGE =
+  'This date of birth is not eligible for a dependent profile. Dependents must be under the age of majority; anyone older needs their own account.';
+
+/** Reads the code from the body, falling back to a code sent as the message. */
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+
+  if (error.body && typeof error.body === 'object') {
+    const body = error.body as Record<string, unknown>;
+    for (const key of ['code', 'error'] as const) {
+      const value = body[key];
+      if (typeof value === 'string' && value) return value;
+    }
+  }
+
+  const message = error.message.trim();
+  return /^[A-Z][A-Z0-9_]+$/.test(message) ? message : undefined;
+}
+
+/** Maps a failed dependent create/edit to form copy, field-targeted when the
+ * server points at a specific input. */
+export function describeDependentError(error: unknown, fallback: string): FormErrorInfo | null {
+  if (!error) return null;
+  if (error instanceof ApiError) {
+    if (getApiErrorCode(error) === DEPENDENT_NOT_A_MINOR) {
+      return { message: DEPENDENT_NOT_A_MINOR_MESSAGE, field: 'dateOfBirth' };
+    }
+    return { message: error.message || fallback };
+  }
+  return { message: fallback };
+}
+
 type Entry = Omit<ErrorDescriptor, 'code'>;
 
 const FALLBACK: Entry = {
@@ -213,7 +258,8 @@ const CATALOGUE: Record<string, Entry> = {
   },
   GUARDIANSHIP_INACTIVE: {
     messageId: 'errors.guardianshipInactive',
-    defaultMessage: 'Guardianship for this dependent is no longer active.',
+    defaultMessage:
+      'You can no longer act for this person: their account has been handed over, so they now manage their own bookings and health records. Ask them to sign in and make the change from their own account.',
     action: 'none',
   },
   DEPENDENT_NOT_A_MINOR: {
