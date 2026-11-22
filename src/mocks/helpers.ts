@@ -70,16 +70,15 @@ export function notFound(what: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${what} not found` }, { status: 404 });
 }
 
-/** 400 helper with the `{ message }` envelope api-client.ts expects. */
-export function badRequest(message: string): AnyHttpResponse {
-  return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 400 });
-}
-
 /** 409 helper with the `{ message }` envelope api-client.ts expects. */
 export function conflict(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 409 });
 }
 
+/** 400 helper with the `{ message }` envelope api-client.ts expects. */
+export function badRequest(message: string): AnyHttpResponse {
+  return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 400 });
+}
 
 export function paramId(params: PathParams, name = 'id'): string {
   return String(params[name]);
