@@ -7,7 +7,7 @@ import {
   Outlet,
 } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
-import { useT, type Translator } from '../i18n/useT';
+import { useT } from '../i18n/useT';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLogout } from '../features/auth/hooks/useLogout';

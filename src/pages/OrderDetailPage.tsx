@@ -6,12 +6,14 @@
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
 import { PageError } from '../components/states/PageError';
+import { queryErrorMessage } from '../components/states/QueryState';
 import { Skeleton } from '../components/states/Skeleton';
 import { useOrder } from '../features/orders/hooks/useOrders';
 import { useOrderPaymentIntent } from '../features/payments/hooks/useOrderPaymentIntent';
 import { OrderPaymentPanel } from '../features/payments/components/OrderPaymentPanel';
 import { OrderDetail } from '../features/orders/components/OrderDetail';
 import { useT } from '../i18n/useT';
+import { OrderFulfillment } from '../features/orders/components/OrderFulfillment';
 import styles from './OrderDetailPage.module.css';
 
 export function OrderDetailPage() {
@@ -49,7 +51,7 @@ export function OrderDetailPage() {
       orderQuery.error instanceof ApiError &&
       (orderQuery.error.status === 401 || orderQuery.error.status === 403)
         ? t('orders.detail.forbidden', 'Sign in again to view this order.')
-        : t('orders.detail.loadError', 'Could not load this order. Try again shortly.');
+        : queryErrorMessage(orderQuery.error);
     return (
       <div className="container">
         {notFound ? (
@@ -64,7 +66,7 @@ export function OrderDetailPage() {
             title={t('orders.detail.errorTitle', "Your order couldn't be loaded")}
             message={message}
             onRetry={() => void orderQuery.refetch()}
-            fallback={{ label: t('orders.detail.back', 'Back to my orders'), to: '/patient/orders' }}
+            fallback={{ label: t('orders.detail.back', 'Back to your orders'), to: '/patient/orders' }}
           />
         )}
       </div>
@@ -83,6 +85,11 @@ export function OrderDetailPage() {
 
       {/* Single order view: QR code, status, items, print affordance. */}
       <OrderDetail orderId={orderId} />
+
+      {/* Item-level fulfilment, the payment rule and the partial-fulfilment
+          picker — merged here so /patient/orders/:orderId has one detail
+          screen instead of two competing ones. */}
+      <OrderFulfillment order={orderQuery.data} />
 
       {/* Payment panel — hidden entirely when the order has no payment
           intent; degrades to a quiet note on any other lookup failure. */}

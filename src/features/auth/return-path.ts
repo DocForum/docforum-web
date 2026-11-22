@@ -1,15 +1,11 @@
+import { ROLE_HOME } from '../../navigation/role-home';
 import type { Role } from '../../types/models';
 
 /**
  * Where each role lands when there is no safe page to return to (issue #226).
- * Mirrors the role-prefixed route areas in `src/routes/`.
+ * Re-exported from `src/navigation/role-home.ts`, the single source of truth.
  */
-export const ROLE_HOME: Record<Role, string> = {
-  patient: '/patient',
-  doctor: '/doctor',
-  facility: '/facility',
-  admin: '/admin',
-};
+export { ROLE_HOME };
 
 /**
  * Route areas each role may be returned to after signing in. Deliberately an

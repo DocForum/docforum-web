@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
+import { PUBLIC_CONTENT_ROUTES } from '../pages/public-page-map';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
 function signIn(role: 'patient' | 'doctor' | 'facility' | 'admin') {
@@ -131,6 +132,15 @@ describe('Layout — role-aware navigation', () => {
     const link = screen.getByRole('link', { name: 'Privacy & analytics' });
     // /privacy is now the public privacy page; the analytics page is /privacy/analytics.
     expect(link).toHaveAttribute('href', '/privacy/analytics');
+  });
+
+  it('links the footer accessibility item to a real public route', () => {
+    renderLayout();
+    const link = screen.getByRole('link', { name: 'Accessibility' });
+    expect(link).toHaveAttribute('href', '/accessibility');
+    expect(PUBLIC_CONTENT_ROUTES.map((route) => `/${route.path}`)).toContain(
+      link.getAttribute('href'),
+    );
   });
 
   it('has a skip-to-content link reachable by keyboard', () => {

@@ -14,6 +14,8 @@ const FORBIDDEN_MARKERS = [
   'mock-dev-panel-root', // mocks/setup.ts
   'MOCK API', // mocks/DevPanel.tsx (panel title/pill)
   'setupWorker', // msw/browser entry
+  'preview-token', // the old production `?previewRole=` fake session
+  'previewRole', // mock-only role preview parameter (mocks/roles.ts)
 ];
 
 function* walk(dir) {

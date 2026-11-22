@@ -25,7 +25,6 @@ interface PageHeaderProps {
 export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As = 'h1' }: PageHeaderProps) {
   const t = useT();
   const location = useLocation();
-  const t = useT();
 
   // Only routes in the metadata table get a linked crumb, so a breadcrumb
   // never points at a path with no route. The current crumb is the page's
@@ -80,24 +79,3 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
   );
 }
 
-function breadcrumbLabel(segment: string, segments: string[], t: ReturnType<typeof useT>): string {
-  if (segment === 'patient' || segment === 'admin' || segment === 'doctor' || segment === 'facility') {
-    return t(`roles.${segment}`, segment.charAt(0).toUpperCase() + segment.slice(1));
-  }
-  if (segments[0] === 'patient' && segment === 'orders') {
-    return t('orders.list.breadcrumb', 'Orders');
-  }
-  if (segments[0] === 'payments' && segment === 'payments') {
-    return t('payments.history.eyebrow', 'Payments');
-  }
-  if (segments[0] === 'admin') {
-    if (segment === 'audit') return t('admin.nav.audit', 'Audit trail');
-    if (segment === 'disputes') return t('admin.nav.disputes', 'Disputes');
-    if (segment === 'flags') return t('admin.nav.flags', 'Flags');
-  }
-  return segment
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/Id\b/g, 'ID')
-    .replace(/Url\b/g, 'URL');
-}

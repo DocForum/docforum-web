@@ -1,6 +1,7 @@
 import type { FacilityItemPrice, FacilityWithDistance } from '../../../types/models';
 import { Button } from '../../../components/Button';
 import { useFormat } from '../../../i18n/useFormat';
+import { useT } from '../../../i18n/useT';
 import { useFacilityPriceHistory } from '../hooks/useFacilitySearch';
 import {
   facilityPriceLabel,
@@ -29,6 +30,7 @@ export function FacilityCard({
   price = null,
   priceOnRequest = false,
 }: FacilityCardProps) {
+  const t = useT();
   const { formatNumber } = useFormat();
   const isPharmacy = facility.type === 'pharmacy';
 

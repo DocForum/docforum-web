@@ -8,14 +8,21 @@ import styles from './PaymentReceipt.module.css';
 interface Props {
   entry: PaymentHistoryEntry;
   now: Date;
-  formatDate: (value: string) => string;
+  formatDate?: (value: string) => string;
 }
+
+const defaultFormatDate = (value: string) =>
+  new Date(value).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
 /** Proof-of-payment view, deliberately printable: it carries the hashes and
  * the explorer addresses in plain text, so a printed copy is still verifiable
  * without a browser. `orderId` is not shown — it is an internal pointer, not
  * something a patient can act on. */
-export function PaymentReceipt({ entry, now, formatDate }: Props) {
+export function PaymentReceipt({ entry, now, formatDate = defaultFormatDate }: Props) {
   const t = useT();
   const txLink = transactionUrl(entry.stellarTxHash);
   const contractLink = contractUrl(entry.sorobanContractId);

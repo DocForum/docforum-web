@@ -10,6 +10,7 @@ import { usePaymentHistory } from '../features/payments/hooks/usePaymentHistory'
 import { historyErrorCopy } from '../features/payments/status';
 import { fetchAllPaymentHistory } from '../services/payment-history-service';
 import { useAuthStore } from '../store/auth-store';
+import { useT } from '../i18n/useT';
 import { csvFilename, downloadCsv, toCsv } from '../features/admin-audit/csv';
 import { PAYMENT_HISTORY_CSV_COLUMNS } from '../features/payments/csv';
 import styles from './PaymentHistoryPage.module.css';
@@ -41,6 +42,7 @@ const PAYMENT_FILTERS: FilterDefinition[] = [
 ];
 
 export function PaymentHistoryPage() {
+  const t = useT();
   const { filterValues, setFilter, resetFilters } = useTableUrlState({
     id: 'payments',
     filters: PAYMENT_FILTERS,
@@ -89,7 +91,13 @@ export function PaymentHistoryPage() {
   } else if (historyQuery.isError) {
     body = null;
   } else if (historyQuery.isFetching) {
-    body = <Skeleton lines={5} height="2.25rem" label="Loading your payments" />;
+    body = (
+      <Skeleton
+        lines={5}
+        height="2.25rem"
+        label={t('payments.history.loading', 'Loading your payments…')}
+      />
+    );
   } else if (hasActiveFilters) {
     body = (
       <div className={styles.emptyFiltered}>
@@ -200,7 +208,11 @@ export function PaymentHistoryPage() {
         {historyQuery.isError ? (
           <InlineError
             title={entries.length > 0 ? "Older payments couldn't be loaded" : "Payments couldn't be loaded"}
-            message={entries.length > 0 ? 'Older payments could not be loaded.' : historyErrorCopy(historyQuery.error)}
+            message={
+              entries.length > 0
+                ? t('payments.history.olderError', 'Older payments could not be loaded.')
+                : historyErrorCopy(historyQuery.error, t)
+            }
             onRetry={() => void historyQuery.refetch()}
           />
         ) : null}

@@ -43,10 +43,14 @@ export function PaymentDetailPage() {
         <div className="card">
           <h1 className={styles.title}>Payment</h1>
           {entryQuery.isFetching ? (
-            <Skeleton lines={6} height="1.75rem" label="Loading this payment" />
+            <Skeleton
+              lines={6}
+              height="1.75rem"
+              label={t('payments.detail.loading', 'Loading this payment…')}
+            />
           ) : (
             <EmptyState
-              title="Sign in to see this payment"
+              title={t('payments.detail.signIn', 'Sign in to see this payment.')}
               description="This payment receipt is tied to a DocForum account."
               action={{ label: 'Sign in', to: '/login' }}
             />

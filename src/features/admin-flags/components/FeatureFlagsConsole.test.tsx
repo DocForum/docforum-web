@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
 import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { FLAGS_KEY } from '../hooks/useFeatureFlags';

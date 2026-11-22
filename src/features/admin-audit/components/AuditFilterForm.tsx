@@ -86,14 +86,14 @@ export function AuditFilterForm({ tab, initial, canClear, onApply, onClear }: Au
           />
         )}
         <DatePicker
-          label={FIELD_LABELS.from}
+          label={filterFieldLabel('from', t)}
           value={draft.from}
           error={errors.from}
           onChange={(value) => setDraft((current) => ({ ...current, from: value }))}
           max={draft.to || undefined}
         />
         <DatePicker
-          label={FIELD_LABELS.to}
+          label={filterFieldLabel('to', t)}
           value={draft.to}
           error={errors.to}
           onChange={(value) => setDraft((current) => ({ ...current, to: value }))}
