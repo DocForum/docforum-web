@@ -7,8 +7,15 @@ export function listDependents(accessToken: string, signal?: AbortSignal): Promi
   return api.dependents.list({ accessToken, signal });
 }
 
-export function addDependent(input: Schemas['DependentInput'], accessToken: string): Promise<Schemas['Dependent']> {
-  return api.dependents.add(input, { accessToken });
+export function addDependent(
+  // Core's strict create body takes only these two fields (issue #261): any
+  // other field, `relationship` included, is a 400. The generated schema still
+  // lists `relationship` as required, so the narrower input is cast here and
+  // the mismatch stays documented in docs.d/261-dependents-strict-create.md.
+  input: Pick<Schemas['DependentInput'], 'fullName' | 'dateOfBirth'>,
+  accessToken: string,
+): Promise<Schemas['Dependent']> {
+  return api.dependents.add(input as Schemas['DependentInput'], { accessToken });
 }
 
 export function updateDependent(
