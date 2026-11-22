@@ -9,7 +9,7 @@ import {
   useRouteRemainingItems,
 } from '../hooks/useOrders';
 import { FacilityCard } from './FacilityCard';
-import styles from './PatientOrders.module.css';
+import styles from './OrderFulfillment.module.css';
 
 interface RemainingItemsFacilityPickerProps {
   order: PatientOrder;

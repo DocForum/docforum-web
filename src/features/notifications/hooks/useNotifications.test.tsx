@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders, screen, server, waitFor } from '../../../test/render';
 import { makeNotification } from '../../../test/factories';
 import type { NotificationPage } from '../../../types/models';
+import { ToastRegion } from '../../../components/Toast';
+import { useToastStore } from '../../../store/toast-store';
 import { useNotifications } from './useNotifications';
 
 /** Small harness so the hook is driven the way a screen drives it. */
@@ -106,7 +108,7 @@ describe('useNotifications', () => {
     expect(readRequest).toHaveBeenCalledWith('n1');
   });
 
-  it('marks everything read and zeroes the badge', async () => {
+  it('marks everything read at once, and commits only after the undo window (issue #113)', async () => {
     const readAll = vi.fn();
     let unreadCount = 2;
     server.use(
@@ -125,13 +127,79 @@ describe('useNotifications', () => {
       }),
     );
 
-    renderWithProviders(<Inbox />, { role: 'patient' });
+    const { unmount } = renderWithProviders(<Inbox />, { role: 'patient' });
     await screen.findByText('First');
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Read all' }));
 
+    // Applied locally straight away…
     await waitFor(() => expect(screen.getByTestId('unread')).toHaveTextContent('0'));
-    expect(readAll).toHaveBeenCalledTimes(1);
+    // …but nothing is sent while it can still be undone.
+    expect(readAll).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts[0]).toMatchObject({
+      message: 'All notifications marked as read.',
+      action: expect.objectContaining({ label: 'Undo' }),
+    });
+
+    // Leaving the screen commits a pending action rather than dropping it.
+    unmount();
+    await waitFor(() => expect(readAll).toHaveBeenCalledTimes(1));
+  });
+
+  it('undo restores the unread state and never calls the server', async () => {
+    const readAll = vi.fn();
+    server.use(
+      http.get('*/notifications', () =>
+        HttpResponse.json(page({ unreadCount: 2, items: [makeNotification({ id: 'n1', title: 'First' })] })),
+      ),
+      http.post('*/notifications/read-all', () => {
+        readAll();
+        return HttpResponse.json({ updated: 1, unreadCount: 0 });
+      }),
+    );
+
+    renderWithProviders(
+      <>
+        <Inbox />
+        <ToastRegion />
+      </>,
+      { role: 'patient' },
+    );
+    await screen.findByText('First');
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Read all' }));
+    await waitFor(() => expect(screen.getByTestId('unread')).toHaveTextContent('0'));
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+
+    expect(screen.getByTestId('unread')).toHaveTextContent('2');
+    expect(await screen.findByText('Restored your unread notifications.')).toBeInTheDocument();
+    expect(readAll).not.toHaveBeenCalled();
+  });
+
+  it('rolls back a failed mark-one and says so in a toast', async () => {
+    server.use(
+      http.get('*/notifications', () =>
+        HttpResponse.json(page({ unreadCount: 1, items: [makeNotification({ id: 'n1', title: 'First' })] })),
+      ),
+      http.post('*/notifications/:id/read', () => HttpResponse.json({ message: 'nope' }, { status: 500 })),
+    );
+
+    renderWithProviders(
+      <>
+        <Inbox />
+        <ToastRegion />
+      </>,
+      { role: 'patient' },
+    );
+    await screen.findByText('First');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read first' }));
+
+    const alert = await screen.findByText('Couldn’t mark that notification as read. It has been restored.');
+    expect(alert.closest('[role="alert"]')).not.toBeNull();
+    await waitFor(() => expect(screen.getByTestId('unread')).toHaveTextContent('1'));
   });
 
   it('surfaces a failed load so the screen can show an error with retry', async () => {

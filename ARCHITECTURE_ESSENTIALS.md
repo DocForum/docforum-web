@@ -43,7 +43,7 @@ those first if you're new to the org, not just this file.
   compose them.
 - `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 - `src/prerender/` — build-time prerendering for the public pages (issue
-  #120). `entry-server.tsx` renders the real `<App/>` with an empty auth
+  #120). `entry-server.tsx` renders the real route table with an empty auth
   store; `html.ts` is pure HTML assembly/validation (head metadata, link
   rewriting, `#root` injection). `scripts/prerender.mjs` does the file I/O
   and fails the build on any validation problem. See "Public pages &
@@ -218,8 +218,8 @@ between this repo's `github.io` domain and Render's, so it's required for
 the cookie to be sent/received at all). Session restore on reload landed
 2026-10-20 (issue #9):
 - The boot refresh is `POST /auth/refresh` from `src/services/session.ts`,
-  kicked off by `main.tsx` without blocking first render. `RequireAuth`
-  shows a `Restoring your session…` state while the store's `status` is
+  kicked off by `main.tsx` without blocking first render. The route guard
+  loaders (`src/routes/guards.ts`, issue #112) wait while the store's `status` is
   `resolving`, instead of bouncing a signed-in user to `/login`.
 - A `401` on an authenticated request triggers **one** refresh and one
   retry. Concurrent 401s share the same in-flight promise in
@@ -377,7 +377,7 @@ shape is worth mirroring in an issue there.
   `/login?reason=idle-timeout`. The login page shows its explanation
   when EITHER the query param is present OR the in-memory
   `auth-store.signOutReason` says `idle-timeout` — a route guard's
-  redirect (e.g. `RequireAuth` on the page being left) can win the
+  redirect (e.g. `RoleGate` on the page being left) can win the
   navigation race and strip the query param, and the reason must not be
   lost with it. `setSession` clears the in-memory reason.
 - The warning modal (`SessionTimeoutWarning`) says when unsaved form
@@ -763,6 +763,110 @@ everything below is assumed and mirrored in `models.ts` under "Phase W7".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+### Phase W2 — Facility finder on `GET /facilities/eligible` (issue #257)
+
+The finder calls docforum-core's public `GET /facilities/eligible` with
+`type` (required; the "All facilities" tab sends one request per type and
+merges), optional `catalogItemCode`, and `near=lat,lng` when the patient
+shares a location. `radiusKm` is not sent. The endpoint has no free-text
+search, so the area box filters the returned list by name, city and address
+in the browser. Results are sorted nearest first with `distanceKm: null`
+last. The endpoint is not yet in the vendored OpenAPI file, so the call goes
+through `apiFetch` with the response shape from `types/models/facility-finder.ts`.
+
+### Phase W2 — Facility prices for an order item (issue #258)
+
+`docforum-core` has no public per-item facility pricing endpoint yet, so these
+shapes are assumed and mirrored in `types/models/facility-finder.ts`:
+
+- `GET /facilities/eligible?catalogItemCode=&type=&lat=&lng=&query=` →
+  `EligibleFacility[]` — `FacilityWithDistance` plus
+  `price: {amountStroops, effectiveFrom} | null` and `priceOnRequest: boolean`.
+  `price` is the version in force now; a facility with no published price (or
+  only a scheduled one) returns `price: null` with `priceOnRequest: true`. The
+  finder's own filters are passed through too, so its type/distance controls
+  keep working when it is opened from an order.
+- `GET /facilities/:facilityId/prices` is the public view of the facility price
+  history already used by facility settings. The finder reads it per card for a
+  "price changed on …" note and picks the row in force itself — a future-dated
+  (scheduled) version is never treated as current.
+- `amountStroops` stays a string and is handled in BigInt
+  (`features/payments/stroops.ts`, `features/orders/facility-price.ts`); it is
+  never converted through `Number`, including when sorting by price.
+- `PatientOrder.catalogItemCode` is an assumed optional field, used only to open
+  the finder for that order's item; when it is absent the orders list keeps the
+  ordinary facility picker and the finder shows no prices.
+
+### Account deletion against the real API (issue #260)
+
+`docforum-core` #41 has landed, so this is no longer an assumption:
+
+- `DELETE /patients/me` (patient, bearer token) with body `{password}` →
+  `204 No Content`. The typed `DELETE` phrase is a client-side safeguard
+  only and is never sent.
+- A wrong password is `403 PASSWORD_CONFIRMATION_FAILED`; the UI renders it
+  on the password field, not as a form-level error. Repeated wrong passwords
+  count against docforum-core's login throttle, so a `429` honours
+  `Retry-After`.
+- `204` is success with no body: the client clears the React Query cache,
+  the Zustand session and the acting-profile state, then redirects to
+  `/account-deleted`. A repeat request is idempotent (core returns `204`
+  again).
+- Guardians may delete their account. Core revokes every guardianship in
+  the same transaction and leaves dependents' profiles and appointments
+  untouched, so the UI does not block deletion for a guardian with active
+  dependents.
+
+### Phase W7 — Error catalogue documented codes (issue #276)
+
+`src/services/error-catalogue.ts` maps all error codes documented in `docforum-core`'s `docs/api/README.md` (including `EMAIL_NOT_VERIFIED`, `FEATURE_DISABLED`, `GUARDIANSHIP_INACTIVE`, `DEPENDENT_NOT_A_MINOR`, `EXPORT_NOT_READY`, `EXPORT_EXPIRED`, `LAB_RESULT_*`, `REFERRAL_NO_ELIGIBLE_TARGET`, `WALLET_NOT_LINKED`, `FACILITY_WALLET_NOT_LINKED`, `PAYEE_TRUSTLINE_MISSING`, `INVALID_CURSOR`, `OBJECT_STORAGE_NOT_CONFIGURED`, and others) to localized user-facing copy and recovery actions.
+
+### Patient payment history filters & CSV export (issue #277)
+
+`GET /payments/mine` is assumed against `docforum-core#90` with query parameters:
+- `status`: filter by payment status (`created`, `awaiting_signature`, `escrowed`, `released`, `refunded`, `failed`).
+- `from` and `to`: ISO date strings filtering payment creation date range.
+- `limit`: page size (default 50, up to 100).
+- `cursor`: pagination cursor.
+
+Response returns `{ intents: PaymentHistoryEntry[], nextCursor: string | null }` (or `{ items: PaymentHistoryEntry[], nextCursor: string | null }`).
+Each entry retains assumed `facilityName` and `refundDeadlineAt` fields. In-memory CSV generation parses stroop amounts using BigInt without floating-point conversion, neutralises formula prefixes, and formats Stellar explorer links.
+
+### Phase W2 — structured intake, patient referrals and waitlist (added 2026-11-19)
+
+These contracts are assumed; reconcile against `docforum-core` once the
+corresponding backend issues land. Client types live in
+`src/types/models/intake.ts`, `patient-referrals.ts` and `waitlist.ts`.
+
+#### Structured intake write (issue #36, docforum-core#1/#2)
+- `POST /appointments/:appointmentId/intake` (body: `SubmitIntakeInput`) → `IntakeForm`, the same shape the doctor-side `GET /appointments/:id/intake` already returns.
+- `SubmitIntakeInput` shape: `{slotId, chiefComplaint, symptomDuration?, severity?, currentMedications: string[], allergies: string[], notes?}`.
+- `409`/`404` mean the slot expired or was released while the patient was typing. The client keeps its in-memory draft, never retries automatically, and explains the slot is gone.
+- Drafts are client-only: a Zustand store for the tab session, cleared on success, sign-out, idle timeout and acting-for profile switch. Nothing is written to browser storage.
+
+#### Patient referrals (issue #4, docforum-core#5–#8)
+- `GET /patients/me/referrals` → `{items: PatientReferral[]}`
+- `POST /referrals/:id/accept` → `{referral, appointment: ReferralAppointment}`
+- `POST /referrals/:id/decline` → `{referral}`
+- `PatientReferral` adds `targetSpecialty`, `referringDoctor`, `targetDoctor`, `appointment` (`null` until accepted) and `referralNote?` to the existing `Referral` shape.
+- A referral is never auto-booked: only accept creates an appointment. `409`/`404` are presented as "someone already answered this referral", not a generic failure.
+- `ReferralAppointment.requiresIntake` routes the patient to `/patient/appointments/:id/intake` instead of collecting intake again inside the accept flow.
+
+#### Waitlist with time-boxed offers (issue #16, docforum-core#57)
+- `GET /patients/me/waitlist` → `{items: WaitlistEntry[], serverNow}`
+- `POST /patients/me/waitlist` (body: `{doctorId?, specialtyId?, preferredWindow}`) → `WaitlistEntry`
+- `PATCH /patients/me/waitlist/:id` (body: `{preferredWindow, expectedUpdatedAt}`) → `WaitlistEntry`; `409` on a concurrent edit.
+- `DELETE /patients/me/waitlist/:id` → `void`
+- `POST /waitlist/offers/:offerId/accept` → `{entry, appointmentId, requiresIntake}`; `409` when the hold already lapsed.
+- `POST /waitlist/offers/:offerId/decline` → `{entry}`
+- Countdowns are anchored to the `serverNow` sent with the list and with each offer, never to the device clock alone.
+
+### Backend liveness probe and reachability
+
+- `GET /health/live` → HTTP 200 `{"status":"ok"}`. Public, unauthenticated liveness
+  probe fired once at boot (non-blocking) and on user retry to warm cold-started
+  Render instances and detect reachability failures separately from browser offline state.
+
 ## Generated contract
 
 All API routes covered by this repository's typed client are declared in
@@ -841,7 +945,7 @@ and typed errors.
 - Plausible/Umami event body: `{event, path, domain, referrer, screenWidth, props?}`. If the self-hosted endpoint expects a different shape, only `send()` in `analytics.ts` needs updating.
 
 #### Configurable router contract (issue #119, docs/adr/0001-routing-strategy.md)
-- `VITE_USE_HASH_ROUTER=true` → `HashRouter`; absent or `false` → `BrowserRouter`.
+- `VITE_USE_HASH_ROUTER=true` → `createHashRouter`; absent or `false` → `createBrowserRouter` (data routers since issue #112; see `src/router.ts`).
 - GitHub Pages builds always pass `VITE_USE_HASH_ROUTER: "true"` (set in `deploy-pages.yml`).
 - `HashRedirectShim` is mounted only in BrowserRouter mode; it reads `window.location.hash` directly to detect `#/` prefixes on the root path.
 - Email links from docforum-core should use clean paths (`/reset?token=…`), not hash paths. Old hash-format links are transparently redirected by the shim.

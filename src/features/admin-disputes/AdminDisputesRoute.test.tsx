@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
-import App from '../../App';
+import { screen } from '@testing-library/react';
+import { renderAppAt } from '../../test/render-app';
 import * as disputesService from '../../services/disputes-service';
 import { useAuthStore } from '../../store/auth-store';
 import type { Role } from '../../types/models';
@@ -17,16 +15,7 @@ function signIn(role: Role) {
 }
 
 function renderAt(path: string) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  return renderAppAt(path);
 }
 
 describe('admin dispute routes', () => {

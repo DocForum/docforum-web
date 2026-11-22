@@ -5,6 +5,19 @@ import type {
   PayoutAsset,
   Weekday,
 } from '../../types/models';
+import type { MessageValues } from '../../i18n/useT';
+
+type Translate = (id: string, defaultMessage: string, values?: MessageValues) => string;
+
+/**
+ * Plain-English fallback for non-React callers and tests: substitutes simple
+ * `{name}` placeholders the same way react-intl would, with no catalogue.
+ */
+const english: Translate = (_id, defaultMessage, values) =>
+  defaultMessage.replace(/\{(\w+)\}/g, (match, key: string) => {
+    const value = values?.[key];
+    return value === undefined || value === null ? match : String(value);
+  });
 
 export const WEEKDAYS: readonly Weekday[] = [
   'monday',
@@ -16,15 +29,21 @@ export const WEEKDAYS: readonly Weekday[] = [
   'sunday',
 ];
 
-export const WEEKDAY_LABELS: Record<Weekday, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
-};
+/** Weekday names come from Intl for the active locale, never a string table. */
+export function weekdayLabel(day: Weekday, locale?: string): string {
+  const mondayIndexes: Record<Weekday, number> = {
+    monday: 0,
+    tuesday: 1,
+    wednesday: 2,
+    thursday: 3,
+    friday: 4,
+    saturday: 5,
+    sunday: 6,
+  };
+  // 2024-01-01 was a Monday. Noon UTC never shifts to an adjacent day.
+  const date = new Date(Date.UTC(2024, 0, 1 + mondayIndexes[day], 12));
+  return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(date);
+}
 
 /** Stellar payment assets settle in 7 decimal places (10,000,000 stroops). */
 export const ASSET_DECIMALS: Record<PayoutAsset, number> = {
@@ -96,37 +115,40 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const COORDINATE_PATTERN = /^-?\d+(?:\.\d+)?$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateFacilitySettings(draft: FacilitySettingsDraft): FacilitySettingsErrors {
+export function validateFacilitySettings(
+  draft: FacilitySettingsDraft,
+  t: Translate = english,
+): FacilitySettingsErrors {
   const errors: FacilitySettingsErrors = { openingHours: {} };
 
-  if (!draft.address.trim()) errors.address = 'Street address is required.';
-  if (!draft.city.trim()) errors.city = 'City is required.';
-  if (!draft.phone.trim()) errors.phone = 'Contact phone is required.';
+  if (!draft.address.trim()) errors.address = t('facilitySettings.validation.addressRequired', 'Street address is required.');
+  if (!draft.city.trim()) errors.city = t('facilitySettings.validation.cityRequired', 'City is required.');
+  if (!draft.phone.trim()) errors.phone = t('facilitySettings.validation.phoneRequired', 'Contact phone is required.');
   if (draft.email.trim() && !EMAIL_PATTERN.test(draft.email.trim())) {
-    errors.email = 'Enter a valid contact email address.';
+    errors.email = t('facilitySettings.validation.emailInvalid', 'Enter a valid contact email address.');
   }
 
   const lat = parseCoordinate(draft.latitude);
   if (lat === null || lat < -90 || lat > 90) {
-    errors.latitude = 'Enter a latitude between -90 and 90.';
+    errors.latitude = t('facilitySettings.validation.latitudeRange', 'Enter a latitude between -90 and 90.');
   }
 
   const lng = parseCoordinate(draft.longitude);
   if (lng === null || lng < -180 || lng > 180) {
-    errors.longitude = 'Enter a longitude between -180 and 180.';
+    errors.longitude = t('facilitySettings.validation.longitudeRange', 'Enter a longitude between -180 and 180.');
   }
 
   for (const hours of normaliseOpeningHours(draft.openingHours)) {
     if (hours.closed) continue;
     const dayErrors: OpeningHoursErrors = {};
     if (!hours.opensAt || !TIME_PATTERN.test(hours.opensAt)) {
-      dayErrors.opensAt = 'Enter an opening time.';
+      dayErrors.opensAt = t('facilitySettings.validation.opensAtRequired', 'Enter an opening time.');
     }
     if (!hours.closesAt || !TIME_PATTERN.test(hours.closesAt)) {
-      dayErrors.closesAt = 'Enter a closing time.';
+      dayErrors.closesAt = t('facilitySettings.validation.closesAtRequired', 'Enter a closing time.');
     }
     if (!dayErrors.opensAt && !dayErrors.closesAt && hours.opensAt! >= hours.closesAt!) {
-      dayErrors.closesAt = 'Closing time must be after opening time.';
+      dayErrors.closesAt = t('facilitySettings.validation.closesAfterOpens', 'Closing time must be after opening time.');
     }
     if (dayErrors.opensAt || dayErrors.closesAt) errors.openingHours[hours.day] = dayErrors;
   }
@@ -171,10 +193,14 @@ export interface ParsedAmount {
 }
 
 /** Converts a human-entered decimal amount to raw stroops without floats. */
-export function parseAssetAmount(raw: string, asset: PayoutAsset): ParsedAmount {
+export function parseAssetAmount(
+  raw: string,
+  asset: PayoutAsset,
+  t: Translate = english,
+): ParsedAmount {
   const trimmed = raw.trim();
   const decimals = ASSET_DECIMALS[asset];
-  if (!trimmed) return { amountStroops: null, error: 'Enter an amount.' };
+  if (!trimmed) return { amountStroops: null, error: t('facilitySettings.validation.amountRequired', 'Enter an amount.') };
 
   const pattern = new RegExp(`^\\d+(?:\\.(\\d{1,${decimals}}))?$`);
   const match = trimmed.match(pattern);
@@ -182,18 +208,21 @@ export function parseAssetAmount(raw: string, asset: PayoutAsset): ParsedAmount 
     if (/^\d+\.\d+$/.test(trimmed)) {
       return {
         amountStroops: null,
-        error: `${asset} supports at most ${decimals} decimal places.`,
+        error: t('facilitySettings.validation.tooManyDecimals', '{asset} supports at most {decimals} decimal places.', {
+          asset,
+          decimals,
+        }),
       };
     }
     return {
       amountStroops: null,
-      error: 'Enter a positive amount using digits and a decimal point.',
+      error: t('facilitySettings.validation.amountFormat', 'Enter a positive amount using digits and a decimal point.'),
     };
   }
 
   const [whole, fraction = ''] = trimmed.split('.');
   const amount = BigInt(whole) * stroopsPerUnit(asset) + BigInt(fraction.padEnd(decimals, '0'));
-  if (amount <= 0n) return { amountStroops: null, error: 'Amount must be greater than 0.' };
+  if (amount <= 0n) return { amountStroops: null, error: t('facilitySettings.validation.amountPositive', 'Amount must be greater than 0.') };
 
   return { amountStroops: amount.toString(), error: null };
 }
@@ -212,11 +241,11 @@ export function toLocalDateTimeInput(date: Date): string {
   return local.toISOString().slice(0, 16);
 }
 
-export function parseEffectiveFrom(raw: string): { iso: string | null; error: string | null } {
-  if (!raw) return { iso: null, error: 'Choose when this price takes effect.' };
+export function parseEffectiveFrom(raw: string, t: Translate = english): { iso: string | null; error: string | null } {
+  if (!raw) return { iso: null, error: t('facilitySettings.validation.effectiveRequired', 'Choose when this price takes effect.') };
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) {
-    return { iso: null, error: 'Choose a valid effective-from date and time.' };
+    return { iso: null, error: t('facilitySettings.validation.effectiveInvalid', 'Choose a valid effective-from date and time.') };
   }
   return { iso: date.toISOString(), error: null };
 }

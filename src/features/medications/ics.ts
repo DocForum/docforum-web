@@ -40,7 +40,9 @@ function fold(line: string): string {
 
 const DOSE_WINDOW_MINUTES = 15;
 
-export function buildIcs(days: ScheduleDay[]): string {
+/** The event description is user-visible copy, so callers supply a translator
+ * from the catalogue that receives the drug name for each dose. */
+export function buildIcs(days: ScheduleDay[], description: (drugName: string) => string): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -59,7 +61,7 @@ export function buildIcs(days: ScheduleDay[]): string {
         `DTSTART:${icsTimestamp(entry.startAt)}`,
         `DTEND:${icsTimestamp(end)}`,
         `SUMMARY:${escapeIcsText(`${entry.drugName} ${entry.dosage}`.trim())}`,
-        `DESCRIPTION:${escapeIcsText(`Take ${entry.drugName} as prescribed. Follow your prescriber's instructions.`)}`,
+        `DESCRIPTION:${escapeIcsText(description(entry.drugName))}`,
         'END:VEVENT',
       );
     }
