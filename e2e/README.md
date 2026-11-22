@@ -19,8 +19,11 @@ rendering stable.
   `axe-allowlist.json`; do not add broad rule exclusions. The baseline is
   currently empty after fixing all findings detected at rollout.
 - `visual.spec.ts` compares desktop and mobile screenshots. Animations and
-  carets are disabled, the light theme is fixed, and fonts are ready before
-  capture.
+  carets are disabled, fonts are ready before capture, and each project pins a
+  theme through the same `docforum-theme` key the app reads on boot:
+  `visual-desktop`/`visual-mobile` capture light, `visual-dark` captures dark
+  and `visual-hc` captures high contrast (issue #296). The extra themes are
+  desktop-only to keep CI time down.
 
 On a PR, screenshot differences are **report only**: the Browser job shows a
 warning and lists the changed screens in its summary, but doesn't fail. You
@@ -37,7 +40,7 @@ same pinned container** from the repository root:
 ```sh
 docker run --rm --ipc=host -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.64.1-noble \
-  sh -lc 'npm ci && npm run test:e2e:update'
+  sh -lc 'npm ci && npm run test:e2e:update && npx playwright test --project=visual-dark --project=visual-hc --update-snapshots'
 git diff -- e2e/__screenshots__
 ```
 

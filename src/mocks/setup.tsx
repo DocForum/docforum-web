@@ -6,7 +6,7 @@
 import { createRoot } from 'react-dom/client';
 import { worker } from './browser';
 import { DevPanel } from './DevPanel';
-import { activateMockRole } from './roles';
+import { activateMockRole, consumePreviewRole } from './roles';
 import { useMockStore } from './mock-store';
 
 /**
@@ -43,7 +43,11 @@ export async function startMockApi(): Promise<void> {
   // any credentials).
   const hash = window.location.hash;
   const deepLinked = hash !== '' && hash !== '#/' && hash !== '#';
-  activateMockRole(useMockStore.getState().activeRole, { navigate: !deepLinked });
+  // `?previewRole=` is a mock/preview-build convenience only (it is never
+  // read by production code); consume it before the first render so its
+  // fake session cannot contradict the API, and strip it from the URL.
+  const role = consumePreviewRole() ?? useMockStore.getState().activeRole;
+  activateMockRole(role, { navigate: !deepLinked });
 
   const panelRoot = document.createElement('div');
   panelRoot.id = 'mock-dev-panel-root';

@@ -867,6 +867,123 @@ corresponding backend issues land. Client types live in
   probe fired once at boot (non-blocking) and on user retry to warm cold-started
   Render instances and detect reachability failures separately from browser offline state.
 
+### Phase W2 — Doctor directory & specialty search (issues #1, #13)
+
+No assumption remains for doctor discovery: `docforum-core`'s public directory
+endpoints are real and are the only source this repo calls.
+
+- `GET /specialties` → `Specialty[]` (`{ id, name, slug }`).
+- `GET /doctors?specialty=<slug>&q=&limit=&cursor=` →
+  `{ items: [{ id, fullName, specialties: [{ id, name, slug }] }], nextCursor }`.
+  Only verified profiles and public fields are returned; `limit` is 1–50 and
+  pagination is a keyset cursor.
+- `GET /availability/doctors/:doctorProfileId/slots` → open future
+  `AvailabilitySlot[]` (`{ id, doctorProfileId, status, startTime, endTime,
+  createdAt, updatedAt }`). Public by design.
+
+`src/services/doctor-directory-service.ts` owns the directory reads and pages
+the list explicitly (`listAllPublicDoctors`, `getPublicDoctor`) because there is
+no public single-doctor route. Availability is read through
+`src/services/appointments-service.ts`'s `getOpenSlots`.
+
+The older symptom-search path (issue #30, `src/features/search/`) still uses its
+own assumed `/symptoms` + `specialtyIds` contract; it is deliberately untouched
+here and remains tracked as an assumption.
+
+### Doctor profile week view — doctor time zone (issue #13)
+
+The profile page renders every slot in the patient's chosen IANA zone
+(`TimeZoneProvider`) and states that zone above the grid. When the doctor's
+zone is known and differs, it is shown as "…'s local time: <zone>".
+
+**Assumed:** `GET /doctors` does not expose the `DoctorProfile.timeZone` column
+today, even though the column exists in docforum-core's schema. The frontend
+types it as optional (`PublicDoctor.timeZone`); until the public projection
+includes it, the doctor-zone line is simply absent and only the patient's zone
+is shown. No request is made to an endpoint that does not exist — the profile
+itself is resolved by paging the real public list, which also avoids assuming a
+`GET /doctors/:id` route.
+
+### Phase W2 — Booking & structured intake (issue #2)
+
+Both writes are real; nothing in this flow is mocked or assumed.
+
+- `POST /intake` (patient) — body
+  `{ symptoms: [{ symptom, duration, severity: 'mild'|'moderate'|'severe' }],
+  freeTextNotes? }` → the created `IntakeForm` row. `symptoms` requires at
+  least one entry.
+- `POST /appointments` (patient) — body
+  `{ availabilitySlotId, patientProfileId? }` → the created `Appointment` row
+  (`{ id, patientProfileId, doctorProfileId, availabilitySlotId, status,
+  origin, createdAt, updatedAt }`). `409` means the slot is no longer open;
+  the UI treats that as its own recoverable state, not a generic failure.
+
+Gaps worth knowing:
+- The intake write and the booking write are separate calls with no link
+  between them yet — core's `POST /appointments` does not accept an intake id
+  (the `intakeId` TODO in its schema remains open). The booking flow submits
+  intake first so a 409 never leaves a confirmed visit without intake.
+- `POST /intake` always records against the caller's own patient profile; it
+  has no `patientProfileId` parameter. When a guardian books for a dependent
+  (`patientProfileId` on the booking), the appointment targets the dependent
+  but the intake row is the guardian's. The booking screen says so plainly.
+- `GET /appointments/mine` carries `doctorProfileId` but no clinician name;
+  patient screens resolve names from the public `GET /doctors` directory and
+  show "Your clinician" when a doctor is no longer listed.
+
+### Price list editor against `/facilities/me/prices` (issue #270)
+
+- **Endpoint shape:** Calls `GET /facilities/me/prices` and `POST /facilities/me/prices` — the `/me` variant resolves the facility from the authenticated user's session rather than accepting a `facilityId` parameter. The previous `/facilities/:facilityId/prices` shape is still supported for backward compatibility but the `/me` endpoint is the canonical path going forward.
+
+- **Amount conversion:** Entered amounts are decimal strings (e.g. `"27.5"`). The `parseAssetAmount` helper in `src/features/facility-settings/validation.ts` converts these to raw stroops integers using `BigInt` arithmetic, respecting per-asset decimal precision (XLM and USDC both support 7 decimal places = 10_000_000 stroops per whole unit). Exponent notation (e.g. `1e-5`) and decimals beyond the asset's precision limit are rejected with a `400` error, matching the backend's validation.
+
+- **Versioned writes:** Creating a price version via `POST` does not edit an existing record; it adds a new entry to the version history. The frontend presents history as three states: **current** (effective now), **scheduled** (effectiveFrom in the future), and **superseded** (older versions). A duplicate `effectiveFrom` returns `409` from the backend, which the UI handles by keeping the earlier snapshot and explaining the conflict.
+
+- **Verified email requirement:** Write mutations (`createFacilityPrice`) require the user's email to be verified. If the session has an unverified email, the save is rejected with a clear error — the backend enforces this guard.
+
+- **BigInt-safe throughout:** The shared `validation.ts` `parseAssetAmount` and `formatAmountFromStroops` functions use `BigInt` internally and never pass through `Number()`, preserving exact stroop values for all asset amounts.
+
+### Stuck referrals console against `/referrals/admin/*` (issue #273)
+
+- **Queue list:** `GET /referrals/admin/queue?olderThan=<24h|48h|72h|168h>` — returns `{items: StuckReferral[], nextCursor}` oldest first. The `olderThan` parameter is the only server-side filter; the UI's 1/2/3/7-day thresholds map to the durational values `24h`, `48h`, `72h`, `168h`. A `reason` filter is applied client-side over the loaded pages, since docforum-core#68 does not expose a server-side `reason` query parameter (unknown params return `400`).
+
+- **StuckReferral shape:** Embedded `stuckReason: 'no_doctor'|'doctor_inactive'|'loop_flagged'`, `targetSpecialty: Specialty`, `referringDoctor`/`targetDoctor` as `{id, fullName}`, and `chain: ReferralChainLink[] | null` (present only for `loop_flagged`, oldest hop first, ending with the referral itself). `ReferralChainLink` = `{referralId, referringDoctor, targetSpecialty, targetDoctor, status, createdAt}`. No patient name or ID is shown.
+
+- **Reassign:** `POST /referrals/admin/:id/reassign` body = `{targetDoctorId, reason, expectedUpdatedAt}`. Returns the updated `Referral`. `409` if the referral is not in `pending` status — the dialog closes and the queue refetches. Client-side eligibility checks: only verified doctors in the target specialty, excluding the current target doctor and the referring doctor. Availability (open slots in next 7 days) is also re-checked from `/admin/doctors?specialtyId=...&verificationStatus=verified`.
+
+- **Cancel:** `POST /referrals/admin/:id/cancel` body = `{reason, expectedUpdatedAt}`. Docforum-core notifies the patient; the client only records the action. The resulting status is not assumed to be `cancelled` in `ReferralStatus` (no cancelled value yet).
+
+- **Audit events:** `GET /referrals/admin/:id/audit-events` returns `{items: AuditEvent[], nextCursor}` newest first. Each event has `actorUserId`, `actorRole`, `entityType: 'Referral'`, `entityId`, `action`, `fromState`, `toState`, `requestId`, `metadata`, `createdAt`. The console links each action to `/admin/audit?entityType=Referral&entityId=<id>`.
+
+- **409 conflict handling:** If reassign or cancel receives `409` (someone else modified the referral), the dialog closes and the queue is refetched. Network failures leave the dialog open; retrying is safe because a duplicate submission comes back as `409`.
+
+### Feature flags console against `/admin/feature-flags` (issue #274)
+
+- **List endpoint:** `GET /admin/feature-flags` — returns an unpaginated array of `FeatureFlag` items in the current environment. There are typically dozens of flags, not thousands. Each flag has `key`, `description`, `enabled`, `kind` (`boolean` or `percentage`), `rolloutPercentage` (optional), and `targeting` (`roles: Role[]`, `userIds: string[]`).
+
+- **Update endpoint:** `PATCH /admin/feature-flags/:key` — partial update with `{ expectedUpdatedAt, enabled?, rolloutPercentage?, targeting? }`. The `:key` path parameter is validated by the backend as a lowercase dotted segment of up to 64 characters; a `400` is returned for malformed keys (e.g. uppercase, spaces, exceeding 64 chars). The `expectedUpdatedAt` field enables conflict detection: if the flag has been modified since the admin loaded it, the server returns `409`.
+
+- **Key format:** New keys must conform to the pattern `lowercase.dotted.segments` with a maximum of 64 characters total. The UI validates this on save and shows a `400` error message if the key is invalid. Existing keys are preserved; only the admin can create new keys via the edit dialog.
+
+- **Audit trail:** Every save creates an audit event with `entityType: 'FeatureFlag'` and `action: 'feature_flag.updated'`. The `updatedAt` timestamp and `actorUserId`/`actorRole` are stored. The console shows "Changed X ago by Y" per flag and provides a "View in audit trail" link to `/admin/audit?entityType=FeatureFlag&entityId=<flagKey>`.
+
+- **State & rollout:** Three states: `on` (enabled, rolloutPercentage = 100 or absent), `rollout` (enabled, rolloutPercentage < 100), `off` (enabled = false). The rollout percentage must be a whole number 0–100. Role targeting is a multi-select; the allowlist is a free‑form list of user UUIDs (one per line, comma-, or space-separated). Duplicate or invalid UUIDs are rejected before the save request is sent.
+
+- **Conflict handling:** If another admin saves the same flag between the time the current admin opens the edit dialog and confirms, the save receives `409`. The UI shows "was changed by someone else after you opened it" and offers "Start again from the latest" to refetch the flag and reset the draft. The save is not silently applied; only the flag that failed is rolled back, never another in-flight save.
+
+- **Permission model:** Admin accounts are seeded/invited (PRD OQ-2), not self-registered. The console is only accessible to users with the `admin` role.
+
+### Phase W2 — Orders scoped to the acting profile (issue #295)
+
+`GET /orders/mine` takes an assumed optional `?patientProfileId=` query
+parameter. Without it the endpoint returns every order for the caller, and a
+guardian acting for a dependent cannot be scoped: the same browser session is
+used for both profiles, so the client sends the selected profile id explicitly
+(`services/orders-service.ts`, `features/orders/hooks/useOrders.ts`) and the
+dev-mock filters on it. Reconcile with docforum-core when the acting-profile
+contract lands; health and care-thread reads already scope by the
+`/patients/:profileId/...` path.
+
 ## Generated contract
 
 All API routes covered by this repository's typed client are declared in
@@ -949,6 +1066,32 @@ and typed errors.
 - GitHub Pages builds always pass `VITE_USE_HASH_ROUTER: "true"` (set in `deploy-pages.yml`).
 - `HashRedirectShim` is mounted only in BrowserRouter mode; it reads `window.location.hash` directly to detect `#/` prefixes on the root path.
 - Email links from docforum-core should use clean paths (`/reset?token=…`), not hash paths. Old hash-format links are transparently redirected by the shim.
+
+#### Data router, loaders and route guards (issue #112)
+- Routes are data-router route objects: one factory per area in `src/routes/<area>.tsx`, assembled by `createAppRoutes({ queryClient })` in `src/routes/index.tsx`. The browser (`src/router.ts`), tests (`renderAppAt` in `src/test/render-app.tsx`) and the prerender (`createStaticHandler` in `src/prerender/entry-server.tsx`) all use that one table.
+- Every page is a `lazy` route (`lazyPage(() => import(...), 'ExportName')`). `src/routes/route-helpers.test.tsx` fails if a page route is added eagerly. `main.tsx` resolves only the first URL's lazy modules before the first render (no blank flash); everything else loads on navigation.
+- Role guards are loaders, not components: `guardedSection(id, roles, children)` gives each child `requireRoles(roles, prefetch)` (waits for the boot session restore, then redirects to `/login` or `/`, same as the old `RequireAuth`) and the section a `RoleGate` element (re-checks live on sign-out/idle timeout) and an `errorElement`. The guard sits on each child loader because React Router runs parent and child loaders in parallel; that is what guarantees no prefetch fires before the guard decides.
+- Prefetch: a child's `prefetch(args, token)` calls `queryClient.ensureQueryData(...)` with the same `queryOptions` factory its page's hook uses, wrapped in `settlePrefetch` (waits at most `PREFETCH_BUDGET_MS`, never rejects — a failed prefetch leaves the page's own error state to report it). Add a factory next to the hook when prefetching a new page; never duplicate a key.
+- Errors: loader, lazy-chunk and render failures inside a section render `RouteErrorElement` inside the layout's `<main>`; "Try again" reloads (the reliable fix for a stale chunk after a deploy). Render errors inside a mounted page are still caught by the route `ErrorBoundary` in `Layout`.
+
+#### Mutation feedback: toasts, optimistic updates, undo (issue #113)
+- `ToastRegion` is mounted once in `App.tsx`; call `showToast({ message, tone, action?, durationMs? })` from anywhere (`src/store/toast-store.ts`). Messages are short, already-translated UI copy, never server records or PHI. Errors go to the assertive region, everything else to the polite one; toasts never take focus.
+- A toast is never the only place a **form** error appears — show it next to the form (`FormError`/field errors). Toasts are for background results.
+- `useOptimisticMutation` qualifies only for reversible UI state the server will almost always accept: read/unread, toggles, reordering, dismissing. `useUndoableAction` (delayed commit) is for easily mis-clicked reversible actions with no compensating API call.
+- **Never** optimistic or delayed for money movement or escrow: payment intents, wallet payments, payouts, refunds, dispute resolutions. Also not for server-validated form submissions (booking, sign-up). `src/hooks/optimistic-policy.test.ts` scans `src/features/payments/`, `src/features/fulfillment/`, `src/features/admin-disputes/` and `src/services/payments-service.ts` and fails CI on any optimistic helper or `onMutate`.
+- Current users: notification mark-one-read (optimistic + rollback toast) and mark-all-read (undoable, committed on unmount/pagehide rather than dropped; other tabs are told on commit).
+
+#### Date and time inputs (issue #114)
+- Use `DatePicker`/`TimePicker` (`src/components/`) for every date or time field; don't add `<input type="date|time|datetime-local">`. Values stay in the native formats (`YYYY-MM-DD`, 24-hour `HH:mm`), so services and validation are unchanged. A date-and-time field is one of each (see `PriceListEditor`).
+- Like native inputs, a typed date/time outside `min`/`max` is still reported (and flagged `aria-invalid` on blur); the form's own validation decides and its `error` prop wins over the picker's message.
+- "Today" and the zone hint come from an explicit IANA zone (`timeZone` prop, else the user's `TimeZoneProvider` zone). The pickers never convert a value between zones; date maths is calendar-day arithmetic in UTC (`src/utils/date-input.ts`), so DST cannot shift a day.
+- They work without an `IntlProvider` (English defaults, `en` locale) via `useOptionalT`, so isolated component tests and stories need no wrapper.
+
+#### Performance budget (issue #99)
+- `performance-budget.json` holds the bundle budgets; `npm run check:bundle` (CI, after `npm run build`) fails when first-load JS (entry + modulepreloads, gzip) or any lazy chunk exceeds them, and writes the numbers to the job summary. Raise a budget only in a PR that explains why.
+- Lighthouse CI (`.lighthouserc.json`, `lighthouse` job in `ci.yml`) runs against the mock-only preview build (hash routing, MSW, reserved-invalid API origin; `?previewRole=` for signed-in pages) and fails on LCP, CLS, TBT or script-size regressions. Its script-size budget (450 kB transferred per page) is for that mock build: it includes the MSW mock layer (~120 kB gzip) that production never ships, on top of the production entry (~171 kB gzip) and the heaviest signed-in route (patient dashboard, ~420 kB measured). The production first-load budget is the `check:bundle` one. Desktop preset, median of three runs, so shared runners don't make it flaky; the gzip budget protects mobile download cost deterministically.
+- `npm run analyze` writes the rollup-visualiser treemap to `bundle-stats/` (git-ignored); CI uploads it as the `bundle-stats` artifact.
+- GSAP stays behind `import('gsap')` in `useMotion` and is not fetched at all under `prefers-reduced-motion: reduce`. Route fallbacks reserve space (`.routeFallback`) so lazy loading does not shift the footer.
 
 ### Responsive navigation and layout (issue #103)
 
@@ -1113,6 +1256,18 @@ dispatch interface and the in-app inbox API) has not landed. Shapes mirror
 - **PHI-light by design:** `title`/`body` are display strings written by the
   backend, rendered as text only. Cross-tab broadcasts carry ids and the same
   payload the other tab already has; nothing is persisted in localStorage.
+
+### New-notification announcements and quiet hours (issue #246)
+
+The bell announces increases in the server's `unreadCount`. It assumes quiet
+hours (#108) are applied by docforum-core when a notification is delivered, as
+the quiet-hours setting describes ("Pause non-urgent email, SMS and in-app
+notifications"). A notification that reaches the in-app inbox was meant to be
+seen now, so the client announces it and does not apply quiet hours a second
+time. Doing so would also mute the safety-critical results and security alerts
+that must get through. The preference model has no separate setting to silence
+in-app screen-reader announcements. If one is added, the hook should read it.
+Announcements contain only counts, never notification titles or bodies.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

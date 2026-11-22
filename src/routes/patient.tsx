@@ -1,6 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
 import { myAppointmentsQueryOptions } from '../features/appointments/hooks/useAppointments';
-import { patientOrderQueryOptions } from '../features/orders/hooks/useOrders';
 import { paymentHistoryQueryOptions } from '../features/payments/hooks/usePaymentHistory';
 import { lazyPage } from './lazy';
 import { needsMyAppointments } from './patient-prefetch';
@@ -30,12 +29,6 @@ export function patientRoutes({ queryClient }: RouteContext): RouteObject[] {
       {
         path: 'payments/:intentId',
         lazy: lazyPage(() => import('../pages/PaymentDetailPage'), 'PaymentDetailPage'),
-      },
-      {
-        path: 'patient/orders/:orderId',
-        lazy: lazyPage(() => import('../pages/OrderDetailPage'), 'OrderDetailPage'),
-        prefetch: ({ params }, token) =>
-          settlePrefetch([queryClient.ensureQueryData(patientOrderQueryOptions(params.orderId, token))]),
       },
       // Deep-linkable appointment detail (issue #14). Top-level rather than
       // nested under `patient/*` because the issue specifies the literal

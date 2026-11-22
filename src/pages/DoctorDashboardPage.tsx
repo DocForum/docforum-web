@@ -14,6 +14,7 @@ import { useT } from '../i18n/useT';
 import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
 import { DoctorOnboarding } from '../features/onboarding/components/DoctorOnboarding';
 import styles from './DoctorDashboardPage.module.css';
+import { paths } from '../routes/paths';
 
 export function DoctorDashboardPage() {
   const user = useAuthStore((state) => state.user);
@@ -85,7 +86,9 @@ export function DoctorDashboardPage() {
       shortcut: 'mod+3',
       run: () => {
         setPaletteOpen(false);
-        navigate('/doctor/consultation/new');
+        // Consultation pages need an appointment id; the queue on the dashboard
+        // is where the doctor picks one.
+        navigate(paths.doctor.root);
       },
     },
     {
@@ -95,7 +98,7 @@ export function DoctorDashboardPage() {
       shortcut: 'mod+4',
       run: () => {
         setPaletteOpen(false);
-        navigate('/doctor/insights');
+        navigate(paths.doctor.insights);
       },
     },
     {
@@ -116,7 +119,7 @@ export function DoctorDashboardPage() {
         <h1>{t('doctor.title', 'Doctor dashboard')}</h1>
         <div className={styles.dashboardHeaderRight}>
           <UnreadBadge />
-          <Button variant="secondary" onClick={() => navigate('/doctor/insights')}>
+          <Button variant="secondary" onClick={() => navigate(paths.doctor.insights)}>
             {t('doctor.insightsButton', 'Practice insights')}
           </Button>
           <Button variant="secondary" onClick={() => setHelpOpen(true)}>

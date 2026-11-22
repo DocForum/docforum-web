@@ -1,11 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { useLocation } from 'react-router-dom';
 import { render, screen, waitFor } from '../../../test/render';
 import { AbnormalResultsInbox } from './AbnormalResultsInbox';
 import { useAuthStore } from '../../../store/auth-store';
 import * as resultsService from '../../../services/results-service';
 import * as messagingService from '../../../services/messaging-service';
+import { ApiError } from '../../../services/api-client';
 import type { AbnormalResult } from '../../../types/models';
 
 vi.mock('../../../services/results-service');
@@ -114,5 +116,30 @@ describe('AbnormalResultsInbox', () => {
     expect(screen.queryByRole('button', { name: /message .* patient/i })).not.toBeInTheDocument();
     // The result rows themselves stay usable for acknowledging.
     expect(screen.getAllByRole('button', { name: 'Acknowledge' })).toHaveLength(2);
+  });
+
+  it('announces loading before the inbox arrives', () => {
+    vi.mocked(resultsService.listPendingAbnormalResults).mockReturnValue(new Promise(() => {}));
+    render(<AbnormalResultsInbox />, { route: '/doctor' });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading results…');
+  });
+
+  it('shows a recoverable error instead of an empty inbox when the read fails', async () => {
+    vi.mocked(resultsService.listPendingAbnormalResults).mockRejectedValue(
+      new ApiError('Inbox unavailable', 503),
+    );
+    render(<AbnormalResultsInbox />, { route: '/doctor' });
+
+    expect(await screen.findByText("Results couldn't be loaded")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByText('No results awaiting review')).not.toBeInTheDocument();
+  });
+
+  it('has no axe violations with abnormal results on screen', async () => {
+    const { container } = render(<AbnormalResultsInbox />, { route: '/doctor' });
+    await screen.findByText('Ada Patient');
+
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

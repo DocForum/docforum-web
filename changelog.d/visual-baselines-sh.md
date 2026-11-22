@@ -1,1 +1,0 @@
-Visual baselines workflow: the commit message used the bash-only `${GITHUB_SHA::8}`, but the step runs under `sh` in the Playwright container, so the first run that found changed screenshots failed with "Bad substitution" before pushing them (main `2a4fffd4`). It now uses POSIX `printf %.8s`.

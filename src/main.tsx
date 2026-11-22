@@ -8,13 +8,18 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
-import { useAuthStore } from './store/auth-store';
 import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
 import { createAppRouter } from './router';
+import { applyStoredTheme } from './utils/theme';
 import './styles/global.css';
+
+// Apply the saved light/dark/high-contrast choice before the first paint, so a
+// reload never flashes the default theme (issue #98 / #296). It was added by
+// #359 but lost in a merge from main, which left e2e/visual.spec.ts failing.
+applyStoredTheme();
 
 // Mock API for local development (issue #95) — only runs under
 // `npm run dev:mock` (a DEV build with VITE_ENABLE_MOCKS=true). In
@@ -49,25 +54,6 @@ async function boot(): Promise<void> {
   if (mocksEnabled) {
     const { startMockApi } = await import('./mocks/setup');
     await startMockApi();
-  }
-
-  // Enable preview session when previewRole query param is set (useful for screenshots & review)
-  const urlParams = new URLSearchParams(window.location.search);
-  const previewRole = urlParams.get('previewRole');
-  if (
-    previewRole &&
-    (previewRole === 'doctor' || previewRole === 'facility' || previewRole === 'patient' || previewRole === 'admin')
-  ) {
-    useAuthStore.getState().setSession(
-      {
-        id: `preview-${previewRole}-user`,
-        email: `${previewRole}@docforum.org`,
-        role: previewRole,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      'preview-token',
-    );
   }
 
   // Error monitoring: disabled unless a DSN is configured (VITE_SENTRY_DSN).

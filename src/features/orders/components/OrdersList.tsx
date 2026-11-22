@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
+import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { PageError } from '../../../components/states/PageError';
@@ -10,20 +11,13 @@ import { ApiError } from '../../../services/api-client';
 import { OrderWalletPayPanel } from '../../payments/components/OrderWalletPayPanel';
 import type { PatientOrder, QualifiedOrderFacility } from '../../../types/models';
 import { currentOrderVersions } from '../current-orders';
+import { formatOrderDate, orderItemSummary } from './order-display';
 import {
   useMyOrders,
   useQualifiedFacilities,
   useSelectFulfillingFacility,
 } from '../hooks/useOrders';
 import styles from './OrdersList.module.css';
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function statusLabel(order: PatientOrder) {
   if (order.status === 'active') return order.selectedFacility ? 'In fulfillment' : 'Needs a facility';
@@ -196,16 +190,23 @@ export function OrdersList() {
                     </span>
                     <h2 className={styles.title}>{orderTitle(order)}</h2>
                     <p className={styles.meta}>
-                      Issued {formatDate(order.issuedAt)}
+                      Issued {formatOrderDate(order.issuedAt)}
                       {order.issuedByDoctorName ? ` by ${order.issuedByDoctorName}` : ''}
                     </p>
                   </div>
-                  <span className={styles.status} data-status={order.status}>
-                    {statusLabel(order)}
-                  </span>
+                  <div className={styles.statusGroup}>
+                    <span className={styles.status} data-status={order.status}>
+                      {statusLabel(order)}
+                    </span>
+                    <FulfillmentStatusBadge status={order.fulfillmentStatus ?? 'unfulfilled'} />
+                  </div>
                 </div>
 
                 <p className={styles.detail}>{orderDetail(order)}</p>
+                <p className={styles.detail}>{orderItemSummary(order)}</p>
+                {order.expiresAt ? (
+                  <p className={styles.meta}>Expires {formatOrderDate(order.expiresAt)}</p>
+                ) : null}
                 {order.instructions ? <p className={styles.instructions}>{order.instructions}</p> : null}
 
                 {latestHistory ? (
