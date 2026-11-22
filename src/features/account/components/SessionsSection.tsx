@@ -13,6 +13,7 @@ import {
   useSessions,
 } from '../hooks/useSessions';
 import styles from './SessionsSection.module.css';
+import { paths } from '../../../routes/paths';
 
 type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' };
 
@@ -57,7 +58,7 @@ export function SessionsSection() {
           // state through the shared helper, not just the token.
           await signOut('logout', { queryClient });
           setPending(null);
-          navigate('/login', { replace: true });
+          navigate(paths.login, { replace: true });
           return;
         }
         setNotice(`Signed out ${pending.session.device}.`);

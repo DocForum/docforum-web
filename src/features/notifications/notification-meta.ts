@@ -10,6 +10,7 @@
 //     arrive before the UI knows them.
 import type { useT } from '../../i18n/useT';
 import type { Notification, Role } from '../../types/models';
+import { paths } from '../../routes/paths';
 
 export type NotificationCategory =
   | 'appointment'
@@ -79,46 +80,48 @@ const META: Record<string, NotificationCategory> = {
  * `link` (or when the kind is unknown and carries none either). */
 const FALLBACKS: Record<NotificationCategory, Partial<Record<Role, string>>> = {
   appointment: {
-    patient: '/patient/appointments',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    // Appointment detail needs an id, so without a payload link the care
+    // hub is the closest the patient can act on.
+    patient: paths.patient.root,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   referral: {
-    patient: '/care',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin/referrals',
+    patient: paths.care,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.referrals,
   },
   order: {
-    patient: '/patient/orders',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.patient.orders,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   result: {
-    patient: '/patient/records',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.patient.root,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   payment: {
-    patient: '/payments',
-    doctor: '/doctor',
-    facility: '/facility/payments',
-    admin: '/admin',
+    patient: paths.payments,
+    doctor: paths.doctor.root,
+    facility: paths.facility.payments,
+    admin: paths.admin.root,
   },
   message: {
-    patient: '/care',
-    doctor: '/doctor/messages',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.care,
+    doctor: paths.doctor.messages,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   dispute: {
-    patient: '/patient/orders',
-    doctor: '/doctor',
-    facility: '/facility/payments',
-    admin: '/admin/disputes',
+    patient: paths.patient.orders,
+    doctor: paths.doctor.root,
+    facility: paths.facility.payments,
+    admin: paths.admin.disputes,
   },
   other: {},
 };
