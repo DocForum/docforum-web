@@ -97,9 +97,12 @@ test('doctor can start a queued visit and sign its consultation note', async ({ 
 
 test('facility fulfills a pending order with attribution', async ({ page, visit }) => {
   await visit('/facility', 'facility');
-  const item = page.locator('[class*="queueItem"]').filter({ hasText: 'Demo Amoxicillin 500mg (fake)' }).first();
+  const item = page
+    .locator('[class*="queueItem"]')
+    .filter({ hasText: 'Demo Vitamin D 1000 IU (fake)' })
+    .first();
   await expect(item).toBeVisible();
-  await item.getByRole('button', { name: 'Dispense & Fulfill' }).click();
+  await item.getByRole('button', { name: 'Dispense', exact: true }).click();
   await expect(item.getByText('Fulfilled', { exact: true })).toBeVisible();
   await expect(item.getByLabel('Action attribution')).toContainText('Frank Facility (fake)');
 });
