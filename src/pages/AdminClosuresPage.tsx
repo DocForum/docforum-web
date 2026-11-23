@@ -13,7 +13,7 @@ function AffectedAppointmentsReport({ closureId }: { closureId: string }) {
       <h1>Affected Appointments Report</h1>
       <p>
         Closure ID: {closureId}{' '}
-        <a href="/admin/closures" style={{ color: 'var(--color-accent)' }}>← Back to closures</a>
+        <Link to="/admin/closures" style={{ color: 'var(--color-accent)' }}>← Back to closures</Link>
       </p>
 
       <QueryState

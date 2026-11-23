@@ -20,7 +20,9 @@ vi.mock('../../../services/payments-service', async (importOriginal) => {
   };
 });
 
-const VALID_KEY = 'G' + 'A'.repeat(55);
+// A checksum-valid ed25519 public key: the wallet form now rejects addresses
+// whose StrKey CRC does not validate (issue #280).
+const VALID_KEY = 'GA2HDLPTODEIM2UGOY4AQ4WNTAG4MFO7MTV7ZNUV6DJI3VSFW7YCZQ26';
 
 const EMPTY_LEDGER_PAGE: FacilityLedgerPage = { items: [], nextCursor: null, totals: [] };
 
