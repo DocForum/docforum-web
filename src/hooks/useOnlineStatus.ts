@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { onlineManager } from '@tanstack/react-query';
+import { useApiReachabilityStore } from '../store/api-reachability-store';
 
 /**
  * Subscribes to React Query's `onlineManager`, which is wired to the
@@ -14,3 +15,11 @@ export function useOnlineStatus(): boolean {
     () => true,
   );
 }
+
+/**
+ * Tracks backend API reachability from boot ping and network/5xx responses.
+ */
+export function useApiReachability(): boolean {
+  return useApiReachabilityStore((state) => state.isApiReachable);
+}
+

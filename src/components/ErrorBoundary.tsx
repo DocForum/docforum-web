@@ -72,7 +72,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 }
 
-function ErrorFallback({
+/** The shared failure UI. Also used as the router's `errorElement` (see
+ * `RouteErrorElement`), so loader/lazy-route failures read the same. */
+export function ErrorFallback({
   level,
   title,
   error,
@@ -89,8 +91,12 @@ function ErrorFallback({
   const intl = useContext(IntlContext);
   const descriptor = describeError(error);
   const reference = supportReference(error);
+  // Without a provider (the router's app-level errorElement renders outside
+  // I18nProvider) fall back to the English default, so the fallback is
+  // never blank.
   const format = (id: string, defaultMessage: string, values?: Record<string, string>) =>
-    intl?.formatMessage({ id, defaultMessage }, values);
+    intl?.formatMessage({ id, defaultMessage }, values) ??
+    defaultMessage.replace(/\{(\w+)\}/g, (match, key: string) => values?.[key] ?? match);
 
   const defaultTitle =
     level === 'section'

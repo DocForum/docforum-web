@@ -5,6 +5,7 @@ import { FacilityPayoutLedger } from './FacilityPayoutLedger';
 import { useAuthStore } from '../../../store/auth-store';
 import { formatStroops } from '../../../services/payments-service';
 import * as paymentsService from '../../../services/payments-service';
+import { ApiError } from '../../../services/api-client';
 import type { FacilityLedgerPage } from '../../../types/models';
 
 vi.mock('../../../services/payments-service', async (importOriginal) => {
@@ -15,88 +16,71 @@ vi.mock('../../../services/payments-service', async (importOriginal) => {
   };
 });
 
+const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
+
 const MOCK_LEDGER_DATA: FacilityLedgerPage = {
-  totals: {
-    xlm: {
-      heldStroops: '500000000', // 50 XLM
-      releasedStroops: '1250000000', // 125 XLM
-      refundedStroops: '100000000', // 10 XLM
+  totals: [
+    {
+      asset: { type: 'native', code: 'XLM' },
+      escrowed: '500000000', // 50 XLM
+      released: '1250000000', // 125 XLM
+      refunded: '100000000', // 10 XLM
     },
-    usdc: {
-      heldStroops: '75000000', // 7.5 USDC
-      releasedStroops: '300000000', // 30 USDC
-      refundedStroops: '0',
+    {
+      asset: { type: 'issued', code: 'USDC' },
+      escrowed: '75000000', // 7.5 USDC
+      released: '300000000', // 30 USDC
+      refunded: '0',
     },
-  },
-  entries: [
+  ],
+  items: [
     {
       id: 'ledg-urgent',
-      facilityId: 'fac-1',
-      orderId: 'ord-rx-urgent',
       orderType: 'prescription',
-      orderItemName: 'Atorvastatin 40mg',
-      patientName: 'David Lee',
-      amountStroops: '500000000',
-      asset: 'XLM',
-      status: 'held',
+      orderId: 'ord-rx-urgent',
+      status: 'escrowed',
+      amount: '500000000',
+      assetCode: 'XLM',
+      asset: { type: 'native', code: 'XLM' },
       escrowId: 'esc-111',
-      fundTxHash: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-      terms: {
-        releaser: 'patient',
-        releaserDescription: 'Patient sign-off upon pickup',
-        refundDeadline: '2026-10-19T08:00:00Z',
-        isApproachingDeadline: true,
-        hoursUntilRefund: 12,
-      },
+      stellarTxHash: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+      sorobanContractId: 'CDEMOCONTRACT',
+      refundAfter: inHours(12),
       createdAt: '2026-10-17T08:00:00Z',
       updatedAt: '2026-10-17T08:00:00Z',
     },
     {
       id: 'ledg-safe',
-      facilityId: 'fac-1',
-      orderId: 'ord-rx-safe',
       orderType: 'prescription',
-      orderItemName: 'Metformin 500mg',
-      patientName: 'Emma Watson',
-      amountStroops: '75000000',
-      asset: 'USDC',
-      status: 'held',
+      orderId: 'ord-rx-safe',
+      status: 'escrowed',
+      amount: '75000000',
+      assetCode: 'USDC',
+      asset: { type: 'issued', code: 'USDC' },
       escrowId: 'esc-222',
-      fundTxHash: '123456abcdef123456abcdef123456abcdef123456abcdef123456abcdef1234',
-      terms: {
-        releaser: 'platform',
-        releaserDescription: 'Automated release upon courier drop',
-        refundDeadline: '2026-10-25T10:00:00Z',
-        isApproachingDeadline: false,
-        hoursUntilRefund: 160,
-      },
+      stellarTxHash: '123456abcdef123456abcdef123456abcdef123456abcdef123456abcdef1234',
+      sorobanContractId: 'CDEMOCONTRACT',
+      refundAfter: inHours(160),
       createdAt: '2026-10-18T10:00:00Z',
       updatedAt: '2026-10-18T10:00:00Z',
     },
     {
       id: 'ledg-released',
-      facilityId: 'fac-1',
+      orderType: 'lab_order',
       orderId: 'ord-lab-done',
-      orderType: 'lab',
-      orderItemName: 'Complete Blood Count',
-      patientName: 'Marcus Cole',
-      amountStroops: '300000000',
-      asset: 'USDC',
       status: 'released',
+      amount: '300000000',
+      assetCode: 'USDC',
+      asset: { type: 'issued', code: 'USDC' },
       escrowId: 'esc-333',
-      fundTxHash: 'aaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccdddd',
-      releaseTxHash: 'eeeffff00001111222233334444555566667777888899990000aaaabbbbcccc',
-      terms: {
-        releaser: 'auto_dispense',
-        releaserDescription: 'Specimen verified in lab system',
-        refundDeadline: '2026-10-16T12:00:00Z',
-        isApproachingDeadline: false,
-        hoursUntilRefund: 0,
-      },
+      stellarTxHash: 'aaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccdddd',
+      sorobanContractId: 'CDEMOCONTRACT',
+      refundAfter: null,
       createdAt: '2026-10-14T12:00:00Z',
       updatedAt: '2026-10-15T15:00:00Z',
     },
   ],
+  nextCursor: null,
 };
 
 describe('FacilityPayoutLedger & formatStroops', () => {
@@ -116,7 +100,6 @@ describe('FacilityPayoutLedger & formatStroops', () => {
 
   describe('formatStroops BigInt helper', () => {
     it('accurately formats stroop values without floating point errors', () => {
-      // 10,000,000 stroops = 1 XLM
       expect(formatStroops('10000000', 'XLM')).toBe('1 XLM');
       expect(formatStroops('500000000', 'XLM')).toBe('50 XLM');
       expect(formatStroops('75000000', 'USDC')).toBe('7.50 USDC');
@@ -125,8 +108,8 @@ describe('FacilityPayoutLedger & formatStroops', () => {
     });
   });
 
-  describe('Component Rendering & Warning States', () => {
-    it('renders totals breakdown for both XLM and USDC', async () => {
+  describe('server totals', () => {
+    it('renders the totals docforum-core returned, per asset', async () => {
       vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
@@ -140,52 +123,59 @@ describe('FacilityPayoutLedger & formatStroops', () => {
       });
     });
 
-    it('highlights approaching refund deadlines with clear warnings', async () => {
+    it('never invents data when the real endpoint fails', async () => {
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockRejectedValue(
+        new ApiError('Bad Request', 400),
+      );
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+
+      expect(
+        await screen.findByText(/payout ledger couldn't be loaded/i),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('held-xlm')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('rendering and warnings', () => {
+    it('highlights escrows approaching their refund deadline', async () => {
       vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
 
-      expect(await screen.findByText(/deadline alert/i)).toBeInTheDocument();
-      expect(screen.getByText(/Only 12h left to fulfill before escrow funds are automatically refundable/i)).toBeInTheDocument();
+      expect(await screen.findByText(/deadline within 48h/i)).toBeInTheDocument();
     });
 
-    it('provides explorer links to Stellar Expert for on-chain auditability', async () => {
+    it('links each transaction to Stellar Expert for auditability', async () => {
       vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
 
-      await screen.findByText('Atorvastatin 40mg');
-
-      const fundLink = screen.getAllByRole('link', { name: /fund tx/i })[0];
-      expect(fundLink).toHaveAttribute(
+      const links = await screen.findAllByRole('link', { name: /view transaction/i });
+      expect(links[0]).toHaveAttribute(
         'href',
-        `https://testnet.stellar.expert/explorer/public/transaction/${MOCK_LEDGER_DATA.entries[0].fundTxHash}`,
+        `https://testnet.stellar.expert/explorer/public/transaction/${MOCK_LEDGER_DATA.items[0].stellarTxHash}`,
       );
-      expect(fundLink).toHaveAttribute('target', '_blank');
-
-      const releaseLink = screen.getByRole('link', { name: /release tx/i });
-      expect(releaseLink).toHaveAttribute(
-        'href',
-        `https://testnet.stellar.expert/explorer/public/transaction/${MOCK_LEDGER_DATA.entries[2].releaseTxHash}`,
-      );
+      expect(links[0]).toHaveAttribute('target', '_blank');
+      expect(links).toHaveLength(3);
     });
 
-    it('filters ledger entries by status and asset', async () => {
+    it('sends the status filter to the server instead of filtering rows locally', async () => {
       vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
       const user = userEvent.setup();
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
-      await screen.findByText('Atorvastatin 40mg');
+      await screen.findByText('ord-rx-urgent');
 
-      const statusSelect = screen.getByLabelText(/escrow status:/i);
-      await user.selectOptions(statusSelect, 'held');
+      await user.selectOptions(screen.getByLabelText('Status'), 'escrowed');
 
-      expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
-        'fac-1',
-        'facility-access-token',
-        expect.objectContaining({ status: 'held' }),
-        expect.any(AbortSignal),
-      );
+      await waitFor(() => {
+        expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
+          'facility-access-token',
+          expect.objectContaining({ status: 'escrowed', limit: 50 }),
+          expect.any(AbortSignal),
+        );
+      });
     });
   });
 });

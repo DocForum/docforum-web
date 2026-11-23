@@ -12,6 +12,7 @@ import type {
   AuditEvent,
   CatalogItem,
   CareThread,
+  Consultation,
   Closure,
   ConsultationAddendum,
   ConsultationIssuedOrder,
@@ -22,6 +23,7 @@ import type {
   DataExport,
   Dependent,
   DoctorOnboardingStatus,
+  MyDoctorProfile,
   DoctorPracticeInsights,
   DoctorSearchResult,
   FacilityApiKey,
@@ -35,6 +37,8 @@ import type {
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
+  IssuedLabOrder,
+  IssuedPrescription,
   IntakeForm,
   DoctorMessageThread,
   Notification,
@@ -175,8 +179,15 @@ export interface MockDb {
     doctor: DoctorOnboardingStatus;
   };
   paymentIntents: PaymentIntent[];
+  /** Login throttle buckets the admin can clear (issue #275). */
+  loginAttempts: MockLoginAttempt[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  // --- Order issuance (issue #267, real docforum-core contract) ---
+  doctorProfile: MyDoctorProfile | null;
+  consultations: Consultation[];
+  prescriptions: IssuedPrescription[];
+  labOrders: IssuedLabOrder[];
   specialties: Specialty[];
   doctors: DoctorSearchResult[];
   symptoms: MockSymptom[];
@@ -189,6 +200,14 @@ export interface MockDb {
 
 /** A doctor's verification application (issue #64's assumed queue/detail
  * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockLoginAttempt {
+  email: string;
+  ip: string | null;
+  count: number;
+  firstFailedAt: string;
+  lockedUntil: string;
+}
+
 export interface MockVerification {
   doctorProfileId: string;
   userId: string;
@@ -260,19 +279,25 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-07-01T10:00:00.000Z',
       createdAt: '2026-07-01T10:00:00.000Z',
     },
+    // The dependent's own record (issue #295). Everything here is fake and
+    // deliberately distinct from the guardian's, so a journey can prove the
+    // two profiles never show each other's data.
+    {
+      id: 'hev-dependent-allergy-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      section: 'allergies',
+      name: 'Dust mites (fake)',
+      details: 'Demo dependent fixture — mild, managed (not real).',
+      version: 1,
+      updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: '2026-02-02T10:00:00.000Z',
+    },
   ];
 
-  const dataExport: DataExport = {
-    id: 'exp-demo-1',
-    patientProfileId: PATIENT_PROFILE_ID,
-    status: 'ready',
-    requestedAt: '2026-10-17T09:00:00.000Z',
-    readyAt: '2026-10-17T09:02:00.000Z',
-    expiresAt: '2026-10-18T09:02:00.000Z',
-    fileSizeBytes: 20480,
-    downloadUrl: null,
-    errorMessage: null,
-  };
+  // No export by default: core has no list endpoint, so the client can only
+  // know an export by the id from its own 202. The mock creates one on
+  // `POST /patients/me/export`.
+  const dataExport: DataExport | null = null;
 
   const careThreads: CareThread[] = [
     {
@@ -316,6 +341,29 @@ export function createSeedDb(): MockDb {
           title: 'Escrow funded (demo)',
           description: 'Fake payment intent funded and held in escrow.',
           status: 'pending',
+        },
+      ],
+    },
+    // The dependent's own care thread — never returned for the guardian's
+    // profile id (issue #295).
+    {
+      id: 'cth-dependent-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      title: 'Tyke check-up (fake)',
+      doctorName: 'Dr. Ficticia Example',
+      specialty: 'Paediatrics (demo)',
+      startedAt: '2026-09-15T09:00:00.000Z',
+      updatedAt: '2026-09-15T09:30:00.000Z',
+      status: 'active',
+      steps: [
+        {
+          id: 'st-dependent-1',
+          stepType: 'appointment',
+          title: 'Dependent check-up booked (demo)',
+          description: 'Demo dependent fixture appointment.',
+          status: 'completed',
+          timestamp: '2026-09-15T09:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
       ],
     },
@@ -394,6 +442,11 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+      referral: {
+        id: 'ref-demo-1',
+        targetSpecialtyName: 'Cardiology (demo)',
+        priorNoShows: 0,
+      },
     },
     {
       id: 'apt-demo-5',
@@ -834,7 +887,7 @@ export function createSeedDb(): MockDb {
       asset: 'XLM',
       versions: [
         { amountStroops: '250000000', effectiveFrom: '2026-09-01T00:00:00.000Z' },
-        { amountStroops: '275000000', effectiveFrom: '2026-10-15T00:00:00.000Z' },
+        { amountStroops: '275000000', effectiveFrom: '2026-11-10T00:00:00.000Z' },
       ],
     },
     {
@@ -917,6 +970,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-amox',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-amox',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -928,7 +983,9 @@ export function createSeedDb(): MockDb {
       quantityDispensed: 20,
       quantityOutstanding: 10,
       unit: 'capsules',
-      canDispense: true,
+      // One-shot item: the record already used its PATCH; the remainder
+      // must be rerouted from the order, never dispensed again here.
+      canDispense: false,
       attribution: {
         action: 'dispensed',
         performedByUserId: 'usr-facility-staff',
@@ -944,6 +1001,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-ibu',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-ibu',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -971,6 +1030,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-vit',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-vit',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -990,6 +1051,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-lab-1',
       orderItemId: 'itm-demo-lab1-panel',
+      fulfillmentRecordId: 'ful-req-demo-lab-1',
+      fulfillmentItemId: 'fit-demo-lab1-panel',
       orderType: 'lab',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1009,6 +1072,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-2',
       orderItemId: 'itm-demo-rx2-metformin',
+      fulfillmentRecordId: 'ful-req-demo-rx-2',
+      fulfillmentItemId: 'fit-demo-rx2-metformin',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1034,6 +1099,40 @@ export function createSeedDb(): MockDb {
   ];
 
   const patientOrders: PatientOrder[] = [
+    // The dependent's own order, distinct from the guardian's (issue #295).
+    {
+      id: 'ord-dependent-rx-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-09-15T09:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medicationOrTest: 'Demo Child Paracetamol 120mg (fake)',
+      expiresAt: '2026-10-15T09:30:00.000Z',
+      fulfillmentStatus: 'unfulfilled',
+      items: [
+        {
+          id: 'ito-dependent-1',
+          orderId: 'ord-dependent-rx-1',
+          name: 'Demo Child Paracetamol 120mg (fake)',
+          quantityPrescribed: 20,
+          quantityDispensed: 0,
+          quantityOutstanding: 20,
+          unit: 'tablets',
+          status: 'pending',
+          canDispense: true,
+        },
+      ],
+      medication: 'Demo Child Paracetamol 120mg (fake)',
+      catalogItemCode: 'MED-PARA-120',
+      dose: 'One dose every six hours as needed',
+      quantity: '20 tablets',
+      instructions: 'Demo dependent fixture instruction (not real).',
+    },
     {
       id: 'ord-demo-rx-102',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1046,6 +1145,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       medication: 'Demo Amoxicillin 500mg (fake)',
+      catalogItemCode: 'MED-AMOX-500',
       dose: 'One capsule three times daily',
       quantity: '30 capsules',
       instructions: 'Demo instructions (fake): take with food for ten days.',
@@ -1078,6 +1178,7 @@ export function createSeedDb(): MockDb {
       requiresFacilitySelection: true,
       selectedFacility: null,
       testName: 'Demo full blood count (fake)',
+      catalogItemCode: 'LAB-FBC',
       fastingRequired: true,
       instructions: 'Demo instructions (fake): fasting sample required.',
     },
@@ -2047,11 +2148,41 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const loginAttempts: MockLoginAttempt[] = [
+    {
+      email: 'locked.out@example.test',
+      ip: '203.0.113.10',
+      count: 5,
+      firstFailedAt: '2026-10-18T08:00:00.000Z',
+      lockedUntil: '2026-10-18T08:15:00.000Z',
+    },
+    {
+      email: 'pat.placeholder@example.test',
+      ip: null,
+      count: 3,
+      firstFailedAt: '2026-10-18T09:00:00.000Z',
+      lockedUntil: '2026-10-18T09:15:00.000Z',
+    },
+  ];
+
   const notificationPreferences: Record<Role, NotificationPreferences> = {
     patient: defaultPreferencesForRole('patient'),
     doctor: defaultPreferencesForRole('doctor'),
     facility: defaultPreferencesForRole('facility'),
     admin: defaultPreferencesForRole('admin'),
+  };
+
+  // Issue #267: the signed-in doctor, verified so order issuance is allowed.
+  // Tests flip `verificationStatus` to 'pending' to exercise the 403 gate.
+  const doctorProfile: MyDoctorProfile = {
+    id: DOCTOR_PROFILE_ID,
+    userId: DOCTOR_USER.id,
+    fullName: 'Dr. Demo Doctor (fake)',
+    verificationStatus: 'verified',
+    timeZone: 'Europe/London',
+    version: 1,
+    createdAt: '2026-01-06T09:00:00.000Z',
+    updatedAt: '2026-01-06T09:00:00.000Z',
   };
 
   return {
@@ -2099,8 +2230,13 @@ export function createSeedDb(): MockDb {
       },
     },
     paymentIntents,
+    loginAttempts,
     disputes,
     consultationAddenda,
+    doctorProfile,
+    consultations: [],
+    prescriptions: [],
+    labOrders: [],
     specialties: SPECIALTIES.map((specialty) => ({ ...specialty })),
     doctors,
     symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),

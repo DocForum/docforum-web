@@ -1,46 +1,73 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as fulfillmentService from '../../../services/fulfillment-service';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { facilityKeys } from '../../../query-keys';
 import type { FulfillmentStatusUpdate } from '../../../types/models';
-
-function queueKey(facilityId: string) {
-  return ['facility', facilityId, 'fulfillment-queue'] as const;
-}
 
 export function useFacilityQueue(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: queueKey(facilityId),
+    queryKey: facilityKeys.queue(facilityId),
     queryFn: ({ signal }) =>
       fulfillmentService.listFulfillmentQueue(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }
 
-export function useUpdateFulfillmentStatus(facilityId: string) {
+/**
+ * Record-level status (issue #269): only `in_progress` or `rejected`.
+ * `fulfilled` is derived by docforum-core from the record's dispensed items
+ * and is not a value this client can send.
+ */
+export function useUpdateFulfillmentRecord(facilityId: string) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ recordId, status }: { recordId: string; status: FulfillmentStatusUpdate }) =>
+      fulfillmentService.updateFulfillmentRecord(recordId, status, accessToken!),
+    // A 409 means the row moved under us — refresh on failure too, so the
+    // panel shows the state that actually won.
+    onSuccess: () => {
+      void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId);
+    },
+    onError: () => {
+      void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId);
+    },
+  });
+}
+
+/**
+ * Item-level dispensing. One-shot per item: never retried automatically, and
+ * a `409` means another facility (or an earlier attempt) already closed it.
+ */
+export function useDispenseFulfillmentItem(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
+      recordId,
       itemId,
-      status,
-      notes,
+      quantity,
     }: {
+      recordId: string;
       itemId: string;
-      status: FulfillmentStatusUpdate;
-      notes?: string;
+      quantity: number;
     }) =>
-      fulfillmentService.updateFulfillmentStatus(
-        facilityId,
+      fulfillmentService.dispenseFulfillmentItem(
+        recordId,
         itemId,
-        status,
+        { quantity },
         accessToken!,
-        notes,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queueKey(facilityId) });
+      void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId);
+    },
+    onError: () => {
+      void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId);
     },
   });
 }
@@ -53,7 +80,7 @@ export function useUploadLabResult(facilityId: string) {
     mutationFn: ({ itemId, file }: { itemId: string; file: File }) =>
       fulfillmentService.uploadFulfillmentLabResult(facilityId, itemId, file, accessToken!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queueKey(facilityId) });
+      queryClient.invalidateQueries({ queryKey: facilityKeys.queue(facilityId) });
     },
   });
 }

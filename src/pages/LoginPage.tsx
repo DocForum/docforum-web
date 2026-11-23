@@ -1,11 +1,16 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
+import { safeReturnPath, takeReturnPath } from '../features/auth/return-path';
+import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
+import { paths } from '../routes/paths';
 
-interface InviteNavState {
+interface LoginNavState {
   inviteToken?: string;
+  /** Optional explicit return path; otherwise the route guard's record is used. */
+  returnTo?: string;
 }
 
 export function LoginPage() {
@@ -25,13 +30,31 @@ export function LoginPage() {
   // from the invite landing (issue #81) — after logging in, send them back
   // to the invite instead of home. Carried in router state only, never the
   // URL or storage.
-  const inviteToken = (location.state as InviteNavState | null)?.inviteToken ?? null;
+  const navState = location.state as LoginNavState | null;
+  const inviteToken = navState?.inviteToken ?? null;
 
   function handleLoginSuccess() {
-    navigate(inviteToken ? '/invite' : '/', {
-      replace: true,
-      state: inviteToken ? { inviteToken } : undefined,
-    });
+    // Consume the guard's record once, whatever we end up doing with it.
+    const returnTo = navState?.returnTo ?? takeReturnPath();
+
+    if (inviteToken) {
+      navigate(paths.invite, { replace: true, state: { inviteToken } });
+      return;
+    }
+
+    const role = useAuthStore.getState().user?.role;
+    const home = homePathForRole(role);
+
+    // A shared device that sat idle must not deep-link the next person back
+    // into the previous session's page — it may be PHI. The role home is the
+    // deliberate destination instead (issue #226). Unknown roles land on the
+    // public home page rather than a dashboard (issue #223).
+    if (signedOutForIdle || !role || home === paths.home) {
+      navigate(home, { replace: true });
+      return;
+    }
+
+    navigate(safeReturnPath(returnTo, role), { replace: true });
   }
 
   return (
@@ -54,7 +77,7 @@ export function LoginPage() {
         <LoginForm onSuccess={handleLoginSuccess} />
       </div>
       <p className="authFootnote">
-        {t('auth.noAccount', 'No account?')} <Link to="/signup">{t('auth.signUp', 'Sign up')}</Link>
+        {t('auth.noAccount', 'No account?')} <Link to={paths.signup}>{t('auth.signUp', 'Sign up')}</Link>
       </p>
     </div>
   );

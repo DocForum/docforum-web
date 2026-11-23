@@ -5,6 +5,7 @@ import { HealthSection } from './HealthSection';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
 import type { HealthEntry } from '../../../types/models';
+import { ApiError } from '../../../services/api-client';
 import * as healthService from '../../../services/health-profile-service';
 
 vi.mock('../../../services/health-profile-service');
@@ -67,6 +68,22 @@ describe('HealthSection', () => {
         'test-token',
       );
     });
+  });
+
+  it('explains a closed guardianship instead of showing a raw 403', async () => {
+    vi.mocked(healthService.listHealthEntries).mockRejectedValue(
+      new ApiError(
+        'Forbidden',
+        403,
+        { code: 'GUARDIANSHIP_INACTIVE', message: 'GUARDIANSHIP_INACTIVE' },
+        { code: 'GUARDIANSHIP_INACTIVE' },
+      ),
+    );
+
+    render(<HealthSection section="allergies" />);
+
+    expect(await screen.findByText(/no longer act for this person/i)).toBeInTheDocument();
+    expect(screen.getByText(/handed over/i)).toBeInTheDocument();
   });
 
   it('shows version history for entries with version > 1', async () => {

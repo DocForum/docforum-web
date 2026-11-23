@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../../../store/auth-store';
+import { useProfileStore } from '../../../store/profile-store';
 import { useLogout } from './useLogout';
 
 vi.mock('../../../services/auth-service', () => ({
@@ -28,9 +29,13 @@ describe('useLogout', () => {
     });
   });
 
-  it('clears cached records and session state when logout settles', async () => {
+  it('clears cached records, profiles and session state when logout settles', async () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(['care-threads', 'profile-1'], [{ id: 'private-record' }]);
+    useProfileStore.setState({
+      profiles: [{ id: 'profile-1', fullName: 'Demo Patient', isSelf: true }],
+      selectedProfileId: 'profile-1',
+    });
     const { result } = renderHook(() => useLogout(), { wrapper: createWrapper(queryClient) });
 
     await act(async () => {
@@ -38,6 +43,8 @@ describe('useLogout', () => {
     });
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(useProfileStore.getState().profiles).toHaveLength(0);
+    expect(useProfileStore.getState().selectedProfileId).toBeNull();
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
   });

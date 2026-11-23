@@ -9,10 +9,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 // #105). This file used to create a second one; two MSW servers in one worker
 // double-intercept every request, so it now shares the single instance and
 // only resets the in-memory database between cases.
-import { resetDb } from './db';
+import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
-import { ApiError } from '../services/api-client';
+import { ApiError, apiFetch } from '../services/api-client';
+/** A date of birth exactly `years` ago today: minors vs. the age of majority. */
+function dateYearsAgo(years: number): string {
+  const now = new Date();
+  const date = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -33,12 +41,15 @@ import * as myFlagsService from '../services/my-flags-service';
 import * as notificationPreferencesService from '../services/notification-preferences-service';
 import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
+import * as paymentHistoryService from '../services/payment-history-service';
 import * as paymentsService from '../services/payments-service';
+import * as prescriptionsService from '../services/prescriptions-service';
 import * as queueService from '../services/queue-service';
 import * as searchService from '../services/search-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
+import * as systemHealthService from '../services/system-health-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 beforeEach(() => {
@@ -69,6 +80,24 @@ describe('auth', () => {
   it('rejects missing credentials with a 400 envelope', async () => {
     await expect(
       authService.login({ email: '', password: '' }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('clears login lockouts without revealing whether an account exists', async () => {
+    const cleared = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(cleared.cleared).toBe(1);
+
+    const again = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(again.cleared).toBe(0);
+
+    await expect(
+      systemHealthService.clearLoginAttempts({}, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 400 });
   });
 
@@ -173,11 +202,48 @@ describe('dependents', () => {
     expect(seeded).toHaveLength(2);
 
     await dependentsService.addDependent(
-      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01', relationship: 'parent' },
+      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01' },
       MOCK_ACCESS_TOKEN,
     );
     const after = await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(after).toHaveLength(3);
+  });
+
+  it("rejects create fields docforum-core doesn't accept", async () => {
+    const response = await fetch('http://localhost:4000/patients/me/dependents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: 'Too Much (fake)',
+        dateOfBirth: '2012-01-01',
+        relationship: 'parent',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('adds a 17-year-old dependent', async () => {
+    const created = await dependentsService.addDependent(
+      { fullName: 'Seventeen (fake)', dateOfBirth: dateYearsAgo(17) },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.fullName).toBe('Seventeen (fake)');
+  });
+
+  it('rejects a dependent at the age of majority', async () => {
+    const error = await dependentsService
+      .addDependent(
+        { fullName: 'Eighteen (fake)', dateOfBirth: dateYearsAgo(18) },
+        MOCK_ACCESS_TOKEN,
+      )
+      .then(() => null)
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
+    expect((error as ApiError).body).toMatchObject({ code: 'DEPENDENT_NOT_A_MINOR' });
   });
 
   it('updates a dependent and manages handover invites', async () => {
@@ -247,22 +313,65 @@ describe('health profile', () => {
 });
 
 describe('account', () => {
-  it('requests, reads and downloads a data export', async () => {
-    const requested = await accountService.requestDataExport('pw', MOCK_ACCESS_TOKEN);
+  it('requests, polls and downloads a data export through the real paths', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
     expect(requested.status).toBe('ready');
+    expect(requested.id).toMatch(/^exp-mock-/);
 
-    const current = await accountService.getDataExportStatus(MOCK_ACCESS_TOKEN);
-    expect(current?.id).toBe(requested.id);
+    const current = await accountService.getDataExportStatus(requested.id, MOCK_ACCESS_TOKEN);
+    expect(current.id).toBe(requested.id);
 
     const blob = await accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN);
     const text = await blob.text();
     expect(text).toContain('FAKE DATA EXPORT');
   });
 
-  it('deletes the account with a confirmation message', async () => {
-    const response = await accountService.deleteAccount('pw', 'DELETE', MOCK_ACCESS_TOKEN);
-    expect(response.success).toBe(true);
-    expect(response.message).toContain('Mock API');
+  it('returns an existing pending export instead of queuing a second one', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'processing', generatedAt: null };
+
+    const again = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    expect(again.id).toBe(requested.id);
+    expect(again.status).toBe('processing');
+  });
+
+  it('returns 409 EXPORT_NOT_READY while the bundle is still generating', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'processing', generatedAt: null };
+
+    await expect(accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 409,
+      code: 'EXPORT_NOT_READY',
+    });
+  });
+
+  it('returns 410 EXPORT_EXPIRED once the export has expired', async () => {
+    const requested = await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+    db.dataExport = { ...requested, status: 'expired', expiresAt: new Date(Date.now() - 1000).toISOString() };
+
+    await expect(accountService.downloadDataExport(requested.id, MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 410,
+      code: 'EXPORT_EXPIRED',
+    });
+  });
+
+  it('returns 404 for an export id that is not the current one', async () => {
+    await accountService.requestDataExport(MOCK_ACCESS_TOKEN);
+
+    await expect(
+      accountService.getDataExportStatus('someone-elses-export', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('deletes the account against DELETE /patients/me with a 204 response', async () => {
+    await expect(accountService.deleteAccount('pw', MOCK_ACCESS_TOKEN)).resolves.toBeUndefined();
+  });
+
+  it('surfaces a wrong password as PASSWORD_CONFIRMATION_FAILED', async () => {
+    await expect(accountService.deleteAccount('wrong-password', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 403,
+      code: 'PASSWORD_CONFIRMATION_FAILED',
+    });
   });
 });
 
@@ -365,6 +474,115 @@ describe('doctor today', () => {
   });
 });
 
+describe('order issuance (issue #267)', () => {
+  const medication = {
+    drugName: 'Amoxicillin (fake)',
+    dosage: '500 mg',
+    frequency: 'every 8 hours',
+    duration: '5 days',
+  };
+
+  it('closes a consultation then issues a multi-item prescription', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved', notes: 'Fake notes.' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(consultation.appointmentId).toBe('apt-demo-1');
+
+    const issued = await prescriptionsService.issuePrescription(
+      consultation.id,
+      {
+        facilityProfileId: FACILITY_ID,
+        items: [medication, { ...medication, drugName: 'Ibuprofen (fake)' }],
+        amountStroops: '25000000',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(issued.items).toHaveLength(2);
+    expect(issued.amountStroops).toBe('25000000');
+    expect(issued.paymentIntent.orderType).toBe('prescription');
+    expect(issued.paymentIntent.status).toBe('created');
+
+    // One consultation per appointment, enforced by core.
+    await expect(
+      consultationService.createConsultation(
+        { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('prices a lab order from the facility catalog and defaults urgency to routine', async () => {
+    const labs = await facilityService.listEligibleFacilities('lab', MOCK_ACCESS_TOKEN);
+    expect(labs.map((lab) => lab.id)).toEqual(['fac-demo-lab']);
+
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-2', outcome: 'follow_up_needed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    const labOrder = await prescriptionsService.issueLabOrder(
+      consultation.id,
+      {
+        facilityProfileId: 'fac-demo-lab',
+        testType: 'Full blood count',
+        catalogItemCode: 'cbc-panel',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(labOrder.amountStroops).toBe('25000000');
+    expect(labOrder.urgency).toBe('routine');
+    expect(labOrder.paymentIntent.orderType).toBe('lab_order');
+  });
+
+  it('rejects orders when the doctor profile is not verified', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+    db.doctorProfile = { ...db.doctorProfile!, verificationStatus: 'pending' };
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        { facilityProfileId: FACILITY_ID, items: [medication], amountStroops: '10000000' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('enforces exactly one price and a known catalog code', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-3', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          amountStroops: '10000000',
+          catalogItemCode: 'amox-500-cap',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          catalogItemCode: 'not-in-the-price-list',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+});
+
 describe('doctor queue', () => {
   it('lists appointments, derives the queue, and starts/complete visits', async () => {
     const appointments = await queueService.listTodayAppointments(MOCK_ACCESS_TOKEN);
@@ -382,6 +600,35 @@ describe('doctor queue', () => {
     await expect(queueService.completeVisit('apt-demo-4', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
       status: 409,
     });
+  });
+
+  it('marks a scheduled appointment no-show, then 409s further changes', async () => {
+    const updated = await queueService.updateAppointmentStatus(
+      'apt-demo-4',
+      'no_show',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.status).toBe('no_show');
+    expect(updated.referral?.priorNoShows).toBe(1);
+
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-4', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // A visit that already started is no longer scheduled either.
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-2', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects an unknown status with 400', async () => {
+    await expect(
+      queueService.updateAppointmentStatus(
+        'apt-demo-4',
+        'postponed' as queueService.AppointmentStatusUpdate,
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('applies the running-delay override', async () => {
@@ -501,6 +748,49 @@ describe('facility finder', () => {
     expect(nearby[0].id).toBe('fac-main');
     expect(nearby[0].distanceKm).toBeLessThan(0.1);
   });
+
+  it('returns each facility’s price in force for a catalog item, price on request otherwise', async () => {
+    const eligible = await facilityService.getEligibleFacilities(
+      'MED-AMOX-500',
+      {},
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(eligible).toHaveLength(3);
+
+    const priced = eligible.find((facility) => facility.id === 'fac-main');
+    expect(priced?.price?.amountStroops).toBe('275000000');
+    expect(priced?.priceOnRequest).toBe(false);
+
+    const lab = eligible.find((facility) => facility.id === 'fac-demo-lab');
+    expect(lab?.price).toBeNull();
+    expect(lab?.priceOnRequest).toBe(true);
+  });
+
+  it('filters the free-text area query client-side, since core has no `query` param', async () => {
+    const matches = await facilityService.getFacilities({ query: 'example' }, MOCK_ACCESS_TOKEN);
+    expect(matches.map((f) => f.id)).toEqual(['fac-demo-pharmacy-2']);
+  });
+
+  it('rejects a missing type and radiusKm without near, like docforum-core', async () => {
+    await expect(
+      apiFetch('/facilities/eligible', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      apiFetch('/facilities/eligible?type=lab&radiusKm=5', { accessToken: MOCK_ACCESS_TOKEN }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('accepts near=lat,lng with a radius and lists unknown distances last', async () => {
+    const nearby = await apiFetch<{ id: string; distanceKm: number | null }[]>(
+      '/facilities/eligible?type=pharmacy&near=6.5244,3.3792&radiusKm=5',
+      { accessToken: MOCK_ACCESS_TOKEN },
+    );
+    expect(nearby.length).toBeGreaterThan(0);
+    expect(nearby.every((f) => f.distanceKm !== null && f.distanceKm <= 5)).toBe(true);
+
+    const withoutLocation = await facilityService.getFacilities({}, MOCK_ACCESS_TOKEN);
+    expect(withoutLocation.every((f) => f.distanceKm == null)).toBe(true);
+  });
 });
 
 describe('facility performance insights', () => {
@@ -571,38 +861,56 @@ describe('facility team', () => {
     expect(removed.sessionsRevoked).toBe(true);
   });
 
-  it('fulfills queue items with attribution', async () => {
+  it('updates fulfillment records and dispenses items with attribution', async () => {
     const queue = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
     expect(queue).toHaveLength(5);
 
-    const updated = await facilityTeamService.updateFulfillmentItem(
-      FACILITY_ID,
-      'fuq-demo-1',
-      'fulfilled',
-      MOCK_ACCESS_TOKEN,
-      'Demo note (fake)',
-    );
-    expect(updated.status).toBe('fulfilled');
-    expect(updated.attribution?.performedByRole).toBe('owner');
-    expect(updated.attribution?.action).toBe('dispensed');
-  });
-});
-
-describe('facility fulfillment queue', () => {
-  it('moves items in progress, refuses closed items, and attaches lab results', async () => {
-    const moved = await fulfillmentService.updateFulfillmentStatus(
-      FACILITY_ID,
-      'fuq-demo-1',
+    const moved = await facilityTeamService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
       'in_progress',
       MOCK_ACCESS_TOKEN,
     );
     expect(moved.status).toBe('in_progress');
-    expect(moved.attribution?.action).toBe('verified');
+
+    const dispensed = await fulfillmentService.dispenseFulfillmentItem(
+      'ful-req-demo-rx-1',
+      'fit-demo-rx1-vit',
+      { quantity: 10 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(dispensed.record.status).toBe('partially_fulfilled');
+    expect(dispensed.orderStatus).toBe('partially_fulfilled');
+
+    const after = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    const item = after.find((entry) => entry.id === 'fuq-demo-5');
+    expect(item?.status).toBe('fulfilled');
+    expect(item?.attribution?.performedByRole).toBe('owner');
+    expect(item?.attribution?.action).toBe('dispensed');
+
+    // One-shot item: replaying the PATCH is a 409, never a second dispense.
+    await expect(
+      fulfillmentService.dispenseFulfillmentItem(
+        'ful-req-demo-rx-1',
+        'fit-demo-rx1-vit',
+        { quantity: 10 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('facility fulfillment queue', () => {
+  it('moves records in progress, refuses closed records, and attaches lab results', async () => {
+    const moved = await fulfillmentService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
+      'in_progress',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(moved.status).toBe('in_progress');
 
     await expect(
-      fulfillmentService.updateFulfillmentStatus(
-        FACILITY_ID,
-        'fuq-demo-3',
+      fulfillmentService.updateFulfillmentRecord(
+        'ful-req-demo-rx-2',
         'rejected',
         MOCK_ACCESS_TOKEN,
       ),
@@ -838,6 +1146,38 @@ describe('facility settings and prices', () => {
   });
 });
 
+describe('facility payout ledger', () => {
+  it('filters and paginates server-side and returns lifecycle totals', async () => {
+    const page = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { limit: 2 });
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeTruthy();
+    expect(page.items[0]).toMatchObject({
+      orderType: expect.any(String),
+      status: expect.any(String),
+      amount: expect.any(String),
+      assetCode: expect.any(String),
+    });
+    expect(page.totals.length).toBeGreaterThan(0);
+
+    const escrowed = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, {
+      status: 'escrowed',
+    });
+    expect(escrowed.items.every((item) => item.status === 'escrowed')).toBe(true);
+
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { cursor: 'not-a-cursor' }),
+    ).rejects.toMatchObject({ status: 400, code: 'INVALID_CURSOR' });
+
+    // The service never sends `facilityId`; a raw request that does is
+    // rejected by the strict query shape.
+    await expect(
+      apiFetch('/payments/facility/ledger?facilityId=someone-else', {
+        accessToken: MOCK_ACCESS_TOKEN,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
 describe('payments', () => {
   it('links a wallet and drives an intent through fund → release', async () => {
     const wallet = await paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN);
@@ -868,6 +1208,22 @@ describe('payments', () => {
     await expect(
       paymentsService.refundPaymentIntent(created.id, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('lists patient payment history with filtering by status and date range', async () => {
+    const all = await paymentHistoryService.listPaymentHistory(undefined, MOCK_ACCESS_TOKEN);
+    expect(all.intents.length).toBeGreaterThan(0);
+
+    const escrowedOnly = await paymentHistoryService.listPaymentHistory(
+      { status: 'escrowed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(escrowedOnly.intents.every((i) => i.status === 'escrowed')).toBe(true);
+
+    const first = all.intents[0];
+    const detail = await paymentHistoryService.getPaymentHistoryEntry(first.id, MOCK_ACCESS_TOKEN);
+    expect(detail.id).toBe(first.id);
+    expect(detail.facilityName).toBe('Bello Lab');
   });
 });
 
@@ -1192,12 +1548,33 @@ describe('dev panel scenarios', () => {
     await expect(
       facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN),
     ).resolves.toEqual([]);
-    await expect(accountService.getDataExportStatus(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toBeNull();
     await expect(searchService.searchSymptoms('rash', MOCK_ACCESS_TOKEN)).resolves.toEqual([]);
     await expect(
       searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN),
     ).resolves.toEqual([]);
+  });
+
+  it('simulates a missing payout wallet (FACILITY_WALLET_NOT_LINKED)', async () => {
+    useMockStore.setState({ scenario: 'wallet_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'FACILITY_WALLET_NOT_LINKED' });
+  });
+
+  it('simulates a missing trustline (PAYEE_TRUSTLINE_MISSING)', async () => {
+    useMockStore.setState({ scenario: 'trustline_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toMatchObject({
+      facilityId: FACILITY_ID,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'PAYEE_TRUSTLINE_MISSING' });
   });
 
   it('delays responses by the configured latency', async () => {

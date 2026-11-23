@@ -1,8 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useCreateSpecialtyClaim, useDeleteSpecialtyClaim, useResubmitSpecialtyClaim } from '../hooks/useSpecialtyClaims';
-import { CLAIM_ITEM_STATUS_LABELS, NO_REJECTION_REASON } from '../requirements';
+import { useT } from '../../../i18n/useT';
+import { claimItemStatusLabel, noRejectionReason } from '../requirements';
 import type { ClaimItemStatus, DoctorSpecialtyClaim, Specialty } from '../../../types/models';
 import styles from './SpecialtyClaimPicker.module.css';
 
@@ -13,6 +17,7 @@ interface Props {
   claims: readonly DoctorSpecialtyClaim[];
   isLoading: boolean;
   error: string | null;
+  onRetry?: () => void;
 }
 
 function messageFor(error: Error | null, fallback: string): string | null {
@@ -23,14 +28,16 @@ function messageFor(error: Error | null, fallback: string): string | null {
 }
 
 function StatusTag({ status }: { status: ClaimItemStatus }) {
+  const t = useT();
   return (
     <span className={styles.status} data-status={status}>
-      {CLAIM_ITEM_STATUS_LABELS[status]}
+      {claimItemStatusLabel(status, t)}
     </span>
   );
 }
 
-export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Props) {
+export function SpecialtyClaimPicker({ catalog, claims, isLoading, error, onRetry }: Props) {
+  const t = useT();
   const createMutation = useCreateSpecialtyClaim();
   const deleteMutation = useDeleteSpecialtyClaim();
   const resubmitMutation = useResubmitSpecialtyClaim();
@@ -45,7 +52,7 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
   function handleAdd(event: FormEvent) {
     event.preventDefault();
     if (!selectedId) {
-      setFormError('Choose a specialty to claim.');
+      setFormError(t('verification.claims.chooseToClaim', 'Choose a specialty to claim.'));
       return;
     }
     setFormError(null);
@@ -53,18 +60,23 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
   }
 
   if (isLoading) {
-    return <p className={styles.placeholder}>Loading the specialty catalog…</p>;
+    return <Skeleton lines={3} label={t('verification.claims.loading', 'Loading the specialty catalog…')} />;
   }
 
   if (error) {
-    return <FormError message={error} />;
+    return <InlineError title="The specialty catalog couldn't be loaded" message={error} onRetry={onRetry} />;
   }
 
   if (catalog.length === 0) {
     return (
-      <p className={styles.placeholder}>
-        The specialty catalog is empty right now, so claims cannot be added. Reload this page in a moment.
-      </p>
+      <EmptyState
+        title={t(
+          'verification.claims.catalogEmpty',
+          'The specialty catalog is empty right now, so claims cannot be added. Reload this page in a moment.',
+        )}
+        description="Claims cannot be added until the catalog has specialties in it."
+        action={{ label: 'Try again', onClick: () => onRetry?.() }}
+      />
     );
   }
 
@@ -73,7 +85,7 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
       <form className={styles.form} onSubmit={handleAdd} noValidate>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="specialty-claim-select">
-            Specialty
+            {t('verification.claims.specialty', 'Specialty')}
           </label>
           <select
             className={styles.select}
@@ -82,7 +94,7 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
             onChange={(event) => setSelectedId(event.target.value)}
             disabled={createMutation.isPending || available.length === 0}
           >
-            <option value="">Choose a specialty</option>
+            <option value="">{t('verification.claims.chooseSpecialty', 'Choose a specialty')}</option>
             {available.map((specialty) => (
               <option key={specialty.id} value={specialty.id}>
                 {specialty.name}
@@ -91,22 +103,39 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
           </select>
         </div>
 
-        <FormError message={formError ?? messageFor(createMutation.error ?? null, 'Could not add that specialty.')} />
+        <FormError
+          message={
+            formError ??
+            messageFor(createMutation.error ?? null, t('verification.claims.addFailed', 'Could not add that specialty.'))
+          }
+        />
 
         <Button type="submit" loading={createMutation.isPending} disabled={available.length === 0}>
-          Claim specialty
+          {t('verification.claims.claim', 'Claim specialty')}
         </Button>
 
         {available.length === 0 && (
-          <p className={styles.placeholder}>Every cataloged specialty is already on your application.</p>
+          <p className={styles.placeholder}>
+            {t(
+              'verification.claims.allClaimed',
+              'Every cataloged specialty is already on your application.',
+            )}
+          </p>
         )}
       </form>
 
       {claims.length === 0 ? (
-        <p className={styles.placeholder}>
-          No specialty claims yet. Claim the specialties you practise in — each one is reviewed against your
-          specialty certificate.
-        </p>
+        <EmptyState
+          title={t(
+            'verification.claims.none',
+            'No specialty claims yet. Claim the specialties you practise in — each one is reviewed against your specialty certificate.',
+          )}
+          description="Claim the specialties you practise in — each one is reviewed against your specialty certificate."
+          action={{
+            label: 'Choose a specialty',
+            onClick: () => document.getElementById('specialty-claim-select')?.focus(),
+          }}
+        />
       ) : (
         <ul className={styles.list}>
           {claims.map((claim) => (
@@ -119,8 +148,8 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
 
               {claim.status === 'rejected' && (
                 <p className={styles.reason}>
-                  <span className={styles.reasonLabel}>Reason: </span>
-                  {claim.rejectionReason || NO_REJECTION_REASON}
+                  <span className={styles.reasonLabel}>{t('verification.reason.label', 'Reason: ')}</span>
+                  {claim.rejectionReason || noRejectionReason(t)}
                 </p>
               )}
 
@@ -133,7 +162,7 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
                     onClick={() => resubmitMutation.mutate({ claimId: claim.id })}
                     loading={resubmitMutation.isPending && resubmitMutation.variables?.claimId === claim.id}
                   >
-                    Resubmit claim
+                    {t('verification.claims.resubmit', 'Resubmit claim')}
                   </Button>
                 )}
                 {claim.status !== 'verified' && (
@@ -142,7 +171,7 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
                     onClick={() => deleteMutation.mutate({ claimId: claim.id })}
                     loading={deleteMutation.isPending && deleteMutation.variables?.claimId === claim.id}
                   >
-                    Withdraw
+                    {t('verification.claims.withdraw', 'Withdraw')}
                   </Button>
                 )}
               </div>
@@ -153,8 +182,11 @@ export function SpecialtyClaimPicker({ catalog, claims, isLoading, error }: Prop
 
       <FormError
         message={
-          messageFor(resubmitMutation.error ?? null, 'Could not resubmit that claim.') ??
-          messageFor(deleteMutation.error ?? null, 'Could not withdraw that claim.')
+          messageFor(
+            resubmitMutation.error ?? null,
+            t('verification.claims.resubmitFailed', 'Could not resubmit that claim.'),
+          ) ??
+          messageFor(deleteMutation.error ?? null, t('verification.claims.withdrawFailed', 'Could not withdraw that claim.'))
         }
       />
     </div>

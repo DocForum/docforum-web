@@ -21,6 +21,7 @@ import {
   accountKeys,
   catalogKeys,
   appointmentKeys,
+  doctorKeys,
   auditKeys,
   dependentKeys,
   facilityKeys,
@@ -49,8 +50,12 @@ export const invalidations = {
   /** Invite, resend, revoke — the invites table only. */
   'facility.invite-write': (facilityId: string) => [facilityKeys.invites(facilityId)],
   'facility.member-removed': (facilityId: string) => [facilityKeys.members(facilityId)],
-  /** Fulfilling/rejecting an item moves the facility's fulfillment queue. */
-  'facility.fulfillment-action': (facilityId: string) => [facilityKeys.queue(facilityId)],
+  /** A fulfillment record/item move changes the facility queue and the
+   * patient-visible order status derived from it. */
+  'facility.fulfillment-action': (facilityId: string) => [
+    facilityKeys.queue(facilityId),
+    orderKeys.all,
+  ],
   /** A job run can move readiness, job rows, and outbox counts together. */
   'admin.run-job': () => [systemKeys.all],
   /** Flag writes update the list and its "last changed by…" audit lookup. */
@@ -84,6 +89,9 @@ export const invalidations = {
   'account.data-export': () => [accountKeys.dataExport()],
   /** Confirm receipt or report problem: the order detail and the patient's order list. */
   'order.confirm-action': (orderId: string) => [orderKeys.detail(orderId), orderKeys.mine()],
+  /** A confirmed booking changes the patient's list and makes the chosen
+   * slot disappear from every availability view. */
+  'appointments.book': () => [appointmentKeys.all, doctorKeys.slotsRoot],
 };
 
 export type InvalidationKey = keyof typeof invalidations;
