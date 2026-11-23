@@ -1,6 +1,6 @@
 ---
 file: ARCHITECTURE_ESSENTIALS.md
-section: Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
+section: Phase W3 — Doctor core flow (confirmed appointment APIs; other contracts assumed)
 ---
 ### Referrals I've sent (issue #265)
 
