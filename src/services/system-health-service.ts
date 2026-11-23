@@ -79,3 +79,26 @@ export function runJob(jobName: string, accessToken: string): Promise<JobRun> {
 export function getOutboxSummary(accessToken: string, signal?: AbortSignal): Promise<OutboxSummary> {
   return apiFetch<OutboxSummary>('/admin/outbox', { accessToken, signal });
 }
+
+export interface ClearLoginAttemptsInput {
+  email?: string;
+  ip?: string;
+}
+
+/**
+ * Admin escape hatch for a login lock (docforum-core Phase 8, issue #35).
+ * Clears the throttle bucket for an email and/or IP, records an AuditEvent
+ * in the same transaction, and answers `{ cleared }` — the number of
+ * buckets removed. An unknown email is `cleared: 0`, never a 404: the
+ * endpoint's response must not reveal whether an account exists.
+ */
+export function clearLoginAttempts(
+  input: ClearLoginAttemptsInput,
+  accessToken: string,
+): Promise<{ cleared: number }> {
+  return apiFetch<{ cleared: number }>('/auth/login-attempts/clear', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
