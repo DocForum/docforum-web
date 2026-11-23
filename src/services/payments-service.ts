@@ -9,7 +9,6 @@ import type { Schemas } from '@docforum/api-client';
 import { api, apiFetch, ApiError, createIdempotencyKey } from './api-client';
 import type {
   FacilityLedgerPage,
-  PayoutAsset,
   PaymentIntent,
   PreparedTransaction,
 } from '../types/models';
@@ -118,7 +117,7 @@ export function apiErrorCode(error: unknown): string | undefined {
  * Safely format Stellar stroop amounts (1 XLM / USDC = 10,000,000 stroops = 7 decimals)
  * using BigInt to prevent IEEE 754 precision issues with large amounts.
  */
-export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsset): string {
+export function formatStroops(amountStroops: string | bigint, asset?: string): string {
   try {
     const raw = typeof amountStroops === 'bigint' ? amountStroops : BigInt(amountStroops || '0');
     const isNegative = raw < 0n;
@@ -138,19 +137,33 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
   }
 }
 
+export interface FacilityLedgerFilters {
+  status?: string;
+  /** ISO date or date-time; a date-only `to` is made end-of-day by the API. */
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit?: number;
+}
+
 /**
- * Fetch cursor-paginated payout ledger and escrow terms for a facility (Issue #53)
+ * The caller's facility payout ledger (issue #271) — the real
+ * `GET /payments/facility/ledger`, scoped to the signed-in facility by the
+ * server. Status/date filtering, cursor pagination and the lifecycle totals
+ * are all server-side. Only the parameters the API accepts are sent (it
+ * rejects unknown query parameters).
  */
 export function getFacilityPayoutLedger(
-  facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string },
+  params: FacilityLedgerFilters = {},
   signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
-  if (params?.cursor) query.set('cursor', params.cursor);
-  if (params?.status && params.status !== 'all') query.set('status', params.status);
-  if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
+  if (params.status) query.set('status', params.status);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.limit) query.set('limit', String(params.limit));
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
+  return apiFetch<FacilityLedgerPage>(`/payments/facility/ledger${qs}`, { accessToken, signal });
 }

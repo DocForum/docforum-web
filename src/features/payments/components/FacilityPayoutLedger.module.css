@@ -167,54 +167,14 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow-x: auto;
-  max-width: 100%;
   box-shadow: var(--shadow-sm);
 }
 
 .table {
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   border-collapse: collapse;
   text-align: left;
   font-size: var(--text-sm);
-}
-
-.ledgerCaption {
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.emptyCell {
-  text-align: center;
-  padding: var(--space-8);
-  color: var(--color-text-muted);
-}
-
-.orderName {
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.orderMeta,
-.termsText {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.amount {
-  font-weight: 700;
-  font-family: var(--font-mono, monospace);
-  overflow-wrap: anywhere;
-}
-
-.explorerLinks {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .table th {
@@ -267,6 +227,44 @@
   color: #475569;
 }
 
+.statusFailed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.orderTitle {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.orderMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.orderMeta code {
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+.amount {
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.escrowCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.mutedCell {
+  color: var(--color-text-muted);
+}
+
 .warningAlertBox {
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);
@@ -317,78 +315,8 @@
   padding-top: var(--space-4);
 }
 
-/* The escrow ledger is a list of records, not a two-dimensional data grid:
-   stack it into labelled cards so nothing needs a second scroll axis at
-   320 CSS px / 400% zoom (WCAG 1.4.10). */
-@media (max-width: 640px) {
-  .totalsGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .assetRow {
-    flex-wrap: wrap;
-  }
-
-  .assetAmount {
-    font-size: var(--text-lg);
-  }
-
-  .filterBar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .filterGroup {
-    flex-wrap: wrap;
-    max-width: 100%;
-  }
-
-  .tableWrapper {
-    overflow-x: visible;
-  }
-
-  .table,
-  .table tbody,
-  .table tr,
-  .table td {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .table thead {
-    display: none;
-  }
-
-  .table tr {
-    padding: var(--space-3);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .table td {
-    display: block;
-    padding: var(--space-2) 0;
-    border: none;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .table td::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: var(--space-1);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--color-text-muted);
-    text-transform: none;
-    letter-spacing: normal;
-  }
-
-  .ledgerCaption {
-    padding: var(--space-3);
-  }
-
-  .emptyCell::before {
-    display: none;
-  }
+.staleNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }

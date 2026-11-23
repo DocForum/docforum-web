@@ -1,14 +1,36 @@
 // Facility team management and fulfillment queue endpoints.
+//
+// The queue listing is still an assumed contract. Writes go through the real
+// docforum-core routes (issue #269):
+//   PATCH /pharmacy-orders/fulfillments/:id            { status }
+//   PATCH /pharmacy-orders/fulfillments/:id/items/:itemId
+//                                                       { status, quantityDispensed? }
 import { http } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_USER } from '../fixtures';
 import type {
   FacilityInvite,
   FulfillmentActionAttribution,
   FulfillmentQueueItem,
+  FulfillmentStatusUpdate,
   PatientOrder,
+  PharmacyFulfillmentItemStatus,
+  PharmacyFulfillmentRecord,
+  PharmacyFulfillmentRecordStatus,
 } from '../../types/models';
+
+function recordIdOf(item: FulfillmentQueueItem): string {
+  return item.fulfillmentRecordId ?? item.id;
+}
+
+function itemIdOf(item: FulfillmentQueueItem): string {
+  return item.fulfillmentItemId ?? item.id;
+}
+
+function recordItems(recordId: string): FulfillmentQueueItem[] {
+  return db.fulfillmentQueue.filter((item) => recordIdOf(item) === recordId);
+}
 
 function deriveOrderStatus(order: PatientOrder): PatientOrder['fulfillmentStatus'] {
   const items = order.items ?? [];
@@ -16,6 +38,88 @@ function deriveOrderStatus(order: PatientOrder): PatientOrder['fulfillmentStatus
   if (items.every((item) => item.quantityOutstanding <= 0)) return 'fulfilled';
   if (items.some((item) => item.quantityDispensed > 0)) return 'partially_fulfilled';
   return 'unfulfilled';
+}
+
+function recordItemStatus(item: FulfillmentQueueItem): PharmacyFulfillmentItemStatus {
+  if (item.status === 'fulfilled') return 'dispensed';
+  if (item.status === 'rejected' || item.status === 'dispensed_elsewhere') return 'unfulfilled';
+  return 'pending';
+}
+
+function deriveRecordStatus(items: FulfillmentQueueItem[]): PharmacyFulfillmentRecordStatus {
+  if (items.every((item) => item.status === 'fulfilled')) return 'fulfilled';
+  if (items.every((item) => item.status === 'rejected' || item.status === 'dispensed_elsewhere')) {
+    return 'rejected';
+  }
+  if (items.some((item) => (item.quantityDispensed ?? 0) > 0)) return 'partially_fulfilled';
+  if (
+    items.some(
+      (item) =>
+        item.status === 'in_progress' ||
+        item.status === 'partially_dispensed',
+    )
+  ) {
+    return 'in_progress';
+  }
+  return 'pending';
+}
+
+function buildRecord(recordId: string): PharmacyFulfillmentRecord | null {
+  const rows = recordItems(recordId);
+  if (rows.length === 0) return null;
+  const first = rows[0];
+  const timestamps = rows
+    .map((item) => item.receivedAt)
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
+
+  return {
+    id: recordId,
+    prescriptionId: first.orderType === 'prescription' ? first.orderId : null,
+    labOrderId: first.orderType === 'lab' ? first.orderId : null,
+    facilityId: first.facilityId,
+    status: deriveRecordStatus(rows),
+    items: rows.map((item) => ({
+      id: itemIdOf(item),
+      recordId,
+      orderItemId: item.orderItemId ?? item.id,
+      status: recordItemStatus(item),
+      quantityOrdered: item.quantityPrescribed ?? null,
+      quantityDispensed: item.quantityDispensed ?? null,
+      dispensedAt:
+        item.status === 'fulfilled' || item.status === 'partially_dispensed'
+          ? (item.attribution?.timestamp ?? null)
+          : null,
+    })),
+    createdAt: timestamps[0],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function orderStatusFor(recordId: string): 'issued' | 'partially_fulfilled' | 'fulfilled' {
+  const rows = recordItems(recordId);
+  const order = db.orders.find((candidate) => candidate.id === rows[0]?.orderId);
+  if (!order) return 'issued';
+  const items = order.items ?? [];
+  if (items.length > 0 && items.every((item) => item.quantityOutstanding <= 0)) {
+    return 'fulfilled';
+  }
+  if (items.some((item) => item.quantityDispensed > 0)) return 'partially_fulfilled';
+  return 'issued';
+}
+
+function attribution(
+  action: FulfillmentActionAttribution['action'],
+  notes: string | null = null,
+): FulfillmentActionAttribution {
+  return {
+    action,
+    performedByUserId: FACILITY_USER.id,
+    performedByName: 'Frank Facility (fake)',
+    performedByEmail: FACILITY_USER.email,
+    performedByRole: 'owner',
+    timestamp: new Date().toISOString(),
+    notes,
+  };
 }
 
 function syncOrderItem(
@@ -38,8 +142,7 @@ function syncOrderItem(
     0,
     orderItem.quantityPrescribed - orderItem.quantityDispensed,
   );
-  orderItem.status =
-    orderItem.quantityOutstanding === 0 ? 'dispensed' : 'partially_dispensed';
+  orderItem.status = orderItem.quantityOutstanding === 0 ? 'dispensed' : 'partially_dispensed';
   orderItem.dispensedByFacilityId = item.facilityId;
   orderItem.dispensedByFacilityName = facilityName;
   orderItem.dispensedAt = now;
@@ -59,6 +162,17 @@ function syncOrderItem(
     }
   }
 
+  order.fulfillmentStatus = deriveOrderStatus(order);
+}
+
+function rejectOrderItem(item: FulfillmentQueueItem) {
+  if (!item.orderItemId) return;
+  const order = db.orders.find((o) => o.id === item.orderId);
+  const orderItem = (order?.items ?? []).find((i) => i.id === item.orderItemId);
+  if (!order || !orderItem || orderItem.quantityDispensed > 0) return;
+  orderItem.status = 'rejected';
+  orderItem.canDispense = false;
+  orderItem.blockedReason = 'Rejected by facility.';
   order.fulfillmentStatus = deriveOrderStatus(order);
 }
 
@@ -137,133 +251,129 @@ export const facilityTeamHandlers = [
     }),
   ),
 
-  http.post(
-    '*/facilities/:facilityId/fulfillment-queue/:itemId/dispense',
+  // Record-level status. `fulfilled` is derived, never accepted.
+  http.patch(
+    '*/pharmacy-orders/fulfillments/:id',
     respond('json', async ({ params, request }) => {
-      const facilityId = paramId(params, 'facilityId');
-      const item = db.fulfillmentQueue.find(
-        (q) => q.id === paramId(params, 'itemId') && q.facilityId === facilityId,
-      );
+      const recordId = paramId(params, 'id');
+      const rows = recordItems(recordId);
+      if (rows.length === 0) return notFound('fulfillment record');
+
+      const body = (await request.json().catch(() => ({}))) as {
+        status?: FulfillmentStatusUpdate;
+      };
+      const status = body.status;
+      if (status !== 'in_progress' && status !== 'rejected') {
+        return badRequest('status must be in_progress or rejected');
+      }
+      if (
+        rows.some((item) =>
+          ['fulfilled', 'rejected', 'dispensed_elsewhere'].includes(item.status),
+        )
+      ) {
+        return conflict('this fulfillment record is already closed');
+      }
+      if (status === 'rejected' && rows.some((item) => (item.quantityDispensed ?? 0) > 0)) {
+        return conflict('cannot reject a fulfillment record after an item was dispensed');
+      }
+
+      db.fulfillmentQueue = db.fulfillmentQueue.map((item) => {
+        if (!rows.some((row) => row.id === item.id)) return item;
+        if (status === 'rejected') {
+          return {
+            ...item,
+            status: 'rejected',
+            canDispense: false,
+            blockedReason: 'Rejected by facility.',
+            attribution: attribution('rejected'),
+          };
+        }
+        return {
+          ...item,
+          status: 'in_progress',
+          attribution: attribution('verified'),
+        };
+      });
+
+      return buildRecord(recordId);
+    }),
+  ),
+
+  // Item-level dispensing, one-shot per item.
+  http.patch(
+    '*/pharmacy-orders/fulfillments/:id/items/:itemId',
+    respond('json', async ({ params, request }) => {
+      const recordId = paramId(params, 'id');
+      const rows = recordItems(recordId);
+      const item = rows.find((row) => itemIdOf(row) === paramId(params, 'itemId'));
       if (!item) return notFound('fulfillment item');
 
-      const body = (await request.json().catch(() => ({}))) as { quantity?: number };
-      const quantity = Number(body.quantity);
-      if (!Number.isInteger(quantity) || quantity < 1) {
-        return conflict('quantity must be a whole number of at least 1');
-      }
-      if (item.status === 'dispensed_elsewhere') {
-        return conflict('item was already dispensed elsewhere');
-      }
-      if (item.canDispense === false) {
-        return conflict(item.blockedReason ?? 'item cannot be dispensed by this facility');
+      // Anything but pending has already had its one PATCH (or is closed
+      // elsewhere). A replay must be a 409, never a second dispense.
+      if (item.status !== 'pending' && item.status !== 'in_progress') {
+        return conflict('this item was already dispensed, rejected, or closed elsewhere');
       }
 
+      const body = (await request.json().catch(() => ({}))) as {
+        status?: 'dispensed' | 'unfulfilled';
+        quantityDispensed?: number;
+      };
+      if (body.status !== 'dispensed' && body.status !== 'unfulfilled') {
+        return badRequest('status must be dispensed or unfulfilled');
+      }
+
+      const facility = db.facilities.find((f) => f.id === item.facilityId);
+      const facilityName = facility?.name ?? 'Mock facility (fake)';
       const prescribed = item.quantityPrescribed ?? 1;
       const dispensed = item.quantityDispensed ?? 0;
       const outstanding =
         item.quantityOutstanding ?? Math.max(0, prescribed - dispensed);
-      if (quantity > outstanding) {
-        return conflict(`quantity exceeds the outstanding amount (${outstanding})`);
+
+      if (body.status === 'unfulfilled') {
+        item.status = 'rejected';
+        item.canDispense = false;
+        item.blockedReason = 'Rejected by facility.';
+        item.attribution = attribution('rejected');
+        rejectOrderItem(item);
+        return {
+          record: buildRecord(recordId),
+          orderStatus: orderStatusFor(recordId),
+        };
       }
 
-      const facility = db.facilities.find((f) => f.id === facilityId);
-      const facilityName = facility?.name ?? 'Mock facility (fake)';
+      const quantity = body.quantityDispensed ?? outstanding;
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        return badRequest('quantityDispensed must be a positive integer');
+      }
+      if (quantity > outstanding) {
+        return badRequest(`quantityDispensed exceeds the outstanding amount (${outstanding})`);
+      }
+
       const now = new Date().toISOString();
       const newOutstanding = outstanding - quantity;
-
       item.quantityPrescribed = prescribed;
       item.quantityDispensed = dispensed + quantity;
       item.quantityOutstanding = newOutstanding;
       item.status = newOutstanding === 0 ? 'fulfilled' : 'partially_dispensed';
-      item.canDispense = newOutstanding > 0;
-      item.blockedReason = null;
-      item.dispensedByFacilityId = facilityId;
+      // One-shot: the record item is terminal after this PATCH regardless of
+      // whether the full quantity was supplied.
+      item.canDispense = false;
+      item.blockedReason =
+        newOutstanding > 0
+          ? 'Partially dispensed; the remainder must be rerouted from the order.'
+          : null;
+      item.dispensedByFacilityId = item.facilityId;
       item.dispensedByFacilityName = facilityName;
-      item.attribution = {
-        action: item.orderType === 'prescription' ? 'dispensed' : 'sample_collected',
-        performedByUserId: FACILITY_USER.id,
-        performedByName: 'Frank Facility (fake)',
-        performedByEmail: FACILITY_USER.email,
-        performedByRole: 'owner',
-        timestamp: now,
-        notes: `Mock API: dispensed ${quantity} of ${prescribed} (fixture only).`,
-      };
+      item.attribution = attribution(
+        item.orderType === 'prescription' ? 'dispensed' : 'sample_collected',
+        `Mock API: dispensed ${quantity} of ${prescribed} (fixture only).`,
+      );
 
       syncOrderItem(item, facilityName, quantity, now);
-      return item;
-    }),
-  ),
-
-  http.post(
-    '*/facilities/:facilityId/fulfillment-queue/:itemId/action',
-    respond('json', async ({ params, request }) => {
-      const item = db.fulfillmentQueue.find(
-        (q) => q.id === paramId(params, 'itemId'),
-      );
-      if (!item) return notFound('fulfillment item');
-      const body = (await request.json().catch(() => ({}))) as {
-        action?: 'in_progress' | 'fulfilled' | 'rejected';
-        notes?: string;
+      return {
+        record: buildRecord(recordId),
+        orderStatus: orderStatusFor(recordId),
       };
-      if (!body.action || !['in_progress', 'fulfilled', 'rejected'].includes(body.action)) {
-        return conflict('action must be in_progress, fulfilled, or rejected');
-      }
-      if (item.status === 'fulfilled' || item.status === 'rejected') {
-        return conflict('this queue item is already closed');
-      }
-      const action = body.action;
-      const attribution: FulfillmentActionAttribution = {
-        action:
-          action === 'in_progress'
-            ? 'verified'
-            : action === 'rejected'
-              ? 'rejected'
-              : item.orderType === 'prescription'
-                ? 'dispensed'
-                : 'sample_collected',
-        performedByUserId: FACILITY_USER.id,
-        performedByName: 'Frank Facility (fake)',
-        performedByEmail: FACILITY_USER.email,
-        performedByRole: 'owner',
-        timestamp: new Date().toISOString(),
-        notes: body.notes ?? null,
-      };
-      const prescribed = item.quantityPrescribed ?? 1;
-      const dispensed = item.quantityDispensed ?? 0;
-      const outstanding =
-        item.quantityOutstanding ?? Math.max(0, prescribed - dispensed);
-      const updated: FulfillmentQueueItem = {
-        ...item,
-        status: action,
-        attribution,
-        quantityPrescribed: prescribed,
-        quantityDispensed:
-          action === 'fulfilled' ? prescribed : dispensed,
-        quantityOutstanding: action === 'fulfilled' ? 0 : outstanding,
-        canDispense: false,
-        blockedReason: action === 'rejected' ? 'Rejected by facility.' : null,
-      };
-      db.fulfillmentQueue = db.fulfillmentQueue.map((q) => (q.id === item.id ? updated : q));
-
-      const facility = db.facilities.find((f) => f.id === item.facilityId);
-      if (action === 'fulfilled') {
-        syncOrderItem(
-          updated,
-          facility?.name ?? 'Mock facility (fake)',
-          Math.max(0, prescribed - dispensed),
-          attribution.timestamp,
-        );
-      } else if (item.orderItemId) {
-        const order = db.orders.find((o) => o.id === item.orderId);
-        const orderItem = (order?.items ?? []).find((i) => i.id === item.orderItemId);
-        if (order && orderItem && orderItem.quantityDispensed === 0) {
-          orderItem.status = 'rejected';
-          orderItem.canDispense = false;
-          orderItem.blockedReason = 'Rejected by facility.';
-          order.fulfillmentStatus = deriveOrderStatus(order);
-        }
-      }
-      return updated;
     }),
   ),
 

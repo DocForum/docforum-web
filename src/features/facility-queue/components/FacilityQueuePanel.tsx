@@ -4,14 +4,17 @@ import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { ApiError } from '../../../services/api-client';
 import type {
   FulfillmentLabResult,
   FulfillmentQueueItem,
   FulfillmentStatusUpdate,
+  PharmacyFulfillmentRecordStatus,
 } from '../../../types/models';
 import {
+  useDispenseFulfillmentItem,
   useFacilityQueue,
-  useUpdateFulfillmentStatus,
+  useUpdateFulfillmentRecord,
   useUploadLabResult,
 } from '../hooks/useFacilityQueue';
 import styles from './FacilityQueuePanel.module.css';
@@ -29,6 +32,54 @@ const STATUS_LABELS: Record<FulfillmentQueueItem['status'], string> = {
   dispensed_elsewhere: 'Dispensed elsewhere',
   rejected: 'Rejected',
 };
+
+const RECORD_STATUS_LABELS: Record<PharmacyFulfillmentRecordStatus, string> = {
+  pending: 'Pending',
+  in_progress: 'In progress',
+  partially_fulfilled: 'Partially fulfilled',
+  fulfilled: 'Fulfilled',
+  rejected: 'Rejected',
+};
+
+const ORDER_STATUS_LABELS = {
+  issued: 'Issued',
+  partially_fulfilled: 'Partially fulfilled',
+  fulfilled: 'Fulfilled',
+} as const;
+
+/** opdocforum-core's record derives fulfilled from its items — this is the
+ * read-only label for that derived state, never something we set. */
+function derivedRecordStatus(
+  item: FulfillmentQueueItem,
+): PharmacyFulfillmentRecordStatus | 'unfulfilled' {
+  switch (item.status) {
+    case 'fulfilled':
+      return 'fulfilled';
+    case 'partially_dispensed':
+      return 'partially_fulfilled';
+    case 'rejected':
+      return 'rejected';
+    case 'in_progress':
+      return 'in_progress';
+    case 'dispensed_elsewhere':
+      return 'unfulfilled';
+    default:
+      return 'pending';
+  }
+}
+
+function recordIdOf(item: FulfillmentQueueItem): string {
+  return item.fulfillmentRecordId ?? item.id;
+}
+
+function recordItemIdOf(item: FulfillmentQueueItem): string {
+  return item.fulfillmentItemId ?? item.id;
+}
+
+function outstandingOf(item: FulfillmentQueueItem): number {
+  if (typeof item.quantityOutstanding === 'number') return item.quantityOutstanding;
+  return Math.max(0, (item.quantityPrescribed ?? 1) - (item.quantityDispensed ?? 0));
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -58,6 +109,22 @@ function attributionVerb(action: NonNullable<FulfillmentQueueItem['attribution']
     default:
       return 'Updated by';
   }
+}
+
+function mutationErrorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 409) {
+      return 'docforum-core refused this change: the item was already updated or dispensed, possibly at another facility. The queue has been refreshed — check the latest status before trying again.';
+    }
+    if (error.status === 403) {
+      return 'docforum-core refused this change. Your account needs a verified facility email.';
+    }
+    if (error.status === 400) {
+      return 'docforum-core rejected the request. Check the quantity and status, then refresh the queue.';
+    }
+    return `docforum-core refused the change (${error.status}).`;
+  }
+  return "Couldn't reach docforum-core, so the change may or may not have been saved. Refresh the queue before trying again.";
 }
 
 interface LabResultUploaderProps {
@@ -151,7 +218,8 @@ function LabResultUploader({ itemId, result, isUploading, onUpload }: LabResultU
 
 export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
   const queueQuery = useFacilityQueue(facilityId);
-  const statusMutation = useUpdateFulfillmentStatus(facilityId);
+  const recordMutation = useUpdateFulfillmentRecord(facilityId);
+  const itemMutation = useDispenseFulfillmentItem(facilityId);
   const uploadMutation = useUploadLabResult(facilityId);
   const [filter, setFilter] = useState<QueueFilter>('all');
 
@@ -160,27 +228,49 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
   const counts = useMemo(
     () => ({
       all: items.length,
-      active: items.filter((item) => item.status === 'pending' || item.status === 'in_progress').length,
-      done: items.filter((item) => item.status === 'fulfilled' || item.status === 'rejected').length,
+      active: items.filter((item) =>
+        ['pending', 'in_progress', 'partially_dispensed'].includes(item.status),
+      ).length,
+      done: items.filter((item) => ['fulfilled', 'rejected', 'dispensed_elsewhere'].includes(item.status))
+        .length,
     }),
     [items],
   );
 
   const visibleItems = useMemo(() => {
     if (filter === 'active') {
-      return items.filter((item) => item.status === 'pending' || item.status === 'in_progress');
+      return items.filter((item) =>
+        ['pending', 'in_progress', 'partially_dispensed'].includes(item.status),
+      );
     }
     if (filter === 'done') {
-      return items.filter((item) => item.status === 'fulfilled' || item.status === 'rejected');
+      return items.filter((item) =>
+        ['fulfilled', 'rejected', 'dispensed_elsewhere'].includes(item.status),
+      );
     }
     return items;
   }, [filter, items]);
 
-  const updateStatus = async (itemId: string, status: FulfillmentStatusUpdate) => {
+  const updateRecord = async (item: FulfillmentQueueItem, status: FulfillmentStatusUpdate) => {
     try {
-      await statusMutation.mutateAsync({ itemId, status });
+      await recordMutation.mutateAsync({ recordId: recordIdOf(item), status });
     } catch {
-      return;
+      // The error is rendered from `recordMutation.error`; the hooks refresh
+      // the queue in `onError` so a 409 shows the state that actually won.
+    }
+  };
+
+  const dispense = async (item: FulfillmentQueueItem) => {
+    const quantity = outstandingOf(item);
+    if (quantity < 1) return;
+    try {
+      await itemMutation.mutateAsync({
+        recordId: recordIdOf(item),
+        itemId: recordItemIdOf(item),
+        quantity,
+      });
+    } catch {
+      // Rendered from `itemMutation.error`; never auto-retried.
     }
   };
 
@@ -206,14 +296,17 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
     );
   }
 
+  const isBusy = recordMutation.isPending || itemMutation.isPending;
+
   return (
     <section className={styles.card} aria-labelledby="facility-queue-heading">
       <div className={styles.header}>
         <div>
           <h2 id="facility-queue-heading">Fulfillment queue</h2>
           <p className={styles.subtitle}>
-            Prescriptions and diagnostic orders assigned to this facility. Every status
-            change records the acting staff member.
+            Prescriptions and diagnostic orders assigned to this facility. Statuses are derived by
+            docforum-core from the items on each fulfillment record; every change records the acting
+            staff member.
           </p>
         </div>
         <label className={styles.filterLabel}>
@@ -229,14 +322,32 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
         </label>
       </div>
 
-      {statusMutation.isError ? (
+      {recordMutation.isError ? (
         <p className={styles.error} role="alert">
-          Could not update the item: {statusMutation.error.message}
+          {mutationErrorText(recordMutation.error)}
+        </p>
+      ) : null}
+      {itemMutation.isError ? (
+        <p className={styles.error} role="alert">
+          {mutationErrorText(itemMutation.error)}
         </p>
       ) : null}
       {uploadMutation.isError ? (
         <p className={styles.error} role="alert">
           Could not upload the lab result: {uploadMutation.error.message}
+        </p>
+      ) : null}
+      {recordMutation.isSuccess && recordMutation.data ? (
+        <p className={styles.muted} role="status">
+          Record updated. Status is now{' '}
+          <strong>{RECORD_STATUS_LABELS[recordMutation.data.status]}</strong>.
+        </p>
+      ) : null}
+      {itemMutation.isSuccess && itemMutation.data ? (
+        <p className={styles.muted} role="status">
+          Item dispensed. The record is now{' '}
+          <strong>{RECORD_STATUS_LABELS[itemMutation.data.record.status]}</strong> and the order is{' '}
+          <strong>{ORDER_STATUS_LABELS[itemMutation.data.orderStatus]}</strong>.
         </p>
       ) : null}
 
@@ -257,11 +368,25 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
       ) : (
         <ul className={styles.queueList}>
           {visibleItems.map((item) => {
+            const recordStatus = derivedRecordStatus(item);
+            const outstanding = outstandingOf(item);
             const isItemUpdating =
-              statusMutation.isPending && statusMutation.variables?.itemId === item.id;
-            const isTerminal = item.status === 'fulfilled' || item.status === 'rejected';
+              recordMutation.isPending &&
+              recordMutation.variables?.recordId === recordIdOf(item);
+            const isDispensing =
+              itemMutation.isPending && itemMutation.variables?.itemId === recordItemIdOf(item);
+            const isTerminal =
+              item.status === 'fulfilled' ||
+              item.status === 'rejected' ||
+              item.status === 'dispensed_elsewhere';
             const canStart = item.status === 'pending';
-            const canAct = !isTerminal;
+            const canReject = item.status === 'pending' || item.status === 'in_progress';
+            // A record item is one-shot. A partially dispensed row already
+            // exercised its PATCH; the remainder must be rerouted, not
+            // dispensed again here.
+            const canDispense =
+              item.status === 'pending' && (item.canDispense ?? true) && outstanding > 0;
+            const canAct = canStart || canReject || canDispense;
 
             return (
               <li key={item.id} className={styles.queueItem}>
@@ -276,15 +401,34 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
                       <span>Received {formatDateTime(item.receivedAt)}</span>
                     </p>
                   </div>
-                  <span
-                    className={`${styles.statusPill} ${styles[`status_${item.status}`]}`}
-                  >
-                    {STATUS_LABELS[item.status]}
-                  </span>
+                  <div>
+                    <span
+                      className={`${styles.statusPill} ${styles[`status_${item.status}`]}`}
+                    >
+                      {STATUS_LABELS[item.status]}
+                    </span>
+                    <p className={styles.recordStatus}>
+                      Record status:{' '}
+                      {recordStatus === 'unfulfilled'
+                        ? 'Unfulfilled'
+                        : RECORD_STATUS_LABELS[recordStatus]}{' '}
+                      (derived)
+                    </p>
+                  </div>
                 </div>
 
                 {item.instructions ? (
                   <p className={styles.instructions}>Instructions: {item.instructions}</p>
+                ) : null}
+
+                {typeof item.quantityPrescribed === 'number' ? (
+                  <p className={styles.muted}>
+                    {item.quantityDispensed ?? 0} of {item.quantityPrescribed} {item.unit ?? 'units'}{' '}
+                    dispensed · {outstanding} outstanding
+                    {item.status === 'partially_dispensed' && outstanding > 0
+                      ? ' — reroute the remainder from the order.'
+                      : ''}
+                  </p>
                 ) : null}
 
                 {item.attribution ? (
@@ -299,33 +443,37 @@ export function FacilityQueuePanel({ facilityId }: { facilityId: string }) {
                   </div>
                 ) : null}
 
-                {canAct ? (
+                {canAct && !isTerminal ? (
                   <div className={styles.actions}>
                     {canStart ? (
                       <Button
                         variant="secondary"
-                        onClick={() => updateStatus(item.id, 'in_progress')}
-                        loading={isItemUpdating && statusMutation.variables?.status === 'in_progress'}
-                        disabled={statusMutation.isPending}
+                        onClick={() => void updateRecord(item, 'in_progress')}
+                        loading={isItemUpdating && recordMutation.variables?.status === 'in_progress'}
+                        disabled={isBusy}
                       >
                         Start processing
                       </Button>
                     ) : null}
-                    <Button
-                      variant="danger"
-                      onClick={() => updateStatus(item.id, 'rejected')}
-                      loading={isItemUpdating && statusMutation.variables?.status === 'rejected'}
-                      disabled={statusMutation.isPending}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={() => updateStatus(item.id, 'fulfilled')}
-                      loading={isItemUpdating && statusMutation.variables?.status === 'fulfilled'}
-                      disabled={statusMutation.isPending}
-                    >
-                      {item.orderType === 'prescription' ? 'Dispense & fulfill' : 'Collect & fulfill'}
-                    </Button>
+                    {canReject ? (
+                      <Button
+                        variant="danger"
+                        onClick={() => void updateRecord(item, 'rejected')}
+                        loading={isItemUpdating && recordMutation.variables?.status === 'rejected'}
+                        disabled={isBusy}
+                      >
+                        Reject
+                      </Button>
+                    ) : null}
+                    {canDispense ? (
+                      <Button
+                        onClick={() => void dispense(item)}
+                        loading={isDispensing}
+                        disabled={isBusy}
+                      >
+                        {item.orderType === 'prescription' ? 'Dispense' : 'Collect sample'}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
 

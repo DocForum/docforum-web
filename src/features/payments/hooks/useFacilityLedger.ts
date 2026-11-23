@@ -1,21 +1,25 @@
 /* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
-import { getFacilityPayoutLedger } from '../../../services/payments-service';
-import { ApiTimeoutError, isAbortError } from '../../../services/api-client';
+import {
+  getFacilityPayoutLedger,
+  type FacilityLedgerFilters,
+} from '../../../services/payments-service';
+import { ApiError } from '../../../services/api-client';
 import { paymentKeys } from '../../../query-keys';
 import { clearPayoutBlock, recordPayoutBlock } from '../../../store/payout-block-store';
 import type { FacilityLedgerPage } from '../../../types/models';
 
-import { DEFAULT_MOCK_LEDGER_PAGE } from '../demo-ledger';
-export { DEFAULT_MOCK_LEDGER_PAGE } from '../demo-ledger';
+export type UseFacilityLedgerFilters = FacilityLedgerFilters;
 
-export interface UseFacilityLedgerFilters {
-  cursor?: string;
-  status?: string;
-  asset?: string;
-}
-
+/**
+ * The signed-in facility's ledger (issue #271). `facilityId` only scopes the
+ * cache key: docforum-core derives the facility from the session, so a
+ * facility can never request another facility's ledger.
+ *
+ * There is deliberately no mock fallback — fake rows would hide the very
+ * failure this screen exists to show (and would cache invented totals).
+ */
 export function useFacilityLedger(facilityId: string, filters: UseFacilityLedgerFilters = {}) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
@@ -23,37 +27,14 @@ export function useFacilityLedger(facilityId: string, filters: UseFacilityLedger
     queryKey: paymentKeys.ledger(facilityId, filters),
     queryFn: async ({ signal }) => {
       if (!accessToken) throw new Error('Not authenticated');
-      try {
-        const page = await getFacilityPayoutLedger(facilityId, accessToken, filters, signal);
-        // A real answer from docforum-core means payouts are working again,
-        // so a banner raised by an earlier failure can go away (#279).
-        clearPayoutBlock();
-        return page;
-      } catch (error) {
-        // A cancelled query must stay cancelled — resolving it with mock data
-        // would store fake totals in the cache after the user navigated away.
-        if (isAbortError(error) || error instanceof ApiTimeoutError) throw error;
-
-        // Payout-setup failures must surface instead of being papered over
-        // with the demo ledger below: masking them would hide exactly the
-        // state the facility banner exists to report (#279).
-        if (recordPayoutBlock(error)) throw error;
-
-        // Fallback for dev / unmocked environment
-        let filteredEntries = DEFAULT_MOCK_LEDGER_PAGE.entries;
-        if (filters.status && filters.status !== 'all') {
-          filteredEntries = filteredEntries.filter((e) => e.status === filters.status);
-        }
-        if (filters.asset && filters.asset !== 'all') {
-          filteredEntries = filteredEntries.filter((e) => e.asset === filters.asset);
-        }
-
-        return {
-          ...DEFAULT_MOCK_LEDGER_PAGE,
-          entries: filteredEntries,
-        };
-      }
+      return getFacilityPayoutLedger(accessToken, filters, signal);
     },
     enabled: Boolean(facilityId && accessToken),
+    // A 4xx (including INVALID_CURSOR after a filter change) won't fix
+    // itself by retrying; the component resets to page one instead.
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+      return failureCount < 1;
+    },
   });
 }
