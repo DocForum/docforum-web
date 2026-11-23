@@ -179,7 +179,7 @@ describe('FacilityPayoutLedger & formatStroops', () => {
       render(<FacilityPayoutLedger facilityId="fac-1" />);
       await screen.findByText('ord-rx-urgent');
 
-      await user.click(screen.getByRole('button', { name: /export the filtered payout ledger as csv/i }));
+      await user.click(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i }));
 
       await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
       expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
@@ -215,13 +215,13 @@ describe('FacilityPayoutLedger & formatStroops', () => {
       render(<FacilityPayoutLedger facilityId="fac-1" />);
       await screen.findByText('ord-rx-urgent');
 
-      await user.click(screen.getByRole('button', { name: /export the filtered payout ledger as csv/i }));
+      await user.click(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i }));
       expect(await screen.findByText(/exporting every page of this filter/i)).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /cancel export/i }));
 
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: /export the filtered payout ledger as csv/i })).toBeInTheDocument(),
+        expect(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i })).toBeInTheDocument(),
       );
       expect(createObjectUrl).not.toHaveBeenCalled();
       expect(click).not.toHaveBeenCalled();

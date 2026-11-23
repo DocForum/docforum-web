@@ -316,7 +316,10 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
               size="small"
               onClick={() => void startExport()}
               disabled={isLoading || !accessToken}
-              aria-label="Export the filtered payout ledger as CSV"
+              // WCAG 2.5.3: the accessible name must contain the visible
+              // label ("Export CSV"), so a screen reader and a sighted user
+              // asking for the same button get the same words.
+              aria-label="Export CSV of the filtered payout ledger"
             >
               Export CSV
             </Button>
