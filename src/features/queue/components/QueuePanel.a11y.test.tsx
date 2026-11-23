@@ -66,6 +66,18 @@ describe('QueuePanel accessibility (#90)', () => {
     ).toBe(true);
   });
 
+  it('names each chart action for the patient whose chart it opens', async () => {
+    render(<QueuePanel />);
+    await screen.findByText('Ada Patient');
+
+    expect(
+      screen.getByRole('button', { name: 'Open chart for Ada Patient' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open chart for Ben Patient' }),
+    ).toBeInTheDocument();
+  });
+
   it('labels row actions with the patient name', async () => {
     render(<QueuePanel />);
     await screen.findByText('Ada Patient');

@@ -2,6 +2,7 @@ import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useT } from '../../../i18n/useT';
+import { ApiError } from '../../../services/api-client';
 import { usePatientChart } from '../hooks/usePatientChart';
 import styles from './PatientChartPanel.module.css';
 
@@ -31,10 +32,19 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
     return <Skeleton lines={6} height="1.5rem" label={t('patientChart.loading', 'Loading patient chart')} />;
   }
   if (error) {
+    // The chart is scoped to the care relationship (issue #43): a 403 means
+    // the doctor isn't in this patient's care team, not that the app broke.
+    const message =
+      error instanceof ApiError && error.status === 403
+        ? t(
+            'patientChart.forbidden',
+            "This chart is only available to the patient's care team. If they booked with you, check that the appointment is assigned to you.",
+          )
+        : queryErrorMessage(error);
     return (
       <InlineError
         title={t('patientChart.loadFailed', "The patient chart couldn't be loaded")}
-        message={queryErrorMessage(error)}
+        message={message}
       />
     );
   }

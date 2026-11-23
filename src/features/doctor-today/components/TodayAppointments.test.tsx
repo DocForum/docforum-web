@@ -89,6 +89,38 @@ describe('TodayAppointments', () => {
     });
   });
 
+  it('links each expanded row to the chart and the consultation', async () => {
+    const user = userEvent.setup();
+    render(<TodayAppointments />);
+
+    await user.click(await screen.findByRole('button', { name: /First Patient/i }));
+
+    expect(
+      screen.getByRole('link', { name: 'Open chart for First Patient (fake)' }),
+    ).toHaveAttribute('href', '/doctor/patient-chart/pat-1');
+    expect(
+      screen.getByRole('link', { name: 'Open consultation for First Patient (fake)' }),
+    ).toHaveAttribute('href', '/doctor/consultation/apt-1');
+  });
+
+  it('explains that a cancelled appointment has no consultation to open', async () => {
+    vi.mocked(queueService.listTodayAppointments).mockResolvedValue([
+      { ...APPOINTMENTS[1], status: 'cancelled' },
+    ]);
+    const user = userEvent.setup();
+    render(<TodayAppointments />);
+
+    await user.click(await screen.findByRole('button', { name: /First Patient/i }));
+
+    expect(
+      screen.getByRole('link', { name: 'Open chart for First Patient (fake)' }),
+    ).toHaveAttribute('href', '/doctor/patient-chart/pat-1');
+    expect(screen.queryByRole('link', { name: /open consultation/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/cancelled, so there is no consultation to open/i),
+    ).toBeInTheDocument();
+  });
+
   it('says when no intake was submitted', async () => {
     vi.mocked(doctorTodayService.getAppointmentIntake).mockRejectedValue(
       new ApiError('not found', 404),
