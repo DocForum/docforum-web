@@ -20,6 +20,14 @@ const THREAD = [
   { label: 'Settle', body: 'Facility payment sits in a Soroban escrow contract, released on confirmed fulfillment.' },
 ];
 
+/** Same page, plus `?demo=1`, which main.tsx turns into the mock-API demo. */
+function demoHref(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set('demo', '1');
+  url.hash = '';
+  return `${url.pathname}${url.search}`;
+}
+
 export function HomePage() {
   const user = useAuthStore((state) => state.user);
 
@@ -124,6 +132,15 @@ export function HomePage() {
             Log in
           </Link>
         </div>
+        <p className={styles.demoNote} data-reveal>
+          Just looking?{' '}
+          {/* A full navigation, not a route: the demo runs in its own page
+              load so no cache from a real session can leak into it. */}
+          <a href={demoHref()} className={styles.demoLink}>
+            Try the demo
+          </a>{' '}
+          — every role, sample data, no backend.
+        </p>
       </section>
 
       <section className={styles.thread} aria-label="How a visit flows through DocForum" ref={threadSectionRef}>

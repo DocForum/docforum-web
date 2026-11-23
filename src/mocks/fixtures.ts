@@ -6,24 +6,36 @@
 // see ARCHITECTURE_ESSENTIALS.md "Known assumptions" for which of those
 // shapes are still assumed contracts.
 import type {
+  AccessLog,
   Appointment,
+  AuditEvent,
+  BackgroundJob,
   CareThread,
   ConsultationAddendum,
   ConsultationNote,
   DataExport,
   Dependent,
+  DoctorAvailability,
   DoctorPracticeInsights,
   FacilityInvite,
+  FacilityLedgerPage,
   FacilityMember,
   FacilityWithDistance,
+  FeatureFlag,
   FulfillmentQueueItem,
   HealthEntry,
   MessageThread,
+  OutboxSummary,
   PaymentIntent,
+  ReadinessReport,
   RunningDelay,
+  StuckReferral,
   User,
+  VerifyOrderResponse,
   WalletLink,
 } from '../types/models';
+import { createAdminSeed } from './fixtures-admin';
+import { createFacilityExtras } from './fixtures-facility';
 
 // --- Personas (one per role the dev panel can switch to) --------------------
 
@@ -86,6 +98,18 @@ export interface MockDb {
   walletLink: WalletLink | null;
   paymentIntents: PaymentIntent[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  // Admin screens (Phase W6) — audit, referrals, health, flags.
+  auditEvents: AuditEvent[];
+  accessLogs: AccessLog[];
+  stuckReferrals: StuckReferral[];
+  doctorAvailability: DoctorAvailability[];
+  readiness: ReadinessReport;
+  backgroundJobs: BackgroundJob[];
+  outbox: OutboxSummary;
+  featureFlags: FeatureFlag[];
+  // Facility screens added after issue #95 — ledger and order verification.
+  payoutLedger: FacilityLedgerPage;
+  verifyOrders: Record<string, VerifyOrderResponse>;
 }
 
 export function createSeedDb(): MockDb {
@@ -661,5 +685,7 @@ export function createSeedDb(): MockDb {
     walletLink,
     paymentIntents,
     consultationAddenda,
+    ...createAdminSeed(),
+    ...createFacilityExtras(),
   };
 }

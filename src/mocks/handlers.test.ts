@@ -11,7 +11,12 @@ import { resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError } from '../services/api-client';
+import * as adminReferralsService from '../services/admin-referrals-service';
+import * as auditService from '../services/audit-service';
 import * as authService from '../services/auth-service';
+import * as featureFlagsService from '../services/feature-flags-service';
+import * as orderVerifyService from '../services/order-verify-service';
+import * as systemHealthService from '../services/system-health-service';
 import * as accountService from '../services/account-service';
 import * as careThreadService from '../services/care-thread-service';
 import * as consultationService from '../services/consultation-service';
@@ -410,5 +415,172 @@ describe('dev panel scenarios', () => {
     const started = Date.now();
     await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(Date.now() - started).toBeGreaterThanOrEqual(180);
+  });
+});
+
+// Phase W6 admin screens and the facility screens that landed after #95.
+// Added with demo mode (#127): the public demo has to be able to open every
+// built screen, which means the mock API needs a handler for each one.
+
+describe('admin audit and access logs', () => {
+  it('lists audit events newest first', async () => {
+    const { items, nextCursor } = await auditService.listAuditEvents({}, MOCK_ACCESS_TOKEN);
+    expect(items.length).toBeGreaterThan(0);
+    expect(nextCursor).toBeNull();
+    const dates = items.map((event) => event.createdAt);
+    expect([...dates].sort().reverse()).toEqual(dates);
+  });
+
+  it('filters audit events by entity type and id', async () => {
+    const { items } = await auditService.listAuditEvents(
+      { entityType: 'FeatureFlag', entityId: 'flg-demo-wallet' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.action).toBe('feature_flag.updated');
+  });
+
+  it('serves PHI access logs', async () => {
+    const { items } = await auditService.listAccessLogs({}, MOCK_ACCESS_TOKEN);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0]?.route).toContain('(demo)');
+  });
+});
+
+describe('admin stuck referrals', () => {
+  it('lists the seeded stuck queue', async () => {
+    const { items } = await adminReferralsService.listStuckReferrals(
+      { olderThan: '24h' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(items).toHaveLength(3);
+    expect(items.map((r) => r.stuckReason)).toContain('loop_flagged');
+  });
+
+  it('offers only verified doctors in the requested specialty', async () => {
+    const doctors = await adminReferralsService.listReassignCandidates(
+      'spc-demo-cardiology',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(doctors.length).toBeGreaterThan(0);
+    expect(doctors.every((d) => d.verificationStatus === 'verified')).toBe(true);
+  });
+
+  it('reassigns a referral and removes it from the queue', async () => {
+    const before = await adminReferralsService.listStuckReferrals(
+      { olderThan: '24h' },
+      MOCK_ACCESS_TOKEN,
+    );
+    const target = before.items[0]!;
+    await adminReferralsService.reassignReferral(
+      target.id,
+      {
+        targetDoctorId: 'prf-doctor-cleo',
+        reason: 'First available cardiologist (demo)',
+        expectedUpdatedAt: target.updatedAt,
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    const after = await adminReferralsService.listStuckReferrals(
+      { olderThan: '24h' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(after.items.map((r) => r.id)).not.toContain(target.id);
+  });
+
+  it('rejects a stale expectedUpdatedAt with a 409', async () => {
+    await expect(
+      adminReferralsService.cancelReferral(
+        'ref-demo-1',
+        { reason: 'Duplicate referral (demo)', expectedUpdatedAt: '2000-01-01T00:00:00.000Z' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('admin system health', () => {
+  it('reports readiness and the outbox summary', async () => {
+    const readiness = await systemHealthService.getReadiness(MOCK_ACCESS_TOKEN);
+    expect(readiness.status).toBe('ready');
+    expect(readiness.checks.length).toBeGreaterThan(0);
+
+    const outbox = await systemHealthService.getOutboxSummary(MOCK_ACCESS_TOKEN);
+    expect(outbox.deadLetterCount).toBeGreaterThan(0);
+  });
+
+  it('lists jobs and runs one manually', async () => {
+    const jobs = await systemHealthService.listJobs(MOCK_ACCESS_TOKEN);
+    expect(jobs.length).toBeGreaterThan(0);
+
+    const run = await systemHealthService.runJob('expire_pending_intents', MOCK_ACCESS_TOKEN);
+    expect(run.trigger).toBe('manual');
+    expect(run.status).toBe('succeeded');
+  });
+
+  it('404s an unknown job', async () => {
+    await expect(
+      systemHealthService.runJob('no_such_job', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('admin feature flags', () => {
+  it('lists flags and records a change in the audit trail', async () => {
+    const flags = await featureFlagsService.listFeatureFlags(MOCK_ACCESS_TOKEN);
+    const flag = flags.find((f) => f.key === 'sms_appointment_reminders')!;
+
+    const saved = await featureFlagsService.updateFeatureFlag(
+      flag.key,
+      { enabled: false, expectedUpdatedAt: flag.updatedAt },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(saved.enabled).toBe(false);
+
+    const { items } = await auditService.listAuditEvents(
+      { entityType: 'FeatureFlag', entityId: flag.id },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(items[0]?.action).toBe('feature_flag.updated');
+  });
+
+  it('rejects a stale update with a 409', async () => {
+    await expect(
+      featureFlagsService.updateFeatureFlag(
+        'wallet_payments',
+        { enabled: false, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('facility ledger and order verification', () => {
+  it('returns the seeded payout ledger, filtered', async () => {
+    const page = await paymentsService.getFacilityPayoutLedger(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    expect(page.entries.length).toBeGreaterThan(0);
+    expect(page.totals.xlm.heldStroops).toBeTruthy();
+
+    const held = await paymentsService.getFacilityPayoutLedger(
+      FACILITY_ID,
+      MOCK_ACCESS_TOKEN,
+      { status: 'held' },
+    );
+    expect(held.entries.every((entry) => entry.status === 'held')).toBe(true);
+  });
+
+  it('verifies a valid demo token and fails an unknown one safely', async () => {
+    const valid = await orderVerifyService.verifyOrderToken(
+      'ord_tok_demo_valid',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(valid.status).toBe('valid');
+    expect(valid.order?.patientName).toContain('(fake)');
+
+    const unknown = await orderVerifyService.verifyOrderToken(
+      'something-else',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(unknown.status).toBe('not_eligible');
   });
 });

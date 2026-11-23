@@ -11,6 +11,12 @@ production:** the free-tier backend cold-starts after 15 minutes idle
 (~1 minute delay on the first request) and its database expires
 2026-10-14 unless renewed — see [Getting started](#getting-started).
 
+**Try the demo:** the landing page's “Try the demo” link (or `?demo=1`)
+boots every screen on the in-browser mock API instead — pick patient,
+doctor, facility or admin and click around instantly, with no account, no
+backend and no cold start. All data is fake; a banner stays on screen while
+you explore.
+
 **Frontend for DocForum** — the patient/doctor/facility web client for the
 booking → referral → prescription/lab-order → fulfillment flow described in
 [`docforum-core`'s `PRD.md`](https://github.com/DocForum/docforum-core/blob/main/PRD.md).

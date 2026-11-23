@@ -82,7 +82,43 @@
 }
 
 /* ---- Color: dark ---- */
-[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #17140f;
+  --color-bg-raised: #1f1b14;
+  --color-surface: #211d16;
+  --color-surface-alt: #2a2419;
+  --color-surface-hover: #332c1e;
+  --color-border: #3a3325;
+  --color-border-strong: #4c4430;
+
+  --color-text: #f3ecdf;
+  --color-text-muted: #b8ac94;
+  --color-text-faint: #8a7f68;
+
+  --color-accent: #4a9b76;
+  --color-accent-hover: #6bb690;
+  --color-accent-contrast: #0e1c16;
+  --color-accent-subtle: #1c2e26;
+
+  --color-accent-2: #d4a24e;
+  --color-accent-2-hover: #e0b364;
+  --color-accent-2-contrast: #241a08;
+  --color-accent-2-subtle: #2e2517;
+
+  --color-success: #4a9b76;
+  --color-success-surface: #1c2e26;
+  --color-warning: #d4a24e;
+  --color-warning-surface: #2e2517;
+  --color-danger: #e08469;
+  --color-danger-surface: #2e1c15;
+
+  --color-focus-ring: #4a9b76;
+}
+
+/* System preference is the fallback only when no explicit theme was saved
+   (index.html's pre-hydration script normally sets data-theme already). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="high-contrast"]) {
     color-scheme: dark;
@@ -113,7 +149,23 @@
     --color-success-surface: #1c2e26;
     --color-warning: #d4a24e;
     --color-warning-surface: #2e2517;
+
     --color-danger: #e08469;
     --color-danger-surface: #2e1c15;
+    --color-focus-ring: #4a9b76;
+  }
+}
 
-    --color-focus-ring: #4a
+/* Demo mode (issue #127). The banner is fixed to the bottom of the viewport
+   so it never fights the app's sticky header; reserve room for it so it
+   cannot cover the footer. Longer allowance on narrow screens, where the
+   banner wraps to two rows. */
+html[data-demo-mode] body {
+  padding-bottom: 3.75rem;
+}
+
+@media (max-width: 640px) {
+  html[data-demo-mode] body {
+    padding-bottom: 5.25rem;
+  }
+}

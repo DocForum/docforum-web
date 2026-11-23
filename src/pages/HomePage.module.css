@@ -61,6 +61,24 @@
   text-decoration: none;
 }
 
+/* Demo entry: a quiet sentence under the main CTAs, not a third button —
+   it's a side door for reviewers, not the primary path for a real user. */
+.demoNote {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.demoLink {
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.demoLink:hover {
+  color: var(--color-accent-hover);
+}
+
 /* The thread: the one bold structural idea on this page, because the
    content genuinely is a sequence (book -> refer -> order -> settle).
    Solid pine throughout; the final node turns brass — the one place
