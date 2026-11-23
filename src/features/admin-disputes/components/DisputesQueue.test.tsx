@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
 import { DisputesQueue } from './DisputesQueue';
 import { ApiError } from '../../../services/api-client';
 import * as disputesService from '../../../services/disputes-service';
@@ -45,16 +47,18 @@ const NEWER = dispute({
   amountStroops: '250000000',
 });
 
-function renderQueue() {
+function renderQueue(locale: 'en' | 'es' = 'en') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/admin/disputes']}>
-        <DisputesQueue />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/admin/disputes']}>
+          <DisputesQueue />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
@@ -145,5 +149,15 @@ describe('DisputesQueue', () => {
 
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: /Amoxicillin 500mg/ })).toBeInTheDocument();
+  });
+
+  it('renders the disputes queue in Spanish', async () => {
+    vi.mocked(disputesService.listDisputes).mockResolvedValue({ items: [OLDER], nextCursor: null });
+
+    renderQueue('es');
+
+    expect(await screen.findByRole('heading', { name: 'Disputas de cumplimiento' })).toBeInTheDocument();
+    expect(await screen.findByText('No recibido')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Revisar disputa' })).toBeInTheDocument();
   });
 });

@@ -83,6 +83,7 @@ export function CalendarSubscriptionSection() {
         <label htmlFor="calendar-url">Calendar feed URL</label>
         <div className={styles.urlInputWrapper}>
           <input
+            id="calendar-url"
             type="text"
             value={revealUrl ? feed.icsUrl : maskedUrl}
             readOnly

@@ -1,5 +1,7 @@
 import { formatDateTime } from '../../i18n/time-zone';
+import type { Translator } from '../../i18n/useT';
 import type { AuditEvent, FeatureFlag, FeatureFlagKind, Role } from '../../types/models';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 // Audit events for flags are assumed to use the Prisma model name, like every
 // other entity in docforum-core's audit trail (docforum-core#132).
@@ -36,19 +38,26 @@ export function flagState(flag: Pick<FeatureFlag, 'enabled' | 'kind' | 'rolloutP
   return 'on';
 }
 
-function joinWords(words: string[]): string {
+function joinWords(words: string[], conjunction: string): string {
   if (words.length <= 1) return words.join('');
-  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+  return `${words.slice(0, -1).join(', ')} ${conjunction} ${words[words.length - 1]}`;
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
+export function kindLabel(kind: FeatureFlagKind, t: Translator = englishTranslator): string {
+  return t(`adminFlags.kind.${kind}`, KIND_LABELS[kind]);
+}
+
+export function stateLabel(state: FlagState, t: Translator = englishTranslator): string {
+  return t(`adminFlags.state.${state}`, STATE_LABELS[state]);
 }
 
 /** "everyone", or the targeted roles in a sentence ("patients and doctors"). */
-export function describeRoles(roles: Role[]): string {
-  if (roles.length === 0) return 'everyone';
-  return joinWords(ROLES.filter((role) => roles.includes(role.value)).map((role) => role.plural));
+export function describeRoles(roles: Role[], t: Translator = englishTranslator): string {
+  if (roles.length === 0) return t('adminFlags.audience.everyone', 'everyone');
+  const labels = ROLES.filter((role) => roles.includes(role.value)).map((role) =>
+    t(`adminFlags.audience.role.${role.value}`, role.plural),
+  );
+  return joinWords(labels, t('adminFlags.audience.and', 'and'));
 }
 
 /**
@@ -56,25 +65,40 @@ export function describeRoles(roles: Role[]): string {
  * side ("before → after"). Mirrors the evaluation order assumed for #132:
  * kill switch, then allowlist, then roles, then the sticky percentage.
  */
-export function describeAudience(flag: Pick<FeatureFlag, 'enabled' | 'kind' | 'rolloutPercentage' | 'targeting'>): string {
+export function describeAudience(
+  flag: Pick<FeatureFlag, 'enabled' | 'kind' | 'rolloutPercentage' | 'targeting'>,
+  t: Translator = englishTranslator,
+): string {
   const allowlisted = flag.targeting.userIds.length;
   if (!flag.enabled) {
-    return allowlisted > 0 ? 'Off for everyone, allowlisted users included.' : 'Off for everyone.';
+    return allowlisted > 0
+      ? t('adminFlags.audience.offWithAllowlist', 'Off for everyone, allowlisted users included.')
+      : t('adminFlags.audience.off', 'Off for everyone.');
   }
 
-  const roles = describeRoles(flag.targeting.roles);
-  const extra = allowlisted > 0 ? `, plus ${plural(allowlisted, 'allowlisted user', 'allowlisted users')}` : '';
+  const roles = describeRoles(flag.targeting.roles, t);
+  const extra = allowlisted > 0
+    ? t(
+        'adminFlags.audience.plusAllowlist',
+        ', plus {count, plural, one {# allowlisted user} other {# allowlisted users}}',
+        { count: allowlisted },
+      )
+    : '';
 
-  if (flag.kind === 'boolean') return `On for ${roles}${extra}.`;
+  if (flag.kind === 'boolean') return t('adminFlags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
 
   const percentage = flag.rolloutPercentage ?? 0;
   if (percentage === 0) {
     return allowlisted > 0
-      ? `On only for ${plural(allowlisted, 'allowlisted user', 'allowlisted users')}.`
-      : 'Enabled, but at 0% nobody gets it.';
+      ? t(
+          'adminFlags.audience.onAllowlistedOnly',
+          'On only for {count, plural, one {# allowlisted user} other {# allowlisted users}}.',
+          { count: allowlisted },
+        )
+      : t('adminFlags.audience.zeroPercent', 'Enabled, but at 0% nobody gets it.');
   }
-  if (percentage === 100) return `On for ${roles}${extra}.`;
-  return `On for ${percentage}% of ${roles}${extra}.`;
+  if (percentage === 100) return t('adminFlags.audience.onFor', 'On for {roles}{extra}.', { roles, extra });
+  return t('adminFlags.audience.percentage', 'On for {percentage}% of {roles}{extra}.', { percentage, roles, extra });
 }
 
 // ---- Filters ---------------------------------------------------------------

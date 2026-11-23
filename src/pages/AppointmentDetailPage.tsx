@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { Spinner } from '../components/Spinner';
+import { EmptyState } from '../components/states/EmptyState';
+import { PageError } from '../components/states/PageError';
+import { Skeleton } from '../components/states/Skeleton';
 import { QueuePanel } from '../features/appointments/components/QueuePanel';
 import { RescheduleDialog } from '../features/appointments/components/RescheduleDialog';
 import { rescheduleWindow } from '../features/appointments/cutoff';
@@ -79,9 +81,7 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card" aria-busy="true">
-          <p className={styles.loading}>
-            <Spinner size={16} /> Loading your appointment…
-          </p>
+          <Skeleton lines={5} height="1.75rem" label="Loading your appointment" />
           {showColdStartHint && (
             <p className="slowHint">The server may be waking up — this can take up to a minute.</p>
           )}
@@ -93,17 +93,12 @@ export function AppointmentDetailPage() {
   if (detail.isError) {
     return (
       <div className="container">
-        <div className="card" role="alert">
-          <h1 className={styles.title}>We couldn&apos;t load your appointment.</h1>
-          <p>
-            {detail.error instanceof ApiError ? `${detail.error.message} ` : ''}
-            Nothing about your appointment has changed — please try again.
-          </p>
-          <div className={styles.actions}>
-            <Button onClick={() => detail.refetch()}>Try again</Button>
-            <Link to="/patient">All appointments</Link>
-          </div>
-        </div>
+        <PageError
+          title="We couldn't load your appointment."
+          message={`${detail.error instanceof ApiError ? `${detail.error.message} ` : ''}Nothing about your appointment has changed — please try again.`}
+          onRetry={() => void detail.refetch()}
+          fallback={{ label: 'All appointments', to: '/patient' }}
+        />
       </div>
     );
   }
@@ -112,15 +107,12 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1 className={styles.title}>Your appointment</h1>
-          <p className={styles.loading}>We couldn&apos;t find that appointment on your account.</p>
-          <p>
-            It may have been cancelled, or this link points at an appointment that isn&apos;t yours. Your appointment
-            list is unchanged.
-          </p>
-          <p className={styles.back}>
-            <Link to="/patient">Back to your care summary</Link>
-          </p>
+          <EmptyState
+            title="We couldn't find that appointment on your account."
+            description="It may have been cancelled, or this link points at an appointment that isn't yours. Your appointment list is unchanged."
+            action={{ label: 'Back to your care summary', to: '/patient' }}
+            size="page"
+          />
         </div>
       </div>
     );
@@ -193,6 +185,12 @@ export function AppointmentDetailPage() {
         )}
 
         <h2 className={styles.sectionTitle}>Actions</h2>
+        {appointment.status === 'scheduled' && !appointment.intake && (
+          <p className={styles.detail}>
+            <Link to={`/patient/appointments/${appointment.id}/intake`}>Complete your intake</Link>
+            {' — '}answers save as you type in this tab.
+          </p>
+        )}
         {window.allowed ? (
           <div className={styles.actions}>
             <Button onClick={() => setShowReschedule(true)}>Reschedule</Button>

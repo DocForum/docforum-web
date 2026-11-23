@@ -13,11 +13,11 @@ export interface SearchFilters {
 
 export const EMPTY_FILTERS: SearchFilters = { symptomSlug: '', availability: 'any' };
 
-export const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string }[] = [
-  { value: 'any', label: 'Any time' },
-  { value: 'week', label: 'This week' },
-  { value: 'today', label: 'Today' },
-];
+/** Filter identifiers only — the visible labels come from the catalogue. */
+export const AVAILABILITY_OPTIONS: AvailabilityFilter[] = ['any', 'week', 'today'];
+
+/** Stable notice ids: the view maps each one to a static catalogue message. */
+export type SearchNoticeId = 'invalidSymptom' | 'invalidAvailability';
 
 /** Slugs come from the backend's controlled vocabulary, so a conservative
  * pattern is safe: lowercase words joined by single hyphens. */
@@ -26,14 +26,14 @@ const MAX_SLUG_LENGTH = 64;
 
 export interface ParsedSearch {
   filters: SearchFilters;
-  /** Human-readable notices for invalid params that were dropped. */
-  issues: string[];
+  /** Ids for invalid params that were dropped; the view translates them. */
+  issues: SearchNoticeId[];
 }
 
 const AVAILABILITY_VALUES: AvailabilityFilter[] = ['any', 'week', 'today'];
 
 export function parseSearchParams(params: URLSearchParams): ParsedSearch {
-  const issues: string[] = [];
+  const issues: SearchNoticeId[] = [];
   const filters: SearchFilters = { ...EMPTY_FILTERS };
 
   const rawSymptom = params.get('symptom');
@@ -42,7 +42,7 @@ export function parseSearchParams(params: URLSearchParams): ParsedSearch {
     if (slug.length <= MAX_SLUG_LENGTH && SLUG_PATTERN.test(slug)) {
       filters.symptomSlug = slug;
     } else {
-      issues.push('That symptom link was not valid, so the symptom was cleared.');
+      issues.push('invalidSymptom');
     }
   }
 
@@ -51,7 +51,7 @@ export function parseSearchParams(params: URLSearchParams): ParsedSearch {
     if (AVAILABILITY_VALUES.includes(rawAvailability as AvailabilityFilter)) {
       filters.availability = rawAvailability as AvailabilityFilter;
     } else {
-      issues.push('That availability filter was not valid, so it was reset to “Any time”.');
+      issues.push('invalidAvailability');
     }
   }
 

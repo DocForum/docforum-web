@@ -72,6 +72,12 @@ export interface FulfillmentQueueItem {
   facilityId: string;
   orderId: string;
   orderType: FulfillmentOrderType;
+  /** The owning fulfilment record for the real PATCH endpoints (issue #269).
+   * The queue listing is still an assumed contract; when it omits these,
+   * callers fall back to `id` (and the mock treats it as both ids). */
+  fulfillmentRecordId?: string;
+  /** The FulfillmentItem id inside that record, for item-level dispensing. */
+  fulfillmentItemId?: string;
   patientName: string;
   patientProfileId: string;
   itemName: string;
@@ -91,4 +97,46 @@ export interface FulfillmentQueueItem {
   blockedReason?: string | null;
   dispensedByFacilityId?: string | null;
   dispensedByFacilityName?: string | null;
+}
+
+// --- Issue #269 — real pharmacy-order fulfilment records -------------------
+// `PATCH /pharmacy-orders/fulfillments/:id` takes `in_progress | rejected`;
+// `PATCH /pharmacy-orders/fulfillments/:id/items/:itemId` takes
+// `dispensed | unfulfilled`. `fulfilled` is derived by docforum-core and is
+// never settable from this client.
+
+export type PharmacyFulfillmentRecordStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'partially_fulfilled'
+  | 'fulfilled'
+  | 'rejected';
+
+export type PharmacyFulfillmentItemStatus = 'pending' | 'dispensed' | 'unfulfilled';
+
+export interface PharmacyFulfillmentRecordItem {
+  id: string;
+  recordId: string;
+  orderItemId: string;
+  status: PharmacyFulfillmentItemStatus;
+  quantityOrdered: number | null;
+  quantityDispensed: number | null;
+  dispensedAt: string | null;
+}
+
+export interface PharmacyFulfillmentRecord {
+  id: string;
+  prescriptionId: string | null;
+  labOrderId: string | null;
+  facilityId: string;
+  status: PharmacyFulfillmentRecordStatus;
+  items: PharmacyFulfillmentRecordItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The item PATCH returns the updated record plus the derived order state. */
+export interface FulfillmentItemUpdateResult {
+  record: PharmacyFulfillmentRecord;
+  orderStatus: 'issued' | 'partially_fulfilled' | 'fulfilled';
 }

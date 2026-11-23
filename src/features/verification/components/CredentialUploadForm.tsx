@@ -2,18 +2,17 @@ import { useId, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { useCredentialUpload } from '../hooks/useCredentialUpload';
+import { useT } from '../../../i18n/useT';
 import {
-  CREDENTIAL_TYPE_HINT,
   credentialAcceptAttribute,
   credentialTypeOptions,
   formatBytes,
   isCredentialType,
+  MAX_CREDENTIAL_BYTES,
   validateCredentialFile,
   validateCredentialType,
 } from '../requirements';
 import styles from './CredentialUploadForm.module.css';
-
-const TYPE_OPTIONS = credentialTypeOptions();
 
 interface Props {
   /** Called after the backend accepts a credential, so the page can refetch
@@ -22,6 +21,7 @@ interface Props {
 }
 
 export function CredentialUploadForm({ onUploaded }: Props) {
+  const t = useT();
   const { upload, isPending, error, progress, abort } = useCredentialUpload();
   const [file, setFile] = useState<File | null>(null);
   const [type, setType] = useState('');
@@ -42,14 +42,14 @@ export function CredentialUploadForm({ onUploaded }: Props) {
     setUploadedFileName(null);
     // Validate on pick, not only on submit: nobody should click Upload with a
     // 40 MB scan already in the box and wonder why nothing happened.
-    setValidationError(selected ? validateCredentialFile(selected) : null);
+    setValidationError(selected ? validateCredentialFile(selected, t) : null);
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const message = validateCredentialFile(file) ?? validateCredentialType(type);
+    const message = validateCredentialFile(file, t) ?? validateCredentialType(type, t);
     if (message !== null || file === null || !isCredentialType(type)) {
-      setValidationError(message ?? 'Choose a document and its type.');
+      setValidationError(message ?? t('verification.upload.documentAndType', 'Choose a document and its type.'));
       return;
     }
     setValidationError(null);
@@ -65,19 +65,24 @@ export function CredentialUploadForm({ onUploaded }: Props) {
 
   // The server's own reason is always the more useful sentence; the fallback
   // is only for a rejection that comes back without one.
-  const apiMessage = error ? error.message || 'The upload failed. Check your connection and try again.' : null;
+  const apiMessage = error
+    ? error.message || t('verification.upload.uploadFailed', 'The upload failed. Check your connection and try again.')
+    : null;
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
-      <h3 className={styles.title}>Upload a credential</h3>
+      <h3 className={styles.title}>{t('verification.upload.title', 'Upload a credential')}</h3>
       <p className={styles.hint} id={hintId}>
-        {CREDENTIAL_TYPE_HINT} The list below is the current review policy — it is not a rule the server stores per
-        application.
+        {t(
+          'verification.upload.hint',
+          'PDF, JPEG, or PNG, up to {max}. The list below is the current review policy — it is not a rule the server stores per application.',
+          { max: formatBytes(MAX_CREDENTIAL_BYTES) },
+        )}
       </p>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor={fileFieldId}>
-          Document file
+          {t('verification.upload.documentFile', 'Document file')}
         </label>
         <input
           className={styles.file}
@@ -91,13 +96,15 @@ export function CredentialUploadForm({ onUploaded }: Props) {
           aria-invalid={validationError !== null}
         />
         <span className={styles.selected} aria-live="polite">
-          {file ? `${file.name} (${formatBytes(file.size)})` : 'No document chosen.'}
+          {file
+            ? `${file.name} (${formatBytes(file.size)})`
+            : t('verification.upload.noDocument', 'No document chosen.')}
         </span>
       </div>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor={typeFieldId}>
-          Document type
+          {t('verification.upload.documentType', 'Document type')}
         </label>
         <select
           className={styles.select}
@@ -106,11 +113,12 @@ export function CredentialUploadForm({ onUploaded }: Props) {
           onChange={(event) => setType(event.target.value)}
           disabled={isPending}
         >
-          <option value="">Choose a document type</option>
-          {TYPE_OPTIONS.map((option) => (
+          <option value="">{t('verification.upload.chooseType', 'Choose a document type')}</option>
+          {credentialTypeOptions(t).map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
-              {option.required ? ' (required)' : ' (optional)'}
+              {option.required
+                ? t('verification.upload.requiredOption', '{label} (required)', { label: option.label })
+                : t('verification.upload.optionalOption', '{label} (optional)', { label: option.label })}
             </option>
           ))}
         </select>
@@ -132,25 +140,31 @@ export function CredentialUploadForm({ onUploaded }: Props) {
           </div>
           <span className={styles.progressLabel} id={progressLabelId}>
             {progress.loadedBytes >= progress.totalBytes && progress.totalBytes > 0
-              ? `Sent ${formatBytes(progress.totalBytes)} — waiting for the server to record it.`
-              : `Uploading: ${formatBytes(progress.loadedBytes)} of ${formatBytes(progress.totalBytes)} (${progress.percent}%)`}
+              ? t('verification.upload.sentWaiting', 'Sent {size} — waiting for the server to record it.', {
+                  size: formatBytes(progress.totalBytes),
+                })
+              : t('verification.upload.uploading', 'Uploading: {loaded} of {total} ({percent}%)', {
+                  loaded: formatBytes(progress.loadedBytes),
+                  total: formatBytes(progress.totalBytes),
+                  percent: progress.percent,
+                })}
           </span>
         </div>
       )}
 
       {uploadedFileName && (
         <p className={styles.success} role="status">
-          {uploadedFileName} uploaded — now pending review.
+          {t('verification.upload.success', '{name} uploaded — now pending review.', { name: uploadedFileName })}
         </p>
       )}
 
       <div className={styles.actions}>
         <Button type="submit" loading={isPending}>
-          Upload document
+          {t('verification.upload.submit', 'Upload document')}
         </Button>
         {isPending && (
           <Button type="button" variant="secondary" onClick={abort}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
         )}
       </div>

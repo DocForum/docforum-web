@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getReadiness, runJob } from './system-health-service';
+import { getReadiness, pingHealthLive, runJob } from './system-health-service';
 import { ApiError } from './api-client';
 import type { ReadinessReport } from '../types/models';
 
@@ -47,5 +47,24 @@ describe('runJob', () => {
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toMatch(/\/admin\/jobs\/reports%2Fdaily%20digest\/run$/);
     expect(init).toMatchObject({ method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
+  });
+});
+
+describe('pingHealthLive', () => {
+  it('calls /health/live with short timeout and retry false', async () => {
+    const fetchSpy = respond(200, { status: 'ok' });
+    const success = await pingHealthLive();
+
+    expect(success).toBe(true);
+    expect(fetchSpy).toHaveBeenCalled();
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toMatch(/\/health\/live$/);
+    expect(init).toMatchObject({ method: 'GET' });
+  });
+
+  it('returns false when /health/live fails with 5xx or network error', async () => {
+    respond(503, { status: 'down' });
+    const success = await pingHealthLive();
+    expect(success).toBe(false);
   });
 });

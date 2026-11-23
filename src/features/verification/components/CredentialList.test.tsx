@@ -191,25 +191,32 @@ describe('CredentialList', () => {
     await waitFor(() => expect(screen.queryByLabelText(/replacement file for/i)).toBeNull());
   });
 
-  it('shows the empty state before anything is uploaded', () => {
+  it('shows the empty state with the upload action before anything is uploaded', () => {
     renderList([]);
-    expect(screen.getByText(/no documents uploaded yet/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /no documents uploaded yet/i })).toBeInTheDocument();
     expect(screen.getByText(/get-on-demand/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload a document/i })).toBeInTheDocument();
   });
 
-  it('shows a loading state', () => {
+  it('shows a loading skeleton while the documents are fetched', () => {
     render(<CredentialList credentials={[]} isLoading error={null} />);
-    expect(screen.getByText(/loading your documents/i)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading your documents/i);
   });
 
-  it('shows the backend message when the list cannot be read', () => {
+  it('shows the catalogue message with a retry when the list cannot be read', async () => {
+    const onRetry = vi.fn();
+    const user = userEvent.setup();
     render(
       <CredentialList
         credentials={[]}
         isLoading={false}
         error="Verification records are unavailable right now."
+        onRetry={onRetry}
       />,
     );
+
     expect(screen.getByRole('alert')).toHaveTextContent('Verification records are unavailable right now.');
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

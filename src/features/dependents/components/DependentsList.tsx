@@ -8,7 +8,7 @@ import { useDependents, useAddDependent, useUpdateDependent } from '../hooks/use
 import { useT } from '../../../i18n/useT';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDate as formatZonedDate } from '../../../i18n/time-zone';
-import { useErrorMessage } from '../../../hooks/useErrorText';
+import { describeDependentError } from '../../../services/error-catalogue';
 import type { Dependent, DependentInput } from '../../../types/models';
 import styles from './DependentsList.module.css';
 
@@ -22,7 +22,6 @@ export function DependentsList() {
   const addMutation = useAddDependent();
   const editMutation = useUpdateDependent();
   const t = useT();
-  const errorMessage = useErrorMessage();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,10 +42,14 @@ export function DependentsList() {
   }
 
   function handleAdd(input: DependentInput) {
-    addMutation.mutate(input, { onSuccess: () => setShowAdd(false) });
+    // docforum-core accepts only these two fields on create.
+    addMutation.mutate(
+      { fullName: input.fullName, dateOfBirth: input.dateOfBirth },
+      { onSuccess: () => setShowAdd(false) },
+    );
   }
 
-  function handleEdit(id: string, input: DependentInput) {
+  function handleEdit(id: string, input: Required<DependentInput>) {
     editMutation.mutate({ id, input }, { onSuccess: () => setEditingId(null) });
   }
 
@@ -58,7 +61,7 @@ export function DependentsList() {
     );
   }
 
-  const apiError = errorMessage(fetchError);
+  const apiError = describeDependentError(fetchError, 'Failed to load dependents.')?.message ?? null;
 
   return (
     <div className={styles.root}>
@@ -89,7 +92,7 @@ export function DependentsList() {
             onSubmit={handleAdd}
             onCancel={() => { setShowAdd(false); addMutation.reset(); }}
             loading={addMutation.isPending}
-            error={errorMessage(addMutation.error)}
+            error={describeDependentError(addMutation.error, 'Failed to add dependent.')}
           />
         </div>
       )}
@@ -110,7 +113,7 @@ export function DependentsList() {
               onSubmit={(input) => handleEdit(d.id, input)}
               onCancel={() => { setEditingId(null); editMutation.reset(); }}
               loading={editMutation.isPending}
-              error={errorMessage(editMutation.error)}
+              error={describeDependentError(editMutation.error, 'Failed to save.')}
             />
           ) : (
             <>

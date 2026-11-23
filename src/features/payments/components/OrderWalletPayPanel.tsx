@@ -13,9 +13,11 @@ import { walletPayEnabled } from '../walletPayFlag';
 import { PayWithWallet } from './PayWithWallet';
 import { statusLabel } from '../status';
 import type { PatientOrder } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './PayWithWallet.module.css';
 
 export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
+  const t = useT();
   // Flag off ⇒ never even ask for the order's intent (ADR 0005).
   const intentQuery = useOrderPaymentIntent(walletPayEnabled ? order.id : undefined);
 
@@ -31,7 +33,8 @@ export function OrderWalletPayPanel({ order }: { order: PatientOrder }) {
   return (
     <div className={styles.orderPayment} data-testid={`payment-status-${order.id}`}>
       <p className={styles.amount}>
-        Payment: <strong>{statusLabel(intent.status)}</strong>
+        {t('payments.panel.payment', 'Payment:')}{' '}
+        <strong>{statusLabel(intent.status, t)}</strong>
       </p>
     </div>
   );

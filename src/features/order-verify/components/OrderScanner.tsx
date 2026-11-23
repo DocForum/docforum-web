@@ -1,5 +1,6 @@
 import { useCameraQrScanner } from '../hooks/useCameraQrScanner';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import styles from './OrderVerify.module.css';
 
 interface OrderScannerProps {
@@ -9,6 +10,7 @@ interface OrderScannerProps {
 }
 
 export function OrderScanner({ onScan, onSwitchToManual, isVerifying = false }: OrderScannerProps) {
+  const t = useT();
   const {
     videoRef,
     cameraStatus,
@@ -30,12 +32,12 @@ export function OrderScanner({ onScan, onSwitchToManual, isVerifying = false }: 
             cameraStatus === 'denied' || cameraStatus === 'error' ? styles.alertError : styles.alertWarning
           }`}
         >
-          <strong>Camera Access Notice</strong>
+          <strong>{t('orderVerify.scanner.noticeTitle', 'Camera Access Notice')}</strong>
           <span>{errorMessage}</span>
           {cameraStatus === 'denied' && (
             <div style={{ marginTop: 'var(--space-2)' }}>
               <Button variant="secondary" onClick={onSwitchToManual}>
-                Switch to manual entry
+                {t('orderVerify.scanner.switchManual', 'Switch to manual entry')}
               </Button>
             </div>
           )}
@@ -48,7 +50,7 @@ export function OrderScanner({ onScan, onSwitchToManual, isVerifying = false }: 
           className={styles.videoFeed}
           playsInline
           muted
-          aria-label="Order QR camera viewfinder"
+          aria-label={t('orderVerify.scanner.viewfinderLabel', 'Order QR camera viewfinder')}
         />
         {isScanning && (
           <div className={styles.reticle} aria-hidden="true">
@@ -60,15 +62,15 @@ export function OrderScanner({ onScan, onSwitchToManual, isVerifying = false }: 
       <div className={styles.scannerControls}>
         {isScanning ? (
           <Button variant="secondary" onClick={stopCamera}>
-            Pause camera
+            {t('orderVerify.scanner.pauseCamera', 'Pause camera')}
           </Button>
         ) : (
           <Button variant="secondary" onClick={startCamera}>
-            Resume camera
+            {t('orderVerify.scanner.resumeCamera', 'Resume camera')}
           </Button>
         )}
         <Button variant="secondary" onClick={onSwitchToManual}>
-          Manual code entry
+          {t('orderVerify.scanner.manualEntry', 'Manual code entry')}
         </Button>
       </div>
     </div>

@@ -42,11 +42,21 @@ export const appointmentKeys = {
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
 };
 
-export const followUpKeys = {
-  all: ['follow-ups'] as const,
-  mine: () => ['follow-ups', 'mine'] as const,
-  slots: (followUpId: string, doctorProfileId: string) =>
-    ['follow-ups', followUpId, 'slots', doctorProfileId] as const,
+/**
+ * Public doctor directory (issues #1/#13): one list key per filter pair, plus
+ * a stable directory key used to resolve `doctorProfileId` → name. Availability
+ * slots live under their own root so a booking can refresh slot lists without
+ * refetching every doctor.
+ */
+export const doctorKeys = {
+  all: ['doctors'] as const,
+  list: (specialty: string | null, q: string | null) =>
+    ['doctors', 'list', specialty, q] as const,
+  directory: () => ['doctors', 'directory'] as const,
+  profile: (doctorProfileId: string) => ['doctors', 'profile', doctorProfileId] as const,
+  slotsRoot: ['doctors', 'slots'] as const,
+  slots: (doctorProfileId: string) => ['doctors', 'slots', doctorProfileId] as const,
+  specialties: () => ['specialties'] as const,
 };
 
 /** The doctor's queue panel: the live list plus the running-delay knob. */
@@ -99,6 +109,22 @@ export const facilitySearchKeys = {
   all: ['facilities'] as const,
   list: (params: { type?: string; lat?: number; lng?: number; query?: string }) =>
     ['facilities', params.type ?? null, params.lat ?? null, params.lng ?? null, params.query ?? null] as const,
+  /** Eligible facilities for one catalog item, with their price in force (#258). */
+  eligible: (
+    catalogItemCode: string,
+    params: { type?: string; lat?: number; lng?: number; query?: string },
+  ) =>
+    [
+      'facilities',
+      'eligible',
+      catalogItemCode,
+      params.type ?? null,
+      params.lat ?? null,
+      params.lng ?? null,
+      params.query ?? null,
+    ] as const,
+  /** One facility's public price history (#258) — read per card, never mutated. */
+  priceHistory: (facilityId: string) => ['facilities', 'prices', facilityId] as const,
 };
 
 /** Admin audit tables: one root, one key per tab+filter combination. */
@@ -180,7 +206,10 @@ export const paymentKeys = {
   ledger: (facilityId: string, filters: unknown) =>
     ['payments', 'ledger', facilityId, filters] as const,
   /** The patient's payment history (infinite list + one entry). */
-  history: () => ['payments', 'mine'] as const,
+  history: (filters?: unknown) =>
+    filters !== undefined
+      ? (['payments', 'mine', filters] as const)
+      : (['payments', 'mine'] as const),
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
   /** The intent attached to an order — `null` when the order has none (issue #61). */
   orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
@@ -235,6 +264,8 @@ export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+  threadIdsForPatients: (patientProfileIds: readonly string[]) =>
+    ['doctor', 'messages', 'thread-ids-for-patients', patientProfileIds] as const,
 };
 
 /** First-run onboarding summary (#121). One key per role: the server scopes

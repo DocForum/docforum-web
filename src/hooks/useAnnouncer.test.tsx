@@ -49,4 +49,44 @@ describe('useAnnouncer', () => {
     });
     expect(result.current.message).toBe('');
   });
+
+  it('resolves function messages when the batch flushes and skips empty ones', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useAnnouncer(100));
+    let count = 1;
+
+    act(() => {
+      result.current.announce(() => `${count} new.`);
+      result.current.announce(() => '');
+    });
+    count = 3;
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(result.current.message).toBe('3 new.');
+  });
+
+  it('re-announces a batch that reads the same as the previous one', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useAnnouncer(100));
+
+    act(() => {
+      result.current.announce('Saved.');
+    });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    const first = result.current.message;
+
+    act(() => {
+      result.current.announce('Saved.');
+    });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(result.current.message.trim()).toBe('Saved.');
+    expect(result.current.message).not.toBe(first);
+  });
 });

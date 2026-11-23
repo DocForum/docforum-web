@@ -183,7 +183,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
           </div>
 
           <div className={styles.dialogActions}>
-            <Button type="button" variant="secondary" onClick={close} disabled={mutation.isPending} data-initial-focus autoFocus>
+            <Button type="button" variant="secondary" onClick={close} disabled={mutation.isPending} data-initial-focus>
               Cancel
             </Button>
             <Button type="submit" variant={status === 'verified' ? 'primary' : 'danger'} disabled={!canSubmit} loading={mutation.isPending}>

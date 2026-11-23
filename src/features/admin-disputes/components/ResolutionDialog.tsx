@@ -12,6 +12,7 @@ import {
   validateNotes,
 } from '../resolution';
 import type { DisputeResolution, FulfillmentDispute } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './Disputes.module.css';
 
 interface ResolutionDialogProps {
@@ -28,6 +29,7 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onStale }: ResolutionDialogProps) {
+  const t = useT();
   const titleId = useId();
   const descId = useId();
   const notesId = useId();
@@ -46,13 +48,13 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
 
   const mutation = useResolveDispute(dispute.id);
-  const consequence = resolutionConsequence(dispute, resolution);
-  const party = resolutionLabel(resolution);
+  const consequence = resolutionConsequence(dispute, resolution, t);
+  const party = resolutionLabel(resolution, t);
   const notesLength = normaliseNotes(notes).length;
   // Notes are validated on submit so an admin who types too little gets an
   // explanation instead of a disabled button with no visible reason.
   const canSubmit = !mutation.isPending && !outcomeUnknown && acknowledged;
-  const dialogTitle = resolutionTitle(resolution);
+  const dialogTitle = resolutionTitle(resolution, t);
 
   onCloseRef.current = onClose;
   pendingRef.current = mutation.isPending;
@@ -101,7 +103,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
     event.preventDefault();
     setFailure(null);
 
-    const error = validateNotes(notes);
+    const error = validateNotes(notes, t);
     if (error) {
       setNotesError(error);
       return;
@@ -117,7 +119,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
       });
       onResolved(updated);
     } catch (cause) {
-      const described = describeResolutionError(cause);
+      const described = describeResolutionError(cause, t);
       if (described.kind === 'conflict' || described.kind === 'auth') {
         onStale(described.message);
         return;
@@ -146,8 +148,11 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
           {dialogTitle}?
         </h3>
         <p className={styles.dialogText} id={descId}>
-          This closes dispute <strong>#{dispute.id}</strong> for order <code>{dispute.orderId}</code> in the{' '}
-          <strong>{party}'s favour</strong>. <strong>Resolutions are final — this cannot be undone or reversed.</strong>
+          {t('adminDisputes.resolution.dialogDescription', 'This closes dispute #{disputeId} for order {orderId} in the {party}’s favour. Resolutions are final — this cannot be undone or reversed.', {
+            disputeId: dispute.id,
+            orderId: dispute.orderId,
+            party,
+          })}
         </p>
 
         <form className={styles.dialogBody} onSubmit={(event) => void submit(event)} noValidate>
@@ -155,28 +160,28 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
             <div className={styles.inlineError} role="alert">
               <p>{failure}</p>
               {outcomeUnknown && (
-                <p>Close this dialog and reload the dispute before trying again, in case it was applied.</p>
+                <p>{t('adminDisputes.resolution.reloadAfterUnknown', 'Close this dialog and reload the dispute before trying again, in case it was applied.')}</p>
               )}
             </div>
           )}
 
           <div className={styles.consequence}>
-            <h4>Payment consequence</h4>
+            <h4>{t('adminDisputes.resolution.paymentConsequence', 'Payment consequence')}</h4>
             <p>{consequence.payment}</p>
             <p className={styles.consequenceOutcome}>{consequence.outcome}</p>
           </div>
           <p className={styles.finalWarning}>
             {consequence.movesMoney
-              ? 'Confirming moves money immediately. There is no undo.'
-              : 'Confirming still closes the dispute permanently. There is no undo.'}
+              ? t('adminDisputes.resolution.confirmMovesMoney', 'Confirming moves money immediately. There is no undo.')
+              : t('adminDisputes.resolution.confirmNoMoney', 'Confirming still closes the dispute permanently. There is no undo.')}
           </p>
 
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={notesId}>
-              Resolution notes
+              {t('adminDisputes.resolution.notesLabel', 'Resolution notes')}
             </label>
             <p className={styles.fieldHint} id={`${notesId}-hint`}>
-              Saved to the audit trail with your admin account. Explain the decision without clinical details.
+              {t('adminDisputes.resolution.notesHint', 'Saved to the audit trail with your admin account. Explain the decision without clinical details.')}
             </p>
             <textarea
               className={styles.textarea}
@@ -215,7 +220,7 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
             <span>
-              I understand this is final and cannot be undone. Resolve the dispute in the {party}'s favour.
+              {t('adminDisputes.resolution.acknowledge', 'I understand this is final and cannot be undone. Resolve the dispute in the {party}’s favour.', { party })}
             </span>
           </label>
 
@@ -226,9 +231,10 @@ export function ResolutionDialog({ dispute, resolution, onClose, onResolved, onS
               onClick={close}
               disabled={mutation.isPending}
               data-initial-focus
-              autoFocus
             >
-              {outcomeUnknown ? 'Close and reload dispute' : 'Keep dispute open'}
+              {outcomeUnknown
+                ? t('adminDisputes.resolution.closeReload', 'Close and reload dispute')
+                : t('adminDisputes.resolution.keepOpen', 'Keep dispute open')}
             </Button>
             {!outcomeUnknown && (
               <Button type="submit" disabled={!canSubmit} loading={mutation.isPending}>
