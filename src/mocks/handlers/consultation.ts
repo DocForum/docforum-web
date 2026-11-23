@@ -1,7 +1,7 @@
 // Consultation note sign-off and addenda endpoints.
 import { http, HttpResponse } from 'msw';
 import { db } from '../db';
-import { SPECIALTIES } from '../fixtures';
+import type { SentReferral } from '../../types/models';
 import { conflict, notFound, paramId, respond } from '../helpers';
 import type {
   ConsultationAddendum,
@@ -14,6 +14,25 @@ import type {
 } from '../../types/models';
 
 export const consultationHandlers = [
+  // The received-referral inbox (issue #41) has no seeded rows, but the
+  // Sent/Received tabs expose it in mock mode — answer with an empty cursor
+  // page instead of letting the request fall through to the dev server.
+  http.get(
+    '*/doctors/me/referrals',
+    respond('json', () => ({ items: [], nextCursor: null })),
+  ),
+
+  // Referrals the calling doctor created (issue #265). Core returns a flat
+  // array, newest first; mock rows carry the assumed target-name expansions.
+  http.get(
+    '*/referrals/created',
+    respond('list', () =>
+      [...db.sentReferrals].sort(
+        (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+      ) satisfies SentReferral[],
+    ),
+  ),
+
   http.get(
     '*/consultation-notes/:appointmentId',
     respond('json', ({ params }) => {

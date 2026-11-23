@@ -62,6 +62,7 @@ export type * from './models/phi-access-log';
 export type * from './models/prescription-source';
 export type * from './models/referral-inbox';
 export type * from './models/scan-to-verify-orders';
+export type * from './models/sent-referrals';
 export type * from './models/session-idle-timeout';
 export type * from './models/specialty-verification-review';
 export type * from './models/stuck-referrals';
