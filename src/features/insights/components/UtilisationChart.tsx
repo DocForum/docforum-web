@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useIntl } from 'react-intl';
 import type { UtilisationWeek } from '../../../types/models';
 import { useFormat } from '../../../i18n/useFormat';
+import { useT } from '../../../i18n/useT';
 import styles from './PracticeInsights.module.css';
 
 interface UtilisationChartProps {
@@ -11,6 +13,17 @@ interface UtilisationChartProps {
   sampleSizeWarning: boolean;
 }
 
+/** Week labels use Intl month names for the active locale. */
+function formatWeekLabel(week: UtilisationWeek, locale?: string): string {
+  const date = new Date(`${week.startDate}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return week.weekLabel;
+  return date.toLocaleDateString(locale, {
+    month: 'short',
+    day: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
 export function UtilisationChart({
   weeks,
   overallOfferedSlots,
@@ -19,27 +32,31 @@ export function UtilisationChart({
   sampleSizeWarning,
 }: UtilisationChartProps) {
   const { formatDate, formatNumber, formatPercent } = useFormat();
+  const { locale } = useIntl();
+  const t = useT();
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
   const maxSlots = Math.max(1, ...weeks.map((w) => Math.max(w.offeredSlots, w.bookedSlots)));
+  const offeredLabel = t('insights.utilisation.offeredSlots', 'Offered slots');
+  const bookedLabel = t('insights.utilisation.bookedSlots', 'Booked slots');
 
   return (
     <section className={styles.card} aria-labelledby="utilisation-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="utilisation-heading">Slot utilisation by week</h2>
+          <h2 id="utilisation-heading">{t('insights.utilisation.title', 'Slot utilisation by week')}</h2>
           <p className={styles.cardSubtitle}>
-            How efficiently your appointment calendar slots were booked across weeks.
+            {t('insights.utilisation.subtitle', 'How efficiently your appointment calendar slots were booked across weeks.')}
           </p>
         </div>
-        <div className={styles.viewToggle} role="group" aria-label="Utilisation view display mode">
+        <div className={styles.viewToggle} role="group" aria-label={t('insights.utilisation.displayMode', 'Utilisation view display mode')}>
           <button
             type="button"
             className={`${styles.toggleButton} ${viewMode === 'chart' ? styles.toggleButtonActive : ''}`}
             onClick={() => setViewMode('chart')}
             aria-pressed={viewMode === 'chart'}
           >
-            Chart view
+            {t('insights.common.chartView', 'Chart view')}
           </button>
           <button
             type="button"
@@ -47,35 +64,37 @@ export function UtilisationChart({
             onClick={() => setViewMode('table')}
             aria-pressed={viewMode === 'table'}
           >
-            Table view
+            {t('insights.common.tableView', 'Table view')}
           </button>
         </div>
       </div>
 
       {sampleSizeWarning && (
         <div className={styles.caveatBanner} role="note">
-          <span className={styles.caveatPill}>Small sample caveat</span>
+          <span className={styles.caveatPill}>{t('insights.common.smallSampleCaveat', 'Small sample caveat')}</span>
           <span>
-            Only {formatNumber(overallOfferedSlots)} slots offered in this period. Percentage utilisation figures can fluctuate significantly with limited data points.
+            {t('insights.utilisation.smallSample', 'Only {count, plural, one {# slot} other {# slots}} offered in this period. Percentage utilisation figures can fluctuate significantly with limited data points.', {
+              count: overallOfferedSlots,
+            })}
           </span>
         </div>
       )}
 
       <div className={styles.summaryGrid}>
         <div className={styles.summaryStat}>
-          <span className={styles.statLabel}>Offered slots</span>
+          <span className={styles.statLabel}>{offeredLabel}</span>
           <span className={styles.statValue}>{formatNumber(overallOfferedSlots)}</span>
-          <span className={styles.statHint}>Total availability</span>
+          <span className={styles.statHint}>{t('insights.utilisation.totalAvailability', 'Total availability')}</span>
         </div>
         <div className={styles.summaryStat}>
-          <span className={styles.statLabel}>Booked slots</span>
+          <span className={styles.statLabel}>{bookedLabel}</span>
           <span className={styles.statValue}>{formatNumber(overallBookedSlots)}</span>
-          <span className={styles.statHint}>Patient reservations</span>
+          <span className={styles.statHint}>{t('insights.utilisation.patientReservations', 'Patient reservations')}</span>
         </div>
         <div className={styles.summaryStat}>
-          <span className={styles.statLabel}>Utilisation rate</span>
+          <span className={styles.statLabel}>{t('insights.utilisation.rateLabel', 'Utilisation rate')}</span>
           <span className={styles.statValue}>{formatPercent(overallUtilisationRate)}</span>
-          <span className={styles.statHint}>Booked / Offered</span>
+          <span className={styles.statHint}>{t('insights.utilisation.rateHint', 'Booked / Offered')}</span>
         </div>
       </div>
 
@@ -85,7 +104,7 @@ export function UtilisationChart({
             className={styles.svgChart}
             viewBox="0 0 600 240"
             role="img"
-            aria-label="Bar chart showing weekly offered vs booked slots"
+            aria-label={t('insights.utilisation.chartLabel', 'Bar chart showing weekly offered vs booked slots')}
           >
             {/* Horizontal baseline */}
             <line x1="40" y1="190" x2="580" y2="190" stroke="var(--color-border)" strokeWidth="1" />
@@ -145,7 +164,7 @@ export function UtilisationChart({
                   >
                     {formatPercent(w.utilisationRate, 0)}
                   </text>
-                  {/* X axis week label */}
+                  {/* X axis week label — week labels are data supplied by the API */}
                   <text
                     x={xCenter}
                     y="210"
@@ -153,7 +172,7 @@ export function UtilisationChart({
                     fill="var(--color-text-muted)"
                     textAnchor="middle"
                   >
-                    {w.weekLabel}
+                    {formatWeekLabel(w, locale)}
                   </text>
                 </g>
               );
@@ -163,11 +182,11 @@ export function UtilisationChart({
           <div className={styles.chartLegend}>
             <div className={styles.legendItem}>
               <span className={styles.legendColor} style={{ background: 'var(--color-surface-hover)', border: '1px solid var(--color-border)' }} />
-              <span>Offered slots</span>
+              <span>{offeredLabel}</span>
             </div>
             <div className={styles.legendItem}>
               <span className={styles.legendColor} style={{ background: 'var(--color-accent)' }} />
-              <span>Booked slots</span>
+              <span>{bookedLabel}</span>
             </div>
           </div>
         </div>
@@ -175,22 +194,22 @@ export function UtilisationChart({
 
       {/* Accessible Table alternative (rendered when table view is active, and also available for screen readers) */}
       <div className={viewMode === 'table' ? styles.tableWrapper : styles.srOnly}>
-        <table className={styles.dataTable} aria-label="Weekly slot utilisation data table">
-          <caption>Weekly breakdown of offered vs booked slots and utilisation percentage</caption>
+        <table className={styles.dataTable} aria-label={t('insights.utilisation.tableLabel', 'Weekly slot utilisation data table')}>
+          <caption>{t('insights.utilisation.tableCaption', 'Weekly breakdown of offered vs booked slots and utilisation percentage')}</caption>
           <thead>
             <tr>
-              <th scope="col">Week</th>
-              <th scope="col">Date Range</th>
-              <th scope="col" className="num">Offered</th>
-              <th scope="col" className="num">Booked</th>
-              <th scope="col" className="num">Completed</th>
-              <th scope="col" className="num">Utilisation</th>
+              <th scope="col">{t('insights.utilisation.colWeek', 'Week')}</th>
+              <th scope="col">{t('insights.utilisation.colDateRange', 'Date Range')}</th>
+              <th scope="col" className="num">{t('insights.utilisation.colOffered', 'Offered')}</th>
+              <th scope="col" className="num">{t('insights.utilisation.colBooked', 'Booked')}</th>
+              <th scope="col" className="num">{t('insights.utilisation.colCompleted', 'Completed')}</th>
+              <th scope="col" className="num">{t('insights.utilisation.colUtilisation', 'Utilisation')}</th>
             </tr>
           </thead>
           <tbody>
             {weeks.map((w) => (
               <tr key={w.weekLabel}>
-                <th scope="row">{w.weekLabel}</th>
+                <th scope="row">{formatWeekLabel(w, locale)}</th>
                 <td>
                   {formatDate(w.startDate)} – {formatDate(w.endDate)}
                 </td>

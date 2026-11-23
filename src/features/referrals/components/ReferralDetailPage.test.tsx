@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../test/render';
 import { ReferralDetailPage } from './ReferralDetailPage';
 import { useAuthStore } from '../../../store/auth-store';
@@ -113,11 +114,41 @@ describe('ReferralDetailPage', () => {
     expect(screen.queryByText('Not Found')).not.toBeInTheDocument();
   });
 
-  it('shows a plain error state for other failures', async () => {
-    vi.mocked(referralsService.getReferralDetail).mockRejectedValue(new ApiError('Upstream blew up.', 500));
+  it('shows the shared page error with retry and a way back for other failures', async () => {
+    vi.mocked(referralsService.getReferralDetail).mockRejectedValue(
+      new ApiError('Upstream leaked internal detail.', 500),
+    );
 
     render(<ReferralDetailPage referralId="ref-1" />);
 
-    expect(await screen.findByText(/upstream blew up/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /this referral couldn't be loaded/i }),
+    ).toBeInTheDocument();
+    // Catalogue copy, never the backend's internal sentence.
+    expect(screen.getByRole('alert')).toHaveTextContent(/something went wrong on our side/i);
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/leaked internal detail/i);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to referrals/i })).toHaveAttribute(
+      'href',
+      '/doctor/referrals',
+    );
+  });
+
+  it('shows a skeleton while the referral is loading', () => {
+    vi.mocked(referralsService.getReferralDetail).mockReturnValue(new Promise<ReferralDetail>(() => {}));
+
+    render(<ReferralDetailPage referralId="ref-1" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(/loading referral/i);
+  });
+
+  it('retries the referral request from the page error', async () => {
+    vi.mocked(referralsService.getReferralDetail).mockRejectedValue(new ApiError('Down.', 503));
+    const user = userEvent.setup();
+
+    render(<ReferralDetailPage referralId="ref-1" />);
+
+    await user.click(await screen.findByRole('button', { name: /try again/i }));
+    expect(referralsService.getReferralDetail).toHaveBeenCalledTimes(2);
   });
 });

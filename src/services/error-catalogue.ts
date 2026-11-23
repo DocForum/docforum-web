@@ -17,6 +17,8 @@ export type ErrorAction =
   | 'fix_input'
   | 'wait'
   | 'contact_support'
+  | 'resend_verification'
+  | 'reload'
   | 'none';
 
 export interface ErrorDescriptor {
@@ -30,6 +32,51 @@ export interface ErrorDescriptor {
 }
 
 export const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR';
+
+// Dependents (issue #261) — core's strict create body and its field-targeted
+// error codes. Kept here so the form and the acting-for screens agree.
+export const DEPENDENT_NOT_A_MINOR = 'DEPENDENT_NOT_A_MINOR';
+export const GUARDIANSHIP_INACTIVE = 'GUARDIANSHIP_INACTIVE';
+
+export type FormField = 'fullName' | 'dateOfBirth';
+
+export interface FormErrorInfo {
+  message: string;
+  /** When set, the message belongs under this field instead of the form. */
+  field?: FormField;
+}
+
+export const DEPENDENT_NOT_A_MINOR_MESSAGE =
+  'This date of birth is not eligible for a dependent profile. Dependents must be under the age of majority; anyone older needs their own account.';
+
+/** Reads the code from the body, falling back to a code sent as the message. */
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+
+  if (error.body && typeof error.body === 'object') {
+    const body = error.body as Record<string, unknown>;
+    for (const key of ['code', 'error'] as const) {
+      const value = body[key];
+      if (typeof value === 'string' && value) return value;
+    }
+  }
+
+  const message = error.message.trim();
+  return /^[A-Z][A-Z0-9_]+$/.test(message) ? message : undefined;
+}
+
+/** Maps a failed dependent create/edit to form copy, field-targeted when the
+ * server points at a specific input. */
+export function describeDependentError(error: unknown, fallback: string): FormErrorInfo | null {
+  if (!error) return null;
+  if (error instanceof ApiError) {
+    if (getApiErrorCode(error) === DEPENDENT_NOT_A_MINOR) {
+      return { message: DEPENDENT_NOT_A_MINOR_MESSAGE, field: 'dateOfBirth' };
+    }
+    return { message: error.message || fallback };
+  }
+  return { message: fallback };
+}
 
 type Entry = Omit<ErrorDescriptor, 'code'>;
 
@@ -75,6 +122,48 @@ const CATALOGUE: Record<string, Entry> = {
     action: 'fix_input',
     actionMessageId: 'errors.actions.reviewFields',
     defaultActionMessage: 'Review fields',
+  },
+  PASSWORD_CONFIRMATION_FAILED: {
+    messageId: 'errors.passwordConfirmationFailed',
+    defaultMessage: 'The confirmation password is incorrect. Check your password and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Email verification (Phase 8, issue #34)
+  EMAIL_NOT_VERIFIED: {
+    messageId: 'errors.emailNotVerified',
+    defaultMessage: 'Please verify your email address before continuing.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.resendVerification',
+    defaultActionMessage: 'Resend verification',
+  },
+  INVALID_VERIFICATION_TOKEN: {
+    messageId: 'errors.invalidVerificationToken',
+    defaultMessage: 'That verification link is invalid or has already been used. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  VERIFICATION_TOKEN_EXPIRED: {
+    messageId: 'errors.verificationTokenExpired',
+    defaultMessage: 'That verification link has expired. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  EMAIL_ALREADY_VERIFIED: {
+    messageId: 'errors.emailAlreadyVerified',
+    defaultMessage: 'This email address is already verified.',
+    action: 'none',
+  },
+  EMAIL_VERIFICATION_RATE_LIMITED: {
+    messageId: 'errors.emailVerificationRateLimited',
+    defaultMessage: 'A verification email was recently sent. Wait a moment before requesting another.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
   },
 
   // Session / authorisation
@@ -167,6 +256,56 @@ const CATALOGUE: Record<string, Entry> = {
     defaultMessage: 'That invitation has expired. Ask for a new one.',
     action: 'none',
   },
+  GUARDIANSHIP_INACTIVE: {
+    messageId: 'errors.guardianshipInactive',
+    defaultMessage:
+      'You can no longer act for this person: their account has been handed over, so they now manage their own bookings and health records. Ask them to sign in and make the change from their own account.',
+    action: 'none',
+  },
+  DEPENDENT_NOT_A_MINOR: {
+    messageId: 'errors.dependentNotAMinor',
+    defaultMessage: 'Dependents must be minors under the age of majority.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Data export (Phase 8, issue #40)
+  EXPORT_NOT_READY: {
+    messageId: 'errors.exportNotReady',
+    defaultMessage: 'Your data export is still being generated. Please wait and try again.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  EXPORT_EXPIRED: {
+    messageId: 'errors.exportExpired',
+    defaultMessage: 'This data export has expired. Request a new export to download your records.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.requestNewExport',
+    defaultActionMessage: 'Request new export',
+  },
+  SECTION_FAILED: {
+    messageId: 'errors.sectionFailed',
+    defaultMessage: 'A section of the export could not be compiled. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_FAILED: {
+    messageId: 'errors.generationFailed',
+    defaultMessage: 'Export generation failed. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_TIMEOUT: {
+    messageId: 'errors.generationTimeout',
+    defaultMessage: 'Export generation timed out. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
 
   // Health records
   HEALTH_ENTRY_CONFLICT: {
@@ -191,10 +330,71 @@ const CATALOGUE: Record<string, Entry> = {
     action: 'none',
   },
 
-  // Consultation
+  // Consultation & Referrals
   CONSULTATION_NOTE_SIGNED: {
     messageId: 'errors.consultationNoteSigned',
     defaultMessage: 'This note is signed and can no longer be edited. Add an addendum instead.',
+    action: 'none',
+  },
+  REFERRAL_NO_ELIGIBLE_TARGET: {
+    messageId: 'errors.referralNoEligibleTarget',
+    defaultMessage: 'No eligible doctor could be found for this specialty. Choose a specific doctor or try again later.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Lab results & object storage (Phase 5, issue #16)
+  LAB_RESULT_UNSUPPORTED_TYPE: {
+    messageId: 'errors.labResultUnsupportedType',
+    defaultMessage: 'Unsupported file type. Please upload a PDF, PNG, or JPEG file.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_CONTENT_MISMATCH: {
+    messageId: 'errors.labResultContentMismatch',
+    defaultMessage: 'The file contents do not match the selected format. Check the file and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_TOO_LARGE: {
+    messageId: 'errors.labResultTooLarge',
+    defaultMessage: 'The file is too large. Lab results must be under 10 MB.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_ALREADY_ATTACHED: {
+    messageId: 'errors.labResultAlreadyAttached',
+    defaultMessage: 'A result has already been attached to this lab order.',
+    action: 'none',
+  },
+  LAB_RESULT_NOT_FOUND: {
+    messageId: 'errors.labResultNotFound',
+    defaultMessage: 'No result has been uploaded for this lab order yet.',
+    action: 'none',
+  },
+  LAB_ORDER_SUPERSEDED: {
+    messageId: 'errors.labOrderSuperseded',
+    defaultMessage: 'This lab order has been superseded by a correction. Attach results to the new order.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+  OBJECT_STORAGE_NOT_CONFIGURED: {
+    messageId: 'errors.objectStorageNotConfigured',
+    defaultMessage: 'File storage is not currently configured. Try again later or contact support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+
+  // Feature flags
+  FEATURE_DISABLED: {
+    messageId: 'errors.featureDisabled',
+    defaultMessage: 'This feature is currently unavailable.',
     action: 'none',
   },
 
@@ -218,7 +418,82 @@ const CATALOGUE: Record<string, Entry> = {
     defaultMessage: 'A wallet is already linked to this facility.',
     action: 'none',
   },
+  WALLET_NOT_LINKED: {
+    messageId: 'errors.walletNotLinked',
+    defaultMessage: 'You must link a wallet before you can fund payments.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.linkWallet',
+    defaultActionMessage: 'Link wallet',
+  },
+  FACILITY_WALLET_NOT_LINKED: {
+    messageId: 'errors.facilityWalletNotLinked',
+    defaultMessage: 'The facility has not linked a payment wallet yet. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PAYEE_TRUSTLINE_MISSING: {
+    messageId: 'errors.payeeTrustlineMissing',
+    defaultMessage: 'The recipient wallet does not accept this payment asset. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PRICE_ON_REQUEST: {
+    messageId: 'errors.priceOnRequest',
+    defaultMessage: 'This service requires price on request. Contact the facility before creating an order.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  ESCROW_SDK_PREPARE_UNSUPPORTED: {
+    messageId: 'errors.escrowSdkPrepareUnsupported',
+    defaultMessage: 'Escrow payment preparation is temporarily unavailable. Try again later.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Pagination / Keyset cursors
+  INVALID_CURSOR: {
+    messageId: 'errors.invalidCursor',
+    defaultMessage: 'The pagination position is invalid. Reload the list to start from the beginning.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.reloadList',
+    defaultActionMessage: 'Reload list',
+  },
 };
+
+/** docforum-core refuses to create or settle a facility's payments while no
+ * payout wallet is linked (issue #279). */
+export const FACILITY_WALLET_NOT_LINKED = 'FACILITY_WALLET_NOT_LINKED';
+
+/** docforum-core refuses to settle because the linked payout wallet has no
+ * trustline for the payout asset (issue #279). */
+export const PAYEE_TRUSTLINE_MISSING = 'PAYEE_TRUSTLINE_MISSING';
+
+/** docforum-core codes that mean this facility's payout setup is incomplete
+ * (issue #279). */
+export const PAYOUT_BLOCK_CODES = [FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING] as const;
+export type PayoutBlockCode = (typeof PAYOUT_BLOCK_CODES)[number];
+
+export function isPayoutBlockCode(value: string | null | undefined): value is PayoutBlockCode {
+  return Boolean(value && (PAYOUT_BLOCK_CODES as readonly string[]).includes(value));
+}
+
+/**
+ * The payout-block code carried by `error`, or `null` for anything else.
+ *
+ * Branches only on the backend's machine-readable code (the transport exposes
+ * it as `ApiError.code`, with the raw body as a fallback) — never on the
+ * message text, and never by asking Stellar from the browser (hard rule 1).
+ */
+export function getPayoutBlockCode(error: unknown): PayoutBlockCode | null {
+  if (!(error instanceof ApiError)) return null;
+  const bodyCode = (error.body as { code?: unknown } | undefined)?.code;
+  const code = error.code ?? (typeof bodyCode === 'string' ? bodyCode : null);
+  return isPayoutBlockCode(code) ? code : null;
+}
 
 /** HTTP-status fallback when the backend did not send a code. */
 const STATUS_CODES: Record<number, string> = {

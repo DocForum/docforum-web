@@ -1,5 +1,7 @@
 import { ApiError } from '../../services/api-client';
+import type { Translator } from '../../i18n/useT';
 import type { OrderTypeForPayment, PaymentIntentStatus } from '../../types/models';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
   created: 'Not funded',
@@ -23,42 +25,55 @@ export const STATUS_COPY: Record<PaymentIntentStatus, string> = {
   failed: 'This payment failed. Nothing was moved on-chain.',
 };
 
-export function statusLabel(status: PaymentIntentStatus): string {
-  return STATUS_LABEL[status] ?? 'Unknown status';
+export function statusLabel(status: PaymentIntentStatus, t: Translator = englishTranslator): string {
+  return t(`payments.status.${status}`, STATUS_LABEL[status] ?? 'Unknown status');
 }
 
-export function statusCopy(status: PaymentIntentStatus): string {
-  return STATUS_COPY[status] ?? 'We cannot explain this status yet.';
+export function statusCopy(status: PaymentIntentStatus, t: Translator = englishTranslator): string {
+  return t(`payments.statusCopy.${status}`, STATUS_COPY[status] ?? 'We cannot explain this status yet.');
 }
 
-export function orderTypeLabel(orderType: OrderTypeForPayment): string {
-  return orderType === 'prescription' ? 'Prescription' : 'Lab order';
+export function orderTypeLabel(orderType: OrderTypeForPayment, t: Translator = englishTranslator): string {
+  const isPrescription = orderType === 'prescription';
+  return t(
+    `payments.orderType.${isPrescription ? 'prescription' : 'labOrder'}`,
+    isPrescription ? 'Prescription' : 'Lab order',
+  );
 }
 
-export function formatDay(iso: string): string {
+export function formatDay(iso: string, formatDate?: (value: string) => string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString();
+  if (Number.isNaN(date.getTime())) return iso;
+  return formatDate ? formatDate(iso) : date.toLocaleDateString();
 }
 
 /** An empty payment list and a list that could not be fetched are different
  * statements — the first is about the patient's money, the second about our
  * request. core#90 has not landed, so a 404 here is the normal case. */
-export function historyErrorCopy(error: unknown): string {
+export function historyErrorCopy(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError && error.status === 404) {
-    return 'Your payment history is not available for this deployment yet.';
+    return t('payments.history.unavailable', 'Your payment history is not available for this deployment yet.');
   }
-  if (error instanceof ApiError) return error.message;
-  return 'Your payment history could not be loaded.';
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return t('payments.history.forbidden', 'Sign in again to view your payment history.');
+  }
+  if (error instanceof ApiError && error.message.trim()) return error.message;
+  return t('payments.history.loadError', 'Your payment history could not be loaded. Try again shortly.');
 }
 
 /** `refundDeadlineAt` is assumed (docforum-core#90) — the real row has no such
  * column, so absence is normal and renders nothing rather than a guess. */
-export function refundDeadlineCopy(deadline: string | null | undefined, now: Date): string | null {
+export function refundDeadlineCopy(
+  deadline: string | null | undefined,
+  now: Date,
+  t: Translator = englishTranslator,
+  formatDate?: (value: string) => string,
+): string | null {
   if (!deadline) return null;
   const date = new Date(deadline);
   if (Number.isNaN(date.getTime())) return null;
-  const day = date.toLocaleDateString();
+  const day = formatDate ? formatDate(deadline) : date.toLocaleDateString();
   return date.getTime() < now.getTime()
-    ? `The refund window closed on ${day}.`
-    : `This payment can still be refunded until ${day}.`;
+    ? t('payments.refund.closed', 'The refund window closed on {date}.', { date: day })
+    : t('payments.refund.open', 'This payment can still be refunded until {date}.', { date: day });
 }

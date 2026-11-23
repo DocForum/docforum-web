@@ -24,7 +24,7 @@ export function ForDoctorsPage() {
         Your dashboard opens on today's appointments and a live queue of checked-in patients:
       </p>
       <ul>
-        <li>Start and complete visits; each action can be undone during a short undo window.</li>
+        <li>Start and complete visits; each action can be undone for four seconds.</li>
         <li>
           See intake before the patient sits down, and set a “running late by N minutes” override
           that the queue reflects — clearable the moment you catch up.

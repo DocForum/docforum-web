@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
 import { FormError } from '../../../components/FormError';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useT } from '../../../i18n/useT';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { ApiError } from '../../../services/api-client';
 import styles from './DeleteAccountSection.module.css';
 
 interface DeleteAccountSectionProps {
@@ -20,11 +21,16 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
   const [password, setPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [clientError, setClientError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  // Set synchronously on submit so a second click in the same tick cannot
+  // start a second DELETE before React re-renders the disabled button.
+  const submittingRef = useRef(false);
 
   const handleOpenModal = () => {
     setPassword('');
     setConfirmText('');
     setClientError(null);
+    setPasswordError(null);
     setIsModalOpen(true);
   };
 
@@ -33,14 +39,18 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
     setPassword('');
     setConfirmText('');
     setClientError(null);
+    setPasswordError(null);
   };
 
   const isConfirmationMatched = confirmText.trim() === 'DELETE';
 
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A double click must not become two DELETEs (docforum-core is
+    // idempotent, but the client should still send one request).
+    if (submittingRef.current || deleteMutation.isPending) return;
     if (!password) {
-      setClientError('Please enter your password to confirm account deletion.');
+      setPasswordError(t('account.delete.passwordRequired', 'Please enter your password to confirm account deletion.'));
       return;
     }
     if (!isConfirmationMatched) {
@@ -48,12 +58,25 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
       return;
     }
     setClientError(null);
+    setPasswordError(null);
+    submittingRef.current = true;
 
     deleteMutation.mutate(
-      { password, confirmation: confirmText },
+      { password },
       {
         onError: (err) => {
+          submittingRef.current = false;
+          // docforum-core answers a wrong password with 403
+          // PASSWORD_CONFIRMATION_FAILED; it belongs on the password field,
+          // not in the generic form banner.
+          if (err instanceof ApiError && err.code === 'PASSWORD_CONFIRMATION_FAILED') {
+            setPasswordError(t('account.delete.passwordIncorrect', 'That password is incorrect. Please try again.'));
+            return;
+          }
           setClientError(errorMessage(err));
+        },
+        onSettled: () => {
+          submittingRef.current = false;
         },
       },
     );
@@ -135,7 +158,11 @@ export function DeleteAccountSection({ onRequestExportClick }: DeleteAccountSect
                 label={t('account.delete.confirmPassword', 'Confirm your password')}
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError(null);
+                }}
+                error={passwordError ?? undefined}
                 required
                 autoFocus
               />

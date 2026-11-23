@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { DatePicker } from '../../../components/DatePicker';
 import { FormError } from '../../../components/FormError';
-import { TextField } from '../../../components/TextField';
 import { useGenerateSlots } from '../hooks/useSlotManagement';
+import { useT, type Translate } from '../../../i18n/useT';
 import { ApiError } from '../../../services/api-client';
 import {
   MAX_GENERATE_DAYS,
@@ -35,31 +36,53 @@ interface FieldErrors {
   slotLength?: string;
 }
 
-function validate(values: {
-  fromDate: string;
-  toDate: string;
-  startHour: number;
-  endHour: number;
-  slotLengthMinutes: number;
-}): FieldErrors {
+function validate(
+  values: {
+    fromDate: string;
+    toDate: string;
+    startHour: number;
+    endHour: number;
+    slotLengthMinutes: number;
+  },
+  t: Translate,
+): FieldErrors {
   const errors: FieldErrors = {};
 
-  if (!isValidIsoDate(values.fromDate)) errors.fromDate = 'Choose the first date to generate for.';
-  if (!isValidIsoDate(values.toDate)) errors.toDate = 'Choose the last date to generate for.';
+  if (!isValidIsoDate(values.fromDate)) {
+    errors.fromDate = t('availability.generate.fromRequired', 'Choose the first date to generate for.');
+  }
+  if (!isValidIsoDate(values.toDate)) {
+    errors.toDate = t('availability.generate.toRequired', 'Choose the last date to generate for.');
+  }
 
   if (!errors.fromDate && !errors.toDate) {
     const span = daysBetween(values.fromDate, values.toDate) + 1;
-    if (span < 1) errors.toDate = 'The last date cannot be before the first date.';
+    if (span < 1) {
+      errors.toDate = t('availability.generate.toBeforeFrom', 'The last date cannot be before the first date.');
+    }
     // One request per day, so a long range is a long chain of round trips.
-    else if (span > MAX_GENERATE_DAYS) errors.toDate = `Keep the range to ${MAX_GENERATE_DAYS} days or fewer — every day is its own request.`;
+    else if (span > MAX_GENERATE_DAYS) {
+      errors.toDate = t(
+        'availability.generate.rangeTooLong',
+        'Keep the range to {max} days or fewer — every day is its own request.',
+        { max: MAX_GENERATE_DAYS },
+      );
+    }
   }
 
   if (values.endHour <= values.startHour) {
-    errors.hours = 'The end of the daily window must be later than its start.';
+    errors.hours = t(
+      'availability.generate.hoursOrder',
+      'The end of the daily window must be later than its start.',
+    );
   } else {
     const windowMinutes = (values.endHour - values.startHour) * MINUTES_PER_HOUR;
     if (windowMinutes % values.slotLengthMinutes !== 0) {
-      errors.slotLength = `${values.slotLengthMinutes} minutes does not divide evenly into a ${values.endHour - values.startHour}-hour window. Use 15, 20, 30 or 60.`;
+      errors.slotLength = t(
+        'availability.generate.slotLengthMismatch',
+        '{minutes} minutes does not divide evenly into a {hours}-hour window. Use 15, 20, 30 or 60.',
+        { minutes: values.slotLengthMinutes, hours: values.endHour - values.startHour },
+      );
     }
   }
 
@@ -67,7 +90,8 @@ function validate(values: {
 }
 
 export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() }: Props) {
-  const generate = useGenerateSlots(doctorProfileId);
+  const t = useT();
+  const generate = useGenerateSlots(doctorProfileId, t);
   const today = useMemo(() => todayInZone(now, timeZone), [now, timeZone]);
 
   const [fromDate, setFromDate] = useState<IsoDate>(today);
@@ -84,7 +108,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength });
+    const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength }, t);
     setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) return;
 
@@ -98,36 +122,44 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
   const mutationMessage = generate.error
     ? generate.error instanceof ApiError
       ? generate.error.message
-      : 'The slots could not be generated.'
+      : t('availability.generate.failed', 'The slots could not be generated.')
     : null;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} aria-label="Generate slots">
-      <h3 className={styles.title}>Generate slots</h3>
+    <form
+      className={styles.form}
+      onSubmit={handleSubmit}
+      aria-label={t('availability.generate.title', 'Generate slots')}
+    >
+      <h3 className={styles.title}>{t('availability.generate.title', 'Generate slots')}</h3>
       <p className={styles.hint}>
-        Every day in the range is a separate request — {MAX_GENERATE_DAYS} days maximum. Times are in {timeZone}.
+        {t(
+          'availability.generate.hint',
+          'Every day in the range is a separate request — {max} days maximum. Times are in {timeZone}.',
+          { max: MAX_GENERATE_DAYS, timeZone },
+        )}
       </p>
 
       <div className={styles.grid}>
-        <TextField
-          label="From"
-          type="date"
+        <DatePicker
+          label={t('availability.generate.from', 'From')}
           value={fromDate}
           error={fieldErrors.fromDate}
-          onChange={(event) => setFromDate(event.target.value)}
+          onChange={setFromDate}
+          timeZone={timeZone}
           required
         />
-        <TextField
-          label="To"
-          type="date"
+        <DatePicker
+          label={t('availability.generate.to', 'To')}
           value={toDate}
           error={fieldErrors.toDate}
-          onChange={(event) => setToDate(event.target.value)}
+          onChange={setToDate}
+          timeZone={timeZone}
           required
         />
         <div className={styles.field}>
           <label className={styles.label} htmlFor="generate-start-hour">
-            Daily window starts
+            {t('availability.generate.windowStarts', 'Daily window starts')}
           </label>
           <select
             id="generate-start-hour"
@@ -144,7 +176,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
         </div>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="generate-end-hour">
-            Daily window ends
+            {t('availability.generate.windowEnds', 'Daily window ends')}
           </label>
           <select
             id="generate-end-hour"
@@ -162,7 +194,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
         </div>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="generate-slot-length">
-            Slot length
+            {t('availability.generate.slotLength', 'Slot length')}
           </label>
           <select
             id="generate-slot-length"
@@ -173,7 +205,9 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
           >
             {SLOT_LENGTHS.map((minutes) => (
               <option key={minutes} value={minutes}>
-                {minutes} minutes
+                {t('availability.generate.minutes', '{count, plural, one {# minute} other {# minutes}}', {
+                  count: minutes,
+                })}
               </option>
             ))}
           </select>
@@ -185,8 +219,12 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
       <p className={styles.count}>
         {dayCount > 0
-          ? `Sends ${dayCount} ${dayCount === 1 ? 'request' : 'requests'} — one per day. Overlapping times are skipped, not duplicated.`
-          : 'Pick a range of dates to see how many requests this will send.'}
+          ? t(
+              'availability.generate.requestCount',
+              'Sends {count, plural, one {# request} other {# requests}} — one per day. Overlapping times are skipped, not duplicated.',
+              { count: dayCount },
+            )
+          : t('availability.generate.pickRange', 'Pick a range of dates to see how many requests this will send.')}
       </p>
 
       <FormError message={mutationMessage} />
@@ -194,15 +232,31 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
       {outcome && (
         <p className={styles.result} role="status">
           {outcome.failedDays.length > 0
-            ? `Generated on ${outcome.requestedDays - outcome.failedDays.length} of ${outcome.requestedDays} days — ${outcome.failedDays.length} ${outcome.failedDays.length === 1 ? 'day failed' : 'days failed'}: ${outcome.failedDays[0].message}`
+            ? t(
+                'availability.generate.outcomePartial',
+                'Generated on {ok} of {requested} days — {failed, plural, one {# day failed} other {# days failed}}: {message}',
+                {
+                  ok: outcome.requestedDays - outcome.failedDays.length,
+                  requested: outcome.requestedDays,
+                  failed: outcome.failedDays.length,
+                  message: outcome.failedDays[0].message,
+                },
+              )
             : outcome.created > 0
-              ? `Created ${outcome.created} slot${outcome.created === 1 ? '' : 's'}${outcome.skipped > 0 ? `, skipped ${outcome.skipped} already covered` : ''}.`
-              : 'No new slots were created — those times were already covered.'}
+              ? t(
+                  'availability.generate.outcomeCreated',
+                  'Created {created, plural, one {# slot} other {# slots}}{hasSkipped, select, yes {, skipped {skipped} already covered} other {}}.',
+                  { created: outcome.created, skipped: outcome.skipped, hasSkipped: outcome.skipped > 0 ? 'yes' : 'no' },
+                )
+              : t(
+                  'availability.generate.outcomeNone',
+                  'No new slots were created — those times were already covered.',
+                )}
         </p>
       )}
 
       <Button type="submit" loading={generate.isPending} disabled={!doctorProfileId}>
-        Generate slots
+        {t('availability.generate.title', 'Generate slots')}
       </Button>
     </form>
   );

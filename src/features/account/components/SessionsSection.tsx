@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
-import { useAuthStore } from '../../../store/auth-store';
 import { ApiError } from '../../../services/api-client';
+import { signOut } from '../../../services/sign-out';
 import type { ActiveSession } from '../../../types/models';
 import {
   SESSIONS_QUERY_KEY,
@@ -13,6 +13,7 @@ import {
   useSessions,
 } from '../hooks/useSessions';
 import styles from './SessionsSection.module.css';
+import { paths } from '../../../routes/paths';
 
 type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' };
 
@@ -36,7 +37,6 @@ export function SessionsSection() {
   const { data: sessions, isLoading, isError, refetch, isFetching } = useSessions();
   const revokeSessionMutation = useRevokeSession();
   const revokeOthersMutation = useRevokeOtherSessions();
-  const clearSession = useAuthStore((state) => state.clearSession);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -55,11 +55,10 @@ export function SessionsSection() {
         await revokeSessionMutation.mutateAsync(pending.session.id);
         if (pending.session.isCurrent) {
           // Revoking this device is a sign-out: clear every piece of client
-          // state (server cache included), not just the token.
-          queryClient.clear();
-          clearSession();
+          // state through the shared helper, not just the token.
+          await signOut('logout', { queryClient });
           setPending(null);
-          navigate('/login', { replace: true });
+          navigate(paths.login, { replace: true });
           return;
         }
         setNotice(`Signed out ${pending.session.device}.`);

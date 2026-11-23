@@ -67,6 +67,14 @@ export function useOutboxSummary() {
   });
 }
 
+export function useClearLoginAttempts() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useMutation({
+    mutationFn: (email: string) => systemService.clearLoginAttempts({ email }, accessToken!),
+  });
+}
+
 export function useRunJob() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
