@@ -8,6 +8,7 @@ export const adminNavItems: NavItem[] = [
   { to: '/admin/referrals', label: 'Referrals', roles: ['admin'] },
   { to: '/admin/disputes', label: 'Disputes', roles: ['admin'] },
   { to: '/admin/audit', label: 'Audit trail', roles: ['admin'] },
+  { to: '/admin/metrics', label: 'Success metrics', roles: ['admin'] },
   { to: '/admin/flags', label: 'Flags', roles: ['admin'] },
   { to: '/admin/catalogs', label: 'Catalogs', roles: ['admin'] },
   { to: '/admin/system', label: 'System', roles: ['admin'] },

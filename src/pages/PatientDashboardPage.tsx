@@ -2,6 +2,7 @@ import { Link, Route, Routes } from 'react-router-dom';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { PatientOnboarding } from '../features/onboarding/components/PatientOnboarding';
 import { CareCardList } from '../features/care-hub/components/CareCardList';
+import { FollowUpRequests } from '../features/follow-ups/components/FollowUpRequests';
 import { EmptyState } from '../components/states/EmptyState';
 import { InlineError } from '../components/states/InlineError';
 import { Skeleton } from '../components/states/Skeleton';
@@ -62,6 +63,7 @@ function PatientHome() {
               action={{ label: 'Update your health details', to: '/patient/health' }}
             />
           ) : null}
+          <FollowUpRequests />
         </section>
 
         {sections.upcoming.length > 0 && (

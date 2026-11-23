@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import { AdminAuditPage } from '../pages/AdminAuditPage';
 import { AdminCatalogsPage } from '../pages/AdminCatalogsPage';
@@ -11,11 +12,26 @@ import { AdminVerificationDetailPage } from '../pages/AdminVerificationDetailPag
 import { AdminVerificationPage } from '../pages/AdminVerificationPage';
 import { AdminVerificationsPage } from '../pages/AdminVerificationsPage';
 import { RequireAuth } from '../components/RequireAuth';
+import { Skeleton } from '../components/states/Skeleton';
+
+const AdminMetricsPage = lazy(() =>
+  import('../pages/AdminMetricsPage').then(({ AdminMetricsPage: page }) => ({ default: page })),
+);
 
 /** Admin console routes. Mounted under the layout in App.tsx. React Router ranks
  * routes by how specific their path is, so order between files doesn't matter. */
 export const adminRoutes = (
   <>
+    <Route
+      path="admin/metrics"
+      element={
+        <RequireAuth allowedRoles={['admin']}>
+          <Suspense fallback={<Skeleton lines={5} label="Loading success metrics" />}>
+            <AdminMetricsPage />
+          </Suspense>
+        </RequireAuth>
+      }
+    />
     <Route
       path="admin/audit"
       element={

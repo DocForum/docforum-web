@@ -19,16 +19,12 @@ interface Meta {
 
 type StoryObj = { render: () => ReactNode };
 
-function defineMeta(meta: Meta): Meta {
-  return meta;
-}
-
-const meta = defineMeta({
+const meta: Meta = {
   title: 'Components/States',
   component: Skeleton,
   decorators: [(story) => <MemoryRouter>{story()}</MemoryRouter>],
   tags: ['autodocs'],
-});
+};
 
 export default meta;
 
