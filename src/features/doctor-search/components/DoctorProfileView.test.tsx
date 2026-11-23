@@ -35,9 +35,18 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Pin "today" to the week before the fixture slot (Tue 24 November) so
+  // "Next week" lands on it whenever this suite runs. Only Date is faked:
+  // timers stay real so userEvent and findBy keep working.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-17T08:00:00.000Z'));
   window.localStorage.setItem('docforum-time-zone', 'UTC');
   vi.mocked(directoryService.getPublicDoctor).mockResolvedValue(DOCTOR);
   vi.mocked(appointmentsService.getOpenSlots).mockResolvedValue([SLOT]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function renderProfile() {

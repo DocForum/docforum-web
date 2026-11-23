@@ -15,6 +15,16 @@ export type AppointmentStatus =
   | 'cancelled'
   | 'no_show';
 
+// The referral an appointment came from, when it came from one. The doctor
+// needs this to explain what a no-show or cancellation does to the referral.
+// Assumed shape — see docs.d/264-appointment-status.md.
+export interface AppointmentReferral {
+  id: string;
+  targetSpecialtyName: string;
+  /** No-shows already recorded on this referral before this appointment. */
+  priorNoShows: number;
+}
+
 export interface Appointment {
   id: string;
   doctorProfileId: string;
@@ -27,6 +37,7 @@ export interface Appointment {
   checkInAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  referral?: AppointmentReferral | null;
 }
 
 export interface IntakeForm {
