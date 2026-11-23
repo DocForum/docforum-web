@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
-import { FormError } from '../../../components/FormError';
-import { Spinner } from '../../../components/Spinner';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useT } from '../../../i18n/useT';
 import { SlotSelection } from './SlotSelection';
 import {
   buildCells,
@@ -49,9 +51,17 @@ export function AvailabilityCalendar({
   error,
   onRetry,
 }: Props) {
+  const t = useT();
+  const locale = useIntl().locale;
   const grid = useMemo(() => slotGrid(slots, timeZone), [slots, timeZone]);
-  const dayColumns = useMemo(() => buildCells(slots, dates, timeZone, grid), [slots, dates, timeZone, grid]);
-  const labels = useMemo(() => dates.map((date) => formatDayHeading(date, view === 'day' ? 'long' : 'short')), [dates, view]);
+  const dayColumns = useMemo(
+    () => buildCells(slots, dates, timeZone, grid, t, locale),
+    [slots, dates, timeZone, grid, t, locale],
+  );
+  const labels = useMemo(
+    () => dates.map((date) => formatDayHeading(date, view === 'day' ? 'long' : 'short', locale)),
+    [dates, view, locale],
+  );
   const hourTicks = useMemo(() => hourLabels(grid), [grid]);
 
   const cellsById = useMemo(() => {
@@ -82,20 +92,27 @@ export function AvailabilityCalendar({
 
   const isPending = pendingSlotIds.length > 0;
   const zone = timeZoneLabel(timeZone);
+  const scope =
+    view === 'day'
+      ? t('availability.calendar.scopeDay', '{day}', { day: labels[0] ?? '' })
+      : t('availability.calendar.scopeWeek', 'week of {from} to {to}', {
+          from: labels[0] ?? '',
+          to: labels[labels.length - 1] ?? '',
+        });
 
   return (
-    <section className={styles.calendar} aria-label="Availability calendar">
+    <section className={styles.calendar} aria-label={t('availability.calendar.ariaLabel', 'Availability calendar')}>
       <header className={styles.header}>
         <p className={styles.zone}>
           <span className={styles.zonePrefix} aria-hidden="true">
             TZ
           </span>
-          All times in <strong>{zone}</strong>
+          {t('availability.calendar.allTimes', 'All times in')} <strong>{zone}</strong>
         </p>
-        <ul className={styles.legend} aria-label="Slot status key">
+        <ul className={styles.legend} aria-label={t('availability.calendar.statusKey', 'Slot status key')}>
           {STATUS_ORDER.map((status) => (
             <li key={status} className={`${styles.legendItem} ${styles[status]}`}>
-              {slotStatusLabel(status)}
+              {slotStatusLabel(status, t)}
             </li>
           ))}
         </ul>
@@ -103,24 +120,27 @@ export function AvailabilityCalendar({
 
       {error && (
         <div className={styles.errorState}>
-          <FormError message={error} />
-          <Button variant="secondary" onClick={onRetry}>
-            Try again
-          </Button>
+          <InlineError title="Slots couldn't be loaded" message={error} onRetry={onRetry} />
         </div>
       )}
 
       {isLoading && (
-        <p className={styles.loading}>
-          <Spinner size={18} /> Loading slots in {zone}.
-        </p>
+        <Skeleton
+          lines={3}
+          label={t('availability.calendar.loading', 'Loading slots in {zone}.', { zone })}
+        />
       )}
 
-      {!isLoading && !error && dates.length === 0 && <p className={styles.empty}>No dates selected.</p>}
+      {!isLoading && !error && dates.length === 0 && (
+        <p className={styles.empty}>{t('availability.calendar.noDates', 'No dates selected.')}</p>
+      )}
 
       {!isLoading && !error && dates.length > 0 && slots.length === 0 && (
         <p className={styles.empty}>
-          No slots in this window. Generate slots below to open it for booking.
+          {t(
+            'availability.calendar.noSlots',
+            'No slots in this window. Generate slots below to open it for booking.',
+          )}
         </p>
       )}
 
@@ -145,7 +165,7 @@ export function AvailabilityCalendar({
             selectedSlotIds={selectedSlotIds}
             onSelectionChange={onSelectionChange}
             busySlotIds={pendingSlotIds}
-            ariaLabel={`Slots, ${view === 'day' ? labels[0] : `week of ${labels[0] ?? ''} to ${labels[labels.length - 1] ?? ''}`}, all times in ${zone}`}
+            ariaLabel={t('availability.calendar.gridAria', 'Slots, {scope}, all times in {zone}', { scope, zone })}
           />
         </div>
       )}
@@ -153,51 +173,67 @@ export function AvailabilityCalendar({
       <div className={styles.actions}>
         <p className={styles.summary} role="status">
           {selectedSlots.length === 0
-            ? `No slots selected. ${zone}.`
-            : `${selectedSlots.length} selected: ${counts.open} open, ${counts.held} held or blocked, ${counts.booked} booked.`}
+            ? t('availability.summary.none', 'No slots selected. {zone}.', { zone })
+            : t(
+                'availability.summary.selection',
+                '{count, plural, one {# selected:} other {# selected:}} {open, plural, one {# open} other {# open}}, {held, plural, one {# held or blocked} other {# held or blocked}}, {booked, plural, one {# booked} other {# booked}}.',
+                { count: selectedSlots.length, open: counts.open, held: counts.held, booked: counts.booked },
+              )}
         </p>
         <div className={styles.actionButtons}>
           <Button variant="primary" disabled={!range || isPending} onClick={() => onAction('block', openIdsInSpan, range)}>
-            Block selected range
+            {t('availability.action.block', 'Block selected range')}
           </Button>
           <Button
             variant="secondary"
             disabled={counts.open === 0 || isPending}
             onClick={() => onAction('remove', selectedSlots.filter((slot) => slot.status === 'open').map((slot) => slot.id), range)}
           >
-            Remove selected open slots
+            {t('availability.action.remove', 'Remove selected open slots')}
           </Button>
           <Button
             variant="secondary"
             disabled={counts.held === 0 || isPending}
             onClick={() => onAction('unblock', selectedSlots.filter((slot) => slot.status === 'held').map((slot) => slot.id), range)}
           >
-            Unblock selected slots
+            {t('availability.action.unblock', 'Unblock selected slots')}
           </Button>
         </div>
       </div>
 
       <details className={styles.shortcuts}>
-        <summary>Keyboard shortcuts for selecting slots</summary>
+        <summary>{t('availability.shortcuts.title', 'Keyboard shortcuts for selecting slots')}</summary>
         <dl>
-          <dt>Tab</dt>
-          <dd>Enter or leave the grid — one slot at a time is in the tab order.</dd>
-          <dt>Arrow Up / Arrow Down</dt>
-          <dd>Previous or next slot within the same day.</dd>
-          <dt>Arrow Left / Arrow Right</dt>
-          <dd>Same time on the previous or next day (in day view, previous or next slot).</dd>
-          <dt>Shift + Arrow</dt>
-          <dd>Extend the selection to cover the swept days and times.</dd>
-          <dt>Space or Enter</dt>
-          <dd>Add or remove the focused slot from the selection.</dd>
-          <dt>Home / End</dt>
-          <dd>First or last slot of the current day.</dd>
-          <dt>Escape</dt>
-          <dd>Clear the selection.</dd>
+          <dt>{t('availability.shortcuts.tab', 'Tab')}</dt>
+          <dd>
+            {t(
+              'availability.shortcuts.tabHint',
+              'Enter or leave the grid — one slot at a time is in the tab order.',
+            )}
+          </dd>
+          <dt>{t('availability.shortcuts.arrowsVertical', 'Arrow Up / Arrow Down')}</dt>
+          <dd>{t('availability.shortcuts.arrowsVerticalHint', 'Previous or next slot within the same day.')}</dd>
+          <dt>{t('availability.shortcuts.arrowsHorizontal', 'Arrow Left / Arrow Right')}</dt>
+          <dd>
+            {t(
+              'availability.shortcuts.arrowsHorizontalHint',
+              'Same time on the previous or next day (in day view, previous or next slot).',
+            )}
+          </dd>
+          <dt>{t('availability.shortcuts.shiftArrow', 'Shift + Arrow')}</dt>
+          <dd>{t('availability.shortcuts.shiftArrowHint', 'Extend the selection to cover the swept days and times.')}</dd>
+          <dt>{t('availability.shortcuts.spaceEnter', 'Space or Enter')}</dt>
+          <dd>{t('availability.shortcuts.spaceEnterHint', 'Add or remove the focused slot from the selection.')}</dd>
+          <dt>{t('availability.shortcuts.homeEnd', 'Home / End')}</dt>
+          <dd>{t('availability.shortcuts.homeEndHint', 'First or last slot of the current day.')}</dd>
+          <dt>{t('availability.shortcuts.escape', 'Escape')}</dt>
+          <dd>{t('availability.shortcuts.escapeHint', 'Clear the selection.')}</dd>
         </dl>
         <p className={styles.dragNote}>
-          Dragging with a pointer selects the same rectangular range; every action is also available as a button below the
-          grid, so no drag is ever required.
+          {t(
+            'availability.shortcuts.dragNote',
+            'Dragging with a pointer selects the same rectangular range; every action is also available as a button below the grid, so no drag is ever required.',
+          )}
         </p>
       </details>
     </section>

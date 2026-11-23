@@ -99,40 +99,44 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '410': { $ref: '#/components/responses/Gone' }
 
-  /account/data-export:
-    get:
-      tags: [account]
-      operationId: getDataExportStatus
-      responses:
-        '200':
-          description: Latest export, or null when none exists
-          content:
-            application/json:
-              schema:
-                type: object
-                nullable: true
-                allOf:
-                  - $ref: '#/components/schemas/DataExport'
+  /patients/me/export:
     post:
-      tags: [account]
+      tags: [patients]
       operationId: requestDataExport
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/RequestDataExportInput' }
+      description: Starts an export of the caller's own data. Reads no body. If one is already pending or processing, returns that one instead of queuing a second.
       responses:
         '202':
-          description: Export queued
+          description: Export queued (or already in progress)
+          headers:
+            Location:
+              description: Status URL for this export.
+              schema: { type: string }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataExport' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
-  /account/data-export/{exportId}/download:
+  /patients/me/export/{exportId}:
     get:
-      tags: [account]
+      tags: [patients]
+      operationId: getDataExportStatus
+      description: Status of one export owned by the caller. An id that is not the caller’s returns the same 404 as one that does not exist.
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /patients/me/export/{exportId}/download:
+    get:
+      tags: [patients]
       operationId: downloadDataExport
+      description: Streams the bundle. 409 while not ready; 410 at or after expiresAt.
       parameters:
         - $ref: '#/components/parameters/ExportId'
       responses:
@@ -144,6 +148,8 @@ paths:
                 type: string
                 format: binary
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
 
   /patients/me:
     delete:
@@ -486,7 +492,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FulfillmentQueueItem' }
 
-  /doctor/appointments/today:
+  /appointments/doctor/today:
     get:
       tags: [queue]
       operationId: listTodayAppointments
@@ -513,28 +519,28 @@ paths:
                 items: { $ref: '#/components/schemas/QueueEntry' }
 
   /appointments/{appointmentId}/start:
-    post:
+    patch:
       tags: [queue]
       operationId: startVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit started (idempotent)
+          description: Visit started
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   /appointments/{appointmentId}/complete:
-    post:
+    patch:
       tags: [queue]
       operationId: completeVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit completed (idempotent)
+          description: Visit completed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }
@@ -845,6 +851,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: Caller is not allowed to perform this action
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     NotFound:
       description: Resource not found
       content:
@@ -1061,23 +1072,26 @@ components:
 
     DataExport:
       type: object
-      required: [id, patientProfileId, status, requestedAt]
+      required: [id, status, schemaVersion, createdAt]
       properties:
         id: { type: string }
-        patientProfileId: { type: string }
         status: { $ref: '#/components/schemas/DataExportStatus' }
-        requestedAt: { type: string, format: date-time }
-        readyAt: { type: string, nullable: true }
-        expiresAt: { type: string, nullable: true }
-        fileSizeBytes: { type: integer, nullable: true }
+        schemaVersion: { type: integer }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time, nullable: true }
+        generatedAt: { type: string, format: date-time, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        sizeBytes: { type: integer, nullable: true }
+        failure: { $ref: '#/components/schemas/DataExportFailure' }
         downloadUrl: { type: string, nullable: true }
-        errorMessage: { type: string, nullable: true }
 
-    RequestDataExportInput:
+    DataExportFailure:
       type: object
-      required: [password]
+      nullable: true
+      required: [code]
       properties:
-        password: { type: string }
+        code: { type: string }
+        section: { type: string, nullable: true }
 
     DeleteAccountInput:
       type: object

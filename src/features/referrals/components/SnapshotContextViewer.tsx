@@ -1,3 +1,4 @@
+import { useT } from '../../../i18n/useT';
 import type { ReferralDetail } from '../../../types/models';
 import styles from './SnapshotContextViewer.module.css';
 
@@ -12,46 +13,49 @@ function formatDate(iso: string) {
  * the snapshot is self-contained and substituting live notes would break the
  * product's guarantee. */
 export function SnapshotContextViewer({ referral }: { referral: ReferralDetail }) {
+  const t = useT();
   const { intakeSnapshot, referringDoctor, snapshotNotes, snapshotTakenAt, targetSpecialty } = referral;
 
   return (
     <section className={styles.root} aria-labelledby="snapshot-heading">
       <h2 id="snapshot-heading" className={styles.heading}>
-        Snapshot context
+        {t('referrals.snapshot.context', 'Snapshot context')}
       </h2>
 
       <p className={styles.snapshotLabel}>
         <strong>
-          Snapshot taken <time dateTime={snapshotTakenAt}>{formatDate(snapshotTakenAt)}</time>
+          {t('referrals.snapshot.taken', 'Snapshot taken')}{' '}
+          <time dateTime={snapshotTakenAt}>{formatDate(snapshotTakenAt)}</time>
         </strong>
       </p>
 
       <p className={styles.explainer}>
-        This is a frozen copy of the patient&rsquo;s intake and the referring doctor&rsquo;s notes, captured when
-        the referral was created. It does not change as live records are updated — it is the whole context this
-        referral carries, so the patient never has to re-explain.
+        {t(
+          'referrals.snapshot.explainer',
+          'This is a frozen copy of the patient’s intake and the referring doctor’s notes, captured when the referral was created. It does not change as live records are updated — it is the whole context this referral carries, so the patient never has to re-explain.',
+        )}
       </p>
 
       <dl className={styles.meta}>
         <div className={styles.metaRow}>
-          <dt>Referring doctor</dt>
+          <dt>{t('referrals.snapshot.referringDoctor', 'Referring doctor')}</dt>
           <dd>{referringDoctor.fullName}</dd>
         </div>
         {targetSpecialty ? (
           <div className={styles.metaRow}>
-            <dt>Target specialty</dt>
+            <dt>{t('referrals.snapshot.targetSpecialty', 'Target specialty')}</dt>
             <dd>{targetSpecialty.name}</dd>
           </div>
         ) : null}
         <div className={styles.metaRow}>
-          <dt>Intake submitted</dt>
+          <dt>{t('referrals.snapshot.intakeSubmitted', 'Intake submitted')}</dt>
           <dd>
             <time dateTime={intakeSnapshot.submittedAt}>{formatDate(intakeSnapshot.submittedAt)}</time>
           </dd>
         </div>
       </dl>
 
-      <h3 className={styles.subheading}>Snapshot intake</h3>
+      <h3 className={styles.subheading}>{t('referrals.snapshot.intake', 'Snapshot intake')}</h3>
       {intakeSnapshot.symptoms.length > 0 ? (
         <ul className={styles.symptoms}>
           {intakeSnapshot.symptoms.map((symptom, index) => (
@@ -61,17 +65,23 @@ export function SnapshotContextViewer({ referral }: { referral: ReferralDetail }
           ))}
         </ul>
       ) : (
-        <p className={styles.none}>No symptoms were recorded in the snapshot.</p>
+        <p className={styles.none}>
+          {t('referrals.snapshot.noSymptoms', 'No symptoms were recorded in the snapshot.')}
+        </p>
       )}
 
       {intakeSnapshot.freeTextNotes ? (
         <>
-          <h3 className={styles.subheading}>Patient&rsquo;s free-text notes</h3>
+          <h3 className={styles.subheading}>
+            {t('referrals.snapshot.patientNotes', 'Patient’s free-text notes')}
+          </h3>
           <p className={styles.quote}>{intakeSnapshot.freeTextNotes}</p>
         </>
       ) : null}
 
-      <h3 className={styles.subheading}>Referring doctor&rsquo;s notes</h3>
+      <h3 className={styles.subheading}>
+        {t('referrals.snapshot.doctorNotes', 'Referring doctor’s notes')}
+      </h3>
       <p className={styles.quote}>{snapshotNotes}</p>
     </section>
   );

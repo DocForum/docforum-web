@@ -1,13 +1,19 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useQueue,
+  useAppointments,
   useVisitActions,
   useRunningDelay,
   useUpdateRunningDelay,
   UNDO_WINDOW_MS,
 } from '../hooks/useQueue';
+import {
+  AppointmentStatusActions,
+  formatVisitTime,
+} from '../../doctor-today/components/AppointmentStatusActions';
 import { useNavigate } from "react-router-dom";
 import { Button } from '../../../components/Button';
+import { FormError } from '../../../components/FormError';
 import { LiveRegion } from '../../../components/LiveRegion';
 import { useAnnouncer } from '../../../hooks/useAnnouncer';
 import { useFormat } from '../../../i18n/useFormat';
@@ -15,7 +21,9 @@ import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { useT } from '../../../i18n/useT';
 import { formatTime } from '../../../i18n/time-zone';
 import type { QueueEntry } from '../../../types/models';
+import { ApiError } from '../../../services/api-client';
 import styles from './QueuePanel.module.css';
+import { paths } from '../../../routes/paths';
 
 function statusLabel(status: string, t: ReturnType<typeof useT>) {
   return {
@@ -62,7 +70,8 @@ export function QueuePanel() {
   const t = useT();
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
-  const { startVisit, completeVisit, undo, isPending, hasPendingUndo } = useVisitActions();
+  const { startVisit, completeVisit, undo, isPending, hasPendingUndo, startError, completeError } = useVisitActions();
+  const { data: appointments = [] } = useAppointments();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
   const { formatNumber } = useFormat();
@@ -70,11 +79,23 @@ export function QueuePanel() {
 
   const [overrideMin, setOverrideMin] = useState('');
   const [undoTarget, setUndoTarget] = useState<string | null>(null);
+  // Set when a no-show/cancel attempt lost a race (409); the row is stale.
+  const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const byPosition = useMemo(
     () => [...queue].sort((a, b) => a.queuePosition - b.queuePosition),
     [queue],
+  );
+
+  // Patients still expected today stay out of the live queue until they
+  // check in, but the doctor can already mark them no-show or cancel.
+  const scheduled = useMemo(
+    () =>
+      [...appointments]
+        .filter((apt) => apt.status === 'scheduled')
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    [appointments],
   );
 
   const entryName = (appointmentId: string) =>
@@ -118,6 +139,24 @@ export function QueuePanel() {
     setOverrideMin('');
   };
 
+  const actionError = startError ?? completeError;
+  const actionErrorCopy =
+    actionError instanceof ApiError && actionError.status === 409
+      ? startError
+        ? t(
+            'queue.action.startConflict',
+            'This visit could not be started because it is no longer scheduled or checked in. The queue is refreshing; review its current status before trying again.',
+          )
+        : t(
+            'queue.action.completeConflict',
+            'This visit could not be completed because it is no longer in progress. The queue is refreshing; review its current status before trying again.',
+          )
+      : actionError instanceof Error
+        ? actionError.message
+        : actionError
+          ? t('queue.action.failed', 'The queue action could not be saved. The queue is refreshing; try again shortly.')
+          : null;
+
   return (
     <section className={styles.panel} aria-labelledby="queue-heading">
       <header className={styles.panelHeader}>
@@ -142,14 +181,38 @@ export function QueuePanel() {
       </header>
 
       {hasPendingUndo && undoTarget && (
-        <div className={styles.undoToast} role="group" aria-label="Undo last queue action">
-          Action applied.{' '}
+        <div className={styles.undoToast} role="group" aria-label={t('queue.undo.label', 'Undo last queue action')}>
+          {t('queue.undo.applied', 'Action applied.')}
           <Button variant="secondary" onClick={handleUndo}>
-            Undo
+            {t('queue.undo.button', 'Undo')}
           </Button>
           <span className={styles.undoHint}>
-            reverts in {Math.round(UNDO_WINDOW_MS / 1000)}s
+            {t('queue.undo.hint', 'Reverts in {seconds}s', { seconds: Math.round(UNDO_WINDOW_MS / 1000) })}
           </span>
+        </div>
+      )}
+
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
+
+      {scheduled.length > 0 && (
+        <div className={styles.scheduled}>
+          <h3 className={styles.scheduledHeading}>Still expected</h3>
+          <ul className={styles.scheduledList}>
+            {scheduled.map((appointment) => (
+              <li key={appointment.id} className={styles.scheduledRow}>
+                <span className={styles.scheduledTime}>{formatVisitTime(appointment.startsAt)}</span>
+                <span className={styles.scheduledPatient}>{appointment.patientName}</span>
+                <span className={styles.statusPill} data-status="scheduled">
+                  Scheduled
+                </span>
+                <AppointmentStatusActions appointment={appointment} onConflict={setNotice} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -173,7 +236,7 @@ export function QueuePanel() {
           </thead>
           <tbody>
             {byPosition.map((entry) => {
-              const isPendingAction = isPending;
+                const isPendingAction = isPending || hasPendingUndo;
               return (
                 <tr key={entry.appointmentId} className={styles.row}>
                   <td className={styles.pos}>{formatNumber(entry.queuePosition)}</td>
@@ -214,7 +277,7 @@ export function QueuePanel() {
                     <Button
                       variant="secondary"
                       onClick={() => {
-                        navigate(`/doctor/patient-chart/${entry.patientProfileId}`);
+                        navigate(paths.doctor.patientChart(entry.patientProfileId));
                       }}
                     >
                       Chart
@@ -229,6 +292,7 @@ export function QueuePanel() {
 
       <QueueAnnouncements entries={byPosition} />
       <LiveRegion message={actionMessage} />
+      <FormError message={actionErrorCopy} />
 
       <div className={styles.override}>
         <label htmlFor="manual-override">{t('queue.manualOverride', 'Manual override')}</label>

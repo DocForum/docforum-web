@@ -6,7 +6,8 @@ import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
-import { formatDateTime } from '../../../i18n/time-zone';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT, type Translator } from '../../../i18n/useT';
 import { entityRecordPath } from '../entity-links';
 import { toAuditSearch } from '../filters';
 import type { AuditFilters, AuditTab } from '../filters';
@@ -32,10 +33,9 @@ function narrowedSearch(filters: AuditFilters, patch: Partial<AuditFilters>): st
 
 export function Timestamp({ value }: { value: string }) {
   const { timeZone } = useTimeZone();
+  const { dateTime } = useFormatters();
   const date = new Date(value);
-  const label = Number.isNaN(date.getTime())
-    ? value
-    : formatDateTime(date, timeZone, { dateStyle: 'medium', timeStyle: 'medium' });
+  const label = Number.isNaN(date.getTime()) ? value : dateTime(date, { timeZone, dateStyle: 'medium', timeStyle: 'medium' });
   return (
     <time dateTime={value} title={value} className={styles.time}>
       {label}
@@ -50,14 +50,15 @@ interface ActorCellProps {
 }
 
 export function ActorCell({ actorUserId, actorRole, filters }: ActorCellProps) {
-  if (!actorUserId) return <span className={styles.muted}>System</span>;
+  const t = useT();
+  if (!actorUserId) return <span className={styles.muted}>{t('adminAudit.system', 'System')}</span>;
   return (
     <div className={styles.stack}>
-      {actorRole && <span className={styles.rolePill}>{actorRole}</span>}
+      {actorRole && <span className={styles.rolePill}>{t(`roles.${actorRole}`, actorRole)}</span>}
       <Link
         to={{ search: narrowedSearch(filters, { actor: actorUserId }) }}
         className={styles.idLink}
-        title="Show only this actor's entries"
+        title={t('adminAudit.actorFilterTitle', "Show only this actor's entries")}
       >
         {actorUserId}
       </Link>
@@ -72,28 +73,24 @@ interface EntityCellProps {
 }
 
 export function EntityCell({ entityType, entityId, filters }: EntityCellProps) {
+  const t = useT();
   const recordPath = entityRecordPath(entityType, entityId);
   return (
     <div className={styles.stack}>
       <span className={styles.entityType}>{entityType}</span>
       {recordPath ? (
-        <Link to={recordPath} className={styles.idLink} title={`Open this ${entityType}`}>
+        <Link to={recordPath} className={styles.idLink} title={t('adminAudit.openEntity', 'Open this {entityType}', { entityType })}>
           {entityId}
         </Link>
       ) : (
         <span className={styles.id}>{entityId}</span>
       )}
       <Link to={{ search: narrowedSearch(filters, { entityType, entityId }) }} className={styles.inlineAction}>
-        Entity history
+        {t('adminAudit.entityHistory', 'Entity history')}
       </Link>
     </div>
   );
 }
-
-const NOUNS: Record<AuditTab, string> = {
-  events: 'audit events',
-  access: 'access logs',
-};
 
 function isInvalidCursor(error: ApiError): boolean {
   const code = (error.body as { code?: unknown } | undefined)?.code;
@@ -102,26 +99,37 @@ function isInvalidCursor(error: ApiError): boolean {
 
 /** Turns a failed listing into something an admin can act on. Server
  * messages are only surfaced for 400s, where they describe the filter. */
-export function describeAuditError(error: unknown, tab: AuditTab): { message: string; staleCursor: boolean } {
+export function describeAuditError(
+  error: unknown,
+  tab: AuditTab,
+  t: Translator = (_id, defaultMessage) => defaultMessage,
+): { message: string; staleCursor: boolean } {
   if (error instanceof ApiError) {
     if (error.status === 400 && isInvalidCursor(error)) {
-      return { message: 'This page position is no longer valid.', staleCursor: true };
+      return { message: t('adminAudit.error.invalidCursor', 'This page position is no longer valid.'), staleCursor: true };
     }
     if (error.status === 400) {
-      return { message: `docforum-core rejected these filters: ${error.message}`, staleCursor: false };
+      return {
+        message: t('adminAudit.error.badFilters', 'docforum-core rejected these filters: {reason}', { reason: error.message }),
+        staleCursor: false,
+      };
     }
     if (error.status === 401 || error.status === 403) {
-      return { message: 'Your session no longer has admin access. Sign in again with an admin account.', staleCursor: false };
+      return {
+        message: t('adminAudit.error.adminSession', 'Your session no longer has admin access. Sign in again with an admin account.'),
+        staleCursor: false,
+      };
     }
     if (error.status === 404 && tab === 'access') {
       return {
-        message: "docforum-core doesn't serve access logs yet (docforum-core#45). State-change events are available.",
+        message: t('adminAudit.error.accessLogsUnavailable', "docforum-core doesn't serve access logs yet (docforum-core#45). State-change events are available."),
         staleCursor: false,
       };
     }
   }
+  const noun = t(`adminAudit.noun.${tab}`, tab === 'events' ? 'audit events' : 'access logs');
   return {
-    message: `Couldn't load ${NOUNS[tab]}. The preview backend may be waking up — try again in a minute.`,
+    message: t('adminAudit.error.load', 'Could not load {noun}. The preview backend may be waking up — try again in a minute.', { noun }),
     staleCursor: false,
   };
 }
@@ -149,20 +157,22 @@ interface AuditResultsProps {
 }
 
 export function AuditResults(props: AuditResultsProps) {
+  const t = useT();
   const { tab, isLoading, isFetching, isPlaceholderData, error, pageCount, visibleCount, nextCursor } = props;
+  const noun = t(`adminAudit.noun.${tab}`, tab === 'events' ? 'audit events' : 'access logs');
 
   if (isLoading) {
-    return <Skeleton lines={6} height="1.75rem" label={`Loading ${NOUNS[tab]}`} />;
+    return <Skeleton lines={6} height="1.75rem" label={t('adminAudit.loading', 'Loading {noun}', { noun })} />;
   }
 
   if (error) {
-    const { message, staleCursor } = describeAuditError(error, tab);
+    const { message, staleCursor } = describeAuditError(error, tab, t);
     return (
       <InlineError
-        title="This page couldn't be loaded"
+        title={t('adminAudit.error.title', 'This page could not be loaded')}
         message={message}
         onRetry={staleCursor ? props.onNewest : props.onRetry}
-        retryLabel={staleCursor ? 'Back to newest' : 'Try again'}
+        retryLabel={staleCursor ? t('adminAudit.backNewest', 'Back to newest') : t('common.tryAgain', 'Try again')}
       />
     );
   }
@@ -174,40 +184,40 @@ export function AuditResults(props: AuditResultsProps) {
       <div className={styles.resultsBar}>
         <p className={styles.resultsSummary} aria-live="polite">
           {pageCount === 0
-            ? `No ${NOUNS[tab]} on this page`
+            ? t('adminAudit.results.none', 'No {noun} on this page', { noun })
             : filteredOut > 0
-              ? `${visibleCount} of ${pageCount} ${NOUNS[tab]} on this page match the action filter`
-              : `${pageCount} ${NOUNS[tab]} on this page`}
-          {props.pageNumber !== null && ` · page ${props.pageNumber}`}
-          {isFetching && ' · updating…'}
+              ? t('adminAudit.results.filtered', '{visible} of {total} {noun} on this page match the action filter', { visible: visibleCount, total: pageCount, noun })
+              : t('adminAudit.results.count', '{count} {noun} on this page', { count: pageCount, noun })}
+          {props.pageNumber !== null && t('adminAudit.results.page', ' · page {page}', { page: props.pageNumber })}
+          {isFetching && t('adminAudit.results.updating', ' · updating…')}
         </p>
         <Button
           variant="secondary"
           onClick={props.onExport}
           disabled={visibleCount === 0 || isPlaceholderData}
-          title="Downloads only the rows shown on this page"
+          title={t('adminAudit.exportTitle', 'Downloads only the rows shown on this page')}
         >
-          Export page as CSV
+          {t('adminAudit.export', 'Export page as CSV')}
         </Button>
       </div>
 
       {visibleCount === 0 ? (
         <EmptyState
           title={props.emptyMessage}
-          description="Adjust the filters above, or jump back to the newest entries."
-          action={{ label: 'Back to newest', onClick: props.onNewest }}
+          description={t('adminAudit.emptyDescription', 'Adjust the filters above, or jump back to the newest entries.')}
+          action={{ label: t('adminAudit.backNewest', 'Back to newest'), onClick: props.onNewest }}
         />
       ) : (
         <div className={`${styles.tableWrapper} ${isPlaceholderData ? styles.stale : ''}`}>{props.children}</div>
       )}
 
-      <nav className={styles.pager} aria-label={`${NOUNS[tab]} pages`}>
+      <nav className={styles.pager} aria-label={t('adminAudit.pagerLabel', '{noun} pages', { noun })}>
         <Button variant="secondary" onClick={props.onNewer} disabled={!props.hasNewer || isFetching}>
-          ← Newer
+          {t('adminAudit.newer', '← Newer')}
         </Button>
         {props.hasNewer && props.pageNumber === null && (
           <Button variant="secondary" onClick={props.onNewest} disabled={isFetching}>
-            Newest
+            {t('adminAudit.newest', 'Newest')}
           </Button>
         )}
         <Button
@@ -215,7 +225,7 @@ export function AuditResults(props: AuditResultsProps) {
           onClick={() => nextCursor && props.onOlder(nextCursor)}
           disabled={!nextCursor || isFetching}
         >
-          Older →
+          {t('adminAudit.older', 'Older →')}
         </Button>
       </nav>
     </div>

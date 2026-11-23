@@ -3,6 +3,7 @@
 // main.tsx mounts the same instance, so app behaviour is unchanged.
 import { QueryClient } from '@tanstack/react-query';
 import { isAbortError, RateLimitError } from './services/api-client';
+import { registerSignOutQueryClient } from './services/sign-out';
 
 const BASE_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -35,3 +36,7 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Lets the transport's refresh-failure path clear this cache via
+// `signOut` without importing this module (issue #227).
+registerSignOutQueryClient(queryClient);

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-quer
 import * as availabilityService from '../../../services/availability-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
+import { plainTranslate, type Translate } from '../../../i18n/useT';
 import { isoDatesBetween, slotsInTimeRange, sortByStartTime } from '../calendar';
 import { doctorSlotsKey } from './useAvailabilitySlots';
 import type { IsoDate } from '../calendar';
@@ -69,13 +70,21 @@ function mergeGeneratedSlots(
 /** Explains a rolled-back edit without blaming the doctor: the common `409`
  * here is a patient booking the slot mid-decision, not a mistake at the
  * keyboard. */
-export function rollbackMessage(error: unknown): string {
+export function rollbackMessage(error: unknown, t: Translate = plainTranslate): string {
   if (error instanceof ApiError && error.status === 409) {
-    const server = error.message.trim() || 'That slot could not be changed.';
-    return `${server} Someone else changed the slot while you were working — the calendar has been restored and nothing was cancelled.`;
+    const server = error.message.trim() || t('availability.rollback.serverFallback', 'That slot could not be changed.');
+    return t(
+      'availability.rollback.conflict',
+      '{server} Someone else changed the slot while you were working — the calendar has been restored and nothing was cancelled.',
+      { server },
+    );
   }
-  if (error instanceof ApiError && error.message.trim()) return `${error.message} The calendar has been restored.`;
-  return 'The change could not be saved. The calendar has been restored.';
+  if (error instanceof ApiError && error.message.trim()) {
+    return t('availability.rollback.apiError', '{server} The calendar has been restored.', {
+      server: error.message,
+    });
+  }
+  return t('availability.rollback.generic', 'The change could not be saved. The calendar has been restored.');
 }
 
 export interface BlockRangeVariables {
@@ -130,7 +139,7 @@ export interface RemoveSlotsResult {
   removedCount: number;
 }
 
-export function useRemoveSlots(doctorProfileId: string | null) {
+export function useRemoveSlots(doctorProfileId: string | null, t: Translate = plainTranslate) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
@@ -151,8 +160,14 @@ export function useRemoveSlots(doctorProfileId: string | null) {
         }
       }
       if (conflicts.length > 0) {
+        const server =
+          conflicts[0] || t('availability.rollback.slotNoLongerOpen', 'One of the selected slots is no longer open.');
         throw new ApiError(
-          `${conflicts[0] || 'One of the selected slots is no longer open.'} (${removed} of ${slotIds.length} selected slots were removed.)`,
+          t(
+            'availability.rollback.partialRemoval',
+            '{server} ({removed} of {total} selected slots were removed.)',
+            { server, removed, total: slotIds.length },
+          ),
           409,
         );
       }
@@ -215,7 +230,7 @@ export interface GenerateSlotsOutcome {
 
 /** The real generate endpoint is single-day (core has no recurrence engine), so
  * a range is one request per day, fired sequentially and aggregated here. */
-export function useGenerateSlots(doctorProfileId: string | null) {
+export function useGenerateSlots(doctorProfileId: string | null, t: Translate = plainTranslate) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
@@ -240,7 +255,10 @@ export function useGenerateSlots(doctorProfileId: string | null) {
           aggregate.skipped += result.skipped;
           mergeGeneratedSlots(queryClient, doctorProfileId!, result.slots);
         } catch (error) {
-          failures.push({ date, message: error instanceof Error ? error.message : 'The request failed.' });
+          failures.push({
+            date,
+            message: error instanceof Error ? error.message : t('availability.generate.requestFailed', 'The request failed.'),
+          });
         }
       }
       return { ...aggregate, requestedDays: dates.length, failedDays: failures };
