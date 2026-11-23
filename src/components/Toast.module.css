@@ -1,0 +1,118 @@
+/* Toasts (issue #113). Fixed to the bottom of the viewport, above content,
+   out of layout flow so showing one never shifts the page (CLS). Solid
+   colors only, per the design system. */
+.viewport {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(100%, 28rem);
+}
+
+.stack:empty {
+  display: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  border-inline-start-width: 4px;
+}
+
+.info {
+  border-inline-start-color: var(--color-accent-2);
+}
+
+.success {
+  border-inline-start-color: var(--color-success);
+}
+
+.error {
+  border-inline-start-color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+.message {
+  flex: 1;
+  margin: 0;
+}
+
+.action,
+.close {
+  min-height: var(--target-size);
+  min-width: var(--target-size);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+.action {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.action:hover {
+  background: var(--color-accent-subtle);
+}
+
+.close {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.action:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-in var(--motion-duration-color-change) var(--motion-ease-out);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

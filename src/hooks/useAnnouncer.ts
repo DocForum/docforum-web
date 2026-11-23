@@ -7,29 +7,42 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  */
 export const ANNOUNCEMENT_BATCH_MS = 800;
 
+/**
+ * A message, or a function that builds it when the batch flushes. A function
+ * lets a caller describe the whole burst (for example "3 new notifications")
+ * from state at flush time instead of one message per update; returning an
+ * empty string contributes nothing.
+ */
+export type AnnouncementText = string | (() => string);
+
 export interface Announcer {
   /** Latest batched message, safe to render inside a polite live region. */
   message: string;
   /** Queue a message; multiple calls inside the window are merged. */
-  announce: (text: string) => void;
+  announce: (text: AnnouncementText) => void;
   /** Drop the pending batch and clear the region. */
   reset: () => void;
 }
 
 export function useAnnouncer(batchMs: number = ANNOUNCEMENT_BATCH_MS): Announcer {
   const [message, setMessage] = useState('');
-  const pending = useRef<string[]>([]);
+  const pending = useRef<AnnouncementText[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flush = useCallback(() => {
     timer.current = null;
-    const unique = Array.from(new Set(pending.current.filter(Boolean)));
+    const resolved = pending.current.map((item) => (typeof item === 'function' ? item() : item));
     pending.current = [];
-    if (unique.length > 0) setMessage(unique.join(' '));
+    const unique = Array.from(new Set(resolved.filter(Boolean)));
+    if (unique.length === 0) return;
+    const next = unique.join(' ');
+    // A live region only speaks when its text changes. If this batch reads
+    // the same as the last one, vary it invisibly so it is still announced.
+    setMessage((current) => (current === next ? `${next}\u00a0` : next));
   }, []);
 
   const announce = useCallback(
-    (text: string) => {
+    (text: AnnouncementText) => {
       if (!text) return;
       pending.current.push(text);
       if (timer.current) return;

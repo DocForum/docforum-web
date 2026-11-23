@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { IntlProvider } from 'react-intl';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -54,21 +55,23 @@ function renderView(initialUrl = '/patient/search') {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const ui: ReactElement = (
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialUrl]}>
-        <Routes>
-          <Route
-            path="/patient/search"
-            element={
-              <>
-                <DoctorSearchView />
-                <LocationDisplay />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>
+    <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[initialUrl]}>
+          <Routes>
+            <Route
+              path="/patient/search"
+              element={
+                <>
+                  <DoctorSearchView />
+                  <LocationDisplay />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>
   );
   return rtlRender(ui);
 }

@@ -1,6 +1,11 @@
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
 import { useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { CreateWebhookDialog } from './CreateWebhookDialog';
 import { WebhookDeliveries } from './WebhookDeliveries';
 import {
@@ -8,6 +13,8 @@ import {
   useDeleteWebhookEndpoint,
   useSendTestDelivery,
 } from '../hooks/useIntegrations';
+import { useT } from '../../../i18n/useT';
+import { webhookEventDescription } from '../webhook-events';
 import type { WebhookEndpoint } from '../../../types/models';
 import styles from './Integrations.module.css';
 
@@ -31,18 +38,26 @@ interface WebhooksPanelProps {
 }
 
 export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
+  const t = useT();
+  const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
-  const { data: endpointsData, isLoading } = useWebhookEndpoints(facilityId);
+  const { data: endpointsData, isLoading, isError, error, refetch } = useWebhookEndpoints(facilityId);
   const deleteMutation = useDeleteWebhookEndpoint(facilityId);
   const testMutation = useSendTestDelivery(facilityId);
+  const errorText = useErrorMessage();
 
-  const endpoints: WebhookEndpoint[] = endpointsData ?? DEFAULT_MOCK_WEBHOOKS;
+  const endpoints: WebhookEndpoint[] = endpointsData ?? [];
+  const errorMessage = isError
+    ? errorText(error) ?? 'Webhook endpoints could not be loaded.'
+    : null;
 
   const handleDelete = (endpointId: string, url: string) => {
     if (
       window.confirm(
-        `Delete webhook endpoint ${url}? Pending deliveries will be dropped. This cannot be undone.`,
+        t('integrations.webhooks.deleteConfirm', 'Delete webhook endpoint {url}? Pending deliveries will be dropped. This cannot be undone.', {
+          url,
+        }),
       )
     ) {
       deleteMutation.mutate(endpointId);
@@ -67,10 +82,22 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   if (isLoading) {
     return (
       <div className={styles.card}>
-        <div className={styles.emptyState}>
-          <Spinner size={24} />
-          <p>Loading webhook endpoints…</p>
+        <Skeleton lines={3} label={t('integrations.webhooks.loading', 'Loading webhook endpoints…')} />
+      </div>
+    );
+  }
+
+  if (errorMessage && endpointsData === undefined) {
+    return (
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>{t('integrations.webhooks.title', 'Webhooks')}</h2>
         </div>
+        <InlineError
+          title="Webhook endpoints couldn't be loaded"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }
@@ -78,18 +105,27 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
-        <h2>Webhooks</h2>
-        <Button onClick={() => setCreateDialogOpen(true)}>Add endpoint</Button>
+        <h2>{t('integrations.webhooks.title', 'Webhooks')}</h2>
+        <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.webhooks.addEndpoint', 'Add endpoint')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
-        Webhooks notify your systems when orders or payments change.
-        Each delivery is signed with an HMAC secret so you can verify authenticity.
+        {t('integrations.webhooks.subtitle', 'Webhooks notify your systems when orders or payments change. Each delivery is signed with an HMAC secret so you can verify authenticity.')}
       </p>
 
+      {errorMessage && (
+        <InlineError
+          title="Webhook endpoints may be out of date"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {endpoints.length === 0 ? (
-        <div className={styles.emptyState}>
-          No webhook endpoints configured. Add one to receive real-time event notifications.
-        </div>
+        <EmptyState
+          title={t('integrations.webhooks.empty', 'No webhook endpoints configured. Add one to receive real-time event notifications.')}
+          description="Add one to receive real-time event notifications in your systems."
+          action={{ label: 'Add your first endpoint', onClick: () => setCreateDialogOpen(true) }}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {endpoints.map((endpoint) => (
@@ -98,13 +134,16 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
                   <span className={styles.webhookUrl}>{endpoint.url}</span>
                   <div className={styles.webhookMeta}>
-                    <span className={styles.activeBadge}>Active</span>
-                    <span>Secret: {endpoint.secretPrefix}…</span>
+                    <span className={styles.activeBadge}>{t('integrations.webhooks.active', 'Active')}</span>
                     <span>
-                      Last delivery:{' '}
-                      {endpoint.lastDeliveryAt
-                        ? new Date(endpoint.lastDeliveryAt).toLocaleString()
-                        : 'Never'}
+                      {t('integrations.webhooks.secret', 'Secret: {prefix}…', { prefix: endpoint.secretPrefix })}
+                    </span>
+                    <span>
+                      {t('integrations.webhooks.lastDelivery', 'Last delivery: {date}', {
+                        date: endpoint.lastDeliveryAt
+                          ? new Date(endpoint.lastDeliveryAt).toLocaleString(locale)
+                          : t('integrations.common.never', 'Never'),
+                      })}
                     </span>
                   </div>
                 </div>
@@ -114,23 +153,25 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                     onClick={() => handleTest(endpoint.id)}
                     loading={testMutation.isPending && testMutation.variables === endpoint.id}
                   >
-                    Send test
+                    {t('integrations.webhooks.sendTest', 'Send test')}
                   </Button>
                   <Button variant="secondary" onClick={() => toggleDeliveries(endpoint.id)}>
-                    {expandedEndpointId === endpoint.id ? 'Hide deliveries' : 'Recent deliveries'}
+                    {expandedEndpointId === endpoint.id
+                      ? t('integrations.webhooks.hideDeliveries', 'Hide deliveries')
+                      : t('integrations.delivery.recent', 'Recent deliveries')}
                   </Button>
                   <Button
                     variant="danger"
                     onClick={() => handleDelete(endpoint.id, endpoint.url)}
                     loading={deleteMutation.isPending && deleteMutation.variables === endpoint.id}
                   >
-                    Delete
+                    {t('integrations.webhooks.delete', 'Delete')}
                   </Button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 {endpoint.events.map((event) => (
-                  <span key={event} className={styles.eventTag}>
+                  <span key={event} className={styles.eventTag} title={webhookEventDescription(t, event)}>
                     {event}
                   </span>
                 ))}

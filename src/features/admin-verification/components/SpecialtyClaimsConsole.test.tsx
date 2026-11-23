@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { SpecialtyClaimsConsole } from './SpecialtyClaimsConsole';
 import { ApiError } from '../../../services/api-client';
 import * as verificationService from '../../../services/admin-verification-service';
@@ -220,11 +220,18 @@ describe('SpecialtyClaimsConsole — queue', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
   });
 
+  it('shows a loading skeleton while specialty claims are loading', () => {
+    vi.mocked(verificationService.listSpecialtyClaims).mockReturnValue(new Promise(() => {}));
+    renderConsole();
+    expect(screen.getByText(/loading specialty claims/i)).toBeInTheDocument();
+  });
+
   it('says so when the queue is empty', async () => {
     vi.mocked(verificationService.listSpecialtyClaims).mockResolvedValue({ items: [], nextCursor: null });
     renderConsole();
 
     expect(await screen.findByText(/No specialty claims are waiting for review/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh queue/i })).toBeInTheDocument();
   });
 
   it('distinguishes an empty filtered view from an empty queue', async () => {
@@ -232,6 +239,7 @@ describe('SpecialtyClaimsConsole — queue', () => {
     renderConsole('/admin/verification?olderThan=168h');
 
     expect(await screen.findByText('No pending claims match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset filters/i })).toBeInTheDocument();
   });
 
   it("explains when docforum-core doesn't serve the queue yet", async () => {
@@ -239,6 +247,7 @@ describe('SpecialtyClaimsConsole — queue', () => {
     renderConsole();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/per-specialty verification yet \(docforum-core#51\)/);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });
 
@@ -406,17 +415,13 @@ describe('SpecialtyClaimsConsole — reject', () => {
 });
 
 describe('/admin/verification route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/verification']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/verification');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins', async () => {
     renderApp();
@@ -427,7 +432,8 @@ describe('/admin/verification route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Specialty claims' })).not.toBeInTheDocument();
     expect(verificationService.listSpecialtyClaims).not.toHaveBeenCalled();
   });

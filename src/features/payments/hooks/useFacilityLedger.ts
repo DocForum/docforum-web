@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
 import { getFacilityPayoutLedger } from '../../../services/payments-service';

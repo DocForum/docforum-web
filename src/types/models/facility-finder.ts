@@ -16,3 +16,22 @@ export interface FacilityWithDistance extends FacilityProfile {
   phone?: string;
   rating?: number;
 }
+
+// --- Facility prices for an order item (Phase W2, issue #258) ---------------
+// Assumed contract: `GET /facilities/eligible?catalogItemCode=` returns each
+// eligible facility with the price in force for that catalog item, or
+// `price: null` plus `priceOnRequest: true`. See ARCHITECTURE_ESSENTIALS.md
+// "Known assumptions".
+
+export interface FacilityItemPrice {
+  /** BigInt-safe raw stroops — format with `features/payments/stroops.ts` and
+   * never by converting to a JS `number`. */
+  amountStroops: string;
+  effectiveFrom: string;
+}
+
+export interface EligibleFacility extends FacilityWithDistance {
+  /** The price in force now; `null` when the facility has none (on request). */
+  price: FacilityItemPrice | null;
+  priceOnRequest: boolean;
+}

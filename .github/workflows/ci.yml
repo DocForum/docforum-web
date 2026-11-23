@@ -24,6 +24,9 @@ jobs:
 
       - run: npm ci
 
+      - name: No tracked backup files
+        run: npm run check:no-backups
+
       - name: Check generated API client version
         run: npm run check:api-client
 
@@ -43,6 +46,14 @@ jobs:
 
       - run: npm run lint
 
+      # Contract drift report (#301). Warn-only by design: the summary goes to
+      # the job log and a drifted call never blocks a merge.
+      - name: Contract drift report (warn-only)
+        continue-on-error: true
+        env:
+          DOCFORUM_CORE_REF: ${{ env.E2E_CORE_REF }}
+        run: npm run check:contract-drift
+
       # Coverage gate (issue #105): thresholds live in vite.config.ts and fail
       # this step when coverage on src/features/ or src/services/ drops below
       # the recorded floor. Plain `npm test` runs the same suites uncovered.
@@ -51,6 +62,70 @@ jobs:
       - run: npm run build
 
       - run: npm run check:dist
+
+      # The built HTML must contain nothing the strict production CSP blocks
+      # (issue #225). Prerendered pages are scanned too, not just index.html.
+      - run: npm run check:csp
+
+      # Performance budget (issue #99): first-load JS and every lazy chunk,
+      # gzip, against performance-budget.json. Also writes the numbers to
+      # the job summary.
+      - run: npm run check:bundle
+
+      # Bundle composition (rollup visualiser treemap) for reviewers.
+      - name: Bundle composition report
+        run: npm run analyze
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats
+          path: bundle-stats/
+          if-no-files-found: error
+
+  lighthouse:
+    name: Lighthouse (performance budgets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The same mock-only build as the PR preview (#104): hash routing (so
+      # the static server needs no SPA rewrites), every request answered by
+      # MSW, and a reserved-invalid API origin — Lighthouse can never reach
+      # a real backend. `?previewRole=` opens signed-in pages.
+      - name: Build mock-API preview
+        run: npm run build:preview
+        env:
+          VITE_USE_HASH_ROUTER: 'true'
+          VITE_PREVIEW_MOCKS: 'true'
+          VITE_ENABLE_MOCKS: 'true'
+          VITE_API_BASE_URL: https://mock-api.invalid
+          VITE_SENTRY_DSN: ''
+
+      - name: Prove the build is mock-only
+        run: npm run check:preview
+
+      # Budgets and pages live in .lighthouserc.json; any assertion over
+      # budget fails this job. The script-size budget (450 kB transferred)
+      # covers this *mock* build, which also loads the MSW mock layer
+      # (~120 kB gzip) that production never ships; production first-load JS
+      # is held to performance-budget.json by `check:bundle` above.
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: lighthouse-report/
+          if-no-files-found: ignore
 
   browser:
     name: Browser (journeys + accessibility + visual)
@@ -64,7 +139,32 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:e2e
+      # Journeys, accessibility and landscape checks: real behaviour, so they
+      # block like any test.
+      - name: Journeys + accessibility
+        run: npm run test:e2e
+        env:
+          E2E_SKIP_VISUAL: '1'
+      # Screenshot comparisons only report. Contributors can't reproduce CI's
+      # exact pixels locally, so a diff is a maintainer's to review: after the
+      # merge, visual-baselines.yml regenerates the baselines on a branch for
+      # review. A diff that shows a real layout bug is still the author's.
+      - name: Visual screenshots (report only)
+        id: visual
+        continue-on-error: true
+        run: npx playwright test --project='visual-*'
+      - name: Report screenshot changes
+        if: steps.visual.outcome == 'failure'
+        run: |
+          msg="Some screenshots differ from the committed baselines. This doesn't block the PR: a maintainer reviews the diff (playwright-report artifact) and refreshes the baselines after merging. Only fix it if the change is unintended."
+          echo "::warning title=Visual screenshots changed::$msg"
+          {
+            echo "### Visual screenshots changed (not blocking)"
+            echo
+            echo "$msg"
+            echo
+            find test-results -name '*-actual.png' | sed 's|^test-results/|- |'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useFormat } from '../../../i18n/useFormat';
+import { useT } from '../../../i18n/useT';
 import type { CareStepStatus, CareStepType, CareThread, CareThreadStep } from '../../../types/models';
 import { EmptyState, type EmptyStateAction } from '../../../components/states/EmptyState';
 import { Skeleton } from '../../../components/states/Skeleton';
@@ -46,27 +47,46 @@ function getItemClass(status: CareStepStatus): string {
   }
 }
 
-function formatStatus(status: CareStepStatus): string {
+/** Step statuses are API identifiers; each has a static catalogue message. */
+function formatStatus(status: CareStepStatus, t: ReturnType<typeof useT>): string {
   switch (status) {
     case 'action_required':
-      return 'Action required';
+      return t('care.timeline.status.actionRequired', 'Action required');
     case 'in_progress':
-      return 'In progress';
+      return t('queue.status.inProgress', 'In progress');
+    case 'completed':
+      return t('care.timeline.status.completed', 'Completed');
+    case 'pending':
+      return t('care.timeline.status.pending', 'Pending');
     default:
-      return status;
+      return t('care.timeline.status.unknown', 'Unknown');
+  }
+}
+
+/** The episode status is also an API id (e.g. `active`), never display copy. */
+function episodeStatus(status: string, t: ReturnType<typeof useT>): string {
+  switch (status) {
+    case 'active':
+      return t('care.timeline.episode.active', 'active');
+    case 'completed':
+      return t('care.timeline.episode.completed', 'completed');
+    default:
+      return t('care.timeline.episode.unknown', 'unknown');
   }
 }
 
 export function CareTimeline({
   thread,
   isLoading = false,
-  emptyAction = { label: 'Go to your care hub', to: '/care' },
+  emptyAction,
 }: CareTimelineProps) {
+  const t = useT();
   const { formatDate } = useFormat();
+
   if (isLoading) {
     return (
       <div className={styles.timelineContainer}>
-        <Skeleton lines={5} height="1.25rem" label="Loading care journey timeline" />
+        <Skeleton lines={5} height="1.25rem" label={t('care.timeline.loading', 'Loading care journey timeline')} />
       </div>
     );
   }
@@ -75,9 +95,17 @@ export function CareTimeline({
     return (
       <div className={styles.timelineContainer}>
         <EmptyState
-          title="No care thread found"
-          description="There are no recorded care milestones for this thread yet. Once a consultation is booked or a referral is received, the continuous care journey appears here."
-          action={emptyAction}
+          title={t('care.timeline.empty.title', 'No care thread found')}
+          description={t(
+            'care.timeline.empty.description',
+            'There are no recorded care milestones for this thread yet. Once a consultation is booked or a referral is received, the continuous care journey appears here.',
+          )}
+          action={
+            emptyAction ?? {
+              label: t('care.timeline.empty.action', 'Go to your care hub'),
+              to: '/care',
+            }
+          }
         />
       </div>
     );
@@ -91,15 +119,25 @@ export function CareTimeline({
   const isPartialConcludedAtConsultation = hasConsultation && !hasSubsequentSteps;
 
   return (
-    <section className={styles.timelineContainer} aria-label="Care thread timeline">
+    <section className={styles.timelineContainer} aria-label={t('care.timeline.aria', 'Care thread timeline')}>
       <div className={styles.timelineHeader}>
         <div>
-          <span className={styles.statusPill}>{thread.status} care episode</span>
+          <span className={styles.statusPill}>
+            {t('care.timeline.episodeLabel', '{status} care episode', {
+              status: episodeStatus(thread.status, t),
+            })}
+          </span>
           <h2 className={styles.threadTitle}>{thread.title}</h2>
           <div className={styles.threadMeta}>
-            <span>Doctor: {thread.doctorName} ({thread.specialty})</span>
             <span>
-              Started: <time dateTime={thread.startedAt}>{formatDate(thread.startedAt)}</time>
+              {t('care.timeline.doctor', 'Doctor: {name} ({specialty})', {
+                name: thread.doctorName,
+                specialty: thread.specialty,
+              })}
+            </span>
+            <span>
+              {t('care.timeline.started', 'Started:')}{' '}
+              <time dateTime={thread.startedAt}>{formatDate(thread.startedAt)}</time>
             </span>
           </div>
         </div>
@@ -119,7 +157,7 @@ export function CareTimeline({
               <div className={styles.stepContent}>
                 <div className={styles.stepHeader}>
                   <h3 className={styles.stepTitle}>{step.title}</h3>
-                  <span className={`${styles.stepBadge} ${badgeClass}`}>{formatStatus(step.status)}</span>
+                  <span className={`${styles.stepBadge} ${badgeClass}`}>{formatStatus(step.status, t)}</span>
                 </div>
 
                 <p className={styles.stepDesc}>{step.description}</p>
@@ -152,9 +190,12 @@ export function CareTimeline({
 
       {isPartialConcludedAtConsultation && (
         <div className={styles.partialNotice} role="note">
-          <strong>Care Episode Concluded:</strong> Following the consultation, no specialist referrals or diagnostic
-          laboratory orders were deemed necessary by {thread.doctorName}. You can review your clinical notes or book a
-          follow-up if needed.
+          <strong>{t('care.timeline.notice.title', 'Care Episode Concluded:')}</strong>{' '}
+          {t(
+            'care.timeline.notice.body',
+            'Following the consultation, no specialist referrals or diagnostic laboratory orders were deemed necessary by {doctor}. You can review your clinical notes or book a follow-up if needed.',
+            { doctor: thread.doctorName },
+          )}
         </div>
       )}
     </section>

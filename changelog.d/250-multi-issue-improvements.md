@@ -1,0 +1,1 @@
+Patient orders and payments, plus the admin audit, disputes and feature-flag consoles, now render in Spanish. Admin Axe and dialog keyboard/focus coverage is extended, and the live queue uses docforum-core's confirmed appointment endpoints with four-second undo and conflict rollback. Closes issues #250, #248, #247 and #236.
