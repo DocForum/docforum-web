@@ -71,6 +71,7 @@ export function QueuePanel() {
   const { timeZone } = useTimeZone();
   const { data: queue = [] } = useQueue();
   const { startVisit, completeVisit, undo, isPending, hasPendingUndo, startError, completeError } = useVisitActions();
+  const { data: appointments = [] } = useAppointments();
   const { data: delay } = useRunningDelay();
   const updateDelay = useUpdateRunningDelay();
   const { formatNumber } = useFormat();
@@ -78,6 +79,8 @@ export function QueuePanel() {
 
   const [overrideMin, setOverrideMin] = useState('');
   const [undoTarget, setUndoTarget] = useState<string | null>(null);
+  // Set when a no-show/cancel attempt lost a race (409); the row is stale.
+  const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const byPosition = useMemo(
