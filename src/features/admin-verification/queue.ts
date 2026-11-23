@@ -1,3 +1,5 @@
+import { englishTranslator } from '../../i18n/englishTranslator';
+import type { Translator } from '../../i18n/useT';
 import type { VerificationDecision, VerificationQueueItem, VerificationStatus } from '../../types/models';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -36,21 +38,31 @@ export function sortBySubmitted<T extends Pick<VerificationQueueItem, 'submitted
   });
 }
 
-export function statusLabel(status: VerificationStatus): string {
-  if (status === 'verified') return 'Verified';
-  if (status === 'rejected') return 'Rejected';
-  return 'Pending review';
+export function statusLabel(status: VerificationStatus, t: Translator = englishTranslator): string {
+  if (status === 'verified') return t('adminVerification.status.verified', 'Verified');
+  if (status === 'rejected') return t('adminVerification.status.rejected', 'Rejected');
+  return t('adminVerification.status.pending', 'Pending review');
 }
 
 /** Age of the oldest waiting application, as a badge over the whole queue. */
-export function oldestAgeLabel(items: VerificationQueueItem[], now: number = Date.now()): string | null {
+export function oldestAgeLabel(
+  items: VerificationQueueItem[],
+  now: number = Date.now(),
+  t: Translator = englishTranslator,
+): string | null {
   if (items.length === 0) return null;
   const oldest = sortBySubmitted(items)[0];
   const hours = hoursSince(oldest.submittedAt, now);
   if (hours === null) return null;
-  if (hours >= 48) return `${Math.floor(hours / 24)} days waiting`;
-  if (hours >= 1) return `${hours}h waiting`;
-  return 'Waiting less than an hour';
+  if (hours >= 48) {
+    return t('adminVerification.queue.ageDays', '{days, plural, one {# day} other {# days}} waiting', {
+      days: Math.floor(hours / 24),
+    });
+  }
+  if (hours >= 1) {
+    return t('adminVerification.queue.ageHours', '{hours}h waiting', { hours });
+  }
+  return t('adminVerification.queue.ageUnderHour', 'Waiting less than an hour');
 }
 
 /** Project a `doctor.verification_status_changed` audit event into the

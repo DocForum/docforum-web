@@ -1,7 +1,8 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
-import { isNotServed, readinessVerdict } from '../errors';
-import { UNREACHABLE, checksSummary, jobsOverview, jobsVerdict, outboxTone } from '../status';
+import { useOptionalT } from '../../../i18n/useOptionalT';
+import { isAuthError, isNotServed, readinessVerdict } from '../errors';
+import { checksSummary, jobsOverview, jobsVerdict, outboxTone } from '../status';
 import { StatusPill } from './StatusPill';
 import { TimeAgo } from './TimeAgo';
 import type { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
@@ -28,35 +29,54 @@ function Tile({ label, tone, value, detail }: { label: string; tone: Tone; value
   );
 }
 
-function readinessDetail(readiness: ReturnType<typeof useReadiness>): string {
-  const verdict = readinessVerdict(readiness.data?.report, readiness.error);
-  if (verdict === UNREACHABLE) return 'No answer from docforum-core';
-  if (readiness.error) return verdict.description;
-  if (readiness.data) return checksSummary(readiness.data.report.checks);
-  return 'Waiting for the first answer';
-}
-
 /** The three answers to "is it broken?" — the panels below have the detail. */
 export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewProps) {
-  const verdict = readinessVerdict(readiness.data?.report, readiness.error);
+  const t = useOptionalT().t;
+  const verdict = readinessVerdict(readiness.data?.report, readiness.error, t);
+
+  const readinessDetail = (): string => {
+    if (readiness.error) {
+      // A 404/403 has its own explanation; anything else means no answer at
+      // all, which is a different sentence from "the server said not ready".
+      if (isNotServed(readiness.error) || isAuthError(readiness.error)) return verdict.description;
+      return t('adminSystem.overview.noAnswer', 'No answer from docforum-core');
+    }
+    if (readiness.data) return checksSummary(readiness.data.report.checks, t);
+    return t('adminSystem.overview.waiting', 'Waiting for the first answer');
+  };
 
   let jobsTile;
   if (jobs.error && !jobs.data) {
     jobsTile = {
       tone: 'neutral' as Tone,
-      value: <StatusPill tone="neutral" label={isNotServed(jobs.error) ? 'Not served' : 'Unavailable'} />,
-      detail: isNotServed(jobs.error) ? 'Job history arrives with docforum-core#100' : "Couldn't load the job list",
+      value: (
+        <StatusPill
+          tone="neutral"
+          label={isNotServed(jobs.error) ? t('adminSystem.overview.notServed', 'Not served') : t('adminSystem.overview.unavailable', 'Unavailable')}
+        />
+      ),
+      detail: isNotServed(jobs.error)
+        ? t('adminSystem.overview.jobsNotServed', 'Job history arrives with docforum-core#100')
+        : t('adminSystem.overview.jobsLoadFailed', "Couldn't load the job list"),
     };
   } else if (jobs.data) {
     const overview = jobsOverview(jobs.data, now);
-    const jobsDisplay = jobsVerdict(overview);
+    const jobsDisplay = jobsVerdict(overview, t);
     jobsTile = {
       tone: jobsDisplay.tone,
       value: <StatusPill tone={jobsDisplay.tone} label={jobsDisplay.label} />,
-      detail: `${overview.total} ${overview.total === 1 ? 'job' : 'jobs'}${overview.running ? ` · ${overview.running} running` : ''}`,
+      detail: `${t('adminSystem.overview.jobsCount', '{count, plural, one {# job} other {# jobs}}', { count: overview.total })}${
+        overview.running
+          ? ` · ${t('adminSystem.overview.jobsRunning', '{count, plural, one {# running} other {# running}}', { count: overview.running })}`
+          : ''
+      }`,
     };
   } else {
-    jobsTile = { tone: 'neutral' as Tone, value: <StatusPill tone="neutral" label="Loading…" />, detail: 'Fetching job history' };
+    jobsTile = {
+      tone: 'neutral' as Tone,
+      value: <StatusPill tone="neutral" label={t('adminSystem.overview.loading', 'Loading…')} />,
+      detail: t('adminSystem.overview.fetchingJobs', 'Fetching job history'),
+    };
   }
 
   let outboxTile;
@@ -67,14 +87,16 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
       value: <span className={styles.tileCount}>{summary.deadLetterCount.toLocaleString('en-GB')}</span>,
       detail: (
         <>
-          {summary.pendingCount.toLocaleString('en-GB')} pending
+          {t('adminSystem.overview.pending', '{count, plural, one {# pending} other {# pending}}', {
+            count: summary.pendingCount,
+          })}
           {summary.oldestPendingAt && (
             <>
               {' '}
-              · oldest queued <TimeAgo iso={summary.oldestPendingAt} now={now} />
+              · {t('adminSystem.overview.oldestQueued', 'oldest queued')} <TimeAgo iso={summary.oldestPendingAt} now={now} />
             </>
           )}
-          {outbox.error && " · couldn't refresh"}
+          {outbox.error && ` · ${t('adminSystem.overview.couldNotRefresh', "couldn't refresh")}`}
         </>
       ),
     };
@@ -82,25 +104,38 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
     // "If exposed" — a 404 is an expected answer, not a fault.
     outboxTile = {
       tone: 'neutral' as Tone,
-      value: <StatusPill tone="neutral" label={isNotServed(outbox.error) ? 'Not exposed' : 'Unavailable'} />,
+      value: (
+        <StatusPill
+          tone="neutral"
+          label={
+            isNotServed(outbox.error)
+              ? t('adminSystem.overview.notExposed', 'Not exposed')
+              : t('adminSystem.overview.unavailable', 'Unavailable')
+          }
+        />
+      ),
       detail: isNotServed(outbox.error)
-        ? "docforum-core doesn't expose outbox stats yet (docforum-core#94)"
-        : "Couldn't load outbox stats",
+        ? t('adminSystem.overview.outboxNotServed', "docforum-core doesn't expose outbox stats yet (docforum-core#94)")
+        : t('adminSystem.overview.outboxLoadFailed', "Couldn't load outbox stats"),
     };
   } else {
-    outboxTile = { tone: 'neutral' as Tone, value: <StatusPill tone="neutral" label="Loading…" />, detail: 'Fetching outbox stats' };
+    outboxTile = {
+      tone: 'neutral' as Tone,
+      value: <StatusPill tone="neutral" label={t('adminSystem.overview.loading', 'Loading…')} />,
+      detail: t('adminSystem.overview.fetchingOutbox', 'Fetching outbox stats'),
+    };
   }
 
   return (
     <div className={styles.overview}>
       <Tile
-        label="API readiness"
+        label={t('adminSystem.overview.apiReadiness', 'API readiness')}
         tone={verdict.tone}
         value={<StatusPill tone={verdict.tone} label={verdict.label} />}
-        detail={readinessDetail(readiness)}
+        detail={readinessDetail()}
       />
-      <Tile label="Background jobs" {...jobsTile} />
-      <Tile label="Outbox dead letters" {...outboxTile} />
+      <Tile label={t('adminSystem.overview.backgroundJobs', 'Background jobs')} {...jobsTile} />
+      <Tile label={t('adminSystem.overview.outboxDeadLetters', 'Outbox dead letters')} {...outboxTile} />
     </div>
   );
 }
