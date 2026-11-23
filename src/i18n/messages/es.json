@@ -1780,6 +1780,7 @@
   "referrals.snapshot.taken": "Instantánea tomada",
   "referrals.snapshot.targetSpecialty": "Especialidad de destino",
   "referrals.status.accepted": "Aceptada",
+  "referrals.status.cancelled": "Cancelada",
   "referrals.status.completed": "Completada",
   "referrals.status.declined": "Rechazada",
   "referrals.status.expired": "Caducada",

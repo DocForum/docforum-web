@@ -1737,6 +1737,7 @@
   "referrals.snapshot.taken": "Snapshot taken",
   "referrals.snapshot.targetSpecialty": "Target specialty",
   "referrals.status.accepted": "Accepted",
+  "referrals.status.cancelled": "Cancelled",
   "referrals.status.completed": "Completed",
   "referrals.status.declined": "Declined",
   "referrals.status.expired": "Expired",
