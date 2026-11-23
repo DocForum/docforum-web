@@ -1558,6 +1558,28 @@ describe('dev panel scenarios', () => {
     ).resolves.toEqual([]);
   });
 
+  it('simulates a missing payout wallet (FACILITY_WALLET_NOT_LINKED)', async () => {
+    useMockStore.setState({ scenario: 'wallet_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'FACILITY_WALLET_NOT_LINKED' });
+  });
+
+  it('simulates a missing trustline (PAYEE_TRUSTLINE_MISSING)', async () => {
+    useMockStore.setState({ scenario: 'trustline_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toMatchObject({
+      facilityId: FACILITY_ID,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'PAYEE_TRUSTLINE_MISSING' });
+  });
+
   it('delays responses by the configured latency', async () => {
     useMockStore.setState({ latencyMs: 200 });
     const started = Date.now();
