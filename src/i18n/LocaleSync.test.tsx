@@ -3,11 +3,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '../test/render';
 import { LocaleSync } from './LocaleSync';
 import { LocaleSwitcher } from './LocaleSwitcher';
-import { useLocaleStore } from './locale-store';
+import { useLocaleStore } from '../store/locale-store';
 
 afterEach(() => {
   act(() => {
-    useLocaleStore.getState().setLocale('en-US');
+    useLocaleStore.getState().setPatientLocale('en');
+    useLocaleStore.getState().setFormattingLocale('en-US');
   });
   document.documentElement.lang = 'en';
   document.documentElement.dir = 'ltr';
@@ -20,14 +21,16 @@ describe('locale direction switch (#88)', () => {
     expect(document.documentElement.dir).toBe('ltr');
 
     act(() => {
-      useLocaleStore.getState().setLocale('ar-EG');
+      useLocaleStore.getState().setPatientLocale('en');
+      useLocaleStore.getState().setFormattingLocale('ar-EG');
     });
 
     expect(document.documentElement.dir).toBe('rtl');
     expect(document.documentElement.lang).toBe('ar-EG');
 
     act(() => {
-      useLocaleStore.getState().setLocale('de-DE');
+      useLocaleStore.getState().setPatientLocale('en');
+      useLocaleStore.getState().setFormattingLocale('de-DE');
     });
 
     expect(document.documentElement.dir).toBe('ltr');

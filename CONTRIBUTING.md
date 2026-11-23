@@ -132,6 +132,11 @@ build job's *public* config, never a token.
 `npm run dev:mock` is still the fastest way to review locally; preview builds
 are for "there is a runnable bundle attached to the PR".
 
+`?previewRole=patient|doctor|facility|admin` is a mock/preview-build
+convenience for jumping straight into a seeded role. It is read only when the
+mock API is enabled, so a production/Pages build ignores it and stays signed
+out; the parameter is stripped from the URL after use.
+
 ## 6. Shared test utilities and the coverage gate
 
 - `src/test/render.tsx` — `renderWithProviders(ui, { route, role, session })`

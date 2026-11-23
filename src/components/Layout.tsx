@@ -16,6 +16,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { OfflineBanner } from './OfflineBanner';
+import { paths } from '../routes/paths';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
@@ -124,7 +125,7 @@ export function Layout() {
   }, [drawerOpen]);
 
   const logout = () => {
-    logoutMutation.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) });
+    logoutMutation.mutate(undefined, { onSuccess: () => navigate(paths.login, { replace: true }) });
     closeDrawer();
   };
 
@@ -132,7 +133,7 @@ export function Layout() {
     <div className={styles.shell}>
       {/* Skip to content for keyboard users */}
       <a href="#main-content" className={styles.skipLink}>
-        Skip to content
+        {t('shell.skipLink', 'Skip to content')}
       </a>
 
       <OfflineBanner />
@@ -146,20 +147,20 @@ export function Layout() {
             className={styles.menuToggle}
             aria-expanded={drawerOpen}
             aria-controls="mobile-drawer"
-            aria-label="Toggle navigation menu"
+            aria-label={t('shell.menuToggle', 'Toggle navigation menu')}
             onClick={() => setDrawerOpen((open) => !open)}
           >
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
           </button>
-          <Link to="/" className={styles.brand} aria-label="DocForum home">
+          <Link to="/" className={styles.brand} aria-label={t('shell.brandAria', 'DocForum home')}>
             <Logo size={24} />
             <span>DocForum</span>
           </Link>
         </div>
 
-        <nav className={styles.desktopNav} role="navigation" aria-label="Main">
+        <nav className={styles.desktopNav} role="navigation" aria-label={t('shell.nav.main', 'Main')}>
           {primaryItems.map((item) => (
             <RRNavLink
               key={item.to}
@@ -171,7 +172,13 @@ export function Layout() {
             >
               {item.messageId ? t(item.messageId, item.label) : item.label}
               {item.badge != null && item.badge > 0 && (
-                <span className={styles.badge} aria-label={`${item.label}, ${item.badge} new`}>
+                <span
+                  className={styles.badge}
+                  aria-label={t('shell.nav.badge', '{label}, {count} new', {
+                    label: item.messageId ? t(item.messageId, item.label) : item.label,
+                    count: item.badge,
+                  })}
+                >
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
@@ -194,12 +201,12 @@ export function Layout() {
           {user && (
             <Flag name="notification_preferences">
               <RRNavLink
-                to="/settings/notifications"
+                to={paths.notificationSettings}
                 className={({ isActive }) =>
                   styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
                 }
               >
-                Notifications
+                {t('shell.nav.notifications', 'Notifications')}
               </RRNavLink>
             </Flag>
           )}
@@ -236,7 +243,7 @@ export function Layout() {
         id="mobile-drawer"
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
         role="navigation"
-        aria-label="Mobile navigation"
+        aria-label={t('shell.drawer.aria', 'Mobile navigation')}
         aria-modal={drawerOpen}
         aria-hidden={!drawerOpen}
       >
@@ -245,10 +252,22 @@ export function Layout() {
           <span className={styles.drawerTitle}>DocForum</span>
           <button
             className={styles.drawerClose}
-            aria-label="Close navigation menu"
+            aria-label={t('shell.drawer.close', 'Close navigation menu')}
             onClick={closeDrawer}
           >
-            ✕
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         {user ? (
@@ -270,22 +289,22 @@ export function Layout() {
               ))}
               <Flag name="notification_preferences">
                 <RRNavLink
-                  to="/settings/notifications"
+                  to={paths.notificationSettings}
                   className={({ isActive }) =>
                     styles.drawerLink +
                     (isActive ? ` ${styles.drawerLinkActive}` : '')
                   }
                   onClick={closeDrawer}
                 >
-                  Notifications
+                  {t('shell.nav.notifications', 'Notifications')}
                 </RRNavLink>
               </Flag>
             </nav>
             <div className={styles.drawerUser}>
               <span className={styles.drawerEmail}>{user.email}</span>
-              <span className={styles.roleBadge} data-role={user.role}>{user.role}</span>
+              <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} fullWidth>
-                {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
               </Button>
             </div>
           </>
@@ -334,14 +353,14 @@ export function Layout() {
 
       <footer className={styles.footer} role="contentinfo">
         <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
-        <Link to="/accessibility" className={styles.navLink}>
+        <Link to={paths.accessibility} className={styles.navLink}>
           {t('app.accessibility', 'Accessibility')}
         </Link>
         {/* Router link, not a raw href: under the GitHub Pages base path a bare
             "/…" href leaves the app. The analytics disclosure moved to
             /privacy/analytics when /privacy became the public privacy page. */}
-        <Link to="/privacy/analytics" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-          Privacy &amp; analytics
+        <Link to="/privacy/analytics" className={styles.footerMutedLink}>
+          {t('shell.footer.privacy', 'Privacy & analytics')}
         </Link>
       </footer>
     </div>

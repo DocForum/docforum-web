@@ -9,8 +9,8 @@ let bootInFlight: Promise<void> | null = null;
 /**
  * Restore the session from the httpOnly refresh cookie once per page load.
  *
- * - Already signed in (mock mode, `?previewRole=`, or a login that beat the
- *   boot call) → nothing to do; mark the auth check resolved immediately.
+ * - Already signed in (mock mode, or a login that beat the boot call) →
+ *   nothing to do; mark the auth check resolved immediately.
  * - Otherwise mark `resolving`, attempt the refresh, and always resolve the
  *   status afterwards, whether the cookie was valid, expired, or the
  *   network was unavailable.

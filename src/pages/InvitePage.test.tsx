@@ -134,6 +134,35 @@ describe('InvitePage', () => {
     expect(useAuthStore.getState().user?.role).toBe('facility');
   });
 
+  it('lands an invited admin on the admin dashboard', async () => {
+    const adminInvite: AccountInvite = {
+      ...pendingInvite,
+      id: 'inv-admin-test',
+      email: 'new.admin@example.test',
+      role: 'admin',
+    };
+    const adminUser: User = {
+      ...invitedUser,
+      id: 'usr-admin-invited',
+      email: adminInvite.email,
+      role: 'admin',
+    };
+    vi.mocked(authService.getInvite).mockResolvedValue(adminInvite);
+    vi.mocked(authService.acceptInvite).mockResolvedValue({
+      user: adminUser,
+      accessToken: 'access-token',
+    });
+    const user = userEvent.setup();
+
+    renderPage('/invite?token=admin-demo');
+
+    await user.type(await screen.findByLabelText('Full name'), 'New Admin (fake)');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText('Admin dashboard')).toBeInTheDocument();
+  });
+
   it('sends an existing user through login and back to the invite', async () => {
     vi.mocked(authService.getInvite).mockResolvedValue(pendingInvite);
     vi.mocked(authService.login).mockResolvedValue({

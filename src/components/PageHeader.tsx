@@ -41,8 +41,8 @@ export function PageHeader({
   titleId = 'page-title',
   showTitle = true,
 }: PageHeaderProps) {
-  const location = useLocation();
   const t = useT();
+  const location = useLocation();
 
   // Only routes in the metadata table get a linked crumb, so a breadcrumb
   // never points at a path with no route. The current crumb is the page's
@@ -98,3 +98,4 @@ export function PageHeader({
     </header>
   );
 }
+

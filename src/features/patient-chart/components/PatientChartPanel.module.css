@@ -13,7 +13,10 @@
   margin-bottom: 24px;
 }
 
-.section h3 {
+.section h2 {
+  /* Section titles are h2 under the page's h1 (heading order) but keep the
+     compact h3 size they had before #238. */
+  font-size: var(--text-lg);
   margin-top: 0;
   margin-bottom: 12px;
   border-bottom: 1px solid #eee;
@@ -32,7 +35,9 @@
   padding: 12px;
 }
 
-.card h4 {
+.card h3 {
+  font-family: inherit;
+  font-weight: normal;
   margin-top: 0;
   margin-bottom: 8px;
   font-size: 0.875rem;

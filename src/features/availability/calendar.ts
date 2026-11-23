@@ -8,6 +8,7 @@
 // in the doctor's zone.
 
 import type { AppointmentStatus, AvailabilitySlot, SlotStatus } from '../../types/models';
+import { plainTranslate, type Translate } from '../../i18n/useT';
 
 export type IsoDate = string; // 'YYYY-MM-DD'
 export type IsoInstant = string; // full ISO-8601 UTC
@@ -218,23 +219,29 @@ function noonInZone(date: IsoDate): Date {
   return new Date(toUtcMs(splitIsoDate(date)) + 12 * 3_600_000);
 }
 
-export function formatDayHeading(date: IsoDate, style: 'short' | 'long' = 'short'): string {
+export function formatDayHeading(
+  date: IsoDate,
+  style: 'short' | 'long' = 'short',
+  locale = 'en-GB',
+): string {
   const at = noonInZone(date);
-  return new Intl.DateTimeFormat('en-GB', {
+  // The calendar has always used en-GB day/month order ("Mon 19 Oct"). Keep
+  // that for English; other locales use their own Intl formatting.
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
     weekday: style === 'long' ? 'long' : 'short',
     day: 'numeric',
     month: style === 'long' ? 'long' : 'short',
   }).format(at);
 }
 
-export function slotStatusLabel(status: SlotStatus): string {
+export function slotStatusLabel(status: SlotStatus, t: Translate = plainTranslate): string {
   switch (status) {
     case 'open':
-      return 'Open';
+      return t('availability.slot.status.open', 'Open');
     case 'held':
-      return 'Held or blocked';
+      return t('availability.slot.status.held', 'Held or blocked');
     case 'booked':
-      return 'Booked';
+      return t('availability.slot.status.booked', 'Booked');
   }
 }
 
@@ -364,6 +371,8 @@ export function buildCells(
   dates: readonly IsoDate[],
   timeZone: string,
   grid: SlotGrid,
+  t: Translate = plainTranslate,
+  locale = 'en-GB',
 ): SlotCell[][] {
   const byDay = slotsByDay(slots, timeZone);
   return dates.map((date) => {
@@ -375,15 +384,26 @@ export function buildCells(
       startTime: slot.startTime,
       endTime: slot.endTime,
       ...slotRowGeometry(slot, grid, timeZone),
-      accessibleName: cellAccessibleName(slot, date, timeZone),
+      accessibleName: cellAccessibleName(slot, date, timeZone, t, locale),
     }));
   });
 }
 
-export function cellAccessibleName(slot: AvailabilitySlot, date: IsoDate, timeZone: string): string {
+export function cellAccessibleName(
+  slot: AvailabilitySlot,
+  date: IsoDate,
+  timeZone: string,
+  t: Translate = plainTranslate,
+  locale = 'en-GB',
+): string {
   const patient = slot.appointment?.patientFullName;
-  const who = patient ? `, booked with ${patient}` : '';
-  return `${formatDayHeading(date, 'long')}, ${formatClockRange(slot.startTime, slot.endTime, timeZone)}, ${slotStatusLabel(slot.status)}${who}`;
+  const who = patient ? t('availability.cell.bookedWith', ', booked with {name}', { name: patient }) : '';
+  return t('availability.cell.accessibleName', '{day}, {time}, {status}{who}', {
+    day: formatDayHeading(date, 'long', locale),
+    time: formatClockRange(slot.startTime, slot.endTime, timeZone),
+    status: slotStatusLabel(slot.status, t),
+    who,
+  });
 }
 
 export interface HourLabel {
@@ -407,19 +427,19 @@ export function hourLabels(grid: SlotGrid): HourLabel[] {
 }
 
 /** Appointment statuses a doctor must not read as "cancelled by me". */
-export function appointmentStatusLabel(status: AppointmentStatus): string {
+export function appointmentStatusLabel(status: AppointmentStatus, t: Translate = plainTranslate): string {
   switch (status) {
     case 'scheduled':
-      return 'still scheduled';
+      return t('availability.appointment.status.scheduled', 'still scheduled');
     case 'checked_in':
-      return 'checked in';
+      return t('availability.appointment.status.checked_in', 'checked in');
     case 'in_progress':
-      return 'in progress';
+      return t('availability.appointment.status.in_progress', 'in progress');
     case 'completed':
-      return 'completed';
+      return t('availability.appointment.status.completed', 'completed');
     case 'cancelled':
-      return 'cancelled by the patient';
+      return t('availability.appointment.status.cancelled', 'cancelled by the patient');
     case 'no_show':
-      return 'marked as a no-show';
+      return t('availability.appointment.status.no_show', 'marked as a no-show');
   }
 }

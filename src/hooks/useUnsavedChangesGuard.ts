@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-
-const DEFAULT_MESSAGE =
-  'You have unsaved changes. Leave this page and discard your changes?';
+import { useT } from '../i18n/useT';
 
 /**
  * Warns before a full page unload and intercepts in-app link navigation
@@ -9,14 +7,18 @@ const DEFAULT_MESSAGE =
  * anchors, so a capture-phase click listener is enough to stop the router
  * before it navigates.
  */
-export function useUnsavedChangesGuard(isDirty: boolean, message = DEFAULT_MESSAGE): void {
+export function useUnsavedChangesGuard(isDirty: boolean, message?: string): void {
+  const t = useT();
+  const effectiveMessage =
+    message ?? t('facilitySettings.unsaved.message', 'You have unsaved changes. Leave this page and discard your changes?');
+
   useEffect(() => {
     if (!isDirty) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
-      event.returnValue = message;
-      return message;
+      event.returnValue = effectiveMessage;
+      return effectiveMessage;
     };
 
     const handleClick = (event: MouseEvent) => {
@@ -41,7 +43,7 @@ export function useUnsavedChangesGuard(isDirty: boolean, message = DEFAULT_MESSA
       const nextUrl = new URL(anchor.href, window.location.href);
       if (nextUrl.href === window.location.href) return;
 
-      if (!window.confirm(message)) {
+      if (!window.confirm(effectiveMessage)) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -53,5 +55,5 @@ export function useUnsavedChangesGuard(isDirty: boolean, message = DEFAULT_MESSA
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('click', handleClick, true);
     };
-  }, [isDirty, message]);
+  }, [isDirty, effectiveMessage]);
 }
