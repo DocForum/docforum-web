@@ -100,7 +100,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
               <th>{t('integrations.delivery.colResponse', 'Response')}</th>
               <th>{t('integrations.delivery.colAttempts', 'Attempts')}</th>
               <th>{t('integrations.delivery.colDelivered', 'Delivered')}</th>
-              <th aria-label={t('integrations.common.actions', 'Actions')} />
+              <th>{t('integrations.common.actions', 'Actions')}</th>
             </tr>
           </thead>
           <tbody>
