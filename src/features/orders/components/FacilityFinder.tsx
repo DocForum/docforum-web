@@ -1,24 +1,46 @@
 import { useState, useMemo } from 'react';
-import type { FacilityType, FacilityWithDistance } from '../../../types/models';
+import type {
+  EligibleFacility,
+  FacilityType,
+  FacilityWithDistance,
+} from '../../../types/models';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { useFacilitySearch } from '../hooks/useFacilitySearch';
+import { useEligibleFacilities, useFacilitySearch } from '../hooks/useFacilitySearch';
+import { compareFacilitiesByPrice } from '../facility-price';
 import { FacilityCard } from './FacilityCard';
 import { FacilityMap } from './FacilityMap';
 import { Button } from '../../../components/Button';
 import { TextField } from '../../../components/TextField';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
+import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useT } from '../../../i18n/useT';
 import styles from './FacilityFinder.module.css';
 
 interface FacilityFinderProps {
   initialType?: FacilityType;
   onFacilityChosen?: (facility: FacilityWithDistance) => void;
+  /** Catalog code of the order item being fulfilled. When set, the finder
+   * compares each facility's price for that item (issue #258). */
+  catalogItemCode?: string;
 }
 
-export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinderProps) {
+type SortBy = 'distance' | 'price';
+
+export function FacilityFinder({
+  initialType,
+  onFacilityChosen,
+  catalogItemCode,
+}: FacilityFinderProps) {
+  const t = useT();
+  const errorMessage = useErrorMessage();
   const [selectedType, setSelectedType] = useState<FacilityType | undefined>(initialType);
   const [areaQuery, setAreaQuery] = useState('');
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>('distance');
+  const comparingPrices = Boolean(catalogItemCode);
 
   const { coordinates, isLoading: isLocating, error: geoError, requestLocation, clearLocation } = useGeolocation();
 
@@ -32,7 +54,26 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
     [selectedType, coordinates, areaQuery],
   );
 
-  const { data: facilities = [], isLoading: isSearching, error: searchError } = useFacilitySearch(searchParams);
+  const search = useFacilitySearch(searchParams, !comparingPrices);
+  const eligible = useEligibleFacilities(catalogItemCode, searchParams);
+
+  const facilities = useMemo<FacilityWithDistance[]>(() => {
+    return comparingPrices ? (eligible.data ?? []) : (search.data ?? []);
+  }, [comparingPrices, eligible.data, search.data]);
+  const isSearching = comparingPrices ? eligible.isLoading : search.isLoading;
+  const searchError = comparingPrices ? eligible.error : search.error;
+  const refetchFacilities = comparingPrices ? eligible.refetch : search.refetch;
+
+  const eligibleById = useMemo(() => {
+    const byId = new Map<string, EligibleFacility>();
+    for (const facility of eligible.data ?? []) byId.set(facility.id, facility);
+    return byId;
+  }, [eligible.data]);
+
+  const visibleFacilities = useMemo<FacilityWithDistance[]>(() => {
+    if (!comparingPrices || sortBy !== 'price') return facilities;
+    return [...(eligible.data ?? [])].sort(compareFacilitiesByPrice);
+  }, [facilities, eligible.data, comparingPrices, sortBy]);
 
   const handleSelectFacility = (facility: FacilityWithDistance) => {
     setSelectedFacilityId(facility.id);
@@ -120,36 +161,75 @@ export function FacilityFinder({ initialType, onFacilityChosen }: FacilityFinder
             onChange={(e) => setAreaQuery(e.target.value)}
           />
         </div>
+
+        {comparingPrices && (
+          <div className={styles.sortGroup} role="group" aria-label="Sort facilities">
+            <span className={styles.sortLabel}>Sort by</span>
+            <button
+              type="button"
+              className={`${styles.tabButton} ${sortBy === 'distance' ? styles.tabActive : ''}`}
+              aria-pressed={sortBy === 'distance'}
+              onClick={() => setSortBy('distance')}
+            >
+              Distance
+            </button>
+            <button
+              type="button"
+              className={`${styles.tabButton} ${sortBy === 'price' ? styles.tabActive : ''}`}
+              aria-pressed={sortBy === 'price'}
+              onClick={() => setSortBy('price')}
+            >
+              Price
+            </button>
+          </div>
+        )}
       </div>
 
+      {comparingPrices && (
+        <p className={styles.sortHint} role="status">
+          {sortBy === 'price'
+            ? 'Sorted by price, cheapest first. Facilities with a price on request are listed last.'
+            : 'Sorted by distance.'}
+        </p>
+      )}
+
       {searchError && (
-        <FormError message={searchError instanceof Error ? searchError.message : 'Error fetching facilities'} />
+        <InlineError
+          title="Facilities couldn't be loaded"
+          message={errorMessage(searchError) ?? t('facilityFinder.fetchError', 'Error fetching facilities')}
+          onRetry={() => void refetchFacilities()}
+        />
       )}
 
       {isSearching && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--color-text-muted)' }}>
-          <Spinner size={16} />
-          <span>Finding eligible facilities…</span>
-        </div>
+        <Skeleton lines={3} height="2.5rem" label="Finding eligible facilities" />
       )}
 
       <div className={styles.layoutSplit}>
         <div className={styles.listColumn} role="feed" aria-busy={isSearching} aria-label="Facilities list">
-          {facilities.length === 0 && !isSearching && (
-            <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <p style={{ margin: 0 }}>No facilities found matching your criteria.</p>
-              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-xs)' }}>
-                Try adjusting your search query or enabling location for distance results.
-              </p>
-            </div>
+          {facilities.length === 0 && !isSearching && !searchError && (
+            <EmptyState
+              title="No facilities found matching your criteria"
+              description="Try a different area or postal code, or clear the filters to see every participating pharmacy and lab."
+              action={{
+                label: 'Clear search and filters',
+                onClick: () => {
+                  setAreaQuery('');
+                  setSelectedType(undefined);
+                },
+              }}
+            />
           )}
 
-          {facilities.map((fac) => (
+          {visibleFacilities.map((fac) => (
             <FacilityCard
               key={fac.id}
               facility={fac}
               isSelected={fac.id === selectedFacilityId}
               onSelect={handleSelectFacility}
+              catalogItemCode={catalogItemCode}
+              price={eligibleById.get(fac.id)?.price}
+              priceOnRequest={eligibleById.get(fac.id)?.priceOnRequest}
             />
           ))}
         </div>

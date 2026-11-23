@@ -4,6 +4,10 @@
 import { HttpResponse, type PathParams } from 'msw';
 import { useMockStore } from './mock-store';
 
+// MSW's `HttpResponse<T>` is invariant in T; `unknown` does not satisfy its
+// `DefaultBodyType` constraint and breaks every handler's return type. `any`
+// is the correct escape hatch for a response of any JSON shape here.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHttpResponse = HttpResponse<any>;
 
 export interface MockResolverArgs {
@@ -30,6 +34,10 @@ async function applyScenario(): Promise<AnyHttpResponse | null> {
   }
   if (scenario === 'error') {
     return HttpResponse.json({ message: FORCED_ERROR_MESSAGE }, { status: 500 });
+  }
+  if (scenario === 'network-once') {
+    useMockStore.getState().setScenario('normal');
+    return HttpResponse.error();
   }
   return null;
 }
@@ -65,6 +73,12 @@ export function notFound(what: string): AnyHttpResponse {
 /** 409 helper with the `{ message }` envelope api-client.ts expects. */
 export function conflict(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 409 });
+}
+
+/** 400 helper with the `{ message }` envelope api-client.ts expects. Pass a
+ * docforum-core error `code` when the client has to branch on it. */
+export function badRequest(message: string, code?: string): AnyHttpResponse {
+  return HttpResponse.json(code ? { message, code } : { message: `Mock API: ${message}` }, { status: 400 });
 }
 
 export function paramId(params: PathParams, name = 'id'): string {

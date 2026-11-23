@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { transactionUrl } from '../explorer';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
@@ -10,8 +15,9 @@ interface FacilityPayoutLedgerProps {
 export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayoutLedgerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const { timeZone } = useTimeZone();
 
-  const { data, isLoading, error } = useFacilityLedger(facilityId, {
+  const { data, isLoading, error, refetch } = useFacilityLedger(facilityId, {
     status: statusFilter,
     asset: assetFilter,
   });
@@ -137,22 +143,20 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
         </div>
       </div>
 
-      {isLoading && (
-        <div role="status" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-          Loading facility payout ledger…
-        </div>
-      )}
+      {isLoading && <Skeleton lines={5} height="1.5rem" label="Loading facility payout ledger" />}
 
       {error && (
-        <div role="alert" style={{ padding: 'var(--space-4)', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 'var(--radius-md)' }}>
-          Failed to load payout ledger: {error.message}
-        </div>
+        <InlineError
+          title="The payout ledger couldn't be loaded"
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {!isLoading && !error && (
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
-            <caption style={{ textAlign: 'left', padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--color-text)' }}>
+            <caption className={styles.ledgerCaption}>
               Order Escrow Ledger ({entries.length} {entries.length === 1 ? 'record' : 'records'})
             </caption>
             <thead>
@@ -167,7 +171,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
             <tbody>
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
+                  <td colSpan={5} className={styles.emptyCell}>
                     No escrow entries matching the selected filters.
                   </td>
                 </tr>
@@ -176,15 +180,13 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                   const isWarning = entry.status === 'held' && entry.terms.isApproachingDeadline;
                   return (
                     <tr key={entry.id} className={isWarning ? styles.tableRowAlert : undefined}>
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>
-                          {entry.orderItemName}
-                        </div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                      <td data-label="Order &amp; Patient">
+                        <div className={styles.orderName}>{entry.orderItemName}</div>
+                        <div className={styles.orderMeta}>
                           Patient: {entry.patientName} • Order ID: <code>{entry.orderId}</code>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span
                           className={`${styles.statusPill} ${
                             entry.status === 'held'
@@ -197,17 +199,15 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           {entry.status}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                          {formatStroops(entry.amountStroops, entry.asset)}
-                        </div>
+                      <td data-label="Amount">
+                        <div className={styles.amount}>{formatStroops(entry.amountStroops, entry.asset)}</div>
                       </td>
-                      <td style={{ maxWidth: '320px' }}>
+                      <td data-label="Escrow Terms &amp; Refund Deadline">
                         <div>
                           <span className={styles.releaserTag}>Releaser:</span> {entry.terms.releaserDescription}
                         </div>
                         <div className={styles.termsText}>
-                          <strong>Refund cutoff:</strong> {new Date(entry.terms.refundDeadline).toLocaleString()}
+                          <strong>Refund cutoff:</strong> {formatDateTime(entry.terms.refundDeadline, timeZone)}
                           {entry.status === 'held' && (
                             <span> ({entry.terms.hoursUntilRefund}h remaining)</span>
                           )}
@@ -222,10 +222,10 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           </div>
                         )}
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <td data-label="Stellar Explorer">
+                        <div className={styles.explorerLinks}>
                           <a
-                            href={`https://stellar.expert/explorer/testnet/tx/${entry.fundTxHash}`}
+                            href={transactionUrl(entry.fundTxHash) ?? undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.explorerLink}
@@ -235,7 +235,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           </a>
                           {entry.releaseTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.releaseTxHash}`}
+                              href={transactionUrl(entry.releaseTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}
@@ -246,7 +246,7 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                           )}
                           {entry.refundTxHash && (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${entry.refundTxHash}`}
+                              href={transactionUrl(entry.refundTxHash) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={styles.explorerLink}

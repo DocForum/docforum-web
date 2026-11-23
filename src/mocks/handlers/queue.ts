@@ -25,8 +25,15 @@ function deriveQueue(appointments: Appointment[]): QueueEntry[] {
 }
 
 export const queueHandlers = [
+  // The patient's own appointments. The demo seeds doctor-side appointments
+  // only, so the patient has none yet — but the endpoint must answer: the
+  // patient hub's route loader prefetches it (#112), and an unmocked request
+  // falls through to the network, fails, and flags the API as unreachable.
+  // Goes through `respond`, so the dev panel's error/latency scenarios apply.
+  http.get('*/appointments/mine', respond('list', () => [])),
+
   http.get(
-    '*/doctor/appointments/today',
+    '*/appointments/doctor/today',
     respond('list', () =>
       [...db.appointments].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     ),
@@ -34,26 +41,27 @@ export const queueHandlers = [
 
   http.get('*/doctor/queue/today', respond('list', () => deriveQueue(db.appointments))),
 
-  http.post(
-    '*/appointments/:id/start',
+  http.patch(
+    '*/appointments/:appointmentId/start',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'completed') return conflict('cannot start a completed visit');
-      if (apt.status === 'in_progress') return apt; // idempotent, per assumed contract
+      if (apt.status !== 'checked_in' || !apt.checkInAt) {
+        return conflict('appointment must be scheduled and checked in before the visit can start');
+      }
       apt.status = 'in_progress';
       apt.startedAt = new Date().toISOString();
       return apt;
     }),
   ),
 
-  http.post(
-    '*/appointments/:id/complete',
+  http.patch(
+    '*/appointments/:appointmentId/complete',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'scheduled' || apt.status === 'checked_in') {
-        return conflict('visit has not started yet');
+      if (apt.status !== 'in_progress') {
+        return conflict('appointment must be in progress before the visit can complete');
       }
       apt.status = 'completed';
       apt.completedAt = new Date().toISOString();

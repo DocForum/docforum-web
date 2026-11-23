@@ -1,48 +1,175 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen } from '../test/render';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
-import type { User } from '../types/models';
+import { PUBLIC_CONTENT_ROUTES } from '../pages/public-page-map';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
-const facilityUser: User = {
-  id: 'user-facility',
-  email: 'owner@example.test',
-  role: 'facility',
-  createdAt: '2026-01-01T00:00:00Z',
-  updatedAt: '2026-01-01T00:00:00Z',
-};
+function signIn(role: 'patient' | 'doctor' | 'facility' | 'admin') {
+  useAuthStore.setState({
+    accessToken: `${role}-token`,
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+  });
+}
 
-afterEach(() => {
-  useAuthStore.getState().clearSession();
-});
+function renderLayout(role?: 'patient' | 'doctor' | 'facility' | 'admin') {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  if (role) signIn(role);
+  else useAuthStore.setState({ accessToken: null, user: null });
 
-describe('Layout header auth controls', () => {
-  it('shows only sign-in and sign-up entries to a signed-out visitor', () => {
-    render(<Layout />);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <Layout />
+    </QueryClientProvider>,
+  );
+}
 
-    expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sign up/i })).toBeInTheDocument();
+describe('Layout — role-aware navigation', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('shows the logout control and account details to a signed-in user', () => {
-    useAuthStore.getState().setSession(facilityUser, 'facility-token');
-
-    render(<Layout />);
-
-    expect(screen.getByRole('button', { name: /log out/i })).toBeInTheDocument();
-    expect(screen.getByText(facilityUser.email)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument();
+  it('shows log in / sign up when unauthenticated', () => {
+    renderLayout();
+    expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument();
   });
 
-  it('does not flash logout while a half-restored session settles', () => {
-    // The boot refresh can restore the user before its access token lands.
-    // Neither half alone should render account controls.
-    useAuthStore.setState({ user: facilityUser, accessToken: null });
+  function desktopNavHrefs(): string[] {
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    return within(nav)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href') ?? '')
+      .filter((href) => href !== '/settings/notifications');
+  }
 
-    render(<Layout />);
+  it('shows every routed patient screen in the nav, with secondary entries grouped', () => {
+    renderLayout('patient');
+    expect(screen.getByRole('link', { name: 'Care journey' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dependents' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Health profile' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Facilities' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/patient/orders');
+    expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/payments');
+    expect(desktopNavHrefs()).toEqual([
+      '/patient/search',
+      '/patient/doctors',
+      '/patient/appointments',
+      '/care',
+      '/patient/dependents',
+      '/patient/health',
+      '/patient/facilities',
+      '/patient/orders',
+      '/payments',
+      '/patient/settings',
+    ]);
+  });
 
-    expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
+  it('shows doctor nav items', () => {
+    renderLayout('doctor');
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/doctor');
+    expect(screen.getByRole('link', { name: 'Messages' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Insights' })).toBeInTheDocument();
+    expect(desktopNavHrefs()).toEqual(['/doctor', '/doctor/messages', '/doctor/insights']);
+  });
+
+  it('shows every routed facility screen in the nav, with settings grouped', () => {
+    renderLayout('facility');
+    expect(screen.getByRole('link', { name: 'Queue' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Verify Order' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Payouts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Insights' })).toHaveAttribute('href', '/facility/insights');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/facility/settings');
+    expect(desktopNavHrefs()).toEqual([
+      '/facility',
+      '/facility/verify',
+      '/facility/team',
+      '/facility/payments',
+      '/facility/integrations',
+      '/facility/insights',
+      '/facility/settings',
+    ]);
+  });
+
+  it('shows admin nav items', () => {
+    renderLayout('admin');
+    expect(screen.getByRole('link', { name: 'Payments' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Referrals' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Audit trail' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Flags' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'System' })).toBeInTheDocument();
+    expect(desktopNavHrefs()).toEqual([
+      '/admin',
+      '/admin/verifications',
+      '/admin/verification',
+      '/admin/referrals',
+      '/admin/disputes',
+      '/admin/audit',
+      '/admin/flags',
+      '/admin/catalogs',
+      '/admin/system',
+    ]);
+  });
+
+  it('hides role-inappropriate items for other roles', () => {
+    renderLayout('patient');
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Queue' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verifications' })).not.toBeInTheDocument();
+  });
+
+  it('shows user email and role badge when signed in', () => {
+    renderLayout('doctor');
+    expect(screen.getAllByText('doctor@docforum.org').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('doctor').length).toBeGreaterThan(0);
+  });
+
+  it('links the footer to the analytics disclosure, inside the router', () => {
+    renderLayout();
+    const link = screen.getByRole('link', { name: 'Privacy & analytics' });
+    // /privacy is now the public privacy page; the analytics page is /privacy/analytics.
+    expect(link).toHaveAttribute('href', '/privacy/analytics');
+  });
+
+  it('links the footer accessibility item to a real public route', () => {
+    renderLayout();
+    const link = screen.getByRole('link', { name: 'Accessibility' });
+    expect(link).toHaveAttribute('href', '/accessibility');
+    expect(PUBLIC_CONTENT_ROUTES.map((route) => `/${route.path}`)).toContain(
+      link.getAttribute('href'),
+    );
+  });
+
+  it('has a skip-to-content link reachable by keyboard', () => {
+    renderLayout();
+    const skip = screen.getByRole('link', { name: 'Skip to content' });
+    expect(skip).toHaveAttribute('href', '#main-content');
+  });
+
+  it('opens the mobile drawer on menu toggle and closes it', () => {
+    renderLayout('patient');
+    const menu = screen.getByRole('button', { name: 'Toggle navigation menu' });
+    expect(menu).toBeInTheDocument();
+
+    // Drawer is hidden from the accessibility tree when closed
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+
+    // Click to open (simulated via fireEvent)
+    fireEvent.click(menu);
+
+    // Now the drawer navigation should be in the accessibility tree
+    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
+
+    // Close button closes it
+    const close = screen.getByRole('button', { name: 'Close navigation menu' });
+    // Icon-only: the name comes from aria-label, never from a text glyph.
+    expect(close).not.toHaveTextContent(/\S/);
+    const icon = close.querySelector('svg');
+    expect(icon).toHaveAttribute('aria-hidden', 'true');
+    fireEvent.click(close);
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
   });
 });

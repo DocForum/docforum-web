@@ -1,0 +1,27 @@
+.title {
+  text-wrap: balance;
+}
+
+.loading {
+  font-size: var(--text-sm);
+  color: var(--color-text-faint);
+  margin: var(--space-3) 0 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.back {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-sm);
+}
+
+@media print {
+  .noPrint {
+    display: none;
+  }
+}

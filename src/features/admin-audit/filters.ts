@@ -1,4 +1,6 @@
 import type { AuditQuery } from '../../services/audit-service';
+import type { Translator } from '../../i18n/useT';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
 // The audit viewer's whole filter state lives in the URL query string, so a
 // filtered view can be bookmarked, shared with another admin, or restored
@@ -71,9 +73,17 @@ export const FIELD_LABELS: Record<FilterField, string> = {
   to: 'To',
 };
 
-function checkToken(value: string): string | null {
-  if (value.length > MAX_VALUE_LENGTH) return `Must be ${MAX_VALUE_LENGTH} characters or fewer.`;
-  if (!TOKEN_PATTERN.test(value)) return 'Only letters, numbers and . _ : - are allowed.';
+export function filterFieldLabel(field: FilterField, t: Translator = englishTranslator): string {
+  return t(`adminAudit.filter.${field}`, FIELD_LABELS[field]);
+}
+
+function checkToken(value: string, t: Translator): string | null {
+  if (value.length > MAX_VALUE_LENGTH) {
+    return t('adminAudit.filter.tooLong', 'Must be {max} characters or fewer.', { max: MAX_VALUE_LENGTH });
+  }
+  if (!TOKEN_PATTERN.test(value)) {
+    return t('adminAudit.filter.invalidCharacters', 'Only letters, numbers and . _ : - are allowed.');
+  }
   return null;
 }
 
@@ -89,7 +99,7 @@ function isCalendarDate(value: string): boolean {
  * error per rejected field. Rejected fields come back empty so callers can
  * always use `filters` safely.
  */
-export function checkFilters(draft: FilterDraft): { filters: FilterDraft; errors: FilterErrors } {
+export function checkFilters(draft: FilterDraft, t: Translator = englishTranslator): { filters: FilterDraft; errors: FilterErrors } {
   const errors: FilterErrors = {};
   const filters: FilterDraft = {
     entityType: draft.entityType.trim(),
@@ -102,7 +112,7 @@ export function checkFilters(draft: FilterDraft): { filters: FilterDraft; errors
 
   for (const field of ['entityType', 'entityId', 'actor', 'action'] as const) {
     if (!filters[field]) continue;
-    const problem = checkToken(filters[field]);
+    const problem = checkToken(filters[field], t);
     if (problem) {
       errors[field] = problem;
       filters[field] = '';
@@ -112,20 +122,20 @@ export function checkFilters(draft: FilterDraft): { filters: FilterDraft; errors
   // docforum-core answers 400 to an entityId without its entityType: ids
   // are only unique within a type.
   if (filters.entityId && !filters.entityType) {
-    errors.entityId ??= 'Choose an entity type to filter by entity id.';
+    errors.entityId ??= t('adminAudit.filter.entityTypeRequired', 'Choose an entity type to filter by entity id.');
     filters.entityId = '';
   }
 
   for (const field of ['from', 'to'] as const) {
     if (filters[field] && !isCalendarDate(filters[field])) {
-      errors[field] = 'Use a valid date (YYYY-MM-DD).';
+      errors[field] = t('adminAudit.filter.invalidDate', 'Use a valid date (YYYY-MM-DD).');
       filters[field] = '';
     }
   }
 
   // ISO dates compare correctly as strings.
   if (filters.from && filters.to && filters.from > filters.to) {
-    errors.to = 'End date must be on or after the start date.';
+    errors.to = t('adminAudit.filter.dateOrder', 'End date must be on or after the start date.');
     filters.to = '';
   }
 
@@ -134,14 +144,19 @@ export function checkFilters(draft: FilterDraft): { filters: FilterDraft; errors
 
 /** Reads the viewer's state from the URL. Never throws: invalid values are
  * dropped and reported in `issues` so the page can say what it ignored. */
-export function parseAuditSearch(params: URLSearchParams): { filters: AuditFilters; issues: string[] } {
+export function parseAuditSearch(
+  params: URLSearchParams,
+  t: Translator = englishTranslator,
+): { filters: AuditFilters; issues: string[] } {
   const read = (key: string) => params.get(key) ?? '';
   const issues: string[] = [];
 
   const rawTab = read(PARAM.tab);
   let tab: AuditTab = 'events';
   if (rawTab === 'access') tab = 'access';
-  else if (rawTab && rawTab !== 'events') issues.push('Unknown tab — showing state-change events.');
+  else if (rawTab && rawTab !== 'events') {
+    issues.push(t('adminAudit.urlIssue.unknownTab', 'Unknown tab — showing state-change events.'));
+  }
 
   const { filters: checked, errors } = checkFilters({
     entityType: read(PARAM.entityType),
@@ -150,16 +165,18 @@ export function parseAuditSearch(params: URLSearchParams): { filters: AuditFilte
     action: read(PARAM.action),
     from: read(PARAM.from),
     to: read(PARAM.to),
-  });
+  }, t);
   for (const [field, message] of Object.entries(errors)) {
-    issues.push(`${FIELD_LABELS[field as FilterField]}: ${message}`);
+    issues.push(`${filterFieldLabel(field as FilterField, t)}: ${message}`);
   }
 
   const rawCursor = read(PARAM.cursor).trim();
   let cursor: string | null = null;
   if (rawCursor) {
     if (rawCursor.length <= MAX_CURSOR_LENGTH && CURSOR_PATTERN.test(rawCursor)) cursor = rawCursor;
-    else issues.push('The page position in this link is malformed — showing the newest entries.');
+    else {
+      issues.push(t('adminAudit.urlIssue.cursor', 'The page position in this link is malformed — showing the newest entries.'));
+    }
   }
 
   return {
