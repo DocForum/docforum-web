@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from './fixtures';
+import { test, expect, type Page } from './fixtures';
 
 type FetchCall = { url: string; method: string; body: string | null };
 
@@ -221,16 +221,21 @@ test('facility owner sets a price, creates an API key and a webhook, and invites
   await catalogRow.getByRole('button', { name: 'Set price' }).click();
   await expect(page.getByRole('heading', { name: /Amoxicillin 500mg/ })).toBeVisible();
   await page.getByLabel(/Price per unit \(XLM\)/).fill('12.5');
-  await page.getByLabel('Effective from').fill('2026-12-01T09:00');
+  // The effective time is a DatePicker + TimePicker pair (#114), so the two
+  // halves are filled separately. The time combobox is also the listbox's
+  // accessible name, so the role keeps it to the input.
+  await page.getByLabel('Effective from (date)').fill('2026-12-01');
+  await page.getByRole('combobox', { name: 'Effective from (time)' }).fill('09:00');
   await page.getByRole('button', { name: 'Add price version' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'New price version saved' })).toBeVisible();
   await expectNoAxeViolations(page, 'the saved price version');
   writes.push(...(await drainOwnerWrites(page)));
 
   await page.goto('/?previewRole=facility#/facility/integrations');
-  // This screen carries both the "Facility · Integrations" page title and an
-  // "Integrations" panel heading, so the match has to be exact.
-  await expect(page.getByRole('heading', { name: 'Integrations', exact: true })).toBeVisible();
+  // #345 gave this screen a page-header title of "Integrations", which is now
+  // also the panel's own h1, so the heading text alone is ambiguous. The
+  // subtitle is only rendered by the integrations panel.
+  await expect(page.getByText('Manage API keys and webhooks')).toBeVisible();
   // The seeded membership marks the signed-in facility member as owner, so the
   // owner-only panels are the ones on screen.
   await expect(page.getByRole('heading', { name: 'API Keys' })).toBeVisible();
@@ -288,7 +293,10 @@ test('facility owner sets a price, creates an API key and a webhook, and invites
   await expectNoAxeViolations(page, 'the pending invitations list');
 
   expect(writes).toEqual([
-    'POST /facilities/fac-main/prices',
+    // The price form goes through the facility-settings service, which writes
+    // against the signed-in facility's `me` scope; the integrations and team
+    // panels address fac-main directly.
+    'POST /facilities/me/prices',
     'POST /facilities/fac-main/api-keys',
     'POST /facilities/fac-main/webhooks',
     'POST /facilities/fac-main/invites',
