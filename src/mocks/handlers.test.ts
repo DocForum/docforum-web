@@ -13,6 +13,14 @@ import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
 import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
 import { ApiError, apiFetch } from '../services/api-client';
+/** A date of birth exactly `years` ago today: minors vs. the age of majority. */
+function dateYearsAgo(years: number): string {
+  const now = new Date();
+  const date = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -35,11 +43,13 @@ import * as notificationsService from '../services/notifications-service';
 import * as ordersService from '../services/orders-service';
 import * as paymentHistoryService from '../services/payment-history-service';
 import * as paymentsService from '../services/payments-service';
+import * as prescriptionsService from '../services/prescriptions-service';
 import * as queueService from '../services/queue-service';
 import * as searchService from '../services/search-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
+import * as systemHealthService from '../services/system-health-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 beforeEach(() => {
@@ -70,6 +80,24 @@ describe('auth', () => {
   it('rejects missing credentials with a 400 envelope', async () => {
     await expect(
       authService.login({ email: '', password: '' }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('clears login lockouts without revealing whether an account exists', async () => {
+    const cleared = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(cleared.cleared).toBe(1);
+
+    const again = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(again.cleared).toBe(0);
+
+    await expect(
+      systemHealthService.clearLoginAttempts({}, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 400 });
   });
 
@@ -174,11 +202,48 @@ describe('dependents', () => {
     expect(seeded).toHaveLength(2);
 
     await dependentsService.addDependent(
-      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01', relationship: 'parent' },
+      { fullName: 'New Fake Dependent', dateOfBirth: '2012-01-01' },
       MOCK_ACCESS_TOKEN,
     );
     const after = await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
     expect(after).toHaveLength(3);
+  });
+
+  it("rejects create fields docforum-core doesn't accept", async () => {
+    const response = await fetch('http://localhost:4000/patients/me/dependents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: 'Too Much (fake)',
+        dateOfBirth: '2012-01-01',
+        relationship: 'parent',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('adds a 17-year-old dependent', async () => {
+    const created = await dependentsService.addDependent(
+      { fullName: 'Seventeen (fake)', dateOfBirth: dateYearsAgo(17) },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(created.fullName).toBe('Seventeen (fake)');
+  });
+
+  it('rejects a dependent at the age of majority', async () => {
+    const error = await dependentsService
+      .addDependent(
+        { fullName: 'Eighteen (fake)', dateOfBirth: dateYearsAgo(18) },
+        MOCK_ACCESS_TOKEN,
+      )
+      .then(() => null)
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
+    expect((error as ApiError).body).toMatchObject({ code: 'DEPENDENT_NOT_A_MINOR' });
   });
 
   it('updates a dependent and manages handover invites', async () => {
@@ -414,6 +479,115 @@ describe('doctor today', () => {
   });
 });
 
+describe('order issuance (issue #267)', () => {
+  const medication = {
+    drugName: 'Amoxicillin (fake)',
+    dosage: '500 mg',
+    frequency: 'every 8 hours',
+    duration: '5 days',
+  };
+
+  it('closes a consultation then issues a multi-item prescription', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved', notes: 'Fake notes.' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(consultation.appointmentId).toBe('apt-demo-1');
+
+    const issued = await prescriptionsService.issuePrescription(
+      consultation.id,
+      {
+        facilityProfileId: FACILITY_ID,
+        items: [medication, { ...medication, drugName: 'Ibuprofen (fake)' }],
+        amountStroops: '25000000',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(issued.items).toHaveLength(2);
+    expect(issued.amountStroops).toBe('25000000');
+    expect(issued.paymentIntent.orderType).toBe('prescription');
+    expect(issued.paymentIntent.status).toBe('created');
+
+    // One consultation per appointment, enforced by core.
+    await expect(
+      consultationService.createConsultation(
+        { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('prices a lab order from the facility catalog and defaults urgency to routine', async () => {
+    const labs = await facilityService.listEligibleFacilities('lab', MOCK_ACCESS_TOKEN);
+    expect(labs.map((lab) => lab.id)).toEqual(['fac-demo-lab']);
+
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-2', outcome: 'follow_up_needed' },
+      MOCK_ACCESS_TOKEN,
+    );
+    const labOrder = await prescriptionsService.issueLabOrder(
+      consultation.id,
+      {
+        facilityProfileId: 'fac-demo-lab',
+        testType: 'Full blood count',
+        catalogItemCode: 'cbc-panel',
+      },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(labOrder.amountStroops).toBe('25000000');
+    expect(labOrder.urgency).toBe('routine');
+    expect(labOrder.paymentIntent.orderType).toBe('lab_order');
+  });
+
+  it('rejects orders when the doctor profile is not verified', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-1', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+    db.doctorProfile = { ...db.doctorProfile!, verificationStatus: 'pending' };
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        { facilityProfileId: FACILITY_ID, items: [medication], amountStroops: '10000000' },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('enforces exactly one price and a known catalog code', async () => {
+    const consultation = await consultationService.createConsultation(
+      { appointmentId: 'apt-demo-3', outcome: 'resolved' },
+      MOCK_ACCESS_TOKEN,
+    );
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          amountStroops: '10000000',
+          catalogItemCode: 'amox-500-cap',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      prescriptionsService.issuePrescription(
+        consultation.id,
+        {
+          facilityProfileId: FACILITY_ID,
+          items: [medication],
+          catalogItemCode: 'not-in-the-price-list',
+        },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+});
+
 describe('doctor queue', () => {
   it('lists appointments, derives the queue, and starts/complete visits', async () => {
     const appointments = await queueService.listTodayAppointments(MOCK_ACCESS_TOKEN);
@@ -431,6 +605,35 @@ describe('doctor queue', () => {
     await expect(queueService.completeVisit('apt-demo-4', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
       status: 409,
     });
+  });
+
+  it('marks a scheduled appointment no-show, then 409s further changes', async () => {
+    const updated = await queueService.updateAppointmentStatus(
+      'apt-demo-4',
+      'no_show',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.status).toBe('no_show');
+    expect(updated.referral?.priorNoShows).toBe(1);
+
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-4', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // A visit that already started is no longer scheduled either.
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-2', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects an unknown status with 400', async () => {
+    await expect(
+      queueService.updateAppointmentStatus(
+        'apt-demo-4',
+        'postponed' as queueService.AppointmentStatusUpdate,
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('applies the running-delay override', async () => {
@@ -663,38 +866,56 @@ describe('facility team', () => {
     expect(removed.sessionsRevoked).toBe(true);
   });
 
-  it('fulfills queue items with attribution', async () => {
+  it('updates fulfillment records and dispenses items with attribution', async () => {
     const queue = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
     expect(queue).toHaveLength(5);
 
-    const updated = await facilityTeamService.updateFulfillmentItem(
-      FACILITY_ID,
-      'fuq-demo-1',
-      'fulfilled',
-      MOCK_ACCESS_TOKEN,
-      'Demo note (fake)',
-    );
-    expect(updated.status).toBe('fulfilled');
-    expect(updated.attribution?.performedByRole).toBe('owner');
-    expect(updated.attribution?.action).toBe('dispensed');
-  });
-});
-
-describe('facility fulfillment queue', () => {
-  it('moves items in progress, refuses closed items, and attaches lab results', async () => {
-    const moved = await fulfillmentService.updateFulfillmentStatus(
-      FACILITY_ID,
-      'fuq-demo-1',
+    const moved = await facilityTeamService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
       'in_progress',
       MOCK_ACCESS_TOKEN,
     );
     expect(moved.status).toBe('in_progress');
-    expect(moved.attribution?.action).toBe('verified');
+
+    const dispensed = await fulfillmentService.dispenseFulfillmentItem(
+      'ful-req-demo-rx-1',
+      'fit-demo-rx1-vit',
+      { quantity: 10 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(dispensed.record.status).toBe('partially_fulfilled');
+    expect(dispensed.orderStatus).toBe('partially_fulfilled');
+
+    const after = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    const item = after.find((entry) => entry.id === 'fuq-demo-5');
+    expect(item?.status).toBe('fulfilled');
+    expect(item?.attribution?.performedByRole).toBe('owner');
+    expect(item?.attribution?.action).toBe('dispensed');
+
+    // One-shot item: replaying the PATCH is a 409, never a second dispense.
+    await expect(
+      fulfillmentService.dispenseFulfillmentItem(
+        'ful-req-demo-rx-1',
+        'fit-demo-rx1-vit',
+        { quantity: 10 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('facility fulfillment queue', () => {
+  it('moves records in progress, refuses closed records, and attaches lab results', async () => {
+    const moved = await fulfillmentService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
+      'in_progress',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(moved.status).toBe('in_progress');
 
     await expect(
-      fulfillmentService.updateFulfillmentStatus(
-        FACILITY_ID,
-        'fuq-demo-3',
+      fulfillmentService.updateFulfillmentRecord(
+        'ful-req-demo-rx-2',
         'rejected',
         MOCK_ACCESS_TOKEN,
       ),
@@ -926,6 +1147,38 @@ describe('facility settings and prices', () => {
         },
         MOCK_ACCESS_TOKEN,
       ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('facility payout ledger', () => {
+  it('filters and paginates server-side and returns lifecycle totals', async () => {
+    const page = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { limit: 2 });
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeTruthy();
+    expect(page.items[0]).toMatchObject({
+      orderType: expect.any(String),
+      status: expect.any(String),
+      amount: expect.any(String),
+      assetCode: expect.any(String),
+    });
+    expect(page.totals.length).toBeGreaterThan(0);
+
+    const escrowed = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, {
+      status: 'escrowed',
+    });
+    expect(escrowed.items.every((item) => item.status === 'escrowed')).toBe(true);
+
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { cursor: 'not-a-cursor' }),
+    ).rejects.toMatchObject({ status: 400, code: 'INVALID_CURSOR' });
+
+    // The service never sends `facilityId`; a raw request that does is
+    // rejected by the strict query shape.
+    await expect(
+      apiFetch('/payments/facility/ledger?facilityId=someone-else', {
+        accessToken: MOCK_ACCESS_TOKEN,
+      }),
     ).rejects.toMatchObject({ status: 400 });
   });
 });

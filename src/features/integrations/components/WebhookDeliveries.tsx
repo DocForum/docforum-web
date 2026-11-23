@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
 import { useIntl } from 'react-intl';
 import { Spinner } from '../../../components/Spinner';
 import { Button } from '../../../components/Button';
@@ -99,7 +100,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
               <th>{t('integrations.delivery.colResponse', 'Response')}</th>
               <th>{t('integrations.delivery.colAttempts', 'Attempts')}</th>
               <th>{t('integrations.delivery.colDelivered', 'Delivered')}</th>
-              <th aria-label={t('integrations.common.actions', 'Actions')} />
+              <th>{t('integrations.common.actions', 'Actions')}</th>
             </tr>
           </thead>
           <tbody>

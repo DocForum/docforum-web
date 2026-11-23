@@ -37,9 +37,10 @@ export function Dialog({
     <div
       className={overlayClassName}
       onMouseDown={(event) => {
-        // Only a press that starts on the backdrop itself closes the
-        // dialog; dragging from inside must not dismiss a form.
-        if (event.target === event.currentTarget) onClose();
+        // Only a primary press that starts on the backdrop itself closes the
+        // dialog: dragging from inside must not dismiss a form, and a
+        // right-click there is a request for the context menu.
+        if (event.button === 0 && event.target === event.currentTarget) onClose();
       }}
     >
       <div

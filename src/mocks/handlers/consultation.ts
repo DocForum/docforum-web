@@ -92,7 +92,11 @@ export const consultationHandlers = [
   http.post(
     '*/consultations/:id/referrals',
     respond('json', async ({ params, request }) => {
-      const consultation = db.consultationRecords.find((c) => c.id === paramId(params));
+      // The panel closes visits through POST /orders/consultations (#267), but
+      // keep the older record fixture working for direct API tests too.
+      const consultation =
+        db.consultations.find((c) => c.id === paramId(params)) ??
+        db.consultationRecords.find((c) => c.id === paramId(params));
       if (!consultation) return notFound('consultation');
       const body = (await request.json().catch(() => ({}))) as {
         targets?: Array<{
@@ -105,7 +109,12 @@ export const consultationHandlers = [
       if (body.targets.some((target) => !target.targetSpecialtyId && !target.targetDoctorId)) {
         return conflict('each referral target requires a specialty or doctor');
       }
-      if (new Set(body.targets.map((target) => target.targetSpecialtyId ?? target.targetDoctorId)).size !== body.targets.length) {
+      const targetKeys = body.targets.map((target) =>
+        target.targetDoctorId
+          ? `doctor:${target.targetDoctorId}`
+          : `specialty:${target.targetSpecialtyId ?? ''}`,
+      );
+      if (new Set(targetKeys).size !== targetKeys.length) {
         return HttpResponse.json({ message: 'Duplicate referral target', code: 'REFERRAL_DUPLICATE_TARGET' }, { status: 400 });
       }
       const specialtyById = new Map(SPECIALTIES.map((specialty) => [specialty.id, specialty]));

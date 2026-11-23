@@ -1,9 +1,11 @@
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from '../features/auth/components/LoginForm';
-import { ROLE_HOME, safeReturnPath, takeReturnPath } from '../features/auth/return-path';
+import { safeReturnPath, takeReturnPath } from '../features/auth/return-path';
+import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
 import styles from './LoginPage.module.css';
+import { paths } from '../routes/paths';
 
 interface LoginNavState {
   inviteToken?: string;
@@ -36,17 +38,19 @@ export function LoginPage() {
     const returnTo = navState?.returnTo ?? takeReturnPath();
 
     if (inviteToken) {
-      navigate('/invite', { replace: true, state: { inviteToken } });
+      navigate(paths.invite, { replace: true, state: { inviteToken } });
       return;
     }
 
     const role = useAuthStore.getState().user?.role;
+    const home = homePathForRole(role);
 
     // A shared device that sat idle must not deep-link the next person back
     // into the previous session's page — it may be PHI. The role home is the
-    // deliberate destination instead (issue #226).
-    if (signedOutForIdle || !role) {
-      navigate(role ? ROLE_HOME[role] : '/', { replace: true });
+    // deliberate destination instead (issue #226). Unknown roles land on the
+    // public home page rather than a dashboard (issue #223).
+    if (signedOutForIdle || !role || home === paths.home) {
+      navigate(home, { replace: true });
       return;
     }
 
@@ -73,7 +77,7 @@ export function LoginPage() {
         <LoginForm onSuccess={handleLoginSuccess} />
       </div>
       <p className="authFootnote">
-        {t('auth.noAccount', 'No account?')} <Link to="/signup">{t('auth.signUp', 'Sign up')}</Link>
+        {t('auth.noAccount', 'No account?')} <Link to={paths.signup}>{t('auth.signUp', 'Sign up')}</Link>
       </p>
     </div>
   );

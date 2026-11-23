@@ -10,6 +10,7 @@ import type {
   ConfirmReceiptResponse,
   FacilityWithDistance,
   Order,
+  OrderFulfillmentProgress,
   PatientOrder,
   QualifiedOrderFacility,
   ReportProblemInput,
@@ -18,8 +19,17 @@ import type {
   SelectOrderFacilityInput,
 } from '../types/models';
 
-export function listMyOrders(accessToken: string, signal?: AbortSignal): Promise<PatientOrder[]> {
-  return apiFetch<PatientOrder[]>('/orders/mine', { accessToken, signal });
+/** `patientProfileId` scopes the list to the profile the patient is acting
+ * for (issue #295) — without it a guardian sees their dependents' orders mixed
+ * into their own. It is an assumed query parameter until docforum-core adds
+ * an explicit acting-profile contract. */
+export function listMyOrders(
+  accessToken: string,
+  signal?: AbortSignal,
+  patientProfileId?: string,
+): Promise<PatientOrder[]> {
+  const query = patientProfileId ? `?patientProfileId=${encodeURIComponent(patientProfileId)}` : '';
+  return apiFetch<PatientOrder[]>(`/orders/mine${query}`, { accessToken, signal });
 }
 
 /**
@@ -85,6 +95,24 @@ export function reportProblem(
     body: input,
     accessToken,
   });
+}
+
+/**
+ * Item-level fulfilment progress for one order version (#262). `orderType`
+ * is the order's own `prescription` / `lab_order` value; see
+ * docs.d/262-order-fulfilment-progress.md for the assumed parameter values.
+ */
+export function getOrderFulfillmentProgress(
+  orderId: string,
+  orderType: PatientOrder['orderType'],
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<OrderFulfillmentProgress> {
+  const query = new URLSearchParams({ orderType });
+  return apiFetch<OrderFulfillmentProgress>(
+    `/pharmacy-orders/orders/${encodeURIComponent(orderId)}/fulfillment-status?${query.toString()}`,
+    { accessToken, signal },
+  );
 }
 
 /**

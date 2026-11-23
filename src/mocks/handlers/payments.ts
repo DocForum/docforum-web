@@ -3,9 +3,9 @@
 // here (hard rule 1). Amounts stay BigInt-as-string.
 import { http, HttpResponse } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
 import { FACILITY_ID } from '../fixtures';
-import type { PaymentIntent } from '../../types/models';
+import type { FacilityLedgerStatus, PaymentIntent } from '../../types/models';
 
 const TRANSITIONS: Record<string, PaymentIntent['status']> = {
   fund: 'escrowed',
@@ -13,7 +13,128 @@ const TRANSITIONS: Record<string, PaymentIntent['status']> = {
   refund: 'refunded',
 };
 
+const LEDGER_STATUSES: FacilityLedgerStatus[] = [
+  'created',
+  'funding',
+  'escrowed',
+  'released',
+  'refunded',
+  'failed',
+];
+
+function ledgerStatus(intent: PaymentIntent): FacilityLedgerStatus {
+  if (intent.status === 'awaiting_signature') return 'funding';
+  return intent.status;
+}
+
+function addStroops(current: string, value: string): string {
+  return (BigInt(current) + BigInt(value)).toString();
+}
+
+const LEDGER_QUERY_PARAMS = new Set(['status', 'from', 'to', 'cursor', 'limit']);
+
 export const paymentsHandlers = [
+  // Facility payout ledger (issue #271) — the real
+  // `GET /payments/facility/ledger`, scoped to the signed-in facility.
+  // Server-side status/date filtering, cursor pagination and totals.
+  http.get(
+    '*/payments/facility/ledger',
+    respond('json', ({ request }) => {
+      const url = new URL(request.url);
+      for (const key of url.searchParams.keys()) {
+        if (!LEDGER_QUERY_PARAMS.has(key)) {
+          return badRequest(`unknown query parameter "${key}"`);
+        }
+      }
+
+      const status = url.searchParams.get('status');
+      if (status && !LEDGER_STATUSES.includes(status as FacilityLedgerStatus)) {
+        return badRequest(`unknown status "${status}"`);
+      }
+      const limit = url.searchParams.has('limit')
+        ? Number(url.searchParams.get('limit'))
+        : 50;
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        return badRequest('limit must be an integer between 1 and 100');
+      }
+
+      const from = url.searchParams.get('from');
+      const fromIso = from && from.length === 10 ? `${from}T00:00:00.000Z` : from;
+      const to = url.searchParams.get('to');
+      const toIso = to && to.length === 10 ? `${to}T23:59:59.999Z` : to;
+
+      const filtered = db.paymentIntents
+        .filter((intent) => intent.facilityId === FACILITY_ID)
+        .filter((intent) => !status || ledgerStatus(intent) === status)
+        .filter((intent) => !fromIso || intent.createdAt >= fromIso)
+        .filter((intent) => !toIso || intent.createdAt <= toIso)
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+      const cursor = url.searchParams.get('cursor');
+      let start = 0;
+      if (cursor) {
+        const found = filtered.findIndex((intent) => intent.id === cursor);
+        if (found < 0) {
+          return HttpResponse.json(
+            { message: 'Mock API: invalid cursor', code: 'INVALID_CURSOR' },
+            { status: 400 },
+          );
+        }
+        start = found + 1;
+      }
+
+      const page = filtered.slice(start, start + limit);
+      const nextCursor = filtered[start + limit]?.id ?? null;
+
+      const totals = new Map<
+        string,
+        { asset: { type: 'native' | 'issued'; code: string }; escrowed: string; released: string; refunded: string }
+      >();
+      for (const intent of filtered) {
+        const code = intent.orderType === 'lab_order' ? 'USDC' : 'XLM';
+        const total = totals.get(code) ?? {
+          asset: { type: code === 'XLM' ? 'native' : 'issued', code },
+          escrowed: '0',
+          released: '0',
+          refunded: '0',
+        };
+        const lifecycle = ledgerStatus(intent);
+        if (lifecycle === 'escrowed' || lifecycle === 'funding') {
+          total.escrowed = addStroops(total.escrowed, intent.amountStroops);
+        } else if (lifecycle === 'released') {
+          total.released = addStroops(total.released, intent.amountStroops);
+        } else if (lifecycle === 'refunded') {
+          total.refunded = addStroops(total.refunded, intent.amountStroops);
+        }
+        totals.set(code, total);
+      }
+
+      return {
+        items: page.map((intent) => {
+          const assetCode = intent.orderType === 'lab_order' ? 'USDC' : 'XLM';
+          return {
+            id: intent.id,
+            orderType: intent.orderType,
+            orderId: intent.orderId,
+            status: ledgerStatus(intent),
+            amount: intent.amountStroops,
+            assetCode,
+            asset: { type: assetCode === 'XLM' ? 'native' : 'issued', code: assetCode },
+            escrowId: intent.escrowId,
+            stellarTxHash: intent.stellarTxHash,
+            sorobanContractId: intent.sorobanContractId,
+            refundAfter: new Date(
+              Date.parse(intent.createdAt) + 72 * 60 * 60 * 1000,
+            ).toISOString(),
+            createdAt: intent.createdAt,
+            updatedAt: intent.updatedAt,
+          };
+        }),
+        nextCursor,
+        totals: [...totals.values()].sort((a, b) => a.asset.code.localeCompare(b.asset.code)),
+      };
+    }),
+  ),
   http.post(
     '*/payments/wallet-link',
     respond('json', async ({ request }) => {

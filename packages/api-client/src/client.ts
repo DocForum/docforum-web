@@ -294,8 +294,8 @@ export function createApiClient(transport: ApiTransport) {
     },
 
     queue: {
-      listTodayAppointments(options: CallOptions = {}): Promise<Res<'/doctor/appointments/today', 'get'>> {
-        return transport.request('/doctor/appointments/today', options);
+      listTodayAppointments(options: CallOptions = {}): Promise<Res<'/appointments/doctor/today', 'get'>> {
+        return transport.request('/appointments/doctor/today', options);
       },
       list(options: CallOptions = {}): Promise<Res<'/doctor/queue/today', 'get'>> {
         return transport.request('/doctor/queue/today', options);
@@ -303,19 +303,19 @@ export function createApiClient(transport: ApiTransport) {
       startVisit(
         appointmentId: string,
         options: CallOptions = {},
-      ): Promise<Res<'/appointments/{appointmentId}/start', 'post'>> {
+      ): Promise<Res<'/appointments/{appointmentId}/start', 'patch'>> {
         return transport.request(`/appointments/${encodeURIComponent(appointmentId)}/start`, {
           ...options,
-          method: 'POST',
+          method: 'PATCH',
         });
       },
       completeVisit(
         appointmentId: string,
         options: CallOptions = {},
-      ): Promise<Res<'/appointments/{appointmentId}/complete', 'post'>> {
+      ): Promise<Res<'/appointments/{appointmentId}/complete', 'patch'>> {
         return transport.request(`/appointments/${encodeURIComponent(appointmentId)}/complete`, {
           ...options,
-          method: 'POST',
+          method: 'PATCH',
         });
       },
       getRunningDelay(options: CallOptions = {}): Promise<Res<'/doctor/queue/running-delay', 'get'>> {

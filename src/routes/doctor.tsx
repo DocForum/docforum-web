@@ -20,7 +20,12 @@ export function doctorRoutes({ queryClient }: RouteContext): RouteObject[] {
       },
       {
         path: 'doctor/consultation/:appointmentId',
-        lazy: lazyPage(() => import('../features/consultation/components/ConsultationNote'), 'ConsultationNote'),
+        // The note plus the outcome/order-issuance panel (issue #267).
+        lazy: lazyPage(() => import('../pages/DoctorConsultationPage'), 'DoctorConsultationPage'),
+      },
+      {
+        path: 'doctor/verification',
+        lazy: lazyPage(() => import('../pages/DoctorVerificationPage'), 'DoctorVerificationPage'),
       },
       {
         path: 'doctor/messages',

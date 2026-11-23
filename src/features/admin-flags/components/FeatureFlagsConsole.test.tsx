@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
 import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { FLAGS_KEY } from '../hooks/useFeatureFlags';
@@ -101,15 +103,17 @@ function signIn(role: Role) {
   });
 }
 
-function renderConsole(path = '/admin/flags') {
+function renderConsole(path = '/admin/flags', locale: 'en' | 'es' = 'en') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <FeatureFlagsConsole />
-        <LocationProbe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <FeatureFlagsConsole />
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
   return queryClient;
 }
@@ -265,6 +269,26 @@ describe('FeatureFlagsConsole — search and filter', () => {
 });
 
 describe('FeatureFlagsConsole — toggling', () => {
+  it('traps keyboard focus in the dialog and restores it when cancelled with Escape', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+    await screen.findAllByRole('article');
+
+    const opener = switchFor('sms_notifications');
+    await user.click(opener);
+    const dialog = screen.getByRole('dialog');
+    const first = within(dialog).getByRole('link', { name: 'History' });
+    const last = within(dialog).getByRole('button', { name: 'Turn off' });
+    expect(document.activeElement).toBe(first);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(last);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('asks for confirmation, showing the change and who it reaches before and after', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -439,6 +463,18 @@ describe('FeatureFlagsConsole — editing', () => {
     expect(percentage).toHaveAttribute('aria-invalid', 'true');
     expect(screen.queryByRole('dialog', { name: /Confirm change/ })).not.toBeInTheDocument();
     expect(flagsService.updateFeatureFlag).not.toHaveBeenCalled();
+  });
+
+  describe('FeatureFlagsConsole — Spanish', () => {
+    it('renders feature flags in Spanish', async () => {
+      renderConsole('/admin/flags', 'es');
+
+      await screen.findAllByRole('article');
+      expect(screen.getByRole('heading', { name: 'Indicadores de función' })).toBeInTheDocument();
+      expect(screen.getByRole('searchbox', { name: 'Buscar' })).toBeInTheDocument();
+      expect(within(cardFor('wallet_payments')).getByText('Despliegue gradual')).toBeInTheDocument();
+      expect(screen.getByText('Activada para el 25 % de pacientes.')).toBeInTheDocument();
+    });
   });
 
   it('refuses allowlist entries that are not user ids', async () => {
