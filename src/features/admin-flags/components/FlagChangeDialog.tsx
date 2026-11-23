@@ -9,6 +9,7 @@ import type { DraftErrors, FlagDraft } from '../draft';
 import type { LastChange } from './LastChanged';
 import type { UpdateFlagVariables } from '../hooks/useFeatureFlags';
 import type { FeatureFlag } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './FeatureFlags.module.css';
 
 type Step = 'edit' | 'review';
@@ -42,6 +43,7 @@ export function FlagChangeDialog({
   onClose,
   onConfirm,
 }: FlagChangeDialogProps) {
+  const t = useT();
   const fieldId = useId();
   const [base, setBase] = useState(flag);
   const [draft, setDraft] = useState<FlagDraft>(() => initialDraft ?? draftFromFlag(flag));
@@ -49,7 +51,7 @@ export function FlagChangeDialog({
   const [errors, setErrors] = useState<DraftErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  const review = reviewDraft(base, draft);
+  const review = reviewDraft(base, draft, t);
   // Someone else saved this flag while the dialog was open. Confirming would
   // only earn a 409, so offer to start again from what's there now.
   const stale = !liveFlag || liveFlag.updatedAt !== base.updatedAt;
@@ -66,7 +68,7 @@ export function FlagChangeDialog({
     }
     setErrors({});
     if (review.changes.length === 0) {
-      setFormError('Nothing has changed yet.');
+      setFormError(t('adminFlags.dialog.noChanges', 'Nothing has changed yet.'));
       return;
     }
     setStep('review');
@@ -90,12 +92,12 @@ export function FlagChangeDialog({
     <div className={styles.staleWarning} role="alert">
       <p>
         {liveFlag
-          ? 'Someone else changed this flag while you had it open.'
-          : 'This flag is no longer in the list — it may have been removed.'}
+          ? t('adminFlags.dialog.changedElsewhere', 'Someone else changed this flag while you had it open.')
+          : t('adminFlags.dialog.removed', 'This flag is no longer in the list — it may have been removed.')}
       </p>
       {liveFlag && (
         <Button type="button" variant="secondary" onClick={restartFromLatest}>
-          Start again from the latest
+          {t('adminFlags.dialog.restartLatest', 'Start again from the latest')}
         </Button>
       )}
     </div>
@@ -105,32 +107,32 @@ export function FlagChangeDialog({
     const turningOff = base.enabled && review.input.enabled === false;
     return (
       <FlagDialog
-        title={`Confirm change to ${base.key}`}
+        title={t('adminFlags.dialog.confirmTitle', 'Confirm change to {key}', { key: base.key })}
         step={step}
         onClose={onClose}
         onSubmit={confirm}
         actions={
           <>
             <Button type="button" variant="secondary" onClick={() => setStep('edit')}>
-              Edit details
+              {t('adminFlags.dialog.editDetails', 'Edit details')}
             </Button>
             <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="submit" variant={turningOff ? 'danger' : 'primary'} disabled={stale}>
-              {turningOff ? 'Turn off' : 'Confirm change'}
+              {turningOff ? t('adminFlags.dialog.turnOff', 'Turn off') : t('adminFlags.dialog.confirm', 'Confirm change')}
             </Button>
           </>
         }
       >
         {staleWarning}
         <table className={styles.changeTable}>
-          <caption className={styles.visuallyHidden}>Changes to {base.key}</caption>
+          <caption className={styles.visuallyHidden}>{t('adminFlags.dialog.changesCaption', 'Changes to {key}', { key: base.key })}</caption>
           <thead>
             <tr>
-              <th scope="col">Setting</th>
-              <th scope="col">Now</th>
-              <th scope="col">After</th>
+              <th scope="col">{t('adminFlags.dialog.setting', 'Setting')}</th>
+              <th scope="col">{t('adminFlags.dialog.now', 'Now')}</th>
+              <th scope="col">{t('adminFlags.dialog.after', 'After')}</th>
             </tr>
           </thead>
           <tbody>
@@ -149,26 +151,26 @@ export function FlagChangeDialog({
 
         <dl className={styles.audienceDiff}>
           <div>
-            <dt>Reaches now</dt>
-            <dd>{describeAudience(base)}</dd>
+            <dt>{t('adminFlags.dialog.reachesNow', 'Reaches now')}</dt>
+            <dd>{describeAudience(base, t)}</dd>
           </div>
           <div>
-            <dt>Reaches after</dt>
-            <dd>{describeAudience(review.next)}</dd>
+            <dt>{t('adminFlags.dialog.reachesAfter', 'Reaches after')}</dt>
+            <dd>{describeAudience(review.next, t)}</dd>
           </div>
         </dl>
 
         {turningOff && (
           <p className={styles.dangerNotice}>
-            Everyone currently getting {base.key} loses it as soon as you confirm, allowlisted users included.
+            {t('adminFlags.dialog.turnOffWarning', 'Everyone currently getting {key} loses it as soon as you confirm, allowlisted users included.', { key: base.key })}
           </p>
         )}
 
         <div className={styles.dialogLastChange}>
-          <span className={styles.fieldLabel}>Last change</span>
+          <span className={styles.fieldLabel}>{t('adminFlags.dialog.lastChange', 'Last change')}</span>
           <LastChanged flag={base} change={lastChange} now={now} />
         </div>
-        <p className={styles.fieldHint}>Your change is recorded in the audit trail under your admin account.</p>
+        <p className={styles.fieldHint}>{t('adminFlags.dialog.auditHint', 'Your change is recorded in the audit trail under your admin account.')}</p>
       </FlagDialog>
     );
   }
@@ -178,17 +180,17 @@ export function FlagChangeDialog({
 
   return (
     <FlagDialog
-      title={`Edit ${base.key}`}
+      title={t('adminFlags.dialog.editTitle', 'Edit {key}', { key: base.key })}
       step={step}
       onClose={onClose}
       onSubmit={goToReview}
       actions={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button type="submit" disabled={stale}>
-            Review change
+            {t('adminFlags.dialog.reviewChange', 'Review change')}
           </Button>
         </>
       }
@@ -199,19 +201,18 @@ export function FlagChangeDialog({
       <label className={styles.checkboxRow}>
         <input type="checkbox" checked={draft.enabled} onChange={(event) => update({ enabled: event.target.checked })} />
         <span>
-          <span className={styles.checkboxLabel}>Enabled</span>
-          <span className={styles.fieldHint}>The kill switch. Off means off for everyone, allowlist included.</span>
+          <span className={styles.checkboxLabel}>{t('adminFlags.dialog.enabled', 'Enabled')}</span>
+          <span className={styles.fieldHint}>{t('adminFlags.dialog.killSwitchHint', 'The kill switch. Off means off for everyone, allowlist included.')}</span>
         </span>
       </label>
 
       {base.kind === 'percentage' && (
         <div className={styles.field}>
           <label htmlFor={`${fieldId}-pct`} className={styles.fieldLabel}>
-            Rollout percentage
+            {t('adminFlags.dialog.rolloutPercentage', 'Rollout percentage')}
           </label>
           <p id={`${fieldId}-pct-hint`} className={styles.fieldHint}>
-            Whole number from 0 to 100. Buckets are sticky per user, so raising it keeps everyone who already has
-            the flag.
+            {t('adminFlags.dialog.rolloutHint', 'Whole number from 0 to 100. Buckets are sticky per user, so raising it keeps everyone who already has the flag.')}
           </p>
           <div className={styles.percentInput}>
             <input
@@ -241,8 +242,8 @@ export function FlagChangeDialog({
       )}
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.fieldLabel}>Roles</legend>
-        <p className={styles.fieldHint}>Leave every role unticked to target everyone.</p>
+        <legend className={styles.fieldLabel}>{t('adminFlags.card.roles', 'Roles')}</legend>
+        <p className={styles.fieldHint}>{t('adminFlags.dialog.rolesHint', 'Leave every role unticked to target everyone.')}</p>
         <div className={styles.roleOptions}>
           {ROLES.map((role) => (
             <label key={role.value} className={styles.roleOption}>
@@ -257,7 +258,7 @@ export function FlagChangeDialog({
                   })
                 }
               />
-              {role.label}
+              {t(`roles.${role.value}`, role.label)}
             </label>
           ))}
         </div>
@@ -265,11 +266,10 @@ export function FlagChangeDialog({
 
       <div className={styles.field}>
         <label htmlFor={`${fieldId}-users`} className={styles.fieldLabel}>
-          User allowlist
+          {t('adminFlags.dialog.userAllowlist', 'User allowlist')}
         </label>
         <p id={`${fieldId}-users-hint`} className={styles.fieldHint}>
-          User ids, one per line (up to {MAX_ALLOWLIST}). They get the flag whenever it’s enabled, whatever the roles
-          and percentage say.
+          {t('adminFlags.dialog.allowlistHint', 'User ids, one per line (up to {max}). They get the flag whenever it is enabled, whatever the roles and percentage say.', { max: MAX_ALLOWLIST })}
         </p>
         <textarea
           id={`${fieldId}-users`}

@@ -77,6 +77,24 @@ export function getFacilities(
 }
 
 /**
+ * Facilities qualified to fulfil an order kind — the REAL
+ * `GET /facilities/eligible` (docforum-core issue #127). Order issuance needs
+ * one of these ids as `facilityProfileId`. `catalogItemCode` asks for the
+ * price in force for that code; the endpoint returns the list directly.
+ */
+export async function listEligibleFacilities(
+  type: 'lab' | 'pharmacy',
+  accessToken: string,
+  catalogItemCode?: string,
+): Promise<EligibleFacility[]> {
+  const params = new URLSearchParams({ type });
+  if (catalogItemCode) params.set('catalogItemCode', catalogItemCode);
+  return apiFetch<EligibleFacility[]>(`/facilities/eligible?${params.toString()}`, {
+    accessToken,
+  });
+}
+
+/**
  * Facilities eligible to fulfil one catalog item, each with its price in force
  * for that item (or `priceOnRequest`, issue #258). Same endpoint and filters
  * as `getFacilities`, plus `catalogItemCode`.

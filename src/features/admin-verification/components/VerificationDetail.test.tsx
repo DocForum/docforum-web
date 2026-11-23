@@ -84,6 +84,24 @@ beforeEach(() => {
 });
 
 describe('VerificationDetail — reviewing', () => {
+  it('keeps keyboard focus in the decision dialog and restores it on Escape', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const opener = await screen.findByRole('button', { name: 'Approve' });
+    await user.click(opener);
+
+    const dialog = await screen.findByRole('alertdialog');
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
+    expect(document.activeElement).toBe(cancel);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(within(dialog).getByLabelText(/Reason \(required\)/));
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('renders the profile, submitted date and document count', async () => {
     renderDetail();
     expect(await screen.findByRole('heading', { name: 'Dr Ada Example' })).toBeInTheDocument();
