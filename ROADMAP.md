@@ -23,6 +23,7 @@ real API" (no refresh-on-reload flow).
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Header auth controls only render for a fully restored session. Tracked as [issue #214](https://github.com/DocForum/docforum-web/issues/214) — signed-out visitors see only Log in / Sign up; a half-restored boot session cannot flash Log out; regression tests cover all three states.
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.

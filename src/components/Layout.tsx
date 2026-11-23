@@ -9,7 +9,13 @@ import styles from './Layout.module.css';
 
 export function Layout() {
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const logoutMutation = useLogout();
+
+  // Treat a half-restored session (user set, token still settling) as signed
+  // out. During the boot refresh there must be no "Log out" control that can
+  // flash and then disappear once the state resolves.
+  const isSignedIn = Boolean(user && accessToken);
 
   return (
     <div className={styles.shell}>
@@ -19,7 +25,7 @@ export function Layout() {
           <span>DocForum</span>
         </Link>
         <nav className={styles.nav}>
-          {user ? (
+          {user && isSignedIn ? (
             <>
               {user.role === 'patient' && (
                 <>
