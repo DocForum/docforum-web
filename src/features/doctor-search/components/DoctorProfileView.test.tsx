@@ -29,6 +29,10 @@ const SLOT: AvailabilitySlot = {
   updatedAt: '2026-11-01T00:00:00.000Z',
 };
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   // Pin "today" to the week before the fixture slot (Tue 24 November) so
@@ -66,6 +70,11 @@ describe('DoctorProfileView', () => {
   });
 
   it('hands a selected slot off to the booking flow with the slot preselected', async () => {
+    // The slot fixture is 24 Nov 2026. Pin the clock to the previous week so
+    // "Next week" always contains it, rather than the test rotting as time
+    // passes.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-17T12:00:00.000Z'));
     const user = userEvent.setup();
     renderProfile();
 
