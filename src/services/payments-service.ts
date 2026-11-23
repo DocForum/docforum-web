@@ -76,13 +76,14 @@ export function formatStroops(amountStroops: string | bigint, asset?: PayoutAsse
 export function getFacilityPayoutLedger(
   facilityId: string,
   accessToken: string,
-  params?: { cursor?: string; status?: string; asset?: string }
+  params?: { cursor?: string; status?: string; asset?: string },
+  signal?: AbortSignal,
 ): Promise<FacilityLedgerPage> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set('cursor', params.cursor);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
   if (params?.asset && params.asset !== 'all') query.set('asset', params.asset);
   const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken });
+  return apiFetch<FacilityLedgerPage>(`/facilities/${facilityId}/payout-ledger${qs}`, { accessToken, signal });
 }
 

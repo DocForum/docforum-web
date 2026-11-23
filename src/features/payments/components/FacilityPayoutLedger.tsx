@@ -1,27 +1,136 @@
 import { useState } from 'react';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
 import { formatStroops } from '../../../services/payments-service';
+import { QueryState } from '../../../components/states/QueryState';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { Button } from '../../../components/Button';
+import type { FacilityLedgerPage } from '../../../types/models';
 import styles from './FacilityPayoutLedger.module.css';
 
 interface FacilityPayoutLedgerProps {
   facilityId?: string;
 }
 
+function TotalsSkeleton() {
+  return (
+    <div className={styles.totalsGrid} aria-hidden="true">
+      {[0, 1, 2].map((card) => (
+        <div key={card} className={styles.totalCard}>
+          <Skeleton lines={4} height="1.25rem" label="Loading escrow totals" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TotalsCards({
+  totals,
+  hasApproachingDeadlines,
+}: {
+  totals: FacilityLedgerPage['totals'];
+  hasApproachingDeadlines: boolean;
+}) {
+  return (
+    <div className={styles.totalsGrid} aria-label="Escrow payout totals">
+      <div className={`${styles.totalCard} ${styles.totalCardHeld}`}>
+        <div className={styles.totalCardHeader}>
+          <span className={styles.totalLabel}>Held in Escrow</span>
+          {hasApproachingDeadlines && (
+            <span className={styles.approachingBadge}>⚠️ Deadline alert</span>
+          )}
+        </div>
+        <div className={styles.assetBreakdown}>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>Stellar Lumens (XLM)</span>
+            <span className={styles.assetAmount} data-testid="held-xlm">
+              {formatStroops(totals.xlm.heldStroops, 'XLM')}
+            </span>
+          </div>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>USD Coin (USDC)</span>
+            <span className={styles.assetAmount} data-testid="held-usdc">
+              {formatStroops(totals.usdc.heldStroops, 'USDC')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${styles.totalCard} ${styles.totalCardReleased}`}>
+        <div className={styles.totalCardHeader}>
+          <span className={styles.totalLabel}>Released to Facility</span>
+        </div>
+        <div className={styles.assetBreakdown}>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>Stellar Lumens (XLM)</span>
+            <span className={styles.assetAmount} data-testid="released-xlm">
+              {formatStroops(totals.xlm.releasedStroops, 'XLM')}
+            </span>
+          </div>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>USD Coin (USDC)</span>
+            <span className={styles.assetAmount} data-testid="released-usdc">
+              {formatStroops(totals.usdc.releasedStroops, 'USDC')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${styles.totalCard} ${styles.totalCardRefunded}`}>
+        <div className={styles.totalCardHeader}>
+          <span className={styles.totalLabel}>Refunded to Patient</span>
+        </div>
+        <div className={styles.assetBreakdown}>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>Stellar Lumens (XLM)</span>
+            <span className={styles.assetAmount} data-testid="refunded-xlm">
+              {formatStroops(totals.xlm.refundedStroops, 'XLM')}
+            </span>
+          </div>
+          <div className={styles.assetRow}>
+            <span className={styles.assetName}>USD Coin (USDC)</span>
+            <span className={styles.assetAmount} data-testid="refunded-usdc">
+              {formatStroops(totals.usdc.refundedStroops, 'USDC')}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayoutLedgerProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
 
-  const { data, isLoading, error } = useFacilityLedger(facilityId, {
+  const ledger = useFacilityLedger(facilityId, {
     status: statusFilter,
     asset: assetFilter,
   });
 
-  const totals = data?.totals;
-  const entries = data?.entries || [];
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = ledger;
 
+  const pages = data?.pages ?? [];
+  const totals = pages[0]?.totals;
+  const entries = pages.flatMap((page) => page.entries);
   const hasApproachingDeadlines = entries.some(
-    (e) => e.status === 'held' && e.terms.isApproachingDeadline
+    (e) => e.status === 'held' && e.terms.isApproachingDeadline,
   );
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setAssetFilter('all');
+  };
 
   return (
     <div className={styles.container}>
@@ -39,72 +148,25 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
         releaser terms and fulfill orders well before refund deadlines.
       </div>
 
-      {totals && (
-        <div className={styles.totalsGrid} aria-label="Escrow payout totals">
-          <div className={`${styles.totalCard} ${styles.totalCardHeld}`}>
-            <div className={styles.totalCardHeader}>
-              <span className={styles.totalLabel}>Held in Escrow</span>
-              {hasApproachingDeadlines && (
-                <span className={styles.approachingBadge}>⚠️ Deadline alert</span>
-              )}
-            </div>
-            <div className={styles.assetBreakdown}>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>Stellar Lumens (XLM)</span>
-                <span className={styles.assetAmount} data-testid="held-xlm">
-                  {formatStroops(totals.xlm.heldStroops, 'XLM')}
-                </span>
-              </div>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>USD Coin (USDC)</span>
-                <span className={styles.assetAmount} data-testid="held-usdc">
-                  {formatStroops(totals.usdc.heldStroops, 'USDC')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${styles.totalCard} ${styles.totalCardReleased}`}>
-            <div className={styles.totalCardHeader}>
-              <span className={styles.totalLabel}>Released to Facility</span>
-            </div>
-            <div className={styles.assetBreakdown}>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>Stellar Lumens (XLM)</span>
-                <span className={styles.assetAmount} data-testid="released-xlm">
-                  {formatStroops(totals.xlm.releasedStroops, 'XLM')}
-                </span>
-              </div>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>USD Coin (USDC)</span>
-                <span className={styles.assetAmount} data-testid="released-usdc">
-                  {formatStroops(totals.usdc.releasedStroops, 'USDC')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${styles.totalCard} ${styles.totalCardRefunded}`}>
-            <div className={styles.totalCardHeader}>
-              <span className={styles.totalLabel}>Refunded to Patient</span>
-            </div>
-            <div className={styles.assetBreakdown}>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>Stellar Lumens (XLM)</span>
-                <span className={styles.assetAmount} data-testid="refunded-xlm">
-                  {formatStroops(totals.xlm.refundedStroops, 'XLM')}
-                </span>
-              </div>
-              <div className={styles.assetRow}>
-                <span className={styles.assetName}>USD Coin (USDC)</span>
-                <span className={styles.assetAmount} data-testid="refunded-usdc">
-                  {formatStroops(totals.usdc.refundedStroops, 'USDC')}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <QueryState
+        result={{ isPending, isError, error, data: totals, refetch }}
+        loading={<TotalsSkeleton />}
+        loadingLabel="Loading escrow totals"
+        errorTitle="Escrow totals couldn't be loaded"
+        onRetry={() => void refetch()}
+        isEmpty={(value) => !value}
+        empty={
+          <EmptyState
+            title="No escrow totals"
+            description="The ledger returned no totals for this facility yet."
+            action={{ label: 'Reload', onClick: () => void refetch() }}
+          />
+        }
+      >
+        {(totalsData) => (
+          <TotalsCards totals={totalsData} hasApproachingDeadlines={hasApproachingDeadlines} />
+        )}
+      </QueryState>
 
       <div className={styles.filterBar}>
         <div className={styles.filterGroup}>
@@ -137,42 +199,42 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
         </div>
       </div>
 
-      {isLoading && (
-        <div role="status" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-          Loading facility payout ledger…
-        </div>
-      )}
-
-      {error && (
-        <div role="alert" style={{ padding: 'var(--space-4)', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 'var(--radius-md)' }}>
-          Failed to load payout ledger: {error.message}
-        </div>
-      )}
-
-      {!isLoading && !error && (
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <caption style={{ textAlign: 'left', padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--color-text)' }}>
-              Order Escrow Ledger ({entries.length} {entries.length === 1 ? 'record' : 'records'})
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Order &amp; Patient</th>
-                <th scope="col">Status</th>
-                <th scope="col">Amount</th>
-                <th scope="col">Escrow Terms &amp; Refund Deadline</th>
-                <th scope="col">Stellar Explorer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.length === 0 ? (
+      <QueryState
+        result={{ isPending, isError, error, data: data ? entries : undefined, refetch }}
+        loading={<Skeleton lines={6} height="2rem" label="Loading facility payout ledger" />}
+        loadingLabel="Loading facility payout ledger"
+        errorTitle="The payout ledger couldn't be loaded"
+        onRetry={() => void refetch()}
+        isEmpty={(rows) => rows.length === 0}
+        empty={
+          <EmptyState
+            title="No escrow entries"
+            description={
+              statusFilter !== 'all' || assetFilter !== 'all'
+                ? 'No entries match the selected filters. Clear them to see the whole ledger.'
+                : 'This facility has no escrow entries yet.'
+            }
+            action={{ label: 'Clear filters', onClick: clearFilters }}
+          />
+        }
+      >
+        {(rows) => (
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <caption style={{ textAlign: 'left', padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--color-text)' }}>
+                Order Escrow Ledger ({rows.length} {rows.length === 1 ? 'record' : 'records'})
+              </caption>
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-                    No escrow entries matching the selected filters.
-                  </td>
+                  <th scope="col">Order &amp; Patient</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Escrow Terms &amp; Refund Deadline</th>
+                  <th scope="col">Stellar Explorer</th>
                 </tr>
-              ) : (
-                entries.map((entry) => {
+              </thead>
+              <tbody>
+                {rows.map((entry) => {
                   const isWarning = entry.status === 'held' && entry.terms.isApproachingDeadline;
                   return (
                     <tr key={entry.id} className={isWarning ? styles.tableRowAlert : undefined}>
@@ -259,10 +321,31 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </QueryState>
+
+      {data && hasNextPage && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="secondary"
+            onClick={() => void fetchNextPage()}
+            loading={isFetchingNextPage}
+          >
+            Load more
+          </Button>
+        </div>
+      )}
+
+      {isFetchNextPageError && (
+        <div role="alert" className={styles.loadMoreError}>
+          <span>Couldn't load more entries. The pages already shown are still valid.</span>
+          <button type="button" className={styles.retryLink} onClick={() => void fetchNextPage()}>
+            Retry
+          </button>
         </div>
       )}
     </div>

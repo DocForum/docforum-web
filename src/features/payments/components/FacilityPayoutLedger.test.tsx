@@ -5,6 +5,7 @@ import { FacilityPayoutLedger } from './FacilityPayoutLedger';
 import { useAuthStore } from '../../../store/auth-store';
 import { formatStroops } from '../../../services/payments-service';
 import * as paymentsService from '../../../services/payments-service';
+import { EMPTY_LEDGER_PAGE, MOCK_LEDGER_PAGE } from '../../../test/factories';
 import type { FacilityLedgerPage } from '../../../types/models';
 
 vi.mock('../../../services/payments-service', async (importOriginal) => {
@@ -14,90 +15,6 @@ vi.mock('../../../services/payments-service', async (importOriginal) => {
     getFacilityPayoutLedger: vi.fn(),
   };
 });
-
-const MOCK_LEDGER_DATA: FacilityLedgerPage = {
-  totals: {
-    xlm: {
-      heldStroops: '500000000', // 50 XLM
-      releasedStroops: '1250000000', // 125 XLM
-      refundedStroops: '100000000', // 10 XLM
-    },
-    usdc: {
-      heldStroops: '75000000', // 7.5 USDC
-      releasedStroops: '300000000', // 30 USDC
-      refundedStroops: '0',
-    },
-  },
-  entries: [
-    {
-      id: 'ledg-urgent',
-      facilityId: 'fac-1',
-      orderId: 'ord-rx-urgent',
-      orderType: 'prescription',
-      orderItemName: 'Atorvastatin 40mg',
-      patientName: 'David Lee',
-      amountStroops: '500000000',
-      asset: 'XLM',
-      status: 'held',
-      escrowId: 'esc-111',
-      fundTxHash: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-      terms: {
-        releaser: 'patient',
-        releaserDescription: 'Patient sign-off upon pickup',
-        refundDeadline: '2026-10-19T08:00:00Z',
-        isApproachingDeadline: true,
-        hoursUntilRefund: 12,
-      },
-      createdAt: '2026-10-17T08:00:00Z',
-      updatedAt: '2026-10-17T08:00:00Z',
-    },
-    {
-      id: 'ledg-safe',
-      facilityId: 'fac-1',
-      orderId: 'ord-rx-safe',
-      orderType: 'prescription',
-      orderItemName: 'Metformin 500mg',
-      patientName: 'Emma Watson',
-      amountStroops: '75000000',
-      asset: 'USDC',
-      status: 'held',
-      escrowId: 'esc-222',
-      fundTxHash: '123456abcdef123456abcdef123456abcdef123456abcdef123456abcdef1234',
-      terms: {
-        releaser: 'platform',
-        releaserDescription: 'Automated release upon courier drop',
-        refundDeadline: '2026-10-25T10:00:00Z',
-        isApproachingDeadline: false,
-        hoursUntilRefund: 160,
-      },
-      createdAt: '2026-10-18T10:00:00Z',
-      updatedAt: '2026-10-18T10:00:00Z',
-    },
-    {
-      id: 'ledg-released',
-      facilityId: 'fac-1',
-      orderId: 'ord-lab-done',
-      orderType: 'lab',
-      orderItemName: 'Complete Blood Count',
-      patientName: 'Marcus Cole',
-      amountStroops: '300000000',
-      asset: 'USDC',
-      status: 'released',
-      escrowId: 'esc-333',
-      fundTxHash: 'aaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccddddaaaabbbbccccdddd',
-      releaseTxHash: 'eeeffff00001111222233334444555566667777888899990000aaaabbbbcccc',
-      terms: {
-        releaser: 'auto_dispense',
-        releaserDescription: 'Specimen verified in lab system',
-        refundDeadline: '2026-10-16T12:00:00Z',
-        isApproachingDeadline: false,
-        hoursUntilRefund: 0,
-      },
-      createdAt: '2026-10-14T12:00:00Z',
-      updatedAt: '2026-10-15T15:00:00Z',
-    },
-  ],
-};
 
 describe('FacilityPayoutLedger & formatStroops', () => {
   beforeEach(() => {
@@ -127,64 +44,124 @@ describe('FacilityPayoutLedger & formatStroops', () => {
 
   describe('Component Rendering & Warning States', () => {
     it('renders totals breakdown for both XLM and USDC', async () => {
-      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_PAGE);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('held-xlm')).toHaveTextContent('50 XLM');
-        expect(screen.getByTestId('held-usdc')).toHaveTextContent('7.50 USDC');
-        expect(screen.getByTestId('released-xlm')).toHaveTextContent('125 XLM');
-        expect(screen.getByTestId('released-usdc')).toHaveTextContent('30 USDC');
-        expect(screen.getByTestId('refunded-xlm')).toHaveTextContent('10 XLM');
+        expect(screen.getByTestId('held-xlm')).toHaveTextContent('25 XLM');
+        expect(screen.getByTestId('held-usdc')).toHaveTextContent('15 USDC');
+        expect(screen.getByTestId('released-xlm')).toHaveTextContent('50 XLM');
+        expect(screen.getByTestId('released-usdc')).toHaveTextContent('80 USDC');
+        expect(screen.getByTestId('refunded-xlm')).toHaveTextContent('18 XLM');
       });
     });
 
     it('highlights approaching refund deadlines with clear warnings', async () => {
-      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_PAGE);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
 
       expect(await screen.findByText(/deadline alert/i)).toBeInTheDocument();
-      expect(screen.getByText(/Only 12h left to fulfill before escrow funds are automatically refundable/i)).toBeInTheDocument();
+      expect(screen.getByText(/Only 14h left to fulfill before escrow funds are automatically refundable/i)).toBeInTheDocument();
     });
 
     it('provides explorer links to Stellar Expert for on-chain auditability', async () => {
-      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_PAGE);
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
 
-      await screen.findByText('Atorvastatin 40mg');
+      await screen.findByText('Metformin 850mg (60 tablets)');
 
       const fundLink = screen.getAllByRole('link', { name: /fund tx/i })[0];
       expect(fundLink).toHaveAttribute(
         'href',
-        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_DATA.entries[0].fundTxHash}`,
+        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_PAGE.entries[0].fundTxHash}`,
       );
       expect(fundLink).toHaveAttribute('target', '_blank');
 
-      const releaseLink = screen.getByRole('link', { name: /release tx/i });
+      const releaseLink = screen.getAllByRole('link', { name: /release tx/i })[0];
       expect(releaseLink).toHaveAttribute(
         'href',
-        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_DATA.entries[2].releaseTxHash}`,
+        `https://stellar.expert/explorer/testnet/tx/${MOCK_LEDGER_PAGE.entries[2].releaseTxHash}`,
       );
     });
 
     it('filters ledger entries by status and asset', async () => {
-      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_PAGE);
       const user = userEvent.setup();
 
       render(<FacilityPayoutLedger facilityId="fac-1" />);
-      await screen.findByText('Atorvastatin 40mg');
+      await screen.findByText('Metformin 850mg (60 tablets)');
 
       const statusSelect = screen.getByLabelText(/escrow status:/i);
       await user.selectOptions(statusSelect, 'held');
 
-      expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
-        'fac-1',
-        'facility-access-token',
-        expect.objectContaining({ status: 'held' }),
+      await waitFor(() =>
+        expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
+          'fac-1',
+          'facility-access-token',
+          expect.objectContaining({ status: 'held' }),
+          expect.anything(),
+        ),
       );
+    });
+  });
+
+  describe('Query states', () => {
+    it('never renders placeholder totals while loading', () => {
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockReturnValue(new Promise(() => {}));
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+
+      expect(screen.getAllByText(/Loading escrow totals/i).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('held-xlm')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('released-xlm')).not.toBeInTheDocument();
+      expect(screen.queryByText(/0 XLM/)).not.toBeInTheDocument();
+    });
+
+    it('shows a retryable error instead of figures when the ledger fails', async () => {
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockRejectedValue(
+        new Error('Ledger unavailable'),
+      );
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+
+      expect(await screen.findByText(/Escrow totals couldn't be loaded/i)).toBeInTheDocument();
+      expect(screen.getByText(/The payout ledger couldn't be loaded/i)).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /try again/i }).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('held-xlm')).not.toBeInTheDocument();
+    });
+
+    it('shows an honest empty state when the ledger genuinely has no entries', async () => {
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(EMPTY_LEDGER_PAGE);
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+
+      expect(await screen.findByRole('heading', { name: /No escrow entries/i })).toBeInTheDocument();
+      // A real zero is still shown — only loading must avoid zeroes.
+      expect(screen.getByTestId('held-xlm')).toHaveTextContent('0 XLM');
+    });
+
+    it('keeps earlier pages when loading the next page fails', async () => {
+      const firstPage: FacilityLedgerPage = {
+        ...MOCK_LEDGER_PAGE,
+        entries: [MOCK_LEDGER_PAGE.entries[0]],
+        nextCursor: 'cursor-2',
+      };
+      vi.mocked(paymentsService.getFacilityPayoutLedger)
+        .mockResolvedValueOnce(firstPage)
+        .mockRejectedValueOnce(new Error('Page 2 failed'));
+
+      const user = userEvent.setup();
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+
+      expect(await screen.findByText('Metformin 850mg (60 tablets)')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /load more/i }));
+
+      expect(await screen.findByText(/Couldn't load more entries/i)).toBeInTheDocument();
+      expect(screen.getByText('Metformin 850mg (60 tablets)')).toBeInTheDocument();
     });
   });
 });

@@ -84,6 +84,7 @@ real API" (no refresh-on-reload flow).
   transaction underneath. Admin accounts are seeded/invited, not
   self-serve (PRD OQ-2, same as facility) — this page is real once such
   a session exists, same caveat as the facility dashboard already had.
+- [x] Payout ledger and practice insights show real data or an honest loading/error/empty state. Tracked as [issue #216](https://github.com/DocForum/docforum-web/issues/216) — removed the built-in mock datasets, added shared `QueryState`/skeleton/empty states, and kept earlier ledger pages when loading more fails. Real zero is only rendered after a successful response.
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts).
 
 ## Phase W6 — Admin console

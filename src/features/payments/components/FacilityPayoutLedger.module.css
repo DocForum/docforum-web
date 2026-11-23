@@ -276,3 +276,32 @@
   align-items: center;
   padding-top: var(--space-4);
 }
+
+.loadMoreError {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: var(--text-sm);
+}
+
+.retryLink {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retryLink:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
