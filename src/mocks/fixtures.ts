@@ -179,6 +179,8 @@ export interface MockDb {
     doctor: DoctorOnboardingStatus;
   };
   paymentIntents: PaymentIntent[];
+  /** Login throttle buckets the admin can clear (issue #275). */
+  loginAttempts: MockLoginAttempt[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
   // --- Order issuance (issue #267, real docforum-core contract) ---
@@ -198,6 +200,14 @@ export interface MockDb {
 
 /** A doctor's verification application (issue #64's assumed queue/detail
  * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockLoginAttempt {
+  email: string;
+  ip: string | null;
+  count: number;
+  firstFailedAt: string;
+  lockedUntil: string;
+}
+
 export interface MockVerification {
   doctorProfileId: string;
   userId: string;
@@ -955,6 +965,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-amox',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-amox',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -966,7 +978,9 @@ export function createSeedDb(): MockDb {
       quantityDispensed: 20,
       quantityOutstanding: 10,
       unit: 'capsules',
-      canDispense: true,
+      // One-shot item: the record already used its PATCH; the remainder
+      // must be rerouted from the order, never dispensed again here.
+      canDispense: false,
       attribution: {
         action: 'dispensed',
         performedByUserId: 'usr-facility-staff',
@@ -982,6 +996,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-ibu',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-ibu',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1009,6 +1025,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-vit',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-vit',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1028,6 +1046,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-lab-1',
       orderItemId: 'itm-demo-lab1-panel',
+      fulfillmentRecordId: 'ful-req-demo-lab-1',
+      fulfillmentItemId: 'fit-demo-lab1-panel',
       orderType: 'lab',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1047,6 +1067,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-2',
       orderItemId: 'itm-demo-rx2-metformin',
+      fulfillmentRecordId: 'ful-req-demo-rx-2',
+      fulfillmentItemId: 'fit-demo-rx2-metformin',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -2121,6 +2143,23 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const loginAttempts: MockLoginAttempt[] = [
+    {
+      email: 'locked.out@example.test',
+      ip: '203.0.113.10',
+      count: 5,
+      firstFailedAt: '2026-10-18T08:00:00.000Z',
+      lockedUntil: '2026-10-18T08:15:00.000Z',
+    },
+    {
+      email: 'pat.placeholder@example.test',
+      ip: null,
+      count: 3,
+      firstFailedAt: '2026-10-18T09:00:00.000Z',
+      lockedUntil: '2026-10-18T09:15:00.000Z',
+    },
+  ];
+
   const notificationPreferences: Record<Role, NotificationPreferences> = {
     patient: defaultPreferencesForRole('patient'),
     doctor: defaultPreferencesForRole('doctor'),
@@ -2186,6 +2225,7 @@ export function createSeedDb(): MockDb {
       },
     },
     paymentIntents,
+    loginAttempts,
     disputes,
     consultationAddenda,
     doctorProfile,
