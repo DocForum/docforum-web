@@ -11,7 +11,6 @@ import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
-import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
 import { paths } from '../../../routes/paths';
 
@@ -237,9 +236,6 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
         </>
       )}
 
-      {appointmentId ? (
-        <ConsultationOutcomePanel appointmentId={appointmentId} notes={draft} />
-      ) : null}
     </section>
   );
 }

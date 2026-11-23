@@ -492,7 +492,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FulfillmentQueueItem' }
 
-  /doctor/appointments/today:
+  /appointments/doctor/today:
     get:
       tags: [queue]
       operationId: listTodayAppointments
@@ -519,28 +519,28 @@ paths:
                 items: { $ref: '#/components/schemas/QueueEntry' }
 
   /appointments/{appointmentId}/start:
-    post:
+    patch:
       tags: [queue]
       operationId: startVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit started (idempotent)
+          description: Visit started
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   /appointments/{appointmentId}/complete:
-    post:
+    patch:
       tags: [queue]
       operationId: completeVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit completed (idempotent)
+          description: Visit completed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }

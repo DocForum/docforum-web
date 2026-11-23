@@ -145,7 +145,7 @@ describe('resolution notes', () => {
 describe('display helpers', () => {
   it('formats dispute age in days and hours', () => {
     const now = Date.parse('2026-10-20T12:00:00.000Z');
-    expect(ageLabel('2026-10-20T11:52:00.000Z', now)).toBe('8 m');
+    expect(ageLabel('2026-10-20T11:52:00.000Z', now)).toBe('8 min');
     expect(ageLabel('2026-10-20T09:00:00.000Z', now)).toBe('3 h');
     expect(ageLabel('2026-10-18T08:00:00.000Z', now)).toBe('2 d 4 h');
     expect(ageLabel('bad', now)).toBe('unknown age');

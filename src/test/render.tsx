@@ -22,6 +22,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router-dom';
 import { TimeZoneProvider } from '../i18n/TimeZoneProvider';
+import esMessages from '../i18n/messages/es.json';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { useToastStore } from '../store/toast-store';
@@ -79,6 +80,8 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   routes?: string[];
   /** Initial history stack, matching the plain `render` signature. */
   initialEntries?: string[];
+  /** Locale catalogue for explicit translation coverage. */
+  locale?: 'en' | 'es';
   /** Sign in as this role before rendering. Omit for a signed-out render. */
   role?: Role;
   /** Explicit session, for tests that need a specific user id/email/token. */
@@ -99,6 +102,7 @@ export function renderWithProviders(
     route = '/',
     routes,
     initialEntries,
+    locale = 'en',
     role,
     session,
     queryClient = createTestQueryClient(),
@@ -118,7 +122,12 @@ export function renderWithProviders(
     wrapper: ({ children }) => (
       // Empty message catalogue: components carry English `defaultMessage`s,
       // exactly like the app does before a locale chunk resolves.
-      <IntlProvider locale="en" defaultLocale="en" messages={{}} onError={() => undefined}>
+      <IntlProvider
+        locale={locale}
+        defaultLocale="en"
+        messages={locale === 'es' ? esMessages : {}}
+        onError={() => undefined}
+      >
         <QueryClientProvider client={queryClient}>
           <TimeZoneProvider>
             <MemoryRouter initialEntries={initialEntries ?? routes ?? [route]}>{children}</MemoryRouter>

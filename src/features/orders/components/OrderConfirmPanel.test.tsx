@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { IntlProvider } from 'react-intl';
+import { renderWithProviders } from '../../../test/render';
 import { OrderConfirmPanel } from './OrderConfirmPanel';
 import type { OrderConfirmationWindow } from '../../../types/models';
 
@@ -11,7 +13,11 @@ const queryClient = new QueryClient({
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <IntlProvider locale="en" defaultLocale="en" onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </IntlProvider>
+  );
 }
 
 describe('OrderConfirmPanel', () => {
@@ -23,6 +29,20 @@ describe('OrderConfirmPanel', () => {
       inactionConsequence: 'auto_confirm',
     } as OrderConfirmationWindow,
   };
+
+  it('renders confirmation and report controls in Spanish', () => {
+    renderWithProviders(<OrderConfirmPanel {...defaultProps} />, { locale: 'es' });
+
+    expect(screen.getByRole('heading', { name: 'Confirma la recepción o informa de un problema' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar recepción' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Informar de un problema' }));
+
+    expect(screen.getByLabelText('Motivo *')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'No recibí este pedido' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Detalles *')).toHaveAttribute('placeholder', 'Describe qué salió mal...');
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enviar informe' })).toBeInTheDocument();
+  });
 
   it('renders the confirm panel with deadline', () => {
     render(<OrderConfirmPanel {...defaultProps} />, { wrapper });

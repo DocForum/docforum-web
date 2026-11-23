@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
+import { useT } from '../../../i18n/useT';
 import styles from './OrderQrCode.module.css';
 
 interface OrderQrCodeProps {
@@ -16,6 +17,7 @@ interface OrderQrCodeProps {
  * Never encodes anything other than the raw token string (PRD §8.1.6 /
  * issue #25 constraint). */
 export function OrderQrCode({ token, size = 280, className }: OrderQrCodeProps) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function OrderQrCode({ token, size = 280, className }: OrderQrCodeProps) 
     <canvas
       ref={canvasRef}
       className={[styles.canvas, className].filter(Boolean).join(' ')}
-      aria-label="Order verification QR code"
+      aria-label={t('orders.detail.qrCodeLabel', 'Order verification QR code')}
       role="img"
     />
   );

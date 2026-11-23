@@ -12,6 +12,7 @@ import type {
   AuditEvent,
   CatalogItem,
   CareThread,
+  Consultation,
   Closure,
   ConsultationAddendum,
   ConsultationIssuedOrder,
@@ -22,6 +23,7 @@ import type {
   DataExport,
   Dependent,
   DoctorOnboardingStatus,
+  MyDoctorProfile,
   DoctorPracticeInsights,
   DoctorSearchResult,
   FacilityApiKey,
@@ -35,6 +37,8 @@ import type {
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
+  IssuedLabOrder,
+  IssuedPrescription,
   IntakeForm,
   DoctorMessageThread,
   Notification,
@@ -177,6 +181,11 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  // --- Order issuance (issue #267, real docforum-core contract) ---
+  doctorProfile: MyDoctorProfile | null;
+  consultations: Consultation[];
+  prescriptions: IssuedPrescription[];
+  labOrders: IssuedLabOrder[];
   specialties: Specialty[];
   doctors: DoctorSearchResult[];
   symptoms: MockSymptom[];
@@ -2119,6 +2128,19 @@ export function createSeedDb(): MockDb {
     admin: defaultPreferencesForRole('admin'),
   };
 
+  // Issue #267: the signed-in doctor, verified so order issuance is allowed.
+  // Tests flip `verificationStatus` to 'pending' to exercise the 403 gate.
+  const doctorProfile: MyDoctorProfile = {
+    id: DOCTOR_PROFILE_ID,
+    userId: DOCTOR_USER.id,
+    fullName: 'Dr. Demo Doctor (fake)',
+    verificationStatus: 'verified',
+    timeZone: 'Europe/London',
+    version: 1,
+    createdAt: '2026-01-06T09:00:00.000Z',
+    updatedAt: '2026-01-06T09:00:00.000Z',
+  };
+
   return {
     dependents,
     healthEntries,
@@ -2166,6 +2188,10 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    doctorProfile,
+    consultations: [],
+    prescriptions: [],
+    labOrders: [],
     specialties: SPECIALTIES.map((specialty) => ({ ...specialty })),
     doctors,
     symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),
