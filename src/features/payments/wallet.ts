@@ -124,6 +124,11 @@ export function detectWallet(scope: Record<string, unknown> = globalThis as Reco
 /** A wallet declining to sign is a normal outcome, not a failure — this is
  * the one heuristic the flow needs: any thrown value whose message reads as
  * a user refusal. */
+// Re-export the offline StrKey helpers (issue #280) so tests and callers
+// that import from './wallet' keep working. The implementation lives in
+// strkey.ts.
+export * from './strkey';
+
 export function isWalletDecline(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   return /reject|declin|denied|refus|cancel|abort/i.test(message);
