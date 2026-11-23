@@ -63,6 +63,80 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return payload as T;
 }
 
+export interface UploadRequestOptions {
+  method?: 'POST' | 'PUT' | 'PATCH';
+  body: FormData;
+  accessToken?: string | null;
+  signal?: AbortSignal;
+  onProgress?: (percent: number) => void;
+}
+
+export function apiUpload<T>(path: string, options: UploadRequestOptions): Promise<T> {
+  const { method = 'POST', body, accessToken, signal, onProgress } = options;
+
+  return new Promise<T>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, `${API_BASE_URL}${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+    const abort = () => xhr.abort();
+    const cleanup = () => signal?.removeEventListener('abort', abort);
+    signal?.addEventListener('abort', abort);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      cleanup();
+      const isJson = xhr.getResponseHeader('content-type')?.includes('application/json');
+      let payload: unknown;
+      if (isJson && xhr.responseText) {
+        try {
+          payload = JSON.parse(xhr.responseText);
+        } catch {
+          payload = undefined;
+        }
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+
+      const message =
+        (payload as ErrorEnvelope | undefined)?.message || xhr.statusText || 'Upload failed';
+      reject(new ApiError(message, xhr.status, payload));
+    };
+
+    xhr.onerror = () => {
+      cleanup();
+      reject(new ApiError('Network error while uploading', 0));
+    };
+
+    xhr.onabort = () => {
+      cleanup();
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+    };
+
+    try {
+      xhr.send(body);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
 export async function apiFetchBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { method = 'GET', body, accessToken, signal } = options;
 

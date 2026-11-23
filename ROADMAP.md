@@ -97,6 +97,7 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [ ] Generate MSW handlers and fixtures from the backend OpenAPI spec. Tracked as [issue #96](https://github.com/DocForum/docforum-web/issues/96) (High, 200 pts) — **blocked**: depends on [docforum-core#112](https://github.com/DocForum/docforum-core/issues/112) (OpenAPI 3.1 spec generated from the Zod schemas), which is still open — there is no authoritative `openapi.json` to generate from yet. Do not fabricate one; see that issue.
 - [ ] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts).
 - [ ] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts).
+- [x] Shared file upload control with progress, cancellation and mobile camera capture. Tracked as [issue #115](https://github.com/DocForum/docforum-web/issues/115) (High, 200 pts) — `src/components/Upload.tsx`, `src/components/upload-utils.ts`, and an XHR `apiUpload` in `src/services/api-client.ts`. Signature-based image/PDF validation, a 10 MB default, client-side image downscaling, drag-and-drop plus keyboard picker, per-file progress/cancel/retry, and file contents kept in component-local state.
 
 ## Changelog
 - 2026-09-09 — Roadmap created, carved out of docforum-core Phase 7 as part
