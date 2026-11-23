@@ -3,7 +3,9 @@
 // here (hard rule 1). Amounts stay BigInt-as-string.
 import { http, HttpResponse } from 'msw';
 import { db } from '../db';
-import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
+import { badRequest, conflict, notFound, paramId, payoutBlocked, respond } from '../helpers';
+import { useMockStore } from '../mock-store';
+import { FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING } from '../../services/error-catalogue';
 import { FACILITY_ID } from '../fixtures';
 import type { FacilityLedgerStatus, PaymentIntent } from '../../types/models';
 
@@ -40,6 +42,13 @@ export const paymentsHandlers = [
   http.get(
     '*/payments/facility/ledger',
     respond('json', ({ request }) => {
+      // The payout-block scenarios answer with docforum-core's real blocking
+      // codes: the UI must learn about a missing wallet/trustline from the
+      // API, never from Stellar directly (hard rule 1).
+      const { scenario } = useMockStore.getState();
+      if (scenario === 'wallet_missing') return payoutBlocked(FACILITY_WALLET_NOT_LINKED);
+      if (scenario === 'trustline_missing') return payoutBlocked(PAYEE_TRUSTLINE_MISSING);
+
       const url = new URL(request.url);
       for (const key of url.searchParams.keys()) {
         if (!LEDGER_QUERY_PARAMS.has(key)) {
@@ -163,20 +172,6 @@ export const paymentsHandlers = [
         return notFound('payout wallet');
       }
       return db.walletLink;
-    }),
-  ),
-
-  // Facility payout ledger (issue #53 contract). Served here so the
-  // payout-block scenarios can answer with docforum-core's real blocking
-  // codes: the UI must learn about a missing wallet/trustline from the API,
-  // never from Stellar directly (hard rule 1).
-  http.get(
-    '*/facilities/:id/payout-ledger',
-    respond('json', () => {
-      const { scenario } = useMockStore.getState();
-      if (scenario === 'wallet_missing') return payoutBlocked(FACILITY_WALLET_NOT_LINKED);
-      if (scenario === 'trustline_missing') return payoutBlocked(PAYEE_TRUSTLINE_MISSING);
-      return DEFAULT_MOCK_LEDGER_PAGE;
     }),
   ),
 

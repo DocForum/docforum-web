@@ -45,9 +45,9 @@ describe('payout-block codes (issue #279)', () => {
     );
 
     expect(wallet.messageId).toBe('errors.facilityWalletNotLinked');
-    expect(wallet.defaultMessage).toMatch(/no payout wallet linked/i);
+    expect(wallet.defaultMessage).toMatch(/not linked a payment wallet/i);
     expect(trustline.messageId).toBe('errors.payeeTrustlineMissing');
-    expect(trustline.defaultMessage).toMatch(/cannot hold this payment type/i);
+    expect(trustline.defaultMessage).toMatch(/does not accept this payment asset/i);
     expect([...PAYOUT_BLOCK_CODES]).toEqual([FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING]);
   });
 });

@@ -1562,7 +1562,7 @@ describe('dev panel scenarios', () => {
       status: 404,
     });
     await expect(
-      paymentsService.getFacilityPayoutLedger(FACILITY_ID, MOCK_ACCESS_TOKEN),
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 400, code: 'FACILITY_WALLET_NOT_LINKED' });
   });
 
@@ -1573,7 +1573,7 @@ describe('dev panel scenarios', () => {
       facilityId: FACILITY_ID,
     });
     await expect(
-      paymentsService.getFacilityPayoutLedger(FACILITY_ID, MOCK_ACCESS_TOKEN),
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 400, code: 'PAYEE_TRUSTLINE_MISSING' });
   });
 

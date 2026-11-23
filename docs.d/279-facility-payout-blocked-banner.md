@@ -26,10 +26,11 @@ section: Known assumptions
   confirmation — none is available. If docforum-core later exposes payout
   readiness (for example a `trustlineStatus` on the wallet link), reconcile
   `usePayoutBlockStatus` with it and drop the "cleared on next success" rule.
-- `GET /facilities/:id/payout-ledger` (issue #53, docforum-core#90) is
-  expected to return the two codes above when payouts are blocked; the mock
-  handler serves that endpoint so both states can be reproduced in
-  `npm run dev:mock`.
+- The readiness probe reads `GET /payments/facility/ledger` (issue #271, the
+  real endpoint). docforum-core is expected to return the two codes above
+  when payouts are blocked; the mock handler for that endpoint answers with
+  them in the `wallet_missing` / `trustline_missing` scenarios so both states
+  can be reproduced in `npm run dev:mock`.
 - The detected code is kept in memory only
   (`src/store/payout-block-store.ts`, no persistence), and no patient or staff
   personal data is recorded with it.

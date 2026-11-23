@@ -36,7 +36,7 @@ export function usePayoutBlockStatus(): PayoutBlockStatus {
   // the only way to learn that payouts are blocked. This is that read, with
   // the same query key/filters the payouts page uses — React Query shares one
   // request between the banner and the ledger instead of fetching twice.
-  useFacilityLedger('fac-main', { status: 'all', asset: 'all' });
+  useFacilityLedger('fac-main');
 
   const walletState: PayoutWalletState = walletQuery.isError
     ? walletQuery.error instanceof ApiError && walletQuery.error.status === 404

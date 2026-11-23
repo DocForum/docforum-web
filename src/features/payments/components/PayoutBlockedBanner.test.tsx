@@ -8,8 +8,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import { usePayoutBlockStore } from '../../../store/payout-block-store';
 import { ApiError } from '../../../services/api-client';
 import * as paymentsService from '../../../services/payments-service';
-import { DEFAULT_MOCK_LEDGER_PAGE } from '../demo-ledger';
-import type { WalletLink } from '../../../types/models';
+import type { FacilityLedgerPage, WalletLink } from '../../../types/models';
 
 vi.mock('../../../services/payments-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../services/payments-service')>();
@@ -22,6 +21,8 @@ vi.mock('../../../services/payments-service', async (importOriginal) => {
 });
 
 const VALID_KEY = 'G' + 'A'.repeat(55);
+
+const EMPTY_LEDGER_PAGE: FacilityLedgerPage = { items: [], nextCursor: null, totals: [] };
 
 const WALLET: WalletLink = {
   id: 'wl-1',
@@ -51,7 +52,7 @@ describe('PayoutBlockedBanner', () => {
     usePayoutBlockStore.setState({ detectedCode: null, detectedAt: null });
     // The banner's readiness probe reads the ledger; give it a value by default
     // so individual tests only override the outcomes they care about.
-    vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(DEFAULT_MOCK_LEDGER_PAGE);
+    vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(EMPTY_LEDGER_PAGE);
   });
 
   it('shows the missing-wallet banner from the wallet-link 404, linking to wallet setup', async () => {
