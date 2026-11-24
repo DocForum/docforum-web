@@ -2,11 +2,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { fireEvent, render, screen, waitFor } from '../../../test/render';
 import { useAuthStore } from '../../../store/auth-store';
+import { ApiError } from '../../../services/api-client';
 import * as fulfillmentService from '../../../services/fulfillment-service';
-import type { FulfillmentQueueItem } from '../../../types/models';
+import type {
+  FulfillmentQueueItem,
+  PharmacyFulfillmentRecord,
+  PharmacyFulfillmentRecordStatus,
+} from '../../../types/models';
 import { FacilityQueuePanel } from './FacilityQueuePanel';
 
 vi.mock('../../../services/fulfillment-service');
+
+function record(status: PharmacyFulfillmentRecordStatus): PharmacyFulfillmentRecord {
+  return {
+    id: 'ful-rec-1',
+    prescriptionId: 'ord-rx-1',
+    labOrderId: null,
+    facilityId: 'fac-1',
+    status,
+    items: [],
+    createdAt: '2026-10-20T08:00:00Z',
+    updatedAt: '2026-10-20T08:10:00Z',
+  };
+}
 
 const ITEMS: FulfillmentQueueItem[] = [
   {
@@ -14,12 +32,17 @@ const ITEMS: FulfillmentQueueItem[] = [
     facilityId: 'fac-1',
     orderId: 'ord-rx-1',
     orderType: 'prescription',
+    fulfillmentRecordId: 'ful-rec-1',
+    fulfillmentItemId: 'fit-1',
     patientName: 'Pat Placeholder (fake)',
     patientProfileId: 'prf-1',
     itemName: 'Demo Amoxicillin 500mg (fake)',
     instructions: 'Demo instructions (fake).',
     status: 'pending',
     receivedAt: '2026-10-20T08:00:00Z',
+    quantityPrescribed: 10,
+    quantityDispensed: 0,
+    quantityOutstanding: 10,
     attribution: null,
   },
   {
@@ -27,12 +50,17 @@ const ITEMS: FulfillmentQueueItem[] = [
     facilityId: 'fac-1',
     orderId: 'ord-lab-1',
     orderType: 'lab',
+    fulfillmentRecordId: 'ful-rec-2',
+    fulfillmentItemId: 'fit-2',
     patientName: 'Sam Example (fake)',
     patientProfileId: 'prf-2',
     itemName: 'Demo blood panel (fake)',
     instructions: 'Demo fasting instructions (fake).',
     status: 'pending',
     receivedAt: '2026-10-20T08:30:00Z',
+    quantityPrescribed: 1,
+    quantityDispensed: 0,
+    quantityOutstanding: 1,
     attribution: null,
   },
   {
@@ -40,11 +68,16 @@ const ITEMS: FulfillmentQueueItem[] = [
     facilityId: 'fac-1',
     orderId: 'ord-rx-2',
     orderType: 'prescription',
+    fulfillmentRecordId: 'ful-rec-3',
+    fulfillmentItemId: 'fit-3',
     patientName: 'Quinn Example (fake)',
     patientProfileId: 'prf-3',
     itemName: 'Demo Metformin 850mg (fake)',
     status: 'fulfilled',
     receivedAt: '2026-10-19T14:00:00Z',
+    quantityPrescribed: 30,
+    quantityDispensed: 30,
+    quantityOutstanding: 0,
     attribution: {
       action: 'dispensed',
       performedByUserId: 'usr-staff-1',
@@ -61,12 +94,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   useAuthStore.setState({ accessToken: 'test-token', user: null });
   vi.mocked(fulfillmentService.listFulfillmentQueue).mockResolvedValue(ITEMS);
-  vi.mocked(fulfillmentService.updateFulfillmentStatus).mockImplementation(
-    async (_facilityId, itemId, status) => ({
-      ...ITEMS.find((item) => item.id === itemId)!,
-      status,
-    }),
+  vi.mocked(fulfillmentService.updateFulfillmentRecord).mockImplementation(
+    async (recordId, status) => ({ ...record(status === 'rejected' ? 'rejected' : 'in_progress'), id: recordId }),
   );
+  vi.mocked(fulfillmentService.dispenseFulfillmentItem).mockResolvedValue({
+    record: record('fulfilled'),
+    orderStatus: 'fulfilled',
+  });
   vi.mocked(fulfillmentService.uploadFulfillmentLabResult).mockImplementation(
     async (_facilityId, itemId, file) => ({
       ...ITEMS.find((item) => item.id === itemId)!,
@@ -83,14 +117,14 @@ beforeEach(() => {
 });
 
 describe('FacilityQueuePanel', () => {
-  it('renders queue items, status and attribution', async () => {
+  it('renders queue items, derived record status and attribution', async () => {
     render(<FacilityQueuePanel facilityId="fac-1" />);
 
     expect(await screen.findByText('Demo Amoxicillin 500mg (fake)')).toBeInTheDocument();
     expect(screen.getByText('Demo blood panel (fake)')).toBeInTheDocument();
     expect(screen.getByText('Demo Metformin 850mg (fake)')).toBeInTheDocument();
     expect(screen.getByText(/dispensed by/i)).toBeInTheDocument();
-    expect(screen.getByText('Fulfilled')).toBeInTheDocument();
+    expect(screen.getByText(/Record status: Fulfilled \(derived\)/i)).toBeInTheDocument();
     expect(screen.getByText(/all \(3\)/i)).toBeInTheDocument();
   });
 
@@ -105,7 +139,7 @@ describe('FacilityQueuePanel', () => {
     expect(screen.queryByText('Demo Metformin 850mg (fake)')).not.toBeInTheDocument();
   });
 
-  it('moves a pending item to in progress', async () => {
+  it('moves a pending record to in progress through the real PATCH route', async () => {
     const user = userEvent.setup();
     render(<FacilityQueuePanel facilityId="fac-1" />);
 
@@ -113,17 +147,15 @@ describe('FacilityQueuePanel', () => {
     await user.click(startButtons[0]);
 
     await waitFor(() => {
-      expect(fulfillmentService.updateFulfillmentStatus).toHaveBeenCalledWith(
-        'fac-1',
-        'fuq-1',
+      expect(fulfillmentService.updateFulfillmentRecord).toHaveBeenCalledWith(
+        'ful-rec-1',
         'in_progress',
         'test-token',
-        undefined,
       );
     });
   });
 
-  it('fulfills an in-progress item and rejects another', async () => {
+  it('rejects at record level, never by setting fulfilled from the client', async () => {
     const inProgress = ITEMS.map((item) =>
       item.id === 'fuq-1' ? { ...item, status: 'in_progress' as const } : item,
     );
@@ -131,18 +163,58 @@ describe('FacilityQueuePanel', () => {
     const user = userEvent.setup();
     render(<FacilityQueuePanel facilityId="fac-1" />);
 
-    expect(await screen.findByRole('button', { name: /dispense & fulfill/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /start processing/i })).toHaveLength(1);
-
-    const rejectButtons = screen.getAllByRole('button', { name: /^reject$/i });
+    const rejectButtons = await screen.findAllByRole('button', { name: /^reject$/i });
     await user.click(rejectButtons[0]);
+
     await waitFor(() => {
-      expect(fulfillmentService.updateFulfillmentStatus).toHaveBeenCalledWith(
-        'fac-1',
-        'fuq-1',
+      expect(fulfillmentService.updateFulfillmentRecord).toHaveBeenCalledWith(
+        'ful-rec-1',
         'rejected',
         'test-token',
-        undefined,
+      );
+    });
+    expect(screen.queryByRole('button', { name: /fulfill/i })).not.toBeInTheDocument();
+  });
+
+  it('dispenses the outstanding quantity through the item PATCH', async () => {
+    const user = userEvent.setup();
+    render(<FacilityQueuePanel facilityId="fac-1" />);
+
+    const dispenseButtons = await screen.findAllByRole('button', { name: /^dispense$/i });
+    await user.click(dispenseButtons[0]);
+
+    await waitFor(() => {
+      expect(fulfillmentService.dispenseFulfillmentItem).toHaveBeenCalledWith(
+        'ful-rec-1',
+        'fit-1',
+        { quantity: 10 },
+        'test-token',
+      );
+    });
+    expect(await screen.findByText(/Item dispensed\./i)).toBeInTheDocument();
+    expect(screen.getByText(/record is now/i)).toHaveTextContent('Fulfilled');
+  });
+
+  it('explains a 409, refreshes the queue and never auto-retries', async () => {
+    vi.mocked(fulfillmentService.dispenseFulfillmentItem).mockRejectedValue(
+      new ApiError('Conflict', 409),
+    );
+    const user = userEvent.setup();
+    render(<FacilityQueuePanel facilityId="fac-1" />);
+
+    await screen.findByText('Demo Amoxicillin 500mg (fake)');
+    const callsBefore = vi.mocked(fulfillmentService.listFulfillmentQueue).mock.calls.length;
+
+    const dispenseButtons = screen.getAllByRole('button', { name: /^dispense$/i });
+    await user.click(dispenseButtons[0]);
+
+    expect(
+      await screen.findByText(/already updated or dispensed, possibly at another facility/i),
+    ).toBeInTheDocument();
+    expect(fulfillmentService.dispenseFulfillmentItem).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(vi.mocked(fulfillmentService.listFulfillmentQueue).mock.calls.length).toBeGreaterThan(
+        callsBefore,
       );
     });
   });
@@ -185,6 +257,7 @@ describe('FacilityQueuePanel', () => {
 
     await screen.findByText('Demo Metformin 850mg (fake)');
     expect(screen.getAllByRole('button', { name: /start processing/i })).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: /dispense & fulfill/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^dispense$/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^collect sample$/i })).toHaveLength(1);
   });
 });

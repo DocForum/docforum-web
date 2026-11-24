@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FacilityPayoutLedger } from '../features/payments/components/FacilityPayoutLedger';
+import { PayoutBlockedBanner } from '../features/payments/components/PayoutBlockedBanner';
 import styles from '../features/facility-team/components/FacilityTeam.module.css';
 
 export function FacilityPaymentsPage() {
@@ -18,9 +19,26 @@ export function FacilityPaymentsPage() {
         <Link to="/facility/payments" className={`${styles.tabLink} ${styles.tabLinkActive}`}>
           Payouts &amp; Escrow
         </Link>
+        <Link to="/facility/integrations" className={styles.tabLink}>
+          Integrations
+        </Link>
+        <Link to="/facility/insights" className={styles.tabLink}>
+          Performance
+        </Link>
+        <Link to="/facility/settings" className={styles.tabLink}>
+          Settings
+        </Link>
       </nav>
 
-      <div style={{ marginTop: 'var(--space-6)' }}>
+      <div
+        style={{
+          marginTop: 'var(--space-6)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-6)',
+        }}
+      >
+        <PayoutBlockedBanner />
         <FacilityPayoutLedger />
       </div>
     </div>

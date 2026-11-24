@@ -15,6 +15,12 @@
 
 import type { HealthSectionKey } from './types/models';
 
+export const orderKeys = {
+  all: ['orders'] as const,
+  mine: () => ['orders', 'mine'] as const,
+  detail: (orderId: string) => ['orders', 'detail', orderId] as const,
+};
+
 /**
  * Appointments. `today()` is the doctor's live view for the dashboard and
  * queue panel; `list(profileId)` is the patient-facing list that issue #3
@@ -34,6 +40,30 @@ export const appointmentKeys = {
   detail: (appointmentId: string) => ['appointments', 'detail', appointmentId] as const,
   /** The check-in queue view shown on an appointment page (assumed core#129). */
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
+};
+
+export const followUpKeys = {
+  all: ['follow-ups'] as const,
+  mine: () => ['follow-ups', 'mine'] as const,
+  slots: (followUpId: string, doctorProfileId: string) =>
+    ['follow-ups', followUpId, 'slots', doctorProfileId] as const,
+};
+
+/**
+ * Public doctor directory (issues #1/#13): one list key per filter pair, plus
+ * a stable directory key used to resolve `doctorProfileId` → name. Availability
+ * slots live under their own root so a booking can refresh slot lists without
+ * refetching every doctor.
+ */
+export const doctorKeys = {
+  all: ['doctors'] as const,
+  list: (specialty: string | null, q: string | null) =>
+    ['doctors', 'list', specialty, q] as const,
+  directory: () => ['doctors', 'directory'] as const,
+  profile: (doctorProfileId: string) => ['doctors', 'profile', doctorProfileId] as const,
+  slotsRoot: ['doctors', 'slots'] as const,
+  slots: (doctorProfileId: string) => ['doctors', 'slots', doctorProfileId] as const,
+  specialties: () => ['specialties'] as const,
 };
 
 /** The doctor's queue panel: the live list plus the running-delay knob. */
@@ -86,12 +116,33 @@ export const facilitySearchKeys = {
   all: ['facilities'] as const,
   list: (params: { type?: string; lat?: number; lng?: number; query?: string }) =>
     ['facilities', params.type ?? null, params.lat ?? null, params.lng ?? null, params.query ?? null] as const,
+  /** Eligible facilities for one catalog item, with their price in force (#258). */
+  eligible: (
+    catalogItemCode: string,
+    params: { type?: string; lat?: number; lng?: number; query?: string },
+  ) =>
+    [
+      'facilities',
+      'eligible',
+      catalogItemCode,
+      params.type ?? null,
+      params.lat ?? null,
+      params.lng ?? null,
+      params.query ?? null,
+    ] as const,
+  /** One facility's public price history (#258) — read per card, never mutated. */
+  priceHistory: (facilityId: string) => ['facilities', 'prices', facilityId] as const,
 };
 
 /** Admin audit tables: one root, one key per tab+filter combination. */
 export const auditKeys = {
   all: ['admin', 'audit'] as const,
   page: (tab: string, query: unknown) => ['admin', 'audit', tab, query] as const,
+};
+
+export const adminMetricsKeys = {
+  all: ['admin', 'metrics'] as const,
+  range: (from: string, to: string) => ['admin', 'metrics', from, to] as const,
 };
 
 /** Stuck-referral queue and the reassignment picker. */
@@ -124,11 +175,31 @@ export const flagKeys = {
   history: () => ['admin', 'flags', 'history'] as const,
 };
 
+export const catalogKeys = {
+  all: ['admin', 'catalogs'] as const,
+  page: (catalog: string, search: string, page: number, pageSize: number) =>
+    ['admin', 'catalogs', catalog, search, page, pageSize] as const,
+  usage: (catalog: string, id: string) => ['admin', 'catalogs', catalog, id, 'usage'] as const,
+  mappings: (symptomId: string) => ['admin', 'catalogs', 'symptoms', symptomId, 'specialties'] as const,
+};
+
 export const accountKeys = {
   all: ['account'] as const,
   dataExport: () => ['account', 'data-export'] as const,
   /** "Who viewed my records" — account-scoped, cursor-paginated. */
   accessLog: (filters: unknown) => ['account', 'access-log', filters] as const,
+};
+
+/**
+ * Doctor verification review queue (issue #64). `list` is the pending queue;
+ * `detail` nests under the same root so one decision invalidation refreshes
+ * both. The per-doctor decision history is read from `auditKeys`, not here —
+ * it is the audit trail's data, not a verification resource of its own.
+ */
+export const verificationKeys = {
+  all: ['admin', 'verifications'] as const,
+  list: () => ['admin', 'verifications', 'list'] as const,
+  detail: (doctorProfileId: string) => ['admin', 'verifications', 'detail', doctorProfileId] as const,
 };
 
 /** Escrow intents, the facility payout ledger, and wallet linking. */
@@ -142,8 +213,13 @@ export const paymentKeys = {
   ledger: (facilityId: string, filters: unknown) =>
     ['payments', 'ledger', facilityId, filters] as const,
   /** The patient's payment history (infinite list + one entry). */
-  history: () => ['payments', 'mine'] as const,
+  history: (filters?: unknown) =>
+    filters !== undefined
+      ? (['payments', 'mine', filters] as const)
+      : (['payments', 'mine'] as const),
   historyEntry: (entryId: string) => ['payments', 'mine', entryId] as const,
+  /** The intent attached to an order — `null` when the order has none (issue #61). */
+  orderIntent: (orderId: string) => ['payments', 'order', orderId] as const,
 };
 
 /** Doctor's abnormal-results inbox (polls every 30 s, acked rows drop off). */
@@ -182,8 +258,27 @@ export const insightKeys = {
   params: (params: unknown) => ['doctor', 'insights', params] as const,
 };
 
+/** In-app notification inbox (issue #107). One list key per page size — the
+ * cursor lives in the infinite query, never in the key (a cursor in the key
+ * would create a cache entry per page and break invalidation). */
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  list: (limit: number) => ['notifications', 'list', limit] as const,
+  streamTicket: () => ['notifications', 'stream-ticket'] as const,
+};
+
 export const messageKeys = {
   all: ['doctor', 'messages'] as const,
   threads: (filter: unknown, cursor: unknown, limit: number | undefined) =>
     ['doctor', 'messages', 'threads', filter, cursor, limit] as const,
+  threadIdsForPatients: (patientProfileIds: readonly string[]) =>
+    ['doctor', 'messages', 'thread-ids-for-patients', patientProfileIds] as const,
+};
+
+/** First-run onboarding summary (#121). One key per role: the server scopes
+ * the response to the session, so there is nothing else to key on. */
+export const onboardingKeys = {
+  all: ['onboarding'] as const,
+  patient: () => ['onboarding', 'patient'] as const,
+  doctor: () => ['onboarding', 'doctor'] as const,
 };

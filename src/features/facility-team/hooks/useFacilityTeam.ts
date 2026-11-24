@@ -3,14 +3,14 @@ import * as teamService from '../../../services/facility-team-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { facilityKeys } from '../../../query-keys';
-import type { InviteMemberInput } from '../../../types/models';
+import type { FulfillmentStatusUpdate, InviteMemberInput } from '../../../types/models';
 
 export function useFacilityMembers(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
     queryKey: facilityKeys.members(facilityId),
-    queryFn: () => teamService.listFacilityMembers(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.listFacilityMembers(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }
@@ -20,7 +20,7 @@ export function useFacilityInvites(facilityId: string, isOwner: boolean) {
 
   return useQuery({
     queryKey: facilityKeys.invites(facilityId),
-    queryFn: () => teamService.listFacilityInvites(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.listFacilityInvites(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId && isOwner),
   });
 }
@@ -74,7 +74,7 @@ export function useFulfillmentQueue(facilityId: string) {
 
   return useQuery({
     queryKey: facilityKeys.queue(facilityId),
-    queryFn: () => teamService.getFulfillmentQueue(facilityId, accessToken!),
+    queryFn: ({ signal }) => teamService.getFulfillmentQueue(facilityId, accessToken!, signal),
     enabled: Boolean(accessToken && facilityId),
   });
 }
@@ -84,8 +84,9 @@ export function useUpdateFulfillmentItem(facilityId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ itemId, action, notes }: { itemId: string; action: 'fulfilled' | 'rejected'; notes?: string }) =>
-      teamService.updateFulfillmentItem(facilityId, itemId, action, accessToken!, notes),
+    mutationFn: ({ recordId, status }: { recordId: string; status: FulfillmentStatusUpdate }) =>
+      teamService.updateFulfillmentRecord(recordId, status, accessToken!),
     onSuccess: () => { void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId); },
+    onError: () => { void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId); },
   });
 }

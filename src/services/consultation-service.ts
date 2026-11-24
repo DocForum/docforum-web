@@ -1,8 +1,8 @@
-import { apiFetch } from './api-client';
+import type { Schemas } from '@docforum/api-client';
+import { api, apiFetch } from './api-client';
 import type {
-  ConsultationNote,
-  AddAddendumInput,
-  ConsultationAddendum,
+  Consultation,
+  CreateConsultationInput,
   ConsultationRecord,
   RecordConsultationInput,
   ConsultationReferral,
@@ -11,16 +11,37 @@ import type {
   ConsultationOrderInput,
 } from '../types/models';
 
-export function getConsultationNote(appointmentId: string, accessToken: string): Promise<ConsultationNote> {
-  return apiFetch<ConsultationNote>(`/consultation-notes/${appointmentId}`, { accessToken });
+export function getConsultationNote(
+  appointmentId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['ConsultationNote']> {
+  return api.consultation.getNote(appointmentId, { accessToken, signal });
 }
 
-export function signOffNote(noteId: string, accessToken: string): Promise<ConsultationNote> {
-  return apiFetch<ConsultationNote>(`/consultation-notes/${noteId}/sign-off`, { method: 'POST', accessToken });
+export function signOffNote(noteId: string, accessToken: string): Promise<Schemas['ConsultationNote']> {
+  return api.consultation.signOff(noteId, { accessToken });
 }
 
-export function addAddendum(noteId: string, input: AddAddendumInput, accessToken: string): Promise<ConsultationAddendum> {
-  return apiFetch<ConsultationAddendum>(`/consultation-notes/${noteId}/addenda`, {
+export function addAddendum(
+  noteId: string,
+  input: Schemas['AddAddendumInput'],
+  accessToken: string,
+): Promise<Schemas['ConsultationAddendum']> {
+  return api.consultation.addAddendum(noteId, input, { accessToken });
+}
+
+/**
+ * Closes the visit with a consultation record — the real
+ * `POST /orders/consultations` (docforum-core's orders flow). Doctor-only and
+ * gated on a verified doctor profile; `409` if the appointment already has
+ * one, because a consultation is closed once per appointment.
+ */
+export function createConsultation(
+  input: CreateConsultationInput,
+  accessToken: string,
+): Promise<Consultation> {
+  return apiFetch<Consultation>('/orders/consultations', {
     method: 'POST',
     body: input,
     accessToken,

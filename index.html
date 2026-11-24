@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1f4d3a" />
+    <meta name="description" content="DocForum — care continuity, escrow-secured fulfillment." />
     <title>DocForum</title>
     <!-- Self-hosted fonts (issue #101): same origin, covered by font-src 'self';
          the stylesheet link carries a Subresource Integrity hash. Google Fonts
@@ -14,6 +17,11 @@
       integrity="sha256-kN0VAlFkIqKbljQY9Fi1hLjy4D8LL2mpkM+aIHTzIJg="
       crossorigin
     />
+    <!-- Preload the two faces used above the fold (issue #99): body text
+         (IBM Plex Sans 400) and headings (Fraunces 600). The rest load on
+         demand via fonts.css; font-display: swap keeps text visible. -->
+    <link rel="preload" href="/fonts/ibmplexsans-400.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/fonts/fraunces-600.ttf" as="font" type="font/ttf" crossorigin />
     <!-- Pre-hydration loading shell, styled by an external same-origin sheet -->
     <link rel="stylesheet" href="/loading-shell.css" />
     <!-- Connect to the API origin early in production. -->
@@ -24,7 +32,8 @@
       `vite` dev (HMR needs inline scripts) and a strict policy for production
       builds (script-src 'self', no inline scripts). GitHub Pages cannot set
       HTTP response headers, so the meta tag is the enforcement point here.
-      See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Content Security Policy".
+      The policy lives in vite.config.ts; `npm run check:csp` scans the built
+      output for anything it would block (issue #225).
     -->
   </head>
   <body>
@@ -46,9 +55,15 @@
           />
           <circle cx="24" cy="11" r="2" fill="var(--color-accent-2, #a6763d)" />
         </svg>
-        <span>Loading DocForum…</span>
+        <span id="app-loading-label">Loading DocForum…</span>
       </div>
     </div>
+    <!-- Pre-hydration shell: match the browser language before the app bundle
+         (and its locale chunks) has loaded, so the very first paint isn't
+         hard-coded English. Same-origin classic script so the strict
+         production CSP (`script-src 'self'`) allows it. React replaces this
+         node on mount. -->
+    <script src="%BASE_URL%prehydrate-locale.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

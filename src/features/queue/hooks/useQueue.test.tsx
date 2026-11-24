@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/auth-store';
+import { ApiError } from '../../../services/api-client';
 import * as queueService from '../../../services/queue-service';
 import { useVisitActions, UNDO_WINDOW_MS } from './useQueue';
 import { appointmentKeys, queueKeys } from '../../../query-keys';
@@ -104,6 +105,58 @@ describe('useVisitActions', () => {
         queryClient.getQueryData(queueKeys.today()) as QueueEntry[]
       )?.[0].status,
     ).toBe('in_progress');
+  });
+
+  it('cancels the PATCH when undo is pressed just before the four-second deadline', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'checked_in');
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.startVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS - 1);
+    result.current.undo('appt-1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(queueService.startVisit).not.toHaveBeenCalled();
+    expect(
+      (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+    ).toBe('checked_in');
+  });
+
+  it('rolls a conflicting start back to checked in and refreshes the queue', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'checked_in');
+    vi.mocked(queueService.startVisit).mockRejectedValue(new ApiError('Conflict', 409));
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.startVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+
+    await vi.waitFor(() =>
+      expect(
+        (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+      ).toBe('checked_in'),
+    );
+    await vi.waitFor(() => expect(queryClient.getQueryState(queueKeys.today())?.isInvalidated).toBe(true));
+  });
+
+  it('rolls a conflicting completion back to in progress', async () => {
+    const { wrapper, queryClient } = makeWrapper();
+    seedCache(queryClient, 'in_progress');
+    vi.mocked(queueService.completeVisit).mockRejectedValue(new ApiError('Conflict', 409));
+
+    const { result } = renderHook(() => useVisitActions(), { wrapper });
+
+    result.current.completeVisit('appt-1');
+    await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS);
+
+    await vi.waitFor(() =>
+      expect(
+        (queryClient.getQueryData(queueKeys.today()) as QueueEntry[])?.[0].status,
+      ).toBe('in_progress'),
+    );
   });
 
   it('calls the complete API once the undo window elapses', async () => {

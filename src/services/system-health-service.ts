@@ -1,5 +1,37 @@
-import { ApiError, apiFetch } from './api-client';
+import { ApiError, SLOW_REQUEST_TIMEOUT_MS, apiFetch } from './api-client';
 import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport } from '../types/models';
+
+/** Timeout for the lightweight boot liveness ping. */
+export const PING_TIMEOUT_MS = 5_000;
+
+export function isMockOrPreviewMode(): boolean {
+  return import.meta.env.DEV
+    ? import.meta.env.VITE_ENABLE_MOCKS === 'true'
+    : import.meta.env.VITE_PREVIEW_MOCKS === 'true';
+}
+
+/**
+ * Assumed contract: `GET /health/live` returns HTTP 200 when docforum-core is live.
+ *
+ * Non-blocking ping fired once at boot and on user retry to warm a cold-started
+ * backend instance. Mock and preview builds must not ping the real host.
+ */
+export async function pingHealthLive(signal?: AbortSignal): Promise<boolean> {
+  if (isMockOrPreviewMode()) {
+    return true;
+  }
+
+  try {
+    await apiFetch('/health/live', {
+      signal,
+      timeoutMs: PING_TIMEOUT_MS,
+      retry: false,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // docforum-core answers "not ready" with a 503 whose body is still the full
 // report — that's what Render's probe keys off. Only unwrap it when it
@@ -14,7 +46,7 @@ function isReadinessReport(body: unknown): body is ReadinessReport {
  * when not ready, same body either way. */
 export async function getReadiness(accessToken: string, signal?: AbortSignal): Promise<ReadinessReport> {
   try {
-    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal });
+    return await apiFetch<ReadinessReport>('/health/ready', { accessToken, signal, retry: false });
   } catch (error) {
     if (error instanceof ApiError && error.status === 503 && isReadinessReport(error.body)) return error.body;
     throw error;
@@ -34,10 +66,39 @@ export function listJobs(accessToken: string, signal?: AbortSignal): Promise<Bac
  * `running` if the job outlives the request.
  */
 export function runJob(jobName: string, accessToken: string): Promise<JobRun> {
-  return apiFetch<JobRun>(`/admin/jobs/${encodeURIComponent(jobName)}/run`, { method: 'POST', accessToken });
+  return apiFetch<JobRun>(`/admin/jobs/${encodeURIComponent(jobName)}/run`, {
+    method: 'POST',
+    accessToken,
+    // The runner does the work inside the request, so this can be slower
+    // than a normal call (same reasoning as the data-export endpoints).
+    timeoutMs: SLOW_REQUEST_TIMEOUT_MS,
+  });
 }
 
 /** Assumed contract (docforum-core#94). A `404` means the outbox isn't exposed. */
 export function getOutboxSummary(accessToken: string, signal?: AbortSignal): Promise<OutboxSummary> {
   return apiFetch<OutboxSummary>('/admin/outbox', { accessToken, signal });
+}
+
+export interface ClearLoginAttemptsInput {
+  email?: string;
+  ip?: string;
+}
+
+/**
+ * Admin escape hatch for a login lock (docforum-core Phase 8, issue #35).
+ * Clears the throttle bucket for an email and/or IP, records an AuditEvent
+ * in the same transaction, and answers `{ cleared }` — the number of
+ * buckets removed. An unknown email is `cleared: 0`, never a 404: the
+ * endpoint's response must not reveal whether an account exists.
+ */
+export function clearLoginAttempts(
+  input: ClearLoginAttemptsInput,
+  accessToken: string,
+): Promise<{ cleared: number }> {
+  return apiFetch<{ cleared: number }>('/auth/login-attempts/clear', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
 }

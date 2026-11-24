@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
 import { FormProvider } from 'react-hook-form';
 import QRCode from 'qrcode';
 import { Button } from '../../../components/Button';
@@ -9,12 +8,16 @@ import { FormField } from '../../../components/form/FormField';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
+import { useT } from '../../../i18n/useT';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLogin } from '../hooks/useLogin';
 import { RecoveryCodeActions } from './RecoveryCodeActions';
 import { enableTwoFactor, isAuthSession, setupTwoFactor, verifyTwoFactor } from '../../../services/auth-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { z } from 'zod';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
+import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
+import { LockoutNotice } from './LockoutNotice';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -33,31 +36,36 @@ type Challenge =
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const form = useZodForm(loginSchema, { email: '', password: '' });
   const loginMutation = useLogin();
+  const lockout = useRetryAfterCountdown();
   const isSlow = useSlowRequestHint(loginMutation.isPending);
+  const t = useT();
+  const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { errors } = form.formState;
 
+  // Move focus to the first problem after a failed submit so keyboard and
+  // screen-reader users do not have to hunt through the form.
   useEffect(() => {
-    if (lockoutSeconds === 0) return undefined;
-    const timer = window.setTimeout(() => {
-      setLockoutSeconds((seconds) => Math.max(0, seconds - 1));
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [lockoutSeconds]);
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
-      const result = await loginMutation.mutateAsync({ email: data.email, password: data.password });
-      if (isAuthSession(result)) {
-        onSuccess?.();
-      } else if ('mfaRequired' in result) {
-        setChallenge({ kind: 'mfa', token: result.mfaToken });
-      } else {
-        setChallenge({ kind: 'enrollment', token: result.enrollmentToken });
-      }
+      await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      lockout.reset();
+      onSuccess?.();
     } catch (error) {
+      // 429 lockout: show a countdown and keep submit disabled until it ends.
+      // The message is account-agnostic on purpose — it must not reveal
+      // whether the email exists (issue #80).
+      if (error instanceof RateLimitError) {
+        lockout.start(error.retryAfterSeconds);
+        return;
+      }
       if (error instanceof ApiError) {
         if (error.status === 429) {
           setServerError('Too many sign-in attempts. Please wait before trying again.');
@@ -71,10 +79,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           });
           return;
         }
-        setServerError(error.message ?? 'Something went wrong. Please try again.');
-      } else {
-        setServerError('Something went wrong. Please try again.');
       }
+      setServerError(errorMessage(error));
     }
   }
 
@@ -113,22 +119,29 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+      <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate>
         <FormError message={serverError} />
+        {lockout.isLockedOut && <LockoutNotice secondsRemaining={lockout.secondsRemaining} />}
+        {loginMutation.isPending && (
+          <p className="srOnly" role="status">
+            Logging in. Please wait.
+          </p>
+        )}
         {isSlow && (
           <p className="slowHint" role="status">
             <Spinner size={14} />
-            Still working — the server may be waking up after being idle. This can take up to a
-            minute.
+            {t('auth.slowHint', 'Still working — the server may be waking up after being idle. This can take up to a minute.')}
           </p>
         )}
-        {lockoutSeconds > 0 && (
-          <p role="status">Try again in {lockoutSeconds} seconds.</p>
-        )}
-        <FormField name="email" label="Email" type="email" autoComplete="email" />
-        <FormField name="password" label="Password" type="password" autoComplete="current-password" />
-        <Button type="submit" loading={loginMutation.isPending} disabled={lockoutSeconds > 0}>
-          {loginMutation.isPending ? 'Logging in…' : 'Log in'}
+        <FormField name="email" label={t('auth.email', 'Email')} type="email" autoComplete="email" />
+        <FormField
+          name="password"
+          label={t('auth.password', 'Password')}
+          type="password"
+          autoComplete="current-password"
+        />
+        <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
+          {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
         </Button>
       </form>
     </FormProvider>

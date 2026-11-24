@@ -1,62 +1,165 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import { render, screen } from '../test/render';
 import { LoginPage } from './LoginPage';
-import { useAuthStore } from '../store/auth-store';
 import * as authService from '../services/auth-service';
+import { rememberReturnPath } from '../features/auth/return-path';
+import { useAuthStore } from '../store/auth-store';
+import { makeUser } from '../test/factories';
+import type { Role, User } from '../types/models';
 
-vi.mock('../services/auth-service');
+vi.mock('../services/auth-service', () => ({ login: vi.fn() }));
 
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+function renderAt(path: string) {
+  render(<LoginPage />, { initialEntries: [path] });
 }
 
-describe('LoginPage MFA redirect', () => {
+function renderLoginFlow() {
+  render(
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<div>Public home</div>} />
+      <Route path="/patient" element={<div>Patient dashboard</div>} />
+      <Route path="/doctor" element={<div>Doctor dashboard</div>} />
+      <Route path="/facility" element={<div>Facility dashboard</div>} />
+      <Route path="/admin" element={<div>Admin dashboard</div>} />
+    </Routes>,
+    { initialEntries: ['/login'] },
+  );
+}
+
+async function signIn() {
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Email'), 'person@example.test');
+  await user.type(screen.getByLabelText('Password'), 'password123');
+  await user.click(screen.getByRole('button', { name: /^log in$/i }));
+}
+
+describe('LoginPage', () => {
   beforeEach(() => {
-    useAuthStore.setState({ accessToken: null, user: null });
     vi.mocked(authService.login).mockReset();
-    vi.mocked(authService.verifyTwoFactor).mockReset();
-    vi.mocked(authService.isAuthSession).mockImplementation(
-      (result) => 'user' in result && 'accessToken' in result,
-    );
   });
 
-  it('keeps the original invite destination after the second sign-in step', async () => {
-    vi.mocked(authService.login).mockResolvedValue({ mfaRequired: true, mfaToken: 'challenge-token' });
-    vi.mocked(authService.verifyTwoFactor).mockResolvedValue({
-      user: { id: 'user-1', email: 'person@example.test', role: 'patient', createdAt: '', updatedAt: '' },
-      accessToken: 'session-token',
+  afterEach(() => {
+    useAuthStore.setState({ user: null, accessToken: null, signOutReason: null });
+  });
+
+  it('explains an idle-timeout sign-out', () => {
+    renderAt('/login?reason=idle-timeout');
+    expect(screen.getByText(/signed out automatically/i)).toBeInTheDocument();
+  });
+
+  it('shows no idle notice on a normal visit', () => {
+    renderAt('/login');
+    expect(screen.queryByText(/signed out automatically/i)).not.toBeInTheDocument();
+  });
+
+  it('falls back to the in-memory reason when a redirect stripped the query param', () => {
+    // A route guard can win the navigation race on timeout sign-out and
+    // land on plain /login — the notice must still appear.
+    useAuthStore.getState().signOutDueToIdle();
+    renderAt('/login');
+    expect(screen.getByText(/signed out automatically/i)).toBeInTheDocument();
+  });
+
+  it('returns the user to the page the route guard remembered (#226)', async () => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: {
+        id: 'usr-1',
+        email: 'pat@example.test',
+        role: 'patient',
+        createdAt: '2026-10-19T09:00:00.000Z',
+        updatedAt: '2026-10-19T09:00:00.000Z',
+      },
+      accessToken: 'tok',
     });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    rememberReturnPath('http://localhost:5173/patient/orders/abc?tab=items');
     const user = userEvent.setup();
+
     render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter
-          initialEntries={[
-            { pathname: '/login', state: { returnTo: '/patient/appointments/appointment-1?invite=invite-token' } },
-          ]}
-        >
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/patient/appointments/:id" element={<p>Invite destination</p>} />
-          </Routes>
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/patient/orders/abc" element={<div>Order detail</div>} />
+      </Routes>,
+      { initialEntries: ['/login'] },
     );
 
-    await user.type(screen.getByLabelText(/email/i), 'person@example.test');
+    await user.type(screen.getByLabelText(/email/i), 'pat@example.test');
     await user.type(screen.getByLabelText(/password/i), 'password123');
     await user.click(screen.getByRole('button', { name: /log in/i }));
-    await user.type(await screen.findByLabelText(/authenticator or recovery code/i), '123456');
-    await user.click(screen.getByRole('button', { name: /verify and sign in/i }));
 
-    expect(await screen.findByText('Invite destination')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByTestId('location')).toHaveTextContent('/patient/appointments/appointment-1?invite=invite-token');
+    expect(await screen.findByText('Order detail')).toBeInTheDocument();
+  });
+
+  it('ignores a remembered page the signed-in role cannot open (#226)', async () => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: {
+        id: 'usr-2',
+        email: 'doc@example.test',
+        role: 'doctor',
+        createdAt: '2026-10-19T09:00:00.000Z',
+        updatedAt: '2026-10-19T09:00:00.000Z',
+      },
+      accessToken: 'tok',
     });
+    rememberReturnPath('http://localhost:5173/patient/orders/abc');
+    const user = userEvent.setup();
+
+    render(
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/doctor" element={<div>Doctor dashboard</div>} />
+      </Routes>,
+      { initialEntries: ['/login'] },
+    );
+
+    await user.type(screen.getByLabelText(/email/i), 'doc@example.test');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /log in/i }));
+
+    expect(await screen.findByText('Doctor dashboard')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['patient', 'Patient dashboard'],
+    ['doctor', 'Doctor dashboard'],
+    ['facility', 'Facility dashboard'],
+    ['admin', 'Admin dashboard'],
+  ] as const)('sends a signed-in %s to their dashboard', async (role, heading) => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: makeUser({ role }),
+      accessToken: 'token',
+    });
+
+    renderLoginFlow();
+    await signIn();
+
+    expect(await screen.findByText(heading)).toBeInTheDocument();
+  });
+
+  it('falls back to the public home page for an unknown role', async () => {
+    vi.mocked(authService.login).mockResolvedValue({
+      user: makeUser({ role: 'auditor' as Role }),
+      accessToken: 'token',
+    });
+
+    renderLoginFlow();
+    await signIn();
+
+    expect(await screen.findByText('Public home')).toBeInTheDocument();
+  });
+
+  it('signing back in clears the idle sign-out reason', () => {
+    useAuthStore.getState().signOutDueToIdle();
+    const user: User = {
+      id: 'usr-1',
+      email: 'pat@example.test',
+      role: 'patient',
+      createdAt: '2026-10-19T09:00:00.000Z',
+      updatedAt: '2026-10-19T09:00:00.000Z',
+    };
+    useAuthStore.getState().setSession(user, 'tok');
+    expect(useAuthStore.getState().signOutReason).toBeNull();
   });
 });

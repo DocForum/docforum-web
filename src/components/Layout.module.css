@@ -1,3 +1,20 @@
+.skipLink {
+  position: absolute;
+  inset-inline-start: var(--space-4);
+  top: -100px;
+  z-index: 200;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.skipLink:focus {
+  top: var(--space-2);
+  text-decoration: none;
+}
+
 .shell {
   min-height: 100vh;
   display: flex;
@@ -106,6 +123,13 @@
   gap: var(--space-3);
   flex-wrap: wrap;
   min-width: 0;
+}
+
+.navGroupDivider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--color-border);
+  flex: 0 0 auto;
 }
 
 .navLink {
@@ -222,12 +246,18 @@
   color: var(--color-text);
 }
 .drawerClose {
-  padding: var(--space-1);
+  /* Icon-only control: at least 24×24 CSS px (WCAG 2.5.8); 36px matches the
+     menu toggle and the notification bell. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--text-lg);
-  line-height: 1;
   cursor: pointer;
   border-radius: var(--radius-sm);
 }
@@ -284,15 +314,51 @@
 }
 
 .footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
   padding: var(--space-6);
   text-align: center;
   font-size: var(--text-xs);
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   border-top: 1px solid var(--color-border);
 }
 
+/* Responsive: mobile header actions wrap instead of overflowing */
+@media (max-width: 899px) {
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .headerActions > * {
+    min-width: 0;
+  }
+}
+
+/* Footer analytics link: muted, smaller than the nav links. A class, not an
+   inline style — prerendered HTML is served under `style-src 'self'`, which
+   blocks style attributes (issue #225). */
+.footerMutedLink {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Narrow desktop: compact spacing keeps every nav entry on one line at
+   1280px and prevents clipping at 1024px (issue #231). */
+@media (min-width: 640px) and (max-width: 1400px) {
+  .desktopNav {
+    gap: var(--space-1);
+  }
+  .navLink {
+    font-size: var(--text-xs);
+    padding: 4px 6px;
+  }
+}
+
 /* Responsive: desktop */
-@media (min-width: 640px) {
+@media (min-width: 900px) {
   .menuToggle {
     display: none;
   }
@@ -305,6 +371,18 @@
   }
   .header {
     padding: var(--space-4) var(--space-6);
+  }
+}
+
+/* Landscape phones have little vertical room (WCAG 1.3.4, issue #240):
+   keep the shell out of the way so content and the camera scanner fit. */
+@media (max-height: 480px) {
+  .header {
+    position: static;
+    padding: var(--space-1) var(--space-3);
+  }
+  .footer {
+    padding: var(--space-3);
   }
 }
 

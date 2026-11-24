@@ -4,13 +4,14 @@ import type { CreatePaymentIntentInput } from '../../../services/payments-servic
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { paymentKeys } from '../../../query-keys';
+import { clearPayoutBlock, recordPayoutBlock } from '../../../store/payout-block-store';
 
 export function usePaymentIntent(id: string | null) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
     queryKey: paymentKeys.intent(id ?? ''),
-    queryFn: () => paymentsService.getPaymentIntent(id!, accessToken!),
+    queryFn: ({ signal }) => paymentsService.getPaymentIntent(id!, accessToken!, signal),
     enabled: Boolean(accessToken && id),
   });
 }
@@ -29,7 +30,13 @@ function useIntentAction(action: (id: string, accessToken: string) => ReturnType
 
   return useMutation({
     mutationFn: (id: string) => action(id, accessToken!),
+    // A settlement call docforum-core refuses because the facility's payout
+    // setup is incomplete raises the facility banner (#279).
+    onError: (error) => {
+      recordPayoutBlock(error);
+    },
     onSuccess: (intent) => {
+      clearPayoutBlock();
       // Instant row update from the authoritative response, then refresh the
       // ledgers whose held/released totals moved with it.
       queryClient.setQueryData(paymentKeys.intent(intent.id), intent);

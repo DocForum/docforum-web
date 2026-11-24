@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '../../../test/render';
+import { renderWithProviders, screen, waitFor } from '../../../test/render';
 import { SignupForm } from './SignupForm';
 import { useAuthStore } from '../../../store/auth-store';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
 import * as authService from '../../../services/auth-service';
 
 vi.mock('../../../services/auth-service');
@@ -14,24 +14,26 @@ describe('SignupForm', () => {
     vi.mocked(authService.signup).mockReset();
   });
 
-  it('offers only patient and doctor as self-serve roles, never facility', () => {
-    render(<SignupForm />);
+  it('offers only patient and doctor as self-serve roles, never facility or admin', () => {
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
-    // PRD OQ-2: facility accounts are admin-invited only — no self-serve
-    // facility signup should ever be offered here.
+    // PRD OQ-2: facility and admin accounts are invite-only — no
+    // self-serve facility/admin signup should ever be offered here.
     expect(screen.getByRole('radio', { name: 'Patient' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Doctor' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /facility/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /admin/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/role/i)).not.toBeInTheDocument();
   });
 
   it('defaults to the patient role', () => {
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
     expect(screen.getByRole('radio', { name: 'Patient' })).toBeChecked();
   });
 
   it('shows validation errors instead of submitting when fields are empty', async () => {
     const user = userEvent.setup();
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
@@ -48,7 +50,7 @@ describe('SignupForm', () => {
       }),
     );
     const user = userEvent.setup();
-    render(<SignupForm />);
+    renderWithProviders(<SignupForm />, { route: '/signup' });
 
     await user.type(screen.getByLabelText(/full name/i), 'Jane');
     await user.type(screen.getByLabelText(/email/i), 'a@b.com');
@@ -65,5 +67,22 @@ describe('SignupForm', () => {
       email: 'a@b.com',
       password: 'password123',
     });
+  });
+
+  it('shows a lockout countdown and disables submit on 429', async () => {
+    vi.mocked(authService.signup).mockRejectedValue(
+      new RateLimitError('Too many attempts', 30),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SignupForm />, { route: '/signup' });
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane');
+    await user.type(screen.getByLabelText(/email/i), 'a@b.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    const notice = await screen.findByTestId('lockout-notice');
+    expect(notice).toHaveTextContent('Too many attempts. Try again in 30 seconds.');
+    expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled();
   });
 });

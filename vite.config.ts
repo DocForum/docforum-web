@@ -1,5 +1,7 @@
-import { defineConfig, type Plugin } from 'vitest/config';
+import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // GitHub Pages serves this as a project site at /docforum-web/, not the
 // domain root — base must match or every asset URL 404s. Only applied for
@@ -15,12 +17,25 @@ import react from '@vitejs/plugin-react';
 // The plugin injects `<meta http-equiv="Content-Security-Policy">` into
 // index.html on every dev request and on the production build output.
 
+// API origin allowed in `connect-src` — taken from VITE_API_BASE_URL when it
+// is set (the PR-preview build points it at a reserved-invalid host so the
+// preview can never reach the real backend — issue #104), and defaulting to
+// the deployed docforum-core API otherwise.
+const API_ORIGIN = (() => {
+  const raw = process.env.VITE_API_BASE_URL ?? 'https://docforum-core-api.onrender.com';
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw;
+  }
+})();
+
 const PROD_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
   "font-src 'self'",
-  "connect-src 'self' https://docforum-core-api.onrender.com",
+  `connect-src 'self' ${API_ORIGIN}`,
   "img-src 'self' data:",
   "base-uri 'self'",
   "form-action 'self'",
@@ -45,20 +60,190 @@ function cspPlugin(isProd: boolean): Plugin {
   return {
     name: 'docforum-csp',
     transformIndexHtml(html: string) {
-      return html.replace('<head>', `<head>\n    ${meta}`);
+      // index.html preconnects to the real API host; a preview build must not
+      // (issue #104), so the preconnect follows the configured API origin —
+      // the same one used in connect-src above.
+      return html
+        .replace('https://docforum-core-api.onrender.com', API_ORIGIN)
+        .replace('<head>', `<head>\n    ${meta}`);
+    },
+  };
+}
+
+/**
+ * Preload the landing page's route chunk (issue #99). Every route is a lazy
+ * chunk now, and `/` is where most visitors arrive — preloading its small
+ * chunk (and CSS) lets the browser fetch it in parallel with the entry
+ * instead of after it. Other routes' chunks are fetched on demand.
+ */
+function preloadLandingChunkPlugin(base: string): Plugin {
+  return {
+    name: 'docforum-preload-landing-chunk',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        if (!ctx.bundle) return html;
+        const landing = Object.values(ctx.bundle).find(
+          (chunk) => chunk.type === 'chunk' && chunk.facadeModuleId?.endsWith('/src/pages/HomePage.tsx'),
+        );
+        if (!landing || landing.type !== 'chunk') return html;
+        const css = [...(landing.viteMetadata?.importedCss ?? [])];
+        const tags = [
+          `<link rel="modulepreload" crossorigin href="${base}${landing.fileName}">`,
+          ...css.map((file) => `<link rel="preload" as="style" href="${base}${file}">`),
+        ];
+        return html.replace('</head>', `    ${tags.join('\n    ')}\n  </head>`);
+      },
     },
   };
 }
 
 export default defineConfig(({ command }) => {
   const isProd = command === 'build';
+  const base = process.env.VITE_BASE_PATH ?? (process.env.GITHUB_PAGES ? '/docforum-web/' : '/');
   return {
-    base: process.env.GITHUB_PAGES ? '/docforum-web/' : '/',
-    plugins: [react(), cspPlugin(isProd)],
+    // `VITE_BASE_PATH` lets a static host serve the app from a subpath without
+    // touching the main Pages build. Everything else keeps the GitHub Pages /
+    // root behaviour.
+    base,
+    plugins: [
+      react(),
+      cspPlugin(isProd),
+      preloadLandingChunkPlugin(base),
+      // Bundle composition report (issue #99): `npm run analyze` writes a
+      // treemap to bundle-stats/bundle-stats.html (git-ignored, outside
+      // dist/, so it can never ship). CI uploads it as an artifact on every
+      // PR. Off for normal builds.
+      process.env.ANALYZE === 'true' &&
+        visualizer({
+          filename: 'bundle-stats/bundle-stats.html',
+          template: 'treemap',
+          gzipSize: true,
+          brotliSize: false,
+        }),
+      VitePWA({
+        // injectManifest (not generateSW) so the caching policy is real,
+        // reviewable source: src/pwa/sw.ts. Only the app shell + hashed static
+        // assets are precached; there is no runtime caching, so API responses
+        // can never be stored by the worker (issue #86).
+        strategies: 'injectManifest',
+        srcDir: 'src/pwa',
+        filename: 'sw.ts',
+        registerType: 'prompt',
+        // Registration is handled by UpdatePromptContainer via
+        // virtual:pwa-register/react so the "update available" banner can hook in.
+        injectRegister: false,
+        includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+        manifest: {
+          name: 'DocForum',
+          short_name: 'DocForum',
+          description: 'Care continuity, escrow-secured fulfillment.',
+          lang: 'en',
+          theme_color: '#1f4d3a',
+          background_color: '#faf6f0',
+          display: 'standalone',
+          // WCAG 1.3.4: the installed app must follow the device orientation.
+          // Tablet/phone mounts are often landscape, so no portrait lock.
+          orientation: 'any',
+          // Relative URLs resolve against the manifest's own location, which is
+          // what makes the same manifest work at / and at /docforum-web/.
+          start_url: '.',
+          scope: '.',
+          icons: [
+            { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+            { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+            {
+              src: 'pwa-maskable-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ],
+        },
+        injectManifest: {
+          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          // index.html is the HashRouter entry point; every route is served
+          // from it by the NavigationRoute in src/pwa/sw.ts.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        },
+      }),
+    ],
+    // The workspace package is TS source (not a prebuilt dist), so Vite must
+    // transpile it rather than pre-bundle it.
+    optimizeDeps: { exclude: ['@docforum/api-client'] },
     test: {
+      exclude: [...configDefaults.exclude, 'e2e/**'],
       environment: 'happy-dom',
+      // Tests parse the real index.html template, which references the
+      // self-hosted /fonts/fonts.css and /loading-shell.css — happy-dom must
+      // not try to fetch them during a run (network noise, and a hidden CI
+      // dependency). The link then reports a normal 'load' instead of
+      // erroring on every parse.
+      environmentOptions: {
+        happyDOM: {
+          settings: {
+            disableCSSFileLoading: true,
+            handleDisabledFileLoadingAsSuccess: true,
+          },
+        },
+      },
       globals: true,
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
+      // Coverage gate (issue #105, widened by issue #292). Measures the
+      // folders that hold logic reachable from any screen: `features/`,
+      // `services/`, and since #292 the shared `components/` and `hooks/` —
+      // a primitive used everywhere could previously lose every test without
+      // CI noticing. `pages/` stays out (composition over the folders below)
+      // and `src/mocks/` is dev-only.
+      // Thresholds are the current measured levels (see ARCHITECTURE_ESSENTIALS.md
+      // "Testing utilities & coverage gate") — they ratchet up as tests land,
+      // never down. CI runs `npm run test:coverage`, so a regression fails.
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary', 'json-summary'],
+        reportsDirectory: './coverage',
+        include: [
+          'src/features/**/*.{ts,tsx}',
+          'src/services/**/*.{ts,tsx}',
+          'src/components/**/*.{ts,tsx}',
+          'src/hooks/**/*.{ts,tsx}',
+        ],
+        exclude: [
+          '**/*.test.{ts,tsx}',
+          '**/*.stories.{ts,tsx}',
+          '**/*.d.ts',
+          // Barrel/re-export only, no behaviour to cover.
+          'src/features/**/index.ts',
+          'src/components/**/index.ts',
+        ],
+        // Floor measured when the gate was introduced (see
+        // ARCHITECTURE_ESSENTIALS.md "Testing utilities & coverage gate").
+        // Raise these when tests land; never lower them.
+        thresholds: {
+          statements: 78,
+          branches: 70,
+          functions: 77,
+          lines: 79,
+          // Per-folder floors for the two folders #292 brought in, at the
+          // levels measured the same day. The aggregate above still gates the
+          // whole measured set; these stop one shared component or hook from
+          // sliding to zero while the total keeps clearing it.
+          'src/components/**': {
+            statements: 87,
+            branches: 82,
+            functions: 89,
+            lines: 88,
+          },
+          'src/hooks/**': {
+            statements: 95,
+            branches: 89,
+            functions: 95,
+            lines: 97,
+          },
+        },
+      },
     },
   };
 });

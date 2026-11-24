@@ -8,9 +8,6 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: login,
-    onSuccess: (result) => {
-      if (isAuthSession(result)) setSession(result.user, result.accessToken);
-      else clearSession();
-    },
+    onSuccess: (session) => setSession(session.user, session.accessToken, session.csrfToken),
   });
 }

@@ -10,6 +10,8 @@ import { normaliseReason, validateReason } from '../reason';
 import { ActionDialog } from './ActionDialog';
 import { ReasonField } from './ReasonField';
 import type { DoctorAvailability, StuckReferral } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './StuckReferrals.module.css';
 
 interface ReassignDialogProps {
@@ -19,18 +21,25 @@ interface ReassignDialogProps {
   onConflict: (message: string) => void;
 }
 
-function describeAvailability(doctor: DoctorAvailability): string {
+function describeAvailability(doctor: DoctorAvailability, timeZone: string): string {
   if (doctor.openSlotCount <= 0 || !doctor.nextAvailableAt) return 'No open slots in the next 7 days';
   const next = new Date(doctor.nextAvailableAt);
   const nextLabel = Number.isNaN(next.getTime())
     ? doctor.nextAvailableAt
-    : next.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    : formatDateTime(doctor.nextAvailableAt, timeZone, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
   const slots = doctor.openSlotCount === 1 ? '1 open slot' : `${doctor.openSlotCount} open slots`;
   return `${slots} in the next 7 days · next ${nextLabel}`;
 }
 
 export function ReassignDialog({ referral, onClose, onReassigned, onConflict }: ReassignDialogProps) {
   const groupName = useId();
+  const { timeZone } = useTimeZone();
   const specialty = referral.targetSpecialty.name;
   const candidates = useReassignCandidates(referral.targetSpecialtyId);
   const reassign = useReassignReferral();
@@ -128,7 +137,7 @@ export function ReassignDialog({ referral, onClose, onReassigned, onConflict }: 
                 <span className={styles.candidateText}>
                   <span className={styles.candidateName}>{doctor.fullName}</span>
                   <span className={doctor.openSlotCount > 0 ? styles.availability : styles.availabilityNone}>
-                    {describeAvailability(doctor)}
+                    {describeAvailability(doctor, timeZone)}
                   </span>
                   {inChain.has(doctor.id) && (
                     <span className={styles.chainWarning}>Already in this referral's chain</span>
