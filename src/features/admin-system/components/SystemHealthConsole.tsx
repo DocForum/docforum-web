@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatTime } from '../../../i18n/time-zone';
 import { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
 import { REFRESH_INTERVAL_MS } from '../status';
 import { JobsPanel } from './JobsPanel';
@@ -22,6 +24,7 @@ export function SystemHealthConsole() {
   const jobs = useJobs();
   const outbox = useOutboxSummary();
   const [runTarget, setRunTarget] = useState<BackgroundJob | null>(null);
+  const { timeZone } = useTimeZone();
 
   // Re-rendered on every poll, so relative times stay current with the data.
   const now = Date.now();
@@ -53,7 +56,7 @@ export function SystemHealthConsole() {
               <>
                 Updated{' '}
                 <time dateTime={new Date(lastUpdated).toISOString()}>
-                  {new Date(lastUpdated).toLocaleTimeString('en-GB')}
+                  {formatTime(lastUpdated, timeZone, { hour: '2-digit', minute: '2-digit', second: '2-digit' }, 'en-GB')}
                 </time>
               </>
             ) : (

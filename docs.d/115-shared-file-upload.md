@@ -1,3 +1,8 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions — platform and API client
+---
+
 # Shared file upload
 
 `src/components/Upload.tsx` is the shared upload control for intake forms,

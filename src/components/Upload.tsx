@@ -95,7 +95,7 @@ export function Upload({
       }
       const body = new FormData();
       body.append(fieldName, file);
-      return apiUpload(endpoint, { body, accessToken, onProgress, signal });
+      return apiUpload(endpoint, body, { accessToken, onProgress, signal });
     });
 
   const beginUpload = async (item: UploadItem) => {

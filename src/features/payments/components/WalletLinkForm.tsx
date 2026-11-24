@@ -1,39 +1,74 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { TextField } from '../../../components/TextField';
+import { FormProvider } from 'react-hook-form';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
-import { ApiError } from '../../../services/api-client';
+import { FormField } from '../../../components/form/FormField';
+import { useZodForm } from '../../../hooks/useZodForm';
+import { mapServerErrors } from '../../../utils/form';
+import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLinkWallet, useOwnWalletLink } from '../hooks/useWalletLink';
+import { z } from 'zod';
+import { ApiError } from '../../../services/api-client';
+import { isValidStellarPublicKey } from '../strkey';
 
 const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
 
-/** Lets a signed-in facility user link the Stellar address docforum-core
- * pays out to on release — see docforum-core's docs/adr/0004. This repo
- * never talks to Stellar directly (hard rule 1); it only ever POSTs a
- * public key string to docforum-core's own API. */
-export function WalletLinkForm() {
-  const [publicKey, setPublicKey] = useState('');
-  const [fieldError, setFieldError] = useState<string | undefined>();
-  const walletQuery = useOwnWalletLink();
-  const linkMutation = useLinkWallet();
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!STELLAR_PUBLIC_KEY_PATTERN.test(publicKey)) {
-      setFieldError('Enter a valid Stellar public key (starts with G, 56 characters).');
+const walletSchema = z.object({
+  publicKey: z.string().trim().superRefine((value, ctx) => {
+    // A lowercase key that is otherwise the right shape gets a specific hint
+    // instead of being silently uppercased or rejected as malformed.
+    if (/[a-z]/.test(value) && STELLAR_PUBLIC_KEY_PATTERN.test(value.toUpperCase())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Stellar addresses are uppercase — enter the key exactly as copied, without lowercasing.',
+      });
       return;
     }
-    setFieldError(undefined);
-    linkMutation.mutate(publicKey);
-  }
+    if (!STELLAR_PUBLIC_KEY_PATTERN.test(value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a valid Stellar public key (starts with G, 56 characters).',
+      });
+      return;
+    }
+    if (!isValidStellarPublicKey(value)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'This address has a typo.' });
+    }
+  }),
+});
 
-  const submitError =
-    linkMutation.error instanceof ApiError
-      ? linkMutation.error.message
-      : linkMutation.error
-        ? 'Something went wrong. Please try again.'
-        : null;
+type WalletFormData = z.infer<typeof walletSchema>;
+
+/**
+ * Lets a signed-in facility user link the Stellar address docforum-core
+ * pays out to on release — see docforum-core's docs/adr/0004. This repo
+ * never talks to Stellar directly (hard rule 1); it only ever POSTs a
+ * public key string to docforum-core's own API.
+ */
+export function WalletLinkForm() {
+  const form = useZodForm(walletSchema, { publicKey: '' });
+  const walletQuery = useOwnWalletLink();
+  const linkMutation = useLinkWallet();
+  const errorMessage = useErrorMessage();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  async function onSubmit(data: WalletFormData) {
+    setServerError(null);
+    try {
+      await linkMutation.mutateAsync(data.publicKey);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const fieldErrors = mapServerErrors(error.body);
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.entries(fieldErrors).forEach(([field, message]) => {
+            form.setError(field as keyof WalletFormData, { message });
+          });
+          return;
+        }
+      }
+      setServerError(errorMessage(error));
+    }
+  }
 
   const currentWallet = walletQuery.data;
   const hasNoWalletYet = walletQuery.error instanceof ApiError && walletQuery.error.status === 404;
@@ -52,19 +87,15 @@ export function WalletLinkForm() {
         <p>Loading…</p>
       ) : null}
 
-      <form onSubmit={handleSubmit} noValidate>
-        <FormError message={submitError} />
-        <TextField
-          label="Stellar public key"
-          placeholder="G..."
-          value={publicKey}
-          onChange={(e) => setPublicKey(e.target.value.trim())}
-          error={fieldError}
-        />
-        <Button type="submit" loading={linkMutation.isPending}>
-          {linkMutation.isPending ? 'Linking…' : currentWallet ? 'Update wallet' : 'Link wallet'}
-        </Button>
-      </form>
+      <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+          <FormError message={serverError} />
+          <FormField name="publicKey" label="Stellar public key" placeholder="G..." />
+          <Button type="submit" loading={linkMutation.isPending}>
+            {linkMutation.isPending ? 'Linking…' : currentWallet ? 'Update wallet' : 'Link wallet'}
+          </Button>
+        </form>
+      </FormProvider>
     </div>
   );
 }
