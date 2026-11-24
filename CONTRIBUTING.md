@@ -62,6 +62,11 @@ handler automatically makes the new screen explorable in the demo too.
 See `ARCHITECTURE_ESSENTIALS.md` “Known assumptions” and
 `docs.d/127-demo-mode.md` for how the blocking and role storage work.
 
+When you add or change a shared component in `src/components/`, add or
+update a Storybook story alongside it so its loading, error, disabled and
+interactive states can be reviewed in isolation. Run `npm run storybook`
+to view stories locally; the deployment includes them at `/storybook/`.
+
 ## 2. Find something to work on
 
 Open issues are scoped, real, and tagged with a complexity/point value

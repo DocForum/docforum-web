@@ -3,6 +3,7 @@
 import { accountHandlers } from './handlers/account';
 import { adminVerificationHandlers } from './handlers/admin-verification';
 import { adminHandlers } from './handlers/admin';
+import { adminMetricsHandlers } from './handlers/admin-metrics';
 import { authHandlers } from './handlers/auth';
 import { careThreadHandlers } from './handlers/care-thread';
 import { consultationHandlers } from './handlers/consultation';
@@ -15,6 +16,7 @@ import { featureFlagHandlers } from './handlers/feature-flags';
 import { eventHandlers } from './handlers/events';
 import { facilityHandlers } from './handlers/facility';
 import { facilitySettingsHandlers } from './handlers/facility-settings';
+import { followUpHandlers } from './handlers/follow-ups';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { integrationsHandlers } from './handlers/integrations';
@@ -32,11 +34,13 @@ export const handlers = [
   ...authHandlers,
   ...accountHandlers,
   ...adminVerificationHandlers,
+  ...adminMetricsHandlers,
   ...dependentHandlers,
   ...healthProfileHandlers,
   ...careThreadHandlers,
   ...consultationHandlers,
   ...consultationOrderHandlers,
+  ...followUpHandlers,
   ...doctorTodayHandlers,
   ...queueHandlers,
   ...messagingHandlers,

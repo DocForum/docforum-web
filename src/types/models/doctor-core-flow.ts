@@ -127,14 +127,19 @@ export interface ConsultationReferral {
   id: string;
   consultationId: string;
   targetSpecialty: string;
+  targetSpecialtyId?: string;
+  targetDoctorId?: string | null;
   reason: string;
   status: ReferralStatus;
   createdAt: string;
 }
 
 export interface CreateConsultationReferralInput {
-  targetSpecialty: string;
-  reason: string;
+  targets: {
+    targetDoctorId?: string;
+    targetSpecialtyId?: string;
+    snapshotNotes: string;
+  }[];
 }
 
 export interface ConsultationPrescriptionInput {
