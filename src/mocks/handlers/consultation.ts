@@ -1,5 +1,5 @@
 // Consultation note sign-off and addenda endpoints.
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { db } from '../db';
 import type { SentReferral } from '../../types/models';
 import { conflict, notFound, paramId, respond } from '../helpers';
@@ -111,24 +111,53 @@ export const consultationHandlers = [
   http.post(
     '*/consultations/:id/referrals',
     respond('json', async ({ params, request }) => {
-      const consultation = db.consultationRecords.find((c) => c.id === paramId(params));
+      // The panel closes visits through POST /orders/consultations (#267), but
+      // keep the older record fixture working for direct API tests too.
+      const consultation =
+        db.consultations.find((c) => c.id === paramId(params)) ??
+        db.consultationRecords.find((c) => c.id === paramId(params));
       if (!consultation) return notFound('consultation');
       const body = (await request.json().catch(() => ({}))) as {
-        targetSpecialty?: string;
-        reason?: string;
+        targets?: Array<{
+          targetSpecialtyId?: string;
+          targetDoctorId?: string;
+          snapshotNotes?: string;
+        }>;
       };
-      if (!body.targetSpecialty?.trim()) return conflict('target specialty is required');
-      if (!body.reason?.trim()) return conflict('referral reason is required');
-      const referral: ConsultationReferral = {
-        id: `cref-mock-${db.consultationReferrals.length + 1}-${Date.now()}`,
-        consultationId: consultation.id,
-        targetSpecialty: body.targetSpecialty.trim(),
-        reason: body.reason.trim(),
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-      db.consultationReferrals.push(referral);
-      return referral;
+      if (!body.targets?.length) return conflict('at least one referral target is required');
+      if (body.targets.some((target) => !target.targetSpecialtyId && !target.targetDoctorId)) {
+        return conflict('each referral target requires a specialty or doctor');
+      }
+      const targetKeys = body.targets.map((target) =>
+        target.targetDoctorId
+          ? `doctor:${target.targetDoctorId}`
+          : `specialty:${target.targetSpecialtyId ?? ''}`,
+      );
+      if (new Set(targetKeys).size !== targetKeys.length) {
+        return HttpResponse.json({ message: 'Duplicate referral target', code: 'REFERRAL_DUPLICATE_TARGET' }, { status: 400 });
+      }
+      const specialtyById = new Map(
+        db.specialties.map((specialty) => [specialty.id, specialty] as const),
+      );
+      const referrals = body.targets.map((target, index) => {
+        const specialty = target.targetSpecialtyId ? specialtyById.get(target.targetSpecialtyId) : null;
+        const doctor = target.targetDoctorId
+          ? db.doctors.find((candidate) => candidate.id === target.targetDoctorId)
+          : undefined;
+        const referral: ConsultationReferral = {
+          id: `cref-mock-${db.consultationReferrals.length + index + 1}-${Date.now()}`,
+          consultationId: consultation.id,
+          targetSpecialty: specialty?.name ?? 'Selected doctor',
+          targetSpecialtyId: target.targetSpecialtyId,
+          targetDoctorId: doctor?.id ?? target.targetDoctorId ?? null,
+          reason: target.snapshotNotes?.trim() ?? '',
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        };
+        db.consultationReferrals.push(referral);
+        return referral;
+      });
+      return referrals;
     }),
   ),
 

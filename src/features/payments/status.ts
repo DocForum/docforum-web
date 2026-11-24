@@ -61,6 +61,20 @@ export function historyErrorCopy(error: unknown, t: Translator = englishTranslat
   return t('payments.history.loadError', 'Your payment history could not be loaded. Try again shortly.');
 }
 
+export function paymentDetailErrorCopy(error: unknown, t: Translator = englishTranslator): string {
+  if (error instanceof ApiError && error.status === 404) {
+    return t(
+      'payments.detail.notFound',
+      'Payment not found. It may belong to another account or no longer exist.',
+    );
+  }
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return t('payments.detail.forbidden', 'Sign in again to view this payment.');
+  }
+  if (error instanceof ApiError && error.message.trim()) return error.message;
+  return t('payments.detail.loadError', 'This payment could not be loaded. Try again shortly.');
+}
+
 /** `refundDeadlineAt` is assumed (docforum-core#90) — the real row has no such
  * column, so absence is normal and renders nothing rather than a guess. */
 export function refundDeadlineCopy(
