@@ -1,41 +1,37 @@
-import { apiFetch } from './api-client';
-import type {
-  FacilityMember,
-  FacilityInvite,
-  InviteMemberInput,
-  RemoveMemberResponse,
-  FulfillmentQueueItem,
-} from '../types/models';
+import type { Schemas } from '@docforum/api-client';
+import { api, apiFetch } from './api-client';
+import type { FulfillmentStatusUpdate, PharmacyFulfillmentRecord } from '../types/models';
 
-export function listFacilityMembers(facilityId: string, accessToken: string): Promise<FacilityMember[]> {
-  return apiFetch<FacilityMember[]>(`/facilities/${facilityId}/members`, { accessToken });
+export function listFacilityMembers(
+  facilityId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['FacilityMember'][]> {
+  return api.facilityTeam.listMembers(facilityId, { accessToken, signal });
 }
 
-export function listFacilityInvites(facilityId: string, accessToken: string): Promise<FacilityInvite[]> {
-  return apiFetch<FacilityInvite[]>(`/facilities/${facilityId}/invites`, { accessToken });
+export function listFacilityInvites(
+  facilityId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Schemas['FacilityInvite'][]> {
+  return api.facilityTeam.listInvites(facilityId, { accessToken, signal });
 }
 
 export function inviteFacilityMember(
   facilityId: string,
-  input: InviteMemberInput,
+  input: Schemas['InviteMemberInput'],
   accessToken: string,
-): Promise<FacilityInvite> {
-  return apiFetch<FacilityInvite>(`/facilities/${facilityId}/invites`, {
-    method: 'POST',
-    body: input,
-    accessToken,
-  });
+): Promise<Schemas['FacilityInvite']> {
+  return api.facilityTeam.inviteMember(facilityId, input, { accessToken });
 }
 
 export function resendFacilityInvite(
   facilityId: string,
   inviteId: string,
   accessToken: string,
-): Promise<FacilityInvite> {
-  return apiFetch<FacilityInvite>(`/facilities/${facilityId}/invites/${inviteId}/resend`, {
-    method: 'POST',
-    accessToken,
-  });
+): Promise<Schemas['FacilityInvite']> {
+  return api.facilityTeam.resendInvite(facilityId, inviteId, { accessToken });
 }
 
 export function revokeFacilityInvite(
@@ -43,42 +39,32 @@ export function revokeFacilityInvite(
   inviteId: string,
   accessToken: string,
 ): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/facilities/${facilityId}/invites/${inviteId}`, {
-    method: 'DELETE',
-    accessToken,
-  });
+  return api.facilityTeam.revokeInvite(facilityId, inviteId, { accessToken });
 }
 
 export function removeFacilityMember(
   facilityId: string,
   memberId: string,
   accessToken: string,
-): Promise<RemoveMemberResponse> {
-  return apiFetch<RemoveMemberResponse>(`/facilities/${facilityId}/members/${memberId}`, {
-    method: 'DELETE',
-    accessToken,
-  });
+): Promise<Schemas['RemoveMemberResponse']> {
+  return api.facilityTeam.removeMember(facilityId, memberId, { accessToken });
 }
 
 export function getFulfillmentQueue(
   facilityId: string,
   accessToken: string,
-): Promise<FulfillmentQueueItem[]> {
-  return apiFetch<FulfillmentQueueItem[]>(`/facilities/${facilityId}/fulfillment-queue`, {
-    accessToken,
-  });
+  signal?: AbortSignal,
+): Promise<Schemas['FulfillmentQueueItem'][]> {
+  return api.facilityTeam.getFulfillmentQueue(facilityId, { accessToken, signal });
 }
 
-export function updateFulfillmentItem(
-  facilityId: string,
-  itemId: string,
-  action: 'fulfilled' | 'rejected',
+export function updateFulfillmentRecord(
+  recordId: string,
+  status: FulfillmentStatusUpdate,
   accessToken: string,
-  notes?: string,
-): Promise<FulfillmentQueueItem> {
-  return apiFetch<FulfillmentQueueItem>(`/facilities/${facilityId}/fulfillment-queue/${itemId}/action`, {
-    method: 'POST',
-    body: { action, notes },
-    accessToken,
-  });
+): Promise<PharmacyFulfillmentRecord> {
+  return apiFetch<PharmacyFulfillmentRecord>(
+    `/pharmacy-orders/fulfillments/${encodeURIComponent(recordId)}`,
+    { method: 'PATCH', body: { status }, accessToken },
+  );
 }

@@ -57,6 +57,61 @@
   font-size: var(--text-sm);
 }
 
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-surface);
+  font-size: var(--text-sm);
+}
+
+.scheduled {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.scheduledHeading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.scheduledList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scheduledRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.scheduledTime {
+  min-width: 64px;
+  font-weight: 700;
+}
+
+.scheduledPatient {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.statusPill[data-status='scheduled'] {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -64,7 +119,7 @@
 }
 
 .table th {
-  text-align: left;
+  text-align: start;
   color: var(--color-text-muted);
   font-weight: 600;
   padding: var(--space-3) var(--space-4);
@@ -74,6 +129,19 @@
 .table td {
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* Row headers name the patient; they must not inherit the column-header
+   surface treatment. */
+.table tbody th {
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: start;
+}
+
+.nameCell {
+  font-weight: 500;
 }
 
 .row {

@@ -20,19 +20,6 @@ function matchToken(token: string): VerifyOrderResponse {
 }
 
 export const facilityOrderHandlers = [
-  http.get(
-    '*/facilities/:facilityId/payout-ledger',
-    respond('json', ({ request }) => {
-      const url = new URL(request.url);
-      const status = url.searchParams.get('status');
-      const asset = url.searchParams.get('asset');
-      let entries = db.payoutLedger.entries;
-      if (status && status !== 'all') entries = entries.filter((e) => e.status === status);
-      if (asset && asset !== 'all') entries = entries.filter((e) => e.asset === asset);
-      return { ...db.payoutLedger, entries, nextCursor: null };
-    }),
-  ),
-
   http.post(
     '*/facilities/me/verify-order',
     respond('json', async ({ request }) => {

@@ -2,10 +2,10 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import * as referralsService from '../../../services/admin-referrals-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { referralKeys } from '../../../query-keys';
 import type { StuckAge } from '../../../services/admin-referrals-service';
 import type { CancelReferralInput, ReassignReferralInput } from '../../../types/models';
-
-const STUCK_KEY = ['admin', 'referrals', 'stuck'] as const;
 
 // A 4xx won't fix itself on retry — only retry network/5xx failures.
 function shouldRetry(failureCount: number, error: Error): boolean {
@@ -17,7 +17,7 @@ export function useStuckReferrals(olderThan: StuckAge) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useInfiniteQuery({
-    queryKey: [...STUCK_KEY, olderThan],
+    queryKey: referralKeys.stuck(olderThan),
     queryFn: ({ pageParam, signal }) =>
       referralsService.listStuckReferrals({ olderThan, cursor: pageParam }, accessToken!, signal),
     initialPageParam: null as string | null,
@@ -32,7 +32,7 @@ export function useReassignCandidates(specialtyId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: ['admin', 'referrals', 'candidates', specialtyId],
+    queryKey: referralKeys.candidates(specialtyId),
     queryFn: ({ signal }) => referralsService.listReassignCandidates(specialtyId, accessToken!, signal),
     enabled: Boolean(accessToken && specialtyId),
     staleTime: 0,
@@ -55,12 +55,12 @@ export function useReassignReferral() {
   return useMutation({
     mutationFn: ({ referralId, input }: { referralId: string; input: ReassignReferralInput }) =>
       referralsService.reassignReferral(referralId, input, accessToken!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: STUCK_KEY }),
+    onSuccess: () => invalidateFor(queryClient, 'admin.referral.settled'),
     onError: (error) => {
-      if (isSettledOnServer(error)) return queryClient.invalidateQueries({ queryKey: STUCK_KEY });
+      if (isSettledOnServer(error)) return invalidateFor(queryClient, 'admin.referral.settled');
       // A 422 usually means the chosen doctor stopped being eligible.
       if (error instanceof ApiError && error.status === 422) {
-        return queryClient.invalidateQueries({ queryKey: ['admin', 'referrals', 'candidates'] });
+        return invalidateFor(queryClient, 'admin.referral.candidates');
       }
     },
   });
@@ -73,9 +73,9 @@ export function useCancelReferral() {
   return useMutation({
     mutationFn: ({ referralId, input }: { referralId: string; input: CancelReferralInput }) =>
       referralsService.cancelReferral(referralId, input, accessToken!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: STUCK_KEY }),
+    onSuccess: () => invalidateFor(queryClient, 'admin.referral.settled'),
     onError: (error) => {
-      if (isSettledOnServer(error)) return queryClient.invalidateQueries({ queryKey: STUCK_KEY });
+      if (isSettledOnServer(error)) return invalidateFor(queryClient, 'admin.referral.settled');
     },
   });
 }

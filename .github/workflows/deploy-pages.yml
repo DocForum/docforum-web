@@ -37,6 +37,9 @@ jobs:
       - run: npm run build:pages
         env:
           VITE_API_BASE_URL: https://docforum-core-api.onrender.com
+          # GitHub Pages has no server-side rewrites; keep HashRouter for this build.
+          # BrowserRouter is the default for all other deployments.
+          VITE_USE_HASH_ROUTER: "true"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

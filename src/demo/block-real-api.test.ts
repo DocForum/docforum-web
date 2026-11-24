@@ -10,6 +10,8 @@ import { resetDb } from '../mocks/db';
 import { demoApiOrigins, realApiBlockers } from './block-real-api';
 import * as authService from '../services/auth-service';
 import * as paymentsService from '../services/payments-service';
+import * as orderVerifyService from '../services/order-verify-service';
+import * as systemHealthService from '../services/system-health-service';
 import { MOCK_ACCESS_TOKEN } from '../mocks/fixtures';
 
 const server = setupServer(...handlers, ...realApiBlockers);
@@ -26,11 +28,17 @@ describe('demo mode API blocking', () => {
     });
     expect(session.user.role).toBe('doctor');
 
-    const page = await paymentsService.getFacilityPayoutLedger(
-      'fac-demo-pharmacy',
+    const page = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN);
+    expect(page.items.length).toBeGreaterThan(0);
+
+    const verified = await orderVerifyService.verifyOrderToken(
+      'ord_tok_demo_valid',
       MOCK_ACCESS_TOKEN,
     );
-    expect(page.entries.length).toBeGreaterThan(0);
+    expect(verified.status).toBe('valid');
+
+    const readiness = await systemHealthService.getReadiness(MOCK_ACCESS_TOKEN);
+    expect(readiness.status).toBe('ready');
   });
 
   it('refuses an API path no mock handler covers', async () => {

@@ -11,7 +11,7 @@ import { setupWorker } from 'msw/browser';
 import { createRoot } from 'react-dom/client';
 import { handlers } from '../mocks/handlers';
 import { demoApiOrigins, realApiBlockers } from './block-real-api';
-import { readStoredDemoRole, useDemoStore } from './demo-store';
+import { useDemoStore } from './demo-store';
 import { DemoBanner } from './DemoBanner';
 
 /**
@@ -36,15 +36,7 @@ export async function startDemoMode(): Promise<void> {
     },
   });
 
-  const hash = window.location.hash;
-  const deepLinked = hash !== '' && hash !== '#/' && hash !== '#';
-  const storedRole = readStoredDemoRole();
-
-  if (storedRole) {
-    useDemoStore.getState().chooseRole(storedRole, { navigate: !deepLinked });
-  } else {
-    useDemoStore.getState().openPicker();
-  }
+  useDemoStore.getState().openPicker();
 
   const root = document.createElement('div');
   root.id = 'demo-banner-root';

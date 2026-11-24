@@ -14,4 +14,33 @@ apply here identically.
   which flow (PRD §4, in `docforum-core`) it implements, in the PR
   description.
 - Update `ROADMAP.md` in this repo on every contribution — same rule as
-  every other repo in the org.
+  every other repo in the org. Tick or update your own item's line, put any
+  new roadmap lines in a `docs.d/` fragment, and put the changelog entry in
+  a new file under `changelog.d/` (see below).
+
+## Generated files
+
+Generated files are listed in `.gitattributes` (GitHub collapses them in PR
+diffs). Never hand-edit or hand-merge one: on a conflict take main's version
+and rerun the command noted there (`npm run generate:api` for the API client
+types).
+
+## Shared docs: keep your diff to your own lines
+
+Many PRs are open at the same time and most of them touch the same docs.
+Edits to shared lines are what put PRs into merge conflict with each other.
+
+- **Don't add lines to the shared docs** (`ROADMAP.md`, `ARCHITECTURE_ESSENTIALS.md`,
+  `README.md`). New lines, rows, items
+  and sections go in a fragment under `docs.d/` that says where they belong;
+  a maintainer folds them in. Changing existing lines in place (ticking a
+  checkbox, fixing a line) is fine. CI (`Docs fragments`) enforces this. See
+  `docs.d/README.md`.
+- Don't rewrite, reorder or re-wrap paragraphs you don't need to change.
+- Changelog entries go in a new file under `changelog.d/`, never at the end
+  of `ROADMAP.md` (see `changelog.d/README.md`). Leave the status summary at
+  the top of `ROADMAP.md` and each phase's `**Status:**` line to maintainers.
+- Don't put running totals in docs ("57 tests", "Last updated: …"). CI and
+  git history already record them, and every PR would have to change them.
+- Commit docs as plain text and change only the lines you mean to. Never
+  commit a file as base64, or regenerate a whole doc to make a small change.

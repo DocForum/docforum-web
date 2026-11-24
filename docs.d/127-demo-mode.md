@@ -1,3 +1,8 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions — platform and API client
+---
+
 ### Demo mode for the public preview (issue #127)
 
 Assumed behaviour of the in-browser demo; nothing here adds a
@@ -24,12 +29,10 @@ Assumed behaviour of the in-browser demo; nothing here adds a
   is required in every deployment that offers the demo.
 - **Roles and seeded data.** The picker offers patient, doctor, facility and
   admin, applying the same seeded personas as `dev:mock`
-  (`activateMockRole`). The chosen role is stored in **sessionStorage** under
-  `docforum-demo-role` — a client-only UI preference, like the theme key, not
-  server-derived data. Unknown values are ignored. Switching role clears the
-  QueryClient first so one persona's cached responses can never be shown
-  under another. All fixture names carry "(fake)" and every email ends in
-  `@example.test`.
+  (`activateMockRole`). The selected role stays in memory and the picker
+  appears again after a reload. Switching role clears the QueryClient first
+  so one persona's cached responses can never be shown under another. All
+  fixture names carry "(fake)" and every email ends in `@example.test`.
 - **Exit.** "Exit demo" removes the role key and does a full navigation to
   the same path without `?demo`, discarding the worker, caches and fixtures
   with the document.
@@ -43,7 +46,7 @@ Assumed behaviour of the in-browser demo; nothing here adds a
   `/admin/doctors`, `/health/ready`, `/admin/jobs`, `/admin/jobs/:name/run`,
   `/admin/outbox`, `/admin/flags`, `PATCH /admin/flags/:key`);
   `src/mocks/handlers/facility-orders.ts` and `src/mocks/fixtures-facility.ts`
-  cover `/facilities/:id/payout-ledger` and `/facilities/me/verify-order`.
+  cover `/payments/facility/ledger` and `/facilities/me/verify-order`.
   Their shapes mirror `src/types/models.ts` exactly, which means the W4/W6
   "Known assumptions" above continue to be the single source of truth for
   what the real backend must eventually return.

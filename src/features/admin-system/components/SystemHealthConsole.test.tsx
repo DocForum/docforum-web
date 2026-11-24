@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { MemoryRouter } from 'react-router-dom';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { SystemHealthConsole } from './SystemHealthConsole';
 import { ApiError } from '../../../services/api-client';
 import * as systemService from '../../../services/system-health-service';
@@ -12,6 +12,9 @@ import { REFRESH_INTERVAL_MS } from '../status';
 import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport, Role } from '../../../types/models';
 
 vi.mock('../../../services/system-health-service');
+vi.mock('../../../services/my-flags-service', () => ({
+  getMyFlags: vi.fn().mockResolvedValue({ flags: {} }),
+}));
 
 const MINUTE = 60_000;
 // Fixtures are built once at import, so future times get half a minute of
@@ -116,11 +119,6 @@ const NEVER_RUN: BackgroundJob = {
 const ALL_JOBS = [HEALTHY, FAILING, OVERDUE, RUNNING, NEVER_RUN];
 
 const OUTBOX: OutboxSummary = { pendingCount: 120, deadLetterCount: 0, oldestPendingAt: ago(3 * MINUTE) };
-
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-testid="location">{location.pathname}</output>;
-}
 
 function signIn(role: Role) {
   useAuthStore.setState({
@@ -540,17 +538,13 @@ describe('SystemHealthConsole — auto-refresh', () => {
 });
 
 describe('/admin/system route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/system']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/system');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins and linked from the admin nav', async () => {
     renderApp();
@@ -562,7 +556,8 @@ describe('/admin/system route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'System health' })).not.toBeInTheDocument();
     expect(systemService.getReadiness).not.toHaveBeenCalled();
     expect(systemService.listJobs).not.toHaveBeenCalled();
