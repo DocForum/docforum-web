@@ -7,6 +7,7 @@ import { TurnaroundMetricsCard } from './TurnaroundMetricsCard';
 import { QueryState } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { EmptyState } from '../../../components/states/EmptyState';
+import { useT } from '../../../i18n/useT';
 import type { DateRangePreset, DoctorPracticeInsights } from '../../../types/models';
 import styles from './PracticeInsights.module.css';
 
@@ -19,17 +20,18 @@ export function isEmptyInsights(insights: DoctorPracticeInsights): boolean {
   );
 }
 
-function InsightsSkeleton() {
+function InsightsSkeleton({ loadingLabel }: { loadingLabel: string }) {
   return (
     <div className={styles.skeletonStack}>
-      <Skeleton lines={4} height="2.5rem" label="Loading utilisation metrics" />
-      <Skeleton lines={4} height="2.5rem" label="Loading attendance metrics" />
-      <Skeleton lines={4} height="2.5rem" label="Loading turnaround metrics" />
+      <Skeleton lines={4} height="2.5rem" label={loadingLabel} />
+      <Skeleton lines={4} height="2.5rem" label={loadingLabel} />
+      <Skeleton lines={4} height="2.5rem" label={loadingLabel} />
     </div>
   );
 }
 
 export function PracticeInsightsView() {
+  const t = useT();
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string } | undefined>();
 
@@ -49,13 +51,13 @@ export function PracticeInsightsView() {
   };
 
   return (
-    <section className={styles.container} aria-label="Practice insights dashboard">
+    <section className={styles.container} aria-label={t('insights.practice.dashboardLabel', 'Practice insights dashboard')}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
           <div>
-            <h1>Practice insights</h1>
+            <h1>{t('insights.practice.title', 'Practice insights')}</h1>
             <p className={styles.cardSubtitle}>
-              Private performance and operational metrics for your clinical practice.
+              {t('insights.practice.subtitle', 'Private performance and operational metrics for your clinical practice.')}
             </p>
           </div>
         </div>
@@ -63,7 +65,8 @@ export function PracticeInsightsView() {
         <div className={styles.privacyBanner} role="status">
           <span aria-hidden="true">🔒</span>
           <span>
-            <strong>Doctor privacy guarantee:</strong> This view is strictly private to your account. No comparisons are made with named peer doctors.
+            <strong>{t('insights.practice.privacyLabel', 'Doctor privacy guarantee:')}</strong>{' '}
+            {t('insights.practice.privacyBody', 'This view is strictly private to your account. No comparisons are made with named peer doctors.')}
           </span>
         </div>
 
@@ -77,8 +80,8 @@ export function PracticeInsightsView() {
 
       <QueryState
         result={{ isPending, isError, error, data, refetch }}
-        loading={<InsightsSkeleton />}
-        loadingLabel="Loading practice insights"
+        loading={<InsightsSkeleton loadingLabel={t('insights.practice.loading', 'Loading practice insights')} />}
+        loadingLabel={t('insights.practice.loading', 'Loading practice insights')}
         errorTitle="Practice insights couldn't be loaded"
         onRetry={() => void refetch()}
         isEmpty={isEmptyInsights}

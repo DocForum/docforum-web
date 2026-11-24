@@ -113,7 +113,7 @@ describe('Doctor Practice Insights (#50)', () => {
 
       render(<PracticeInsightsView />);
 
-      expect(screen.getByText(/Loading utilisation metrics/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Loading practice insights/i)).toHaveLength(3);
       expect(screen.queryByText('86.4%')).not.toBeInTheDocument();
       expect(screen.queryByText('4.6%')).not.toBeInTheDocument();
     });
