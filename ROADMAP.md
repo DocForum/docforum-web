@@ -13,10 +13,9 @@ real API" (no refresh-on-reload flow).
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React
   Query, Zustand. `npm run dev`/`build`/`test` all work (verified).
 - [x] API client service layer pointing at `docforum-core`
-  (`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
-  documented assumption, not confirmed**, since `docforum-core` has no
-  implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
-  assumptions."
+  (`src/services/api-client.ts`, `auth-service.ts`) — auth endpoints use
+  the core contract; password-reset endpoints are verified against the
+  core route/controller/service implementation.
 - [x] Signup/login screens, corrected to **patient/doctor only** for
   self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
   there is deliberately no facility option in the signup UI. Login works
@@ -27,6 +26,9 @@ real API" (no refresh-on-reload flow).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
 - [ ] ESLint + lint step in CI. Tracked as [issue #11](https://github.com/DocForum/docforum-web/issues/11) (Trivial, 100 pts).
+- [x] Forgot-password request and password-reset confirmation screens
+  against `POST /auth/password-reset/*`. Tracked as
+  [issue #387](https://github.com/DocForum/docforum-web/issues/387).
 - [x] Deployed as a UI preview to GitHub Pages on every push to `main`
   (`.github/workflows/deploy-pages.yml`) — see `ARCHITECTURE_ESSENTIALS.md`
   "Deployment". Not a production deploy decision for the org; scoped to

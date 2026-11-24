@@ -10,6 +10,7 @@ import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { useLogin } from '../hooks/useLogin';
 import { z } from 'zod';
 import { ApiError } from '../../../services/api-client';
+import { Link } from 'react-router-dom';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -62,6 +63,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         )}
         <FormField name="email" label="Email" type="email" autoComplete="email" />
         <FormField name="password" label="Password" type="password" autoComplete="current-password" />
+        <p><Link to="/forgot-password">Forgot password?</Link></p>
         <Button type="submit" loading={loginMutation.isPending}>
           {loginMutation.isPending ? 'Logging in…' : 'Log in'}
         </Button>

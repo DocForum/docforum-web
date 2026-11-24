@@ -23,6 +23,10 @@ export interface User {
   updatedAt: string;
 }
 
+export interface PasswordResetMessage {
+  message: string;
+}
+
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 
 export interface PatientProfile {

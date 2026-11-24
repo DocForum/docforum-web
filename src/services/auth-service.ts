@@ -4,7 +4,7 @@
 // implemented routes yet (its backend/src/modules/auth/* is a placeholder).
 // Reconcile against the real contract once docforum-core's Phase 1 lands.
 import { apiFetch } from './api-client';
-import type { SelfServeRole, User } from '../types/models';
+import type { PasswordResetMessage, SelfServeRole, User } from '../types/models';
 
 export interface AuthSession {
   user: User;
@@ -33,4 +33,21 @@ export function login(input: LoginInput): Promise<AuthSession> {
 
 export function logout(accessToken: string): Promise<void> {
   return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
+}
+
+// Password reset is implemented in docforum-core's
+// backend/src/modules/auth/routes/index.ts, controllers/index.ts,
+// services/password-reset.ts, and validation.ts.
+export function requestPasswordReset(email: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/request', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export function confirmPasswordReset(token: string, newPassword: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: { token, newPassword },
+  });
 }

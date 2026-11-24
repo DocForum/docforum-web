@@ -71,6 +71,7 @@ describe('auth', () => {
       password: 'x',
       fullName: 'New Person (fake)',
     });
+
     expect(session.user.role).toBe('patient');
     // apiFetch returns the parsed JSON body — `null` for void endpoints.
     await expect(authService.logout(session.accessToken)).resolves.toBeNull();
@@ -80,6 +81,28 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('uses the same password-reset request confirmation for any email', async () => {
+    await expect(authService.requestPasswordReset('known@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+    await expect(authService.requestPasswordReset('unknown@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+  });
+
+  it('surfaces password-reset throttling and confirms valid reset tokens', async () => {
+    await expect(authService.requestPasswordReset('rate-limited@docforum.org')).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 60,
+    });
+    await expect(authService.confirmPasswordReset('valid-token', 'password123')).resolves.toEqual({
+      message: 'Password updated',
+    });
+    await expect(authService.confirmPasswordReset('invalid-token', 'password123')).rejects.toMatchObject({
+      status: 400,
+    });
   });
 });
 
