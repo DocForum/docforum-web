@@ -1,3 +1,7 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions
+---
 ### Item-level fulfilment progress (issue #262)
 
 `GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=` returns
