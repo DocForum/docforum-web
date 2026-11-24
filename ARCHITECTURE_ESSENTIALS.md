@@ -894,7 +894,7 @@ here and remains tracked as an assumption.
 
 The profile page renders every slot in the patient's chosen IANA zone
 (`TimeZoneProvider`) and states that zone above the grid. When the doctor's
-zone is known and differs, it is shown as "…'s local time: <zone>".
+zone is known and differs, it is shown as "…'s local time: `<zone>`".
 
 **Assumed:** `GET /doctors` does not expose the `DoctorProfile.timeZone` column
 today, even though the column exists in docforum-core's schema. The frontend
@@ -1202,10 +1202,10 @@ artifact. It is never published to GitHub Pages or any other shared origin.
   working). `src/mocks/handlers.test.ts` shares this server instead of
   creating a second one — two MSW servers in one worker double-intercept
   requests.
-- **Coverage gate:** `npm run test:coverage` (v8) measures
-  `src/features/**` and `src/services/**` and enforces the thresholds in
-  `vite.config.ts`; CI runs that instead of plain `npm test`. Thresholds are
-  the floor measured when they were last raised — raise, never lower.
+- **Coverage gate:** `npm run test:coverage` (v8) measures `src/features/**`,
+  `src/services/**`, `src/components/**` and `src/hooks/**` and enforces the
+  thresholds in `vite.config.ts`; CI runs it instead of plain `npm test`.
+  Thresholds are floors measured when last raised — raise, never lower.
 
 ### Shared loading, empty and error states (issue #106)
 `src/components/states/` is the one place these live; screens do not hand-roll

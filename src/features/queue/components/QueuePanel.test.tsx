@@ -111,6 +111,41 @@ describe('QueuePanel', () => {
     );
   });
 
+  it('marks a scheduled appointment no-show from the queue after confirmation', async () => {
+    const scheduled: Appointment = {
+      id: 'appt-3',
+      doctorProfileId: 'doc-1',
+      patientProfileId: 'pat-3',
+      patientName: 'Robin Sample',
+      startsAt: '2026-01-01T08:30:00Z',
+      endsAt: '2026-01-01T09:00:00Z',
+      status: 'scheduled',
+      referral: { id: 'ref-1', targetSpecialtyName: 'Cardiology', priorNoShows: 0 },
+    };
+    vi.mocked(queueService.listTodayAppointments).mockResolvedValue([scheduled]);
+    vi.mocked(queueService.updateAppointmentStatus).mockResolvedValue({
+      ...scheduled,
+      status: 'no_show',
+    });
+
+    render(<QueuePanel />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Still expected')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Mark no-show: Robin Sample' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(/referral goes back to pending/i);
+    await user.click(screen.getByRole('button', { name: 'Mark as no-show' }));
+
+    await waitFor(() => {
+      expect(queueService.updateAppointmentStatus).toHaveBeenCalledWith(
+        'appt-3',
+        'no_show',
+        'test-token',
+      );
+    });
+  });
+
   it('shows no patients when the queue is empty', async () => {
     vi.mocked(queueService.listQueue).mockResolvedValue([]);
     render(<QueuePanel />);

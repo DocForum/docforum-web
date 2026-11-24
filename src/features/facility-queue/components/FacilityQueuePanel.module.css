@@ -126,6 +126,25 @@
   border: 1px solid #f2b8b5;
 }
 
+.status_partially_dispensed {
+  background: #fff6e8;
+  color: #8a4b00;
+  border: 1px solid #f0c78f;
+}
+
+.status_dispensed_elsewhere {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.recordStatus {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
 .attribution {
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface);
