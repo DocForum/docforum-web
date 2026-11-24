@@ -8,7 +8,7 @@ export function AdminDisputesPage() {
   return (
     <div className={styles.page}>
       <Link to="/admin" className={styles.backLink}>
-{t('admin.backToOverview', '← Back to the operations overview')}
+        {t('admin.backToOverview', '← Back to the operations overview')}
       </Link>
       <DisputesQueue />
     </div>
