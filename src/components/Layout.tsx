@@ -216,7 +216,7 @@ export function Layout() {
               </RRNavLink>
             </Flag>
           )}
-          {user && (
+          {isSignedIn && user && (
             <>
               {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
@@ -276,7 +276,7 @@ export function Layout() {
             </svg>
           </button>
         </div>
-        {user ? (
+        {isSignedIn && user ? (
           <>
             <nav className={styles.drawerNav}>
               {items.map((item) => (
