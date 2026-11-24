@@ -122,6 +122,36 @@ describe('Upload', () => {
     expect(uploadFile).toHaveBeenCalledTimes(1);
   });
 
+  it('reports a missing endpoint instead of making an upload request', async () => {
+    const { container } = render(<Upload />);
+
+    selectFiles(chooseInput(container), [makeFile()]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No upload endpoint configured.');
+  });
+
+  it('keeps the completed upload state if the onUploaded callback throws', async () => {
+    const uploadFile = vi.fn(async () => ({ id: 'uploaded-2' }));
+    const onUploaded = vi.fn(() => {
+      throw new Error('consumer callback failed');
+    });
+    const { container } = render(<Upload uploadFile={uploadFile} onUploaded={onUploaded} />);
+
+    selectFiles(chooseInput(container), [makeFile()]);
+
+    expect(await screen.findByText('Uploaded')).toBeInTheDocument();
+    expect(onUploaded).toHaveBeenCalledOnce();
+  });
+
+  it('uses the fallback message for non-Error transport rejections', async () => {
+    const uploadFile = vi.fn(async () => Promise.reject('transport failed'));
+    const { container } = render(<Upload uploadFile={uploadFile} />);
+
+    selectFiles(chooseInput(container), [makeFile()]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Upload failed.');
+  });
+
   it('accepts a dropped file and exposes keyboard-operable picker buttons', async () => {
     const uploadFile = vi.fn(async () => ({ id: 'dropped' }));
     const { container } = render(<Upload uploadFile={uploadFile} />);
