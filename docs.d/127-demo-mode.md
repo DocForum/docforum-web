@@ -36,10 +36,13 @@ Assumed behaviour of the in-browser demo; nothing here adds a
 - **Exit.** "Exit demo" removes the role key and does a full navigation to
   the same path without `?demo`, discarding the worker, caches and fixtures
   with the document.
-- **Bundling.** `vite.config.ts` puts `src/mocks/**` and `src/demo/**` into a
-  single `demo-<hash>.{js,css}` chunk. `scripts/check-dist-no-mocks.mjs`
-  skips exactly `demo-*` files and still fails if mock markers appear in any
-  other built asset, so a static import of demo code into the app is caught.
+- **Bundling.** `vite.config.ts` keeps demo and mock modules in lazy chunks;
+  `onlyExplicitManualChunks` prevents their dependencies from being pulled
+  into the normal homepage chunk. The first-load budget remains 185 kB gzip.
+  The lazy chunk limit is 70 kB gzip to allow the demo bootstrap and MSW runtime
+  (about 65 kB) while keeping it below first-load. `scripts/check-dist-no-mocks.mjs`
+  skips only `demo-*` files and still fails if mock markers appear in any
+  other built asset.
 - **Mock coverage added for the demo.** `src/mocks/handlers/admin.ts` and
   `src/mocks/fixtures-admin.ts` cover the W6 admin screens
   (`/admin/audit-events`, `/admin/access-logs`, `/admin/referrals`,

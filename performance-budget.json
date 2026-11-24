@@ -2,6 +2,6 @@
   "$comment": "Performance budgets (issue #99). `bundle` is enforced by scripts/check-bundle-budget.mjs after every CI build (gzip sizes, deterministic). Lighthouse CI (.lighthouserc.json) enforces the page-level metrics. Raise a number only in a PR that explains why; never to make an unrelated PR pass.",
   "bundle": {
     "firstLoadJsGzipKb": 185,
-    "maxLazyChunkGzipKb": 60
+    "maxLazyChunkGzipKb": 70
   }
 }
