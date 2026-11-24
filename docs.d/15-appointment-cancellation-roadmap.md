@@ -1,0 +1,5 @@
+---
+file: ROADMAP.md
+section: Phase W2 — Patient core flow
+---
+- [x] Appointment cancellation flow with policy-aware messaging. Tracked as [issue #15](https://github.com/DocForum/docforum-web/issues/15) (High, 200 pts) — `src/features/appointments/cancellation.ts` and `CancelAppointmentDialog` on `/appointments/:id`. The dialog reads the per-appointment policy from the API, so the copy before and after the cutoff is the backend's own: whether the slot is released, whether it counts as a late cancellation, and what happens to the referral behind a referral-origin visit. Cancelling stays available after the cutoff rather than failing with a generic error. Accessible dialog (focus trap, Escape, labelled), reason required, double-submit guard, and the detail plus every appointment list refresh on success; a `409`/`422` is explained without pretending the appointment changed. **Built against assumed shapes:** docforum-core#56 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
