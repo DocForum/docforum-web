@@ -42,6 +42,13 @@ export const appointmentKeys = {
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
 };
 
+export const followUpKeys = {
+  all: ['follow-ups'] as const,
+  mine: () => ['follow-ups', 'mine'] as const,
+  slots: (followUpId: string, doctorProfileId: string) =>
+    ['follow-ups', followUpId, 'slots', doctorProfileId] as const,
+};
+
 /**
  * Public doctor directory (issues #1/#13): one list key per filter pair, plus
  * a stable directory key used to resolve `doctorProfileId` → name. Availability

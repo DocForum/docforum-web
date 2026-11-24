@@ -39,6 +39,7 @@ export const handlers = [
   ...careThreadHandlers,
   ...consultationHandlers,
   ...consultationOrderHandlers,
+  ...followUpHandlers,
   ...doctorTodayHandlers,
   ...queueHandlers,
   ...messagingHandlers,

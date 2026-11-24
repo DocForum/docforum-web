@@ -20,12 +20,12 @@ import { PageHeader } from './PageHeader';
 import { PrintLayout } from './PrintLayout';
 import { PublicCallout, PublicPage } from './PublicPage';
 import { RateLimitNotice } from './RateLimitNotice';
-import { RequireAuth } from './RequireAuth';
 import { RequireFlag } from './RequireFlag';
 import { SessionTimeoutController } from './SessionTimeoutController';
 import { SessionTimeoutWarning } from './SessionTimeoutWarning';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { UpdatePrompt } from './UpdatePrompt';
+import { RoleGate } from '../routes/RoleGate';
 import { useRateLimitStore } from '../store/rate-limit-store';
 import { DEFAULT_SHORTCUTS } from '../hooks/useKeyboardShortcuts';
 
@@ -177,7 +177,14 @@ export const RouteHashCompatibility: Story = {
 };
 
 export const SignedOutRouteGuard: Story = {
-  render: () => <RequireAuth allowedRoles={['admin']}><p>Admin-only content</p></RequireAuth>,
+  render: () => (
+    <Routes>
+      <Route element={<RoleGate allowedRoles={['admin']} />}>
+        <Route index element={<p>Admin-only content</p>} />
+      </Route>
+      <Route path="/login" element={<p>Redirected to sign in</p>} />
+    </Routes>
+  ),
 };
 
 export const FeatureFlagOff: Story = {

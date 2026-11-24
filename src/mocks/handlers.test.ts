@@ -236,6 +236,38 @@ describe('dependents', () => {
     expect(created.fullName).toBe('Seventeen (fake)');
   });
 
+  describe('follow-up requests (issue #31)', () => {
+    it('lists open and expired requests and books a matching slot once', async () => {
+      const requests = await followUpsService.listMyFollowUps(MOCK_ACCESS_TOKEN);
+      expect(requests.map(({ status }) => status)).toEqual(['open', 'expired']);
+
+      const open = requests[0];
+      const slots = await appointmentsService.getOpenSlots(open.doctorProfileId);
+      const slot = slots[0];
+      expect(Date.parse(slot.startTime)).toBeGreaterThanOrEqual(Date.parse(open.windowStart));
+      expect(Date.parse(slot.endTime)).toBeLessThanOrEqual(Date.parse(open.windowEnd));
+
+      const result = await followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN);
+      expect(result.followUp).toMatchObject({ status: 'booked', bookedAppointmentId: result.appointment.id });
+      expect(result.appointment).toMatchObject({ origin: 'follow_up' });
+      expect(result.followUp.intakeFormId).toBe(open.intakeFormId);
+      await expect(
+        followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+  });
+
+  describe('admin success metrics (issue #69)', () => {
+    it('returns aggregate measures and clearly unavailable cells through the mock API', async () => {
+      const from = '2026-10-01T00:00:00.000Z';
+      const to = '2026-11-01T00:00:00.000Z';
+      const metrics = await adminMetricsService.getAdminSuccessMetrics(from, to, MOCK_ACCESS_TOKEN);
+      expect(metrics.window).toEqual({ from, to, timeZone: 'UTC' });
+      expect(metrics.metrics.noShowRate).toMatchObject({ status: 'available', denominator: 55 });
+      expect(metrics.metrics.referralCompletionRate.status).toBe('not_yet_available');
+    });
+  });
+
   it('rejects a dependent at the age of majority', async () => {
     const error = await dependentsService
       .addDependent(

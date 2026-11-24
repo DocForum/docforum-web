@@ -9,25 +9,48 @@ import { InlineError } from '../components/states/InlineError';
 import { Skeleton } from '../components/states/Skeleton';
 import { useCareHub } from '../features/care-hub/hooks/useCareHub';
 import { groupBySection } from '../features/care-hub/ranking';
-import { AppointmentDetailPage } from './AppointmentDetailPage';
-import { AppointmentsPage } from './AppointmentsPage';
-import { BookingPage } from './BookingPage';
-import { DoctorDirectoryPage } from './DoctorDirectoryPage';
-import { DependentsPage } from './DependentsPage';
-import { HealthProfilePage } from './HealthProfilePage';
-import { AccountSettingsPage } from './AccountSettingsPage';
-import { FacilityFinderPage } from './FacilityFinderPage';
-import { CareThreadPage } from './CareThreadPage';
-import { DoctorSearchPage } from './DoctorSearchPage';
-import { OrdersPage } from './OrdersPage';
-import { PatientReferralsPage } from './PatientReferralsPage';
-import { WaitlistPage } from './WaitlistPage';
-import { IntakePage } from './IntakePage';
 import { WaitlistOfferBanner } from '../features/waitlist/components/WaitlistOfferBanner';
-import { MessageThreadPage } from './MessageThreadPage';
 import { useProfileBootstrap } from '../features/patients/hooks/useProfileBootstrap';
 import { useT } from '../i18n/useT';
 import styles from './PatientDashboardPage.module.css';
+
+const AppointmentDetailPage = lazy(() =>
+  import('./AppointmentDetailPage').then((module) => ({ default: module.AppointmentDetailPage })),
+);
+const AppointmentsPage = lazy(() =>
+  import('./AppointmentsPage').then((module) => ({ default: module.AppointmentsPage })),
+);
+const BookingPage = lazy(() => import('./BookingPage').then((module) => ({ default: module.BookingPage })));
+const DoctorDirectoryPage = lazy(() =>
+  import('./DoctorDirectoryPage').then((module) => ({ default: module.DoctorDirectoryPage })),
+);
+const DependentsPage = lazy(() =>
+  import('./DependentsPage').then((module) => ({ default: module.DependentsPage })),
+);
+const HealthProfilePage = lazy(() =>
+  import('./HealthProfilePage').then((module) => ({ default: module.HealthProfilePage })),
+);
+const AccountSettingsPage = lazy(() =>
+  import('./AccountSettingsPage').then((module) => ({ default: module.AccountSettingsPage })),
+);
+const FacilityFinderPage = lazy(() =>
+  import('./FacilityFinderPage').then((module) => ({ default: module.FacilityFinderPage })),
+);
+const CareThreadPage = lazy(() =>
+  import('./CareThreadPage').then((module) => ({ default: module.CareThreadPage })),
+);
+const DoctorSearchPage = lazy(() =>
+  import('./DoctorSearchPage').then((module) => ({ default: module.DoctorSearchPage })),
+);
+const OrdersPage = lazy(() => import('./OrdersPage').then((module) => ({ default: module.OrdersPage })));
+const PatientReferralsPage = lazy(() =>
+  import('./PatientReferralsPage').then((module) => ({ default: module.PatientReferralsPage })),
+);
+const WaitlistPage = lazy(() => import('./WaitlistPage').then((module) => ({ default: module.WaitlistPage })));
+const IntakePage = lazy(() => import('./IntakePage').then((module) => ({ default: module.IntakePage })));
+const MessageThreadPage = lazy(() =>
+  import('./MessageThreadPage').then((module) => ({ default: module.MessageThreadPage })),
+);
 
 // The order detail page is only needed on one nested route. Loading it lazily
 // keeps its payment panel and fulfilment components out of the dashboard
@@ -123,31 +146,33 @@ export function PatientDashboardPage() {
   useProfileBootstrap();
 
   return (
-    <Routes>
-      <Route index element={<PatientHome />} />
-      <Route path="search" element={<DoctorSearchPage />} />
-      <Route path="doctors" element={<DoctorDirectoryPage />} />
-      <Route path="book" element={<BookingPage />} />
-      <Route path="appointments" element={<AppointmentsPage />} />
-      <Route path="dependents" element={<DependentsPage />} />
-      <Route path="referrals" element={<PatientReferralsPage />} />
-      <Route path="waitlist" element={<WaitlistPage />} />
-      <Route path="health" element={<HealthProfilePage />} />
-      <Route path="facilities" element={<FacilityFinderPage />} />
-      <Route path="orders" element={<OrdersPage />} />
-      <Route
-        path="orders/:orderId"
-        element={
-          <Suspense fallback={<Skeleton lines={4} label="Loading order" />}>
-            <OrderDetailPage />
-          </Suspense>
-        }
-      />
-      <Route path="messages/:threadId" element={<MessageThreadPage />} />
-      <Route path="settings" element={<AccountSettingsPage />} />
-      <Route path="care/*" element={<CareThreadPage />} />
-      <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
-      <Route path="appointments/:appointmentId/intake" element={<IntakePage />} />
-    </Routes>
+    <Suspense fallback={<Skeleton lines={4} label="Loading page" />}>
+      <Routes>
+        <Route index element={<PatientHome />} />
+        <Route path="search" element={<DoctorSearchPage />} />
+        <Route path="doctors" element={<DoctorDirectoryPage />} />
+        <Route path="book" element={<BookingPage />} />
+        <Route path="appointments" element={<AppointmentsPage />} />
+        <Route path="dependents" element={<DependentsPage />} />
+        <Route path="referrals" element={<PatientReferralsPage />} />
+        <Route path="waitlist" element={<WaitlistPage />} />
+        <Route path="health" element={<HealthProfilePage />} />
+        <Route path="facilities" element={<FacilityFinderPage />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route
+          path="orders/:orderId"
+          element={
+            <Suspense fallback={<Skeleton lines={4} label="Loading order" />}>
+              <OrderDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path="messages/:threadId" element={<MessageThreadPage />} />
+        <Route path="settings" element={<AccountSettingsPage />} />
+        <Route path="care/*" element={<CareThreadPage />} />
+        <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
+        <Route path="appointments/:appointmentId/intake" element={<IntakePage />} />
+      </Routes>
+    </Suspense>
   );
 }
