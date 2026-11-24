@@ -12,6 +12,8 @@ import { amountLabel } from '../stroops';
 import { transactionUrl } from '../explorer';
 import { statusCopy, statusLabel } from '../status';
 import type { PaymentIntent } from '../../../types/models';
+import { useFormatters } from '../../../i18n/formatters';
+import { useT, type Translator } from '../../../i18n/useT';
 import styles from './OrderPaymentPanel.module.css';
 
 export interface OrderPaymentPanelProps {
@@ -34,22 +36,22 @@ interface TimelineEntry {
  * `created` the outcome isn't known yet, so the last step stays neutral
  * ("released or refunded").
  */
-function buildTimeline(intent: PaymentIntent): TimelineEntry[] {
+function buildTimeline(intent: PaymentIntent, t: Translator): TimelineEntry[] {
   const initiated: TimelineEntry = {
     key: 'initiated',
-    label: 'Payment initiated',
+    label: t('payments.timeline.initiated', 'Payment initiated'),
     at: intent.createdAt,
     state: 'done',
   };
   const heldUnresolved: TimelineEntry = {
     key: 'held',
-    label: 'Held in escrow',
+    label: t('payments.timeline.held', 'Held in escrow'),
     at: null,
     state: 'done',
   };
   const settledUpcoming: TimelineEntry = {
     key: 'settled',
-    label: 'Released or refunded once fulfilled',
+    label: t('payments.timeline.settled', 'Released or refunded once fulfilled'),
     at: null,
     state: 'upcoming',
   };
@@ -62,13 +64,13 @@ function buildTimeline(intent: PaymentIntent): TimelineEntry[] {
     case 'awaiting_signature':
       return [
         initiated,
-        { key: 'held', label: 'Held in escrow', at: null, state: 'upcoming' },
+        { key: 'held', label: t('payments.timeline.held', 'Held in escrow'), at: null, state: 'upcoming' },
         settledUpcoming,
       ];
     case 'escrowed':
       return [
         initiated,
-        { key: 'held', label: 'Held in escrow', at: intent.updatedAt, state: 'current' },
+        { key: 'held', label: t('payments.timeline.held', 'Held in escrow'), at: intent.updatedAt, state: 'current' },
         settledUpcoming,
       ];
     case 'released':
@@ -77,7 +79,7 @@ function buildTimeline(intent: PaymentIntent): TimelineEntry[] {
         heldUnresolved,
         {
           key: 'released',
-          label: 'Released to the facility',
+          label: t('payments.timeline.released', 'Released to the facility'),
           at: intent.updatedAt,
           state: 'done',
         },
@@ -86,30 +88,21 @@ function buildTimeline(intent: PaymentIntent): TimelineEntry[] {
       return [
         initiated,
         heldUnresolved,
-        { key: 'refunded', label: 'Refunded to you', at: intent.updatedAt, state: 'done' },
+        { key: 'refunded', label: t('payments.timeline.refunded', 'Refunded to you'), at: intent.updatedAt, state: 'done' },
       ];
     case 'failed':
       return [
         initiated,
-        { key: 'failed', label: 'Payment failed', at: intent.updatedAt, state: 'current' },
+        { key: 'failed', label: t('payments.timeline.failed', 'Payment failed'), at: intent.updatedAt, state: 'current' },
       ];
   }
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
-}
-
-/** A failed payment needs a human to intervene, so the panel says so
- * explicitly instead of leaving the patient with a bare status word. */
-const FAILED_SUPPORT_NOTE =
-  'Nothing was released to the facility. Please contact DocForum support and quote the order reference below.';
-
 export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
+  const t = useT();
+  const { dateTime: formatDateTime } = useFormatters();
   const explorerUrl = transactionUrl(intent.stellarTxHash);
-  const timeline = buildTimeline(intent);
+  const timeline = buildTimeline(intent, t);
 
   return (
     <section
@@ -118,48 +111,48 @@ export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
       aria-labelledby="order-payment-title"
     >
       <div className={styles.header}>
-        <h2 id="order-payment-title">Payment</h2>
+        <h2 id="order-payment-title">{t('payments.panel.title', 'Payment')}</h2>
         <span className={styles.statusPill} data-status={intent.status}>
-          {statusLabel(intent.status)}
+          {statusLabel(intent.status, t)}
         </span>
       </div>
 
-      <p className={styles.explanation}>{statusCopy(intent.status)}</p>
+      <p className={styles.explanation}>{statusCopy(intent.status, t)}</p>
       {intent.status === 'failed' && (
         <p className={styles.supportNote} role="status">
-          {FAILED_SUPPORT_NOTE}
+          {t('payments.panel.failedSupport', 'Nothing was released to the facility. Please contact DocForum support and quote the order reference below.')}
         </p>
       )}
 
       <dl className={styles.facts}>
         <div className={styles.fact}>
-          <dt>Amount</dt>
+          <dt>{t('payments.panel.amount', 'Amount')}</dt>
           <dd data-testid="payment-amount">{amountLabel(intent.amountStroops)}</dd>
         </div>
         <div className={styles.fact}>
-          <dt>Started</dt>
-          <dd>{formatDate(intent.createdAt)}</dd>
+          <dt>{t('payments.panel.started', 'Started')}</dt>
+          <dd>{formatDateTime(intent.createdAt)}</dd>
         </div>
         <div className={styles.fact}>
-          <dt>Order reference</dt>
+          <dt>{t('payments.panel.orderReference', 'Order reference')}</dt>
           <dd>
             <code>{intent.orderId}</code>
           </dd>
         </div>
       </dl>
 
-      <h3 className={styles.timelineTitle}>Timeline</h3>
-      <ol className={styles.timeline} aria-label="Payment timeline">
+      <h3 className={styles.timelineTitle}>{t('payments.panel.timeline', 'Timeline')}</h3>
+      <ol className={styles.timeline} aria-label={t('payments.panel.timeline', 'Payment timeline')}>
         {timeline.map((entry) => (
           <li key={entry.key} className={styles.timelineItem} data-state={entry.state}>
             <span className={styles.dot} aria-hidden="true" />
             <span className={styles.timelineLabel}>{entry.label}</span>
-            <span className={styles.timelineDate}>{formatDate(entry.at)}</span>
+            <span className={styles.timelineDate}>{entry.at ? formatDateTime(entry.at) : '—'}</span>
             {entry.state === 'current' && (
-              <span className={styles.currentTag}>Current</span>
+              <span className={styles.currentTag}>{t('payments.panel.current', 'Current')}</span>
             )}
             {entry.state === 'upcoming' && (
-              <span className={styles.upcomingTag}>Not yet</span>
+              <span className={styles.upcomingTag}>{t('payments.panel.notYet', 'Not yet')}</span>
             )}
           </li>
         ))}
@@ -168,7 +161,7 @@ export function OrderPaymentPanel({ intent }: OrderPaymentPanelProps) {
       {explorerUrl && (
         <p className={styles.explorer}>
           <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
-            View the latest transaction on the Stellar explorer ↗
+            {t('payments.panel.viewTransaction', 'View the latest transaction on the Stellar explorer ↗')}
           </a>
         </p>
       )}

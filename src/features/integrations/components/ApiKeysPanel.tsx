@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
@@ -118,7 +119,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                 <th>{t('integrations.apiKeys.colScopes', 'Scopes')}</th>
                 <th>{t('integrations.apiKeys.colCreated', 'Created')}</th>
                 <th>{t('integrations.apiKeys.colLastUsed', 'Last used')}</th>
-                <th aria-label={t('integrations.common.actions', 'Actions')} />
+                <th>{t('integrations.common.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>

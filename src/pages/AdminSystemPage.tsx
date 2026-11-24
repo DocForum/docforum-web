@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { LoginLockoutsPanel } from '../features/admin-system/components/LoginLockoutsPanel';
 import { SystemHealthConsole } from '../features/admin-system/components/SystemHealthConsole';
 import styles from '../features/admin-system/components/SystemHealth.module.css';
 
@@ -9,6 +10,7 @@ export function AdminSystemPage() {
         ← Back to the operations overview
       </Link>
       <SystemHealthConsole />
+      <LoginLockoutsPanel />
     </div>
   );
 }

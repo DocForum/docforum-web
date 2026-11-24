@@ -32,7 +32,8 @@
       `vite` dev (HMR needs inline scripts) and a strict policy for production
       builds (script-src 'self', no inline scripts). GitHub Pages cannot set
       HTTP response headers, so the meta tag is the enforcement point here.
-      See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Content Security Policy".
+      The policy lives in vite.config.ts; `npm run check:csp` scans the built
+      output for anything it would block (issue #225).
     -->
   </head>
   <body>
@@ -57,19 +58,12 @@
         <span id="app-loading-label">Loading DocForum…</span>
       </div>
     </div>
-    <script>
-      // Pre-hydration shell: match the browser language before the app bundle
-      // (and its locale chunks) has loaded, so the very first paint isn't
-      // hard-coded English. React replaces this node on mount.
-      (function () {
-        var language = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-        if (language.toLowerCase().indexOf('es') === 0) {
-          var label = document.getElementById('app-loading-label');
-          if (label) label.textContent = 'Cargando DocForum…';
-          document.documentElement.lang = 'es';
-        }
-      })();
-    </script>
+    <!-- Pre-hydration shell: match the browser language before the app bundle
+         (and its locale chunks) has loaded, so the very first paint isn't
+         hard-coded English. Same-origin classic script so the strict
+         production CSP (`script-src 'self'`) allows it. React replaces this
+         node on mount. -->
+    <script src="%BASE_URL%prehydrate-locale.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

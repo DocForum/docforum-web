@@ -1,16 +1,19 @@
 import { apiFetch } from './api-client';
 import type { FeatureFlag, UpdateFeatureFlagInput } from '../types/models';
 
-/** Assumed contract (docforum-core#132): every flag in this environment in
- * one unpaginated list — there are tens of flags, not thousands. */
+/** docforum-core#132: GET /admin/feature-flags returns all flags in the
+ * environment. Keys are validated as lowercase dotted segments of up to 64
+ * characters; the backend returns 400 for invalid keys. */
 export function listFeatureFlags(accessToken: string, signal?: AbortSignal): Promise<FeatureFlag[]> {
-  return apiFetch<FeatureFlag[]>('/admin/flags', { accessToken, signal });
+  return apiFetch<FeatureFlag[]>('/admin/feature-flags', { accessToken, signal });
 }
 
-/** Partial update. docforum-core records the change as an audit event and
- * answers with the flag as saved. */
+/** docforum-core#132: PATCH /admin/feature-flags/:key updates a flag.
+ * Validates the key format (lowercase dotted segments, max 64 chars) and
+ * maps 400s to field-error objects. 409 becomes a conflict error; the
+ * caller must send `expectedUpdatedAt` from the version the admin saw. */
 export function updateFeatureFlag(key: string, input: UpdateFeatureFlagInput, accessToken: string): Promise<FeatureFlag> {
-  return apiFetch<FeatureFlag>(`/admin/flags/${encodeURIComponent(key)}`, {
+  return apiFetch<FeatureFlag>(`/admin/feature-flags/${encodeURIComponent(key)}`, {
     method: 'PATCH',
     body: input,
     accessToken,

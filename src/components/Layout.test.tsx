@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
+import { PUBLIC_CONTENT_ROUTES } from '../pages/public-page-map';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
 function signIn(role: 'patient' | 'doctor' | 'facility' | 'admin') {
@@ -50,14 +51,18 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Dependents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Health profile' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Facilities' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lab results' })).toHaveAttribute('href', '/patient/results');
     expect(screen.getByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/patient/orders');
     expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/payments');
     expect(desktopNavHrefs()).toEqual([
       '/patient/search',
+      '/patient/doctors',
+      '/patient/appointments',
       '/care',
       '/patient/dependents',
       '/patient/health',
       '/patient/facilities',
+      '/patient/results',
       '/patient/orders',
       '/payments',
       '/patient/settings',
@@ -93,13 +98,17 @@ describe('Layout — role-aware navigation', () => {
 
   it('shows admin nav items', () => {
     renderLayout('admin');
-    expect(screen.getByRole('link', { name: 'Payments' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/admin/users');
+    expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/admin/payments/console');
     expect(screen.getByRole('link', { name: 'Referrals' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Audit trail' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Flags' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'System' })).toBeInTheDocument();
     expect(desktopNavHrefs()).toEqual([
       '/admin',
+      '/admin/users',
+      '/admin/payments/console',
       '/admin/verifications',
       '/admin/verification',
       '/admin/referrals',
@@ -129,6 +138,15 @@ describe('Layout — role-aware navigation', () => {
     const link = screen.getByRole('link', { name: 'Privacy & analytics' });
     // /privacy is now the public privacy page; the analytics page is /privacy/analytics.
     expect(link).toHaveAttribute('href', '/privacy/analytics');
+  });
+
+  it('links the footer accessibility item to a real public route', () => {
+    renderLayout();
+    const link = screen.getByRole('link', { name: 'Accessibility' });
+    expect(link).toHaveAttribute('href', '/accessibility');
+    expect(PUBLIC_CONTENT_ROUTES.map((route) => `/${route.path}`)).toContain(
+      link.getAttribute('href'),
+    );
   });
 
   it('has a skip-to-content link reachable by keyboard', () => {

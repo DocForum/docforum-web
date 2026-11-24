@@ -66,6 +66,30 @@ export const overviewKeys = {
   all: ['admin', 'overview'] as const,
 };
 
+export const followUpKeys = {
+  all: ['follow-ups'] as const,
+  mine: () => ['follow-ups', 'mine'] as const,
+  slots: (followUpId: string, doctorProfileId: string) =>
+    ['follow-ups', followUpId, 'slots', doctorProfileId] as const,
+};
+
+/**
+ * Public doctor directory (issues #1/#13): one list key per filter pair, plus
+ * a stable directory key used to resolve `doctorProfileId` → name. Availability
+ * slots live under their own root so a booking can refresh slot lists without
+ * refetching every doctor.
+ */
+export const doctorKeys = {
+  all: ['doctors'] as const,
+  list: (specialty: string | null, q: string | null) =>
+    ['doctors', 'list', specialty, q] as const,
+  directory: () => ['doctors', 'directory'] as const,
+  profile: (doctorProfileId: string) => ['doctors', 'profile', doctorProfileId] as const,
+  slotsRoot: ['doctors', 'slots'] as const,
+  slots: (doctorProfileId: string) => ['doctors', 'slots', doctorProfileId] as const,
+  specialties: () => ['specialties'] as const,
+};
+
 /** The doctor's queue panel: the live list plus the running-delay knob. */
 export const queueKeys = {
   all: ['queue'] as const,
@@ -138,6 +162,11 @@ export const facilitySearchKeys = {
 export const auditKeys = {
   all: ['admin', 'audit'] as const,
   page: (tab: string, query: unknown) => ['admin', 'audit', tab, query] as const,
+};
+
+export const adminMetricsKeys = {
+  all: ['admin', 'metrics'] as const,
+  range: (from: string, to: string) => ['admin', 'metrics', from, to] as const,
 };
 
 /** Stuck-referral queue and the reassignment picker. */

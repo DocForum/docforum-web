@@ -2,8 +2,10 @@
 // visits, running delay with manual override.
 import { http } from 'msw';
 import { db } from '../db';
-import { conflict, notFound, paramId, respond } from '../helpers';
-import type { Appointment, QueueEntry } from '../../types/models';
+import { badRequest, conflict, notFound, paramId, respond } from '../helpers';
+import type { Appointment, AppointmentStatus, QueueEntry } from '../../types/models';
+
+const STATUS_UPDATES: AppointmentStatus[] = ['completed', 'cancelled', 'no_show'];
 
 function deriveQueue(appointments: Appointment[]): QueueEntry[] {
   return appointments
@@ -33,7 +35,7 @@ export const queueHandlers = [
   http.get('*/appointments/mine', respond('list', () => [])),
 
   http.get(
-    '*/doctor/appointments/today',
+    '*/appointments/doctor/today',
     respond('list', () =>
       [...db.appointments].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     ),
@@ -41,29 +43,54 @@ export const queueHandlers = [
 
   http.get('*/doctor/queue/today', respond('list', () => deriveQueue(db.appointments))),
 
-  http.post(
-    '*/appointments/:id/start',
+  http.patch(
+    '*/appointments/:appointmentId/start',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'completed') return conflict('cannot start a completed visit');
-      if (apt.status === 'in_progress') return apt; // idempotent, per assumed contract
+      if (apt.status !== 'checked_in' || !apt.checkInAt) {
+        return conflict('appointment must be scheduled and checked in before the visit can start');
+      }
       apt.status = 'in_progress';
       apt.startedAt = new Date().toISOString();
       return apt;
     }),
   ),
 
-  http.post(
-    '*/appointments/:id/complete',
+  http.patch(
+    '*/appointments/:appointmentId/complete',
     respond('json', ({ params }) => {
-      const apt = db.appointments.find((a) => a.id === paramId(params));
+      const apt = db.appointments.find((a) => a.id === paramId(params, 'appointmentId'));
       if (!apt) return notFound('appointment');
-      if (apt.status === 'scheduled' || apt.status === 'checked_in') {
-        return conflict('visit has not started yet');
+      if (apt.status !== 'in_progress') {
+        return conflict('appointment must be in progress before the visit can complete');
       }
       apt.status = 'completed';
       apt.completedAt = new Date().toISOString();
+      return apt;
+    }),
+  ),
+
+  http.patch(
+    '*/appointments/:id/status',
+    respond('json', async ({ params, request }) => {
+      const body = (await request.json().catch(() => ({}))) as { status?: unknown };
+      if (typeof body.status !== 'string' || !STATUS_UPDATES.includes(body.status as AppointmentStatus)) {
+        return badRequest('status must be one of completed, cancelled, no_show');
+      }
+
+      const apt = db.appointments.find((a) => a.id === paramId(params));
+      if (!apt) return notFound('appointment');
+      // Only a still-scheduled visit can be completed, cancelled or marked
+      // no-show; anything else is a conflict the UI has to explain.
+      if (apt.status !== 'scheduled') return conflict('appointment is no longer scheduled');
+
+      if (body.status === 'no_show' && apt.referral) {
+        // Assumed cascade: each no-show is counted so the next one can expire
+        // the referral. docforum-core owns the real referral transition.
+        apt.referral = { ...apt.referral, priorNoShows: apt.referral.priorNoShows + 1 };
+      }
+      apt.status = body.status as AppointmentStatus;
       return apt;
     }),
   ),

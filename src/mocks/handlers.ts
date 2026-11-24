@@ -4,10 +4,12 @@ import { accountHandlers } from './handlers/account';
 import { adminOverviewHandlers } from './handlers/admin-overview';
 import { adminUserHandlers } from './handlers/admin-users';
 import { adminVerificationHandlers } from './handlers/admin-verification';
+import { adminMetricsHandlers } from './handlers/admin-metrics';
 import { appointmentHandlers } from './handlers/appointments';
 import { authHandlers } from './handlers/auth';
 import { careThreadHandlers } from './handlers/care-thread';
 import { consultationHandlers } from './handlers/consultation';
+import { consultationOrderHandlers } from './handlers/consultation-orders';
 import { disputesHandlers } from './handlers/disputes';
 import { dependentHandlers } from './handlers/dependents';
 import { doctorTodayHandlers } from './handlers/doctor-today';
@@ -16,6 +18,7 @@ import { featureFlagHandlers } from './handlers/feature-flags';
 import { eventHandlers } from './handlers/events';
 import { facilityHandlers } from './handlers/facility';
 import { facilitySettingsHandlers } from './handlers/facility-settings';
+import { followUpHandlers } from './handlers/follow-ups';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { integrationsHandlers } from './handlers/integrations';
@@ -36,12 +39,15 @@ export const handlers = [
   ...adminOverviewHandlers,
   ...adminUserHandlers,
   ...adminVerificationHandlers,
+  ...adminMetricsHandlers,
   ...appointmentHandlers,
   ...labResultHandlers,
   ...dependentHandlers,
   ...healthProfileHandlers,
   ...careThreadHandlers,
   ...consultationHandlers,
+  ...consultationOrderHandlers,
+  ...followUpHandlers,
   ...doctorTodayHandlers,
   ...queueHandlers,
   ...messagingHandlers,

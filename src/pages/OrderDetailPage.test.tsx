@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { IntlProvider } from 'react-intl';
 import { render, screen } from '@testing-library/react';
 import { OrderDetailPage } from './OrderDetailPage';
 import { useAuthStore } from '../store/auth-store';
@@ -80,13 +81,15 @@ function renderPage() {
   // Deliberately not test/render's wrapper: this page needs a route
   // param, and react-router refuses to nest two <Router>s.
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/patient/orders/ord-rx-1']}>
-        <Routes>
-          <Route path="/patient/orders/:orderId" element={<OrderDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale="en" defaultLocale="en" onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/patient/orders/ord-rx-1']}>
+          <Routes>
+            <Route path="/patient/orders/:orderId" element={<OrderDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
@@ -147,6 +150,30 @@ describe('OrderDetailPage payment panel', () => {
       await screen.findByText(/payment status isn't available right now/i),
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Payment' })).not.toBeInTheDocument();
+  });
+
+  it('shows a loading skeleton while the order is loading', () => {
+    vi.mocked(ordersService.getPatientOrder).mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByRole('status')).toHaveTextContent(/loading order/i);
+  });
+
+  it('shows PageError with retry and fallback when the order fails to load', async () => {
+    vi.mocked(ordersService.getPatientOrder).mockRejectedValue(
+      new ApiError('Order failed to load', 500),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/your order couldn't be loaded/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/the server had a problem/i);
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to your orders/i })).toHaveAttribute(
+      'href',
+      '/patient/orders',
+    );
   });
 
   it('shows an order-not-found state for a 404', async () => {

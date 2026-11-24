@@ -53,7 +53,7 @@ jobs:
           git add -- 'e2e/__screenshots__/**/*.png'
           git -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m "test(visual): refresh screenshot baselines for ${GITHUB_SHA::8}"
+              commit -m "test(visual): refresh screenshot baselines for $(printf %.8s "$GITHUB_SHA")"
           git push --force origin "HEAD:refs/heads/$BRANCH"
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1"
           echo "::notice title=Visual baselines changed::Review and open a PR: $url"

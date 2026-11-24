@@ -6,6 +6,7 @@ import { ActorCell, AuditResults, EntityCell, PAGE_SIZE, Timestamp } from './Aud
 import type { CsvColumn } from '../csv';
 import type { AuditPanelProps } from './AuditResults';
 import type { AuditEvent } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './AuditLogViewer.module.css';
 
 export const AUDIT_EVENT_CSV_COLUMNS: CsvColumn<AuditEvent>[] = [
@@ -42,6 +43,7 @@ function Metadata({ metadata }: { metadata: AuditEvent['metadata'] }) {
 }
 
 export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewest }: AuditPanelProps) {
+  const t = useT();
   const query = useMemo(() => toAuditQuery(filters, PAGE_SIZE), [filters]);
   const { data, error, isLoading, isFetching, isPlaceholderData, refetch } = useAuditEvents(query);
 
@@ -52,8 +54,7 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
     <>
       {filters.action && (
         <p className={styles.hint}>
-          Action is matched within each loaded page — docforum-core's audit endpoint doesn't filter by action yet, so
-          older pages may hold more matches.
+          {t('adminAudit.events.actionHint', 'Action is matched within each loaded page — docforum-core’s audit endpoint does not filter by action yet, so older pages may hold more matches.')}
         </p>
       )}
       <AuditResults
@@ -74,19 +75,19 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
         onExport={() => downloadCsv(csvFilename('docforum-audit-events'), toCsv(AUDIT_EVENT_CSV_COLUMNS, rows))}
         emptyMessage={
           items.length > 0
-            ? 'No events on this page match the action filter. Try older pages.'
-            : 'No audit events match these filters.'
+            ? t('adminAudit.events.noMatchesPage', 'No events on this page match the action filter. Try older pages.')
+            : t('adminAudit.events.noMatches', 'No audit events match these filters.')
         }
       >
-        <table className={styles.table} aria-label="State-change audit events">
+        <table className={styles.table} aria-label={t('adminAudit.events.tableLabel', 'State-change audit events')}>
           <thead>
             <tr>
-              <th scope="col">When</th>
-              <th scope="col">Action</th>
-              <th scope="col">Entity</th>
-              <th scope="col">Transition</th>
-              <th scope="col">Actor</th>
-              <th scope="col">Request &amp; details</th>
+              <th scope="col">{t('adminAudit.column.when', 'When')}</th>
+              <th scope="col">{t('adminAudit.column.action', 'Action')}</th>
+              <th scope="col">{t('adminAudit.column.entity', 'Entity')}</th>
+              <th scope="col">{t('adminAudit.column.transition', 'Transition')}</th>
+              <th scope="col">{t('adminAudit.column.actor', 'Actor')}</th>
+              <th scope="col">{t('adminAudit.column.requestDetails', 'Request & details')}</th>
             </tr>
           </thead>
           <tbody>
@@ -105,7 +106,7 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
                   {event.fromState || event.toState ? (
                     <span className={styles.transition}>
                       <span>{event.fromState ?? '∅'}</span>
-                      <span aria-label="to">→</span>
+                      <span aria-label={t('adminAudit.transitionTo', 'to')}>→</span>
                       <span>{event.toState ?? '∅'}</span>
                     </span>
                   ) : (
@@ -117,7 +118,7 @@ export function AuditEventsPanel({ filters, pageNumber, onOlder, onNewer, onNewe
                 </td>
                 <td data-label="Request &amp; details">
                   {event.requestId && (
-                    <span className={styles.id} title="X-Request-Id">
+                    <span className={styles.id} title={t('adminAudit.requestIdTitle', 'X-Request-Id')}>
                       {event.requestId}
                     </span>
                   )}

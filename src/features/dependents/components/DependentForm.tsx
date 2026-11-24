@@ -1,9 +1,11 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useId, useState } from 'react';
 import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import type { Dependent, DependentInput, Relationship } from '../../../types/models';
+import type { FormErrorInfo } from '../../../services/error-catalogue';
+import { validateDependentDob } from '../age';
 import { useT } from '../../../i18n/useT';
 import styles from './DependentForm.module.css';
 
@@ -15,10 +17,10 @@ const RELATIONSHIPS: { value: Relationship; id: string; defaultMessage: string }
 
 interface Props {
   initial?: Dependent;
-  onSubmit: (input: DependentInput) => void;
+  onSubmit: (input: Required<DependentInput>) => void;
   onCancel: () => void;
   loading: boolean;
-  error: string | null;
+  error: FormErrorInfo | null;
 }
 
 export function DependentForm({ initial, onSubmit, onCancel, loading, error }: Props) {
@@ -26,29 +28,25 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
   const [dateOfBirth, setDateOfBirth] = useState(initial?.dateOfBirth?.slice(0, 10) ?? '');
   const [relationship, setRelationship] = useState<Relationship>(initial?.relationship ?? 'parent');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const relationshipId = useId();
   const t = useT();
-
-  function validateDob(value: string): string | null {
-    if (!value) return t('validation.dobRequired', 'Date of birth is required.');
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return t('validation.dobInvalid', 'Enter a valid date.');
-    if (date > new Date()) return t('validation.dobFuture', 'Date of birth cannot be in the future.');
-    const earliest = new Date();
-    earliest.setFullYear(earliest.getFullYear() - 150);
-    if (date < earliest) return t('validation.dobOld', 'Date of birth is implausibly old.');
-    return null;
-  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const errors: Record<string, string> = {};
     if (!fullName.trim()) errors.fullName = t('validation.fullNameRequired', 'Full name is required.');
-    const dobError = validateDob(dateOfBirth);
+    // The strict create rule applies to new dependents; an existing adult
+    // dependent can still have their other details edited.
+    const dobError = validateDependentDob(dateOfBirth, undefined, !initial);
     if (dobError) errors.dateOfBirth = dobError;
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
     onSubmit({ fullName: fullName.trim(), dateOfBirth, relationship });
   }
+
+  // Server errors that name a field are shown on that input, not the form.
+  const serverDobError = error?.field === 'dateOfBirth' ? error.message : undefined;
+  const formError = error && !error.field ? error.message : null;
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
@@ -64,24 +62,29 @@ export function DependentForm({ initial, onSubmit, onCancel, loading, error }: P
         value={dateOfBirth}
         onChange={setDateOfBirth}
         max={new Date().toISOString().slice(0, 10)}
-        error={fieldErrors.dateOfBirth}
+        error={fieldErrors.dateOfBirth ?? serverDobError}
         required
       />
-      <div className={styles.field}>
-        <label className={styles.label}>{t('dependents.relationship', 'Relationship')}</label>
-        <select
-          className={styles.select}
-          value={relationship}
-          onChange={(e) => setRelationship(e.target.value as Relationship)}
-        >
-          {RELATIONSHIPS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {t(r.id, r.defaultMessage)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <FormError message={error} />
+      {initial && (
+        <div className={styles.field}>
+          <label htmlFor={relationshipId} className={styles.label}>
+            {t('dependents.relationship', 'Relationship')}
+          </label>
+          <select
+            id={relationshipId}
+            className={styles.select}
+            value={relationship}
+            onChange={(e) => setRelationship(e.target.value as Relationship)}
+          >
+            {RELATIONSHIPS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {t(r.id, r.defaultMessage)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <FormError message={formError} />
       <div className={styles.actions}>
         <Button type="submit" loading={loading}>
           {initial ? t('dependents.saveChanges', 'Save changes') : t('dependents.add', 'Add dependent')}

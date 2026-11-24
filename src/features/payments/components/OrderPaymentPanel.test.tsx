@@ -50,6 +50,15 @@ describe('OrderPaymentPanel', () => {
     expect(screen.getByText('Current')).toBeInTheDocument();
   });
 
+  it('renders the patient-facing payment status explanation in Spanish', () => {
+    render(<OrderPaymentPanel intent={makeIntent({ status: 'escrowed' })} />, { locale: 'es' });
+
+    expect(screen.getByText('En depósito en garantía')).toBeInTheDocument();
+    expect(screen.getByText('Retenido en depósito en garantía')).toBeInTheDocument();
+    expect(screen.getByText(/DocForum retiene este dinero en depósito en garantía/i)).toBeInTheDocument();
+    expect(screen.getByText('Pago iniciado')).toBeInTheDocument();
+  });
+
   it('explains a released intent as complete', () => {
     render(<OrderPaymentPanel intent={makeIntent({ status: 'released' })} />);
 

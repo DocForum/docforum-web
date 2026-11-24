@@ -337,6 +337,14 @@
   }
 }
 
+/* Footer analytics link: muted, smaller than the nav links. A class, not an
+   inline style — prerendered HTML is served under `style-src 'self'`, which
+   blocks style attributes (issue #225). */
+.footerMutedLink {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* Narrow desktop: compact spacing keeps every nav entry on one line at
    1280px and prevents clipping at 1024px (issue #231). */
 @media (min-width: 640px) and (max-width: 1400px) {

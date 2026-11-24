@@ -9,6 +9,7 @@ const STATUS_LABELS: Array<{ status: ReferralStatus; label: string }> = [
   { status: 'declined', label: 'Declined' },
   { status: 'completed', label: 'Completed' },
   { status: 'expired', label: 'Expired' },
+  { status: 'cancelled', label: 'Cancelled' },
 ];
 
 describe('ReferralStatusPill', () => {

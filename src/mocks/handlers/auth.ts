@@ -10,7 +10,8 @@ import {
   MOCK_CSRF_TOKEN,
   PATIENT_USER,
 } from '../fixtures';
-import { notFound, paramId, respond } from '../helpers';
+import { badRequest, notFound, paramId, respond } from '../helpers';
+import { db } from '../db';
 import { useMockStore } from '../mock-store';
 import type { AccountInvite, Role, User } from '../../types/models';
 
@@ -207,6 +208,31 @@ export const authHandlers = [
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+    }),
+  ),
+
+  // Admin login-lockout clear (issue #275, docforum-core Phase 8 #35).
+  // `cleared` is the number of throttle buckets removed; an unknown email
+  // is 0, never a 404, so the response can't reveal whether an account
+  // exists.
+  http.post(
+    '*/auth/login-attempts/clear',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as {
+        email?: string;
+        ip?: string;
+      };
+      const email = body.email?.trim().toLowerCase() || null;
+      const ip = body.ip?.trim() || null;
+      if (!email && !ip) return badRequest('email or ip is required');
+
+      const matched = db.loginAttempts.filter(
+        (attempt) =>
+          (email !== null && attempt.email.toLowerCase() === email) ||
+          (ip !== null && attempt.ip === ip),
+      );
+      db.loginAttempts = db.loginAttempts.filter((attempt) => !matched.includes(attempt));
+      return { cleared: matched.length };
     }),
   ),
 

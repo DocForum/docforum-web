@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { Spinner } from '../components/Spinner';
+import { EmptyState } from '../components/states/EmptyState';
+import { PageError } from '../components/states/PageError';
+import { Skeleton } from '../components/states/Skeleton';
 import { CancelAppointmentDialog } from '../features/appointments/components/CancelAppointmentDialog';
 import { QueuePanel } from '../features/appointments/components/QueuePanel';
 import { RescheduleDialog } from '../features/appointments/components/RescheduleDialog';

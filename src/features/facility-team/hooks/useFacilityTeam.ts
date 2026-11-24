@@ -3,7 +3,7 @@ import * as teamService from '../../../services/facility-team-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { facilityKeys } from '../../../query-keys';
-import type { InviteMemberInput } from '../../../types/models';
+import type { FulfillmentStatusUpdate, InviteMemberInput } from '../../../types/models';
 
 export function useFacilityMembers(facilityId: string) {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -84,8 +84,9 @@ export function useUpdateFulfillmentItem(facilityId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ itemId, action, notes }: { itemId: string; action: 'fulfilled' | 'rejected'; notes?: string }) =>
-      teamService.updateFulfillmentItem(facilityId, itemId, action, accessToken!, notes),
+    mutationFn: ({ recordId, status }: { recordId: string; status: FulfillmentStatusUpdate }) =>
+      teamService.updateFulfillmentRecord(recordId, status, accessToken!),
     onSuccess: () => { void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId); },
+    onError: () => { void invalidateFor(queryClient, 'facility.fulfillment-action', facilityId); },
   });
 }

@@ -14,7 +14,9 @@ const OVERVIEW: OperationsOverview = {
       key: 'verifications',
       label: 'Doctor verifications',
       count: 3,
-      oldestAt: '2026-11-17T12:00:00.000Z',
+      // Relative to the test run so "oldest waiting: 2 days" stays true
+      // whenever the suite runs, not only on the day it was written.
+      oldestAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
       href: '/admin/verifications',
       available: true,
     },

@@ -3,6 +3,7 @@
 // individual handlers only express the happy path + domain logic.
 import { HttpResponse, type PathParams } from 'msw';
 import { useMockStore } from './mock-store';
+import type { PayoutBlockCode } from '../services/error-catalogue';
 
 // MSW's `HttpResponse<T>` is invariant in T; `unknown` does not satisfy its
 // `DefaultBodyType` constraint and breaks every handler's return type. `any`
@@ -75,9 +76,21 @@ export function conflict(message: string): AnyHttpResponse {
   return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 409 });
 }
 
-/** 400 helper with the `{ message }` envelope api-client.ts expects. */
-export function badRequest(message: string): AnyHttpResponse {
-  return HttpResponse.json({ message: `Mock API: ${message}` }, { status: 400 });
+/** 400 helper with the `{ message }` envelope api-client.ts expects. Pass a
+ * docforum-core error `code` when the client has to branch on it. */
+export function badRequest(message: string, code?: string): AnyHttpResponse {
+  return HttpResponse.json(code ? { message, code } : { message: `Mock API: ${message}` }, { status: 400 });
+}
+
+const PAYOUT_BLOCK_MESSAGE: Record<PayoutBlockCode, string> = {
+  FACILITY_WALLET_NOT_LINKED: 'Mock API: this facility has no payout wallet linked',
+  PAYEE_TRUSTLINE_MISSING: 'Mock API: the payout wallet cannot hold this asset yet (no trustline)',
+};
+
+/** docforum-core's payout-setup rejection: `{ message, code }`. The UI must
+ * branch on `code`, not on the HTTP status — see error-catalogue.ts. */
+export function payoutBlocked(code: PayoutBlockCode): AnyHttpResponse {
+  return HttpResponse.json({ message: PAYOUT_BLOCK_MESSAGE[code], code }, { status: 400 });
 }
 
 export function paramId(params: PathParams, name = 'id'): string {

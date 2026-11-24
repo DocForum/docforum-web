@@ -14,6 +14,7 @@ import type {
   AuditEvent,
   CatalogItem,
   CareThread,
+  Consultation,
   Closure,
   ConsultationAddendum,
   ConsultationIssuedOrder,
@@ -24,6 +25,7 @@ import type {
   DataExport,
   Dependent,
   DoctorOnboardingStatus,
+  MyDoctorProfile,
   DoctorPracticeInsights,
   DoctorSearchResult,
   FacilityApiKey,
@@ -34,9 +36,12 @@ import type {
   FacilityPrice,
   FacilitySettings,
   FacilityWithDistance,
+  FollowUpRequest,
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
+  IssuedLabOrder,
+  IssuedPrescription,
   IntakeForm,
   CancellationPolicy,
   LabResultDetail,
@@ -51,6 +56,7 @@ import type {
   QualifiedOrderFacility,
   Role,
   RunningDelay,
+  SentReferral,
   Specialty,
   SpecialtyClaim,
   User,
@@ -158,6 +164,7 @@ export interface MockDb {
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
   consultationOrders: ConsultationIssuedOrder[];
+  followUps: FollowUpRequest[];
   insights: DoctorPracticeInsights;
   facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
@@ -190,10 +197,19 @@ export interface MockDb {
     doctor: DoctorOnboardingStatus;
   };
   paymentIntents: PaymentIntent[];
+  /** Login throttle buckets the admin can clear (issue #275). */
+  loginAttempts: MockLoginAttempt[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  // --- Order issuance (issue #267, real docforum-core contract) ---
+  doctorProfile: MyDoctorProfile | null;
+  consultations: Consultation[];
+  prescriptions: IssuedPrescription[];
+  labOrders: IssuedLabOrder[];
   specialties: Specialty[];
   doctors: DoctorSearchResult[];
+  /** Rows behind the doctor's "Referrals I've sent" view (issue #265). */
+  sentReferrals: SentReferral[];
   symptoms: MockSymptom[];
   verifications: MockVerification[];
   specialtyClaims: SpecialtyClaim[];
@@ -204,6 +220,14 @@ export interface MockDb {
 
 /** A doctor's verification application (issue #64's assumed queue/detail
  * shape) — queue rows, detail profile and credential documents in one row. */
+export interface MockLoginAttempt {
+  email: string;
+  ip: string | null;
+  count: number;
+  firstFailedAt: string;
+  lockedUntil: string;
+}
+
 export interface MockVerification {
   doctorProfileId: string;
   userId: string;
@@ -275,6 +299,19 @@ export function createSeedDb(): MockDb {
       updatedAt: '2026-07-01T10:00:00.000Z',
       createdAt: '2026-07-01T10:00:00.000Z',
     },
+    // The dependent's own record (issue #295). Everything here is fake and
+    // deliberately distinct from the guardian's, so a journey can prove the
+    // two profiles never show each other's data.
+    {
+      id: 'hev-dependent-allergy-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      section: 'allergies',
+      name: 'Dust mites (fake)',
+      details: 'Demo dependent fixture — mild, managed (not real).',
+      version: 1,
+      updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: '2026-02-02T10:00:00.000Z',
+    },
   ];
 
   // No export by default: core has no list endpoint, so the client can only
@@ -324,6 +361,29 @@ export function createSeedDb(): MockDb {
           title: 'Escrow funded (demo)',
           description: 'Fake payment intent funded and held in escrow.',
           status: 'pending',
+        },
+      ],
+    },
+    // The dependent's own care thread — never returned for the guardian's
+    // profile id (issue #295).
+    {
+      id: 'cth-dependent-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      title: 'Tyke check-up (fake)',
+      doctorName: 'Dr. Ficticia Example',
+      specialty: 'Paediatrics (demo)',
+      startedAt: '2026-09-15T09:00:00.000Z',
+      updatedAt: '2026-09-15T09:30:00.000Z',
+      status: 'active',
+      steps: [
+        {
+          id: 'st-dependent-1',
+          stepType: 'appointment',
+          title: 'Dependent check-up booked (demo)',
+          description: 'Demo dependent fixture appointment.',
+          status: 'completed',
+          timestamp: '2026-09-15T09:00:00.000Z',
+          metadata: { doctorTimeZone: 'Europe/London' },
         },
       ],
     },
@@ -402,6 +462,11 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+      referral: {
+        id: 'ref-demo-1',
+        targetSpecialtyName: 'Cardiology (demo)',
+        priorNoShows: 0,
+      },
     },
     {
       id: 'apt-demo-5',
@@ -415,6 +480,35 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+    },
+  ];
+
+  const followUps: FollowUpRequest[] = [
+    {
+      id: 'follow-up-demo-open',
+      consultationId: 'cons-demo-follow-up',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      patientProfileId: PATIENT_PROFILE_ID,
+      notesSnapshot: 'Please book a review to check how the treatment is working.',
+      intakeFormId: 'itk-demo-1',
+      windowStart: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      windowEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'open',
+      bookedAppointmentId: null,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'follow-up-demo-expired',
+      consultationId: 'cons-demo-expired',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      patientProfileId: PATIENT_PROFILE_ID,
+      notesSnapshot: 'This follow-up window has ended.',
+      intakeFormId: 'itk-demo-1',
+      windowStart: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+      windowEnd: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'expired',
+      bookedAppointmentId: null,
+      createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
     },
   ];
 
@@ -925,6 +1019,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-amox',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-amox',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -936,7 +1032,9 @@ export function createSeedDb(): MockDb {
       quantityDispensed: 20,
       quantityOutstanding: 10,
       unit: 'capsules',
-      canDispense: true,
+      // One-shot item: the record already used its PATCH; the remainder
+      // must be rerouted from the order, never dispensed again here.
+      canDispense: false,
       attribution: {
         action: 'dispensed',
         performedByUserId: 'usr-facility-staff',
@@ -952,6 +1050,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-ibu',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-ibu',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -979,6 +1079,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-1',
       orderItemId: 'itm-demo-rx1-vit',
+      fulfillmentRecordId: 'ful-req-demo-rx-1',
+      fulfillmentItemId: 'fit-demo-rx1-vit',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -998,6 +1100,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-lab-1',
       orderItemId: 'itm-demo-lab1-panel',
+      fulfillmentRecordId: 'ful-req-demo-lab-1',
+      fulfillmentItemId: 'fit-demo-lab1-panel',
       orderType: 'lab',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1017,6 +1121,8 @@ export function createSeedDb(): MockDb {
       facilityId: FACILITY_ID,
       orderId: 'ord-demo-rx-2',
       orderItemId: 'itm-demo-rx2-metformin',
+      fulfillmentRecordId: 'ful-req-demo-rx-2',
+      fulfillmentItemId: 'fit-demo-rx2-metformin',
       orderType: 'prescription',
       patientName: 'Pat Placeholder',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1042,6 +1148,40 @@ export function createSeedDb(): MockDb {
   ];
 
   const patientOrders: PatientOrder[] = [
+    // The dependent's own order, distinct from the guardian's (issue #295).
+    {
+      id: 'ord-dependent-rx-1',
+      patientProfileId: DEPENDENT_PROFILE_ID,
+      orderType: 'prescription',
+      version: 1,
+      supersedesId: null,
+      status: 'active',
+      issuedAt: '2026-09-15T09:30:00.000Z',
+      issuedByDoctorName: 'Dr. Ficticia Example (fake)',
+      requiresFacilitySelection: true,
+      selectedFacility: null,
+      medicationOrTest: 'Demo Child Paracetamol 120mg (fake)',
+      expiresAt: '2026-10-15T09:30:00.000Z',
+      fulfillmentStatus: 'unfulfilled',
+      items: [
+        {
+          id: 'ito-dependent-1',
+          orderId: 'ord-dependent-rx-1',
+          name: 'Demo Child Paracetamol 120mg (fake)',
+          quantityPrescribed: 20,
+          quantityDispensed: 0,
+          quantityOutstanding: 20,
+          unit: 'tablets',
+          status: 'pending',
+          canDispense: true,
+        },
+      ],
+      medication: 'Demo Child Paracetamol 120mg (fake)',
+      catalogItemCode: 'MED-PARA-120',
+      dose: 'One dose every six hours as needed',
+      quantity: '20 tablets',
+      instructions: 'Demo dependent fixture instruction (not real).',
+    },
     {
       id: 'ord-demo-rx-102',
       patientProfileId: PATIENT_PROFILE_ID,
@@ -1646,6 +1786,149 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  // Referrals the demo doctor created (issue #265). One row per status so
+  // every pill and both attention badges are reachable in mock mode; ages
+  // are relative to seed time. Target names are included because the view
+  // assumes core expands them (see types/models/sent-referrals.ts).
+  const sentReferrals: SentReferral[] = [
+    {
+      id: 'ref-sent-pending',
+      status: 'pending',
+      targetDoctorId: doctors[2].id,
+      targetSpecialtyId: SPECIALTIES[2].id,
+      targetDoctor: { id: doctors[2].id, fullName: doctors[2].fullName },
+      targetSpecialty: SPECIALTIES[2],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: null,
+      createdAt: inHours(-6),
+      updatedAt: inHours(-6),
+    },
+    {
+      id: 'ref-sent-loop',
+      status: 'pending',
+      targetDoctorId: doctors[0].id,
+      targetSpecialtyId: SPECIALTIES[0].id,
+      targetDoctor: { id: doctors[0].id, fullName: doctors[0].fullName },
+      targetSpecialty: SPECIALTIES[0],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: inHours(-48),
+      loopFlagReason: 'Dermatology already appears earlier in this referral chain.',
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: null,
+      createdAt: inHours(-48),
+      updatedAt: inHours(-48),
+    },
+    {
+      id: 'ref-sent-expired-notified',
+      status: 'expired',
+      targetDoctorId: doctors[5].id,
+      targetSpecialtyId: SPECIALTIES[5].id,
+      targetDoctor: { id: doctors[5].id, fullName: doctors[5].fullName },
+      targetSpecialty: SPECIALTIES[5],
+      referringDoctorNotifiedAt: inHours(-24),
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 2,
+      expiredAt: inHours(-24),
+      expiredReason: 'no_show',
+      resultingAppointmentId: null,
+      createdAt: inHours(-72),
+      updatedAt: inHours(-24),
+    },
+    {
+      id: 'ref-sent-accepted',
+      status: 'accepted',
+      targetDoctorId: doctors[3].id,
+      targetSpecialtyId: SPECIALTIES[2].id,
+      targetDoctor: { id: doctors[3].id, fullName: doctors[3].fullName },
+      targetSpecialty: SPECIALTIES[2],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: 'apt-demo-2',
+      createdAt: inHours(-96),
+      updatedAt: inHours(-60),
+    },
+    {
+      id: 'ref-sent-completed',
+      status: 'completed',
+      targetDoctorId: doctors[2].id,
+      targetSpecialtyId: SPECIALTIES[2].id,
+      targetDoctor: { id: doctors[2].id, fullName: doctors[2].fullName },
+      targetSpecialty: SPECIALTIES[2],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: 'apt-demo-1',
+      createdAt: inHours(-7 * 24),
+      updatedAt: inHours(-5 * 24),
+    },
+    {
+      id: 'ref-sent-declined',
+      status: 'declined',
+      targetDoctorId: doctors[1].id,
+      targetSpecialtyId: SPECIALTIES[0].id,
+      targetDoctor: { id: doctors[1].id, fullName: doctors[1].fullName },
+      targetSpecialty: SPECIALTIES[0],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: null,
+      createdAt: inHours(-8 * 24),
+      updatedAt: inHours(-8 * 24),
+    },
+    {
+      id: 'ref-sent-expired-ttl',
+      status: 'expired',
+      targetDoctorId: doctors[5].id,
+      targetSpecialtyId: SPECIALTIES[5].id,
+      targetDoctor: { id: doctors[5].id, fullName: doctors[5].fullName },
+      targetSpecialty: SPECIALTIES[5],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: inHours(-11 * 24),
+      expiredReason: 'ttl',
+      resultingAppointmentId: null,
+      createdAt: inHours(-12 * 24),
+      updatedAt: inHours(-11 * 24),
+    },
+    {
+      id: 'ref-sent-cancelled',
+      status: 'cancelled',
+      targetDoctorId: doctors[2].id,
+      targetSpecialtyId: SPECIALTIES[2].id,
+      targetDoctor: { id: doctors[2].id, fullName: doctors[2].fullName },
+      targetSpecialty: SPECIALTIES[2],
+      referringDoctorNotifiedAt: null,
+      loopFlaggedAt: null,
+      loopFlagReason: null,
+      noShowCount: 0,
+      expiredAt: null,
+      expiredReason: null,
+      resultingAppointmentId: null,
+      createdAt: inHours(-14 * 24),
+      updatedAt: inHours(-13 * 24),
+    },
+  ];
+
   // Fulfilment disputes (issue #76). Every row is fake; the amounts match the
   // escrowed intents above so the detail's payment panel links somewhere real.
   const disputes: FulfillmentDispute[] = [
@@ -2057,6 +2340,23 @@ export function createSeedDb(): MockDb {
     },
   ];
 
+  const loginAttempts: MockLoginAttempt[] = [
+    {
+      email: 'locked.out@example.test',
+      ip: '203.0.113.10',
+      count: 5,
+      firstFailedAt: '2026-10-18T08:00:00.000Z',
+      lockedUntil: '2026-10-18T08:15:00.000Z',
+    },
+    {
+      email: 'pat.placeholder@example.test',
+      ip: null,
+      count: 3,
+      firstFailedAt: '2026-10-18T09:00:00.000Z',
+      lockedUntil: '2026-10-18T09:15:00.000Z',
+    },
+  ];
+
   // --- Patient appointments, cancellation policy and lab results (issues
   // #15 and #24) ---------------------------------------------------------
   const slotAt = (startOffsetMs: number, endOffsetMs: number): PatientAppointment['availabilitySlot'] => ({
@@ -2365,6 +2665,19 @@ export function createSeedDb(): MockDb {
     admin: defaultPreferencesForRole('admin'),
   };
 
+  // Issue #267: the signed-in doctor, verified so order issuance is allowed.
+  // Tests flip `verificationStatus` to 'pending' to exercise the 403 gate.
+  const doctorProfile: MyDoctorProfile = {
+    id: DOCTOR_PROFILE_ID,
+    userId: DOCTOR_USER.id,
+    fullName: 'Dr. Demo Doctor (fake)',
+    verificationStatus: 'verified',
+    timeZone: 'Europe/London',
+    version: 1,
+    createdAt: '2026-01-06T09:00:00.000Z',
+    updatedAt: '2026-01-06T09:00:00.000Z',
+  };
+
   return {
     dependents,
     healthEntries,
@@ -2379,6 +2692,7 @@ export function createSeedDb(): MockDb {
     consultationRecords: [],
     consultationReferrals: [],
     consultationOrders: [],
+    followUps,
     insights,
     facilityInsights,
     facilities,
@@ -2416,10 +2730,16 @@ export function createSeedDb(): MockDb {
       },
     },
     paymentIntents,
+    loginAttempts,
     disputes,
     consultationAddenda,
+    doctorProfile,
+    consultations: [],
+    prescriptions: [],
+    labOrders: [],
     specialties: SPECIALTIES.map((specialty) => ({ ...specialty })),
     doctors,
+    sentReferrals,
     symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),
     verifications,
     specialtyClaims,
