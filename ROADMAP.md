@@ -1256,6 +1256,3 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   the shared MSW server and `renderWithProviders`, with `jest-axe` checks. The
   calendar feed input's label is now actually associated with its input, which
   the new accessibility assertion caught.
-- 2026-11-24 — Fixed PR #373's signed-out header regression check: the account
-  chip and mobile drawer account section now require both a user and access
-  token, consuming the `isSignedIn` guard and restoring typecheck.
