@@ -1,10 +1,12 @@
-// Auth calls to docforum-core. PROVISIONAL: these paths and payload shapes
-// are the smallest reasonable assumption from ARCHITECTURE.md §2 (JWT
-// access + refresh, role claims) — docforum-core's auth module has no
-// implemented routes yet (its backend/src/modules/auth/* is a placeholder).
-// Reconcile against the real contract once docforum-core's Phase 1 lands.
+// Auth calls to docforum-core. Every request goes through apiFetch so the
+// API base URL, credentials and error envelope stay centralized.
 import { apiFetch } from './api-client';
-import type { SelfServeRole, User } from '../types/models';
+import type {
+  EmailVerificationResendResult,
+  EmailVerificationResult,
+  SelfServeRole,
+  User,
+} from '../types/models';
 
 export interface AuthSession {
   user: User;
@@ -33,4 +35,22 @@ export function login(input: LoginInput): Promise<AuthSession> {
 
 export function logout(accessToken: string): Promise<void> {
   return apiFetch<void>('/auth/logout', { method: 'POST', accessToken });
+}
+
+// Contract source: docforum-core backend/src/modules/auth/routes/index.ts and
+// backend/src/modules/auth/controllers/index.ts (verify-email endpoints).
+export function verifyEmail(token: string): Promise<EmailVerificationResult> {
+  return apiFetch<EmailVerificationResult>('/auth/verify-email', {
+    method: 'POST',
+    body: { token },
+  });
+}
+
+export function resendVerificationEmail(
+  accessToken: string,
+): Promise<EmailVerificationResendResult> {
+  return apiFetch<EmailVerificationResendResult>('/auth/verify-email/resend', {
+    method: 'POST',
+    accessToken,
+  });
 }

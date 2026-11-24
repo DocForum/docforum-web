@@ -133,6 +133,28 @@ the cookie to be sent/received at all). One gap remains:
   every browser — not verified end-to-end. See `docforum-core`'s
   `docs/api/README.md`.
 
+### Email verification (issue #388)
+
+- `User.emailVerifiedAt` mirrors the nullable timestamp returned by
+  `docforum-core` on signup, login and refresh. The signed-in
+  `EmailVerificationBanner` is driven only by this field; it does not
+  infer verification from a user's role.
+- `POST /auth/verify-email` accepts `{ token }` without authentication and
+  returns `{ emailVerifiedAt }`. Tokens are single-use: the landing page
+  reads the token from the query string, removes it with replace-navigation,
+  and shares one in-flight request across React StrictMode effect replay.
+- `POST /auth/verify-email/resend` requires the current access token and
+  returns `{ resendAfterSeconds }`. The banner uses that delay, honors a
+  `Retry-After` delay on 429, and treats `EMAIL_ALREADY_VERIFIED` as an
+  in-memory user update.
+- The token is held only in the page's transient React state and is never
+  stored or logged. A successful verify updates the current session's
+  `emailVerifiedAt` without re-login.
+- This app currently uses `HashRouter`. Core's path-style
+  `/verify-email?token=…` email link does not work on the GitHub Pages
+  preview until path deep links are handled; this is tracked separately
+  by [issue #305](https://github.com/DocForum/docforum-web/issues/305).
+
 ## Known assumptions
 
 ### Patient wallet linking (issue #58)

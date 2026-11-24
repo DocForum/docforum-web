@@ -19,6 +19,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly body?: unknown,
+    public readonly retryAfterSeconds: number | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -35,6 +36,21 @@ export interface RequestOptions {
 /** PROVISIONAL error envelope assumption: `{ message: string }`. */
 interface ErrorEnvelope {
   message?: string;
+}
+
+function getRetryAfterSeconds(response: Response, payload: unknown): number | null {
+  const bodySeconds =
+    typeof payload === 'object' && payload !== null
+      ? Number(Reflect.get(payload, 'retryAfterSeconds'))
+      : Number.NaN;
+  const header = response.headers.get('retry-after');
+  const headerValue = header === null ? Number.NaN : Number(header);
+  const seconds = Number.isFinite(headerValue)
+    ? headerValue
+    : header
+      ? Math.ceil((Date.parse(header) - Date.now()) / 1000)
+      : bodySeconds;
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -57,7 +73,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (!response.ok) {
     const message = (payload as ErrorEnvelope | undefined)?.message ?? response.statusText;
-    throw new ApiError(message, response.status, payload);
+    throw new ApiError(message, response.status, payload, getRetryAfterSeconds(response, payload));
   }
 
   return payload as T;

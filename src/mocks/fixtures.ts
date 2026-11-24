@@ -40,6 +40,7 @@ export const PATIENT_USER: User = {
   id: 'usr-patient-demo',
   email: 'pat.placeholder@example.test',
   role: 'patient',
+  emailVerifiedAt: null,
   createdAt: '2026-01-05T09:00:00.000Z',
   updatedAt: '2026-01-05T09:00:00.000Z',
 };
@@ -48,6 +49,7 @@ export const DOCTOR_USER: User = {
   id: 'usr-doctor-demo',
   email: 'demo.doctor@example.test',
   role: 'doctor',
+  emailVerifiedAt: '2026-01-06T09:00:00.000Z',
   createdAt: '2026-01-06T09:00:00.000Z',
   updatedAt: '2026-01-06T09:00:00.000Z',
 };
@@ -56,6 +58,7 @@ export const FACILITY_USER: User = {
   id: 'usr-facility-demo',
   email: 'frank.facility@example.test',
   role: 'facility',
+  emailVerifiedAt: '2026-01-07T09:00:00.000Z',
   createdAt: '2026-01-07T09:00:00.000Z',
   updatedAt: '2026-01-07T09:00:00.000Z',
 };
@@ -64,6 +67,7 @@ export const ADMIN_USER: User = {
   id: 'usr-admin-demo',
   email: 'al.admin@example.test',
   role: 'admin',
+  emailVerifiedAt: '2026-01-08T09:00:00.000Z',
   createdAt: '2026-01-08T09:00:00.000Z',
   updatedAt: '2026-01-08T09:00:00.000Z',
 };
@@ -100,6 +104,8 @@ export interface MockDb {
   paymentIntents: PaymentIntent[];
   disputes: FulfillmentDispute[];
   consultationAddenda: ConsultationAddendum[]; // flattened, noteId-keyed lookups below
+  usedVerificationTokens: Set<string>;
+  verifiedEmails: Map<string, string>;
 }
 
 export function createSeedDb(): MockDb {
@@ -1085,5 +1091,11 @@ export function createSeedDb(): MockDb {
     paymentIntents,
     disputes,
     consultationAddenda,
+    usedVerificationTokens: new Set(),
+    verifiedEmails: new Map([
+      [DOCTOR_USER.email, DOCTOR_USER.emailVerifiedAt ?? new Date().toISOString()],
+      [FACILITY_USER.email, FACILITY_USER.emailVerifiedAt ?? new Date().toISOString()],
+      [ADMIN_USER.email, ADMIN_USER.emailVerifiedAt ?? new Date().toISOString()],
+    ]),
   };
 }

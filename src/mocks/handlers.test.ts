@@ -6,6 +6,7 @@
 // @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
 import { handlers } from './handlers';
 import { resetDb } from './db';
 import { useMockStore } from './mock-store';
@@ -34,6 +35,7 @@ const server = setupServer(...handlers);
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 beforeEach(() => {
+  server.resetHandlers();
   resetDb();
   useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient' });
 });
@@ -80,6 +82,58 @@ describe('auth', () => {
     await expect(
       dependentsService.claimAccount({ token: 't', email: 'a@example.test', password: 'x' }),
     ).resolves.toBeNull();
+  });
+
+  it('verifies an email with a single-use token', async () => {
+    const result = await authService.verifyEmail('valid-verification-token');
+    expect(result.emailVerifiedAt).toEqual(expect.any(String));
+    await expect(authService.verifyEmail('valid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      body: { code: 'INVALID_VERIFICATION_TOKEN' },
+    });
+    const session = await authService.login({
+      email: 'pat.placeholder@example.test',
+      password: 'anything',
+    });
+    expect(session.user.emailVerifiedAt).toBe(result.emailVerifiedAt);
+    await expect(authService.verifyEmail('invalid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      body: { code: 'INVALID_VERIFICATION_TOKEN' },
+    });
+    await expect(authService.verifyEmail('expired-verification-token')).rejects.toMatchObject({
+      status: 400,
+      body: { code: 'VERIFICATION_TOKEN_EXPIRED' },
+    });
+  });
+
+  it('resends verification for unverified users and handles already verified users', async () => {
+    await expect(
+      authService.resendVerificationEmail(MOCK_ACCESS_TOKEN),
+    ).resolves.toEqual({ resendAfterSeconds: 60 });
+
+    useMockStore.setState({ activeRole: 'doctor' });
+    await expect(
+      authService.resendVerificationEmail(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409, body: { code: 'EMAIL_ALREADY_VERIFIED' } });
+
+    await expect(authService.resendVerificationEmail('')).rejects.toMatchObject({
+      status: 401,
+      body: { code: 'UNAUTHORIZED' },
+    });
+  });
+
+  it('retains the Retry-After delay on verification resend rate limits', async () => {
+    server.use(
+      http.post('*/auth/verify-email/resend', () =>
+        HttpResponse.json(
+          { code: 'EMAIL_VERIFICATION_RATE_LIMITED', message: 'Too many requests' },
+          { status: 429, headers: { 'Retry-After': '12' } },
+        ),
+      ),
+    );
+    await expect(
+      authService.resendVerificationEmail(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 429, retryAfterSeconds: 12 });
   });
 });
 

@@ -9,6 +9,7 @@ const patient: User = {
   id: 'user-1',
   email: 'patient@example.com',
   role: 'patient',
+  emailVerifiedAt: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

@@ -13,6 +13,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { PageHeader } from './PageHeader';
+import { EmailVerificationBanner } from '../features/auth/components/EmailVerificationBanner';
 import styles from './Layout.module.css';
 
 /** Roles a user may have. Mirrored from docforum-core's model. */
@@ -216,6 +217,8 @@ export function Layout() {
           </Button>
         </div>
       </header>
+
+      <EmailVerificationBanner />
 
       {/* Mobile drawer */}
       <div

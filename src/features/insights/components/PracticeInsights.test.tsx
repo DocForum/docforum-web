@@ -66,7 +66,7 @@ const MOCK_LOW_SAMPLE_INSIGHTS: DoctorPracticeInsights = {
 beforeEach(() => {
   useAuthStore.setState({
     accessToken: 'test-token',
-    user: { id: 'doc-1', email: 'doctor@docforum.org', role: 'doctor', createdAt: '', updatedAt: '' },
+    user: { id: 'doc-1', email: 'doctor@docforum.org', role: 'doctor', emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
   vi.mocked(insightsService.getDoctorPracticeInsights).mockResolvedValue(DEFAULT_MOCK_INSIGHTS);
 });

@@ -35,6 +35,7 @@ if (previewRole && (previewRole === 'doctor' || previewRole === 'facility' || pr
       id: `preview-${previewRole}-user`,
       email: `${previewRole}@docforum.org`,
       role: previewRole,
+      emailVerifiedAt: previewRole === 'patient' ? null : new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },

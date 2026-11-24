@@ -21,7 +21,7 @@ describe('DeleteAccountSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuthStore.setState({
-      user: { id: 'u1', email: 'patient@docforum.test', role: 'patient', createdAt: '', updatedAt: '' },
+      user: { id: 'u1', email: 'patient@docforum.test', role: 'patient', emailVerifiedAt: null, createdAt: '', updatedAt: '' },
       accessToken: 'test-token',
     });
     useProfileStore.setState({

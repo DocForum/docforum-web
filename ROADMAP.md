@@ -5,24 +5,31 @@
 
 **Status: Phase W1 built and connected to a live backend.** The deployed
 Pages preview (https://docforum.github.io/docforum-web/) points at
-`docforum-core`'s Render deployment; signup/login work end-to-end. One
-gap remains — see `ARCHITECTURE_ESSENTIALS.md` "Known gaps against the
-real API" (no refresh-on-reload flow).
+`docforum-core`'s Render deployment; signup/login work end-to-end. The
+refresh-on-reload flow remains open — see `ARCHITECTURE_ESSENTIALS.md`
+"Known gaps against the real API".
 
 ## Phase W1 — Shell & auth
 - [x] Vite app wired up — real `main.tsx`/`App.tsx`, React Router, React
   Query, Zustand. `npm run dev`/`build`/`test` all work (verified).
 - [x] API client service layer pointing at `docforum-core`
-  (`src/services/api-client.ts`, `auth-service.ts`) — **contract is a
-  documented assumption, not confirmed**, since `docforum-core` has no
-  implemented routes yet. See `ARCHITECTURE_ESSENTIALS.md` "Known
-  assumptions."
+  (`src/services/api-client.ts`, `auth-service.ts`); auth endpoints use the
+  documented `docforum-core` contracts, while other assumed shapes are
+  recorded in `ARCHITECTURE_ESSENTIALS.md` "Known assumptions."
 - [x] Signup/login screens, corrected to **patient/doctor only** for
   self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
   there is deliberately no facility option in the signup UI. Login works
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
+- [x] Email verification landing flow and signed-in resend banner
+  ([issue #388](https://github.com/DocForum/docforum-web/issues/388)):
+  calls `POST /auth/verify-email` and
+  `POST /auth/verify-email/resend`, updates `emailVerifiedAt` in the
+  in-memory auth store, and removes the single-use token from the URL.
+  The current checkout has no i18n or e2e route-manifest infrastructure;
+  the GitHub Pages path-deep-link caveat is documented in
+  `ARCHITECTURE_ESSENTIALS.md`.
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.

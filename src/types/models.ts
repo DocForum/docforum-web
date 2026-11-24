@@ -19,8 +19,17 @@ export interface User {
   id: string;
   email: string;
   role: Role;
+  emailVerifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EmailVerificationResult {
+  emailVerifiedAt: string;
+}
+
+export interface EmailVerificationResendResult {
+  resendAfterSeconds: number;
 }
 
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
