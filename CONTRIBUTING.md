@@ -47,6 +47,11 @@ fixtures in `src/mocks/` in the same PR, and cover it in
 `src/mocks/handlers.test.ts` — that's what keeps `dev:mock` honest as the
 API grows.
 
+When you add or change a shared component in `src/components/`, add or
+update a Storybook story alongside it so its loading, error, disabled and
+interactive states can be reviewed in isolation. Run `npm run storybook`
+to view stories locally; the deployment includes them at `/storybook/`.
+
 ## 2. Find something to work on
 
 Open issues are scoped, real, and tagged with a complexity/point value

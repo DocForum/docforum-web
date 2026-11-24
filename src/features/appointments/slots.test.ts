@@ -104,7 +104,8 @@ describe('time formatting', () => {
 
   it('uses the browser locale and zone when none is pinned', () => {
     const slot = makeSlot('a', '2026-10-20T09:00:00.000Z', '2026-10-20T09:30:00.000Z');
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    expect(formatSlotRange(slot)).toMatch(/09:00/);
+    expect(formatSlotRange(slot)).toBe(formatSlotRange(slot, { timeZone: browserZone }));
   });
 });
