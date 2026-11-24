@@ -34,6 +34,41 @@ export interface components {
     "accessToken": string;
   };
 
+  "LoginResult": { [key: string]: unknown };
+
+  "MfaRequiredResponse": {
+    "mfaRequired": true;
+    "mfaToken": string;
+  };
+
+  "EnrollmentRequiredResponse": {
+    "enrollmentRequired": true;
+    "enrollmentToken": string;
+  };
+
+  "TwoFactorVerifyInput": {
+    "mfaToken": string;
+    "code": string;
+  };
+
+  "TwoFactorCodeInput": {
+    "code": string;
+  };
+
+  "TwoFactorSetup": {
+    "secret": string;
+    "otpauthUri": string;
+  };
+
+  "TwoFactorEnableResult": {
+    "recoveryCodes": Array<string>;
+  };
+
+  "TwoFactorStatus": {
+    "enabled": boolean;
+    "unusedRecoveryCodes": number;
+  };
+
   "SignupInput": {
     "role": components["schemas"]["SelfServeRole"];
     "email": string;
@@ -460,7 +495,50 @@ export interface paths {
     post: {
       requestBody: { content: { "application/json": components["schemas"]["LoginInput"] } };
       responses: {
+          200: { content: { "application/json": components["schemas"]["LoginResult"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/verify": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorVerifyInput"] } };
+      responses: {
           200: { content: { "application/json": components["schemas"]["AuthSession"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/setup": {
+    post: {
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorSetup"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/enable": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorCodeInput"] } };
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorEnableResult"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/status": {
+    get: {
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorStatus"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/disable": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorCodeInput"] } };
+      responses: {
+
       };
     };
   };

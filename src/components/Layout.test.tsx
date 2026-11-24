@@ -64,6 +64,7 @@ describe('Layout — role-aware navigation', () => {
       '/patient/orders',
       '/payments',
       '/patient/settings',
+      '/account/security',
     ]);
   });
 
@@ -72,7 +73,7 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/doctor');
     expect(screen.getByRole('link', { name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Insights' })).toBeInTheDocument();
-    expect(desktopNavHrefs()).toEqual(['/doctor', '/doctor/messages', '/doctor/insights']);
+    expect(desktopNavHrefs()).toEqual(['/doctor', '/doctor/messages', '/doctor/insights', '/account/security']);
   });
 
   it('shows every routed facility screen in the nav, with settings grouped', () => {
@@ -91,6 +92,7 @@ describe('Layout — role-aware navigation', () => {
       '/facility/integrations',
       '/facility/insights',
       '/facility/settings',
+      '/account/security',
     ]);
   });
 
@@ -111,6 +113,7 @@ describe('Layout — role-aware navigation', () => {
       '/admin/flags',
       '/admin/catalogs',
       '/admin/system',
+      '/account/security',
     ]);
   });
 

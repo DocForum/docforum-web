@@ -19,7 +19,7 @@ API" for the one documented local-dev cookie caveat.
 - [x] Signup/login screens, corrected to **patient/doctor only** for
   self-serve signup — facility accounts are admin-invited (PRD OQ-2), so
   there is deliberately no facility option in the signup UI. Login works
-  for all three roles (facility users just don't self-register). 14 tests
+  for all roles; [issue #386](https://github.com/DocForum/docforum-web/issues/386) adds two-factor sign-in, forced admin enrollment, and account security settings. 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
 - [x] Invite landing + redemption for admins and facility staff. Tracked

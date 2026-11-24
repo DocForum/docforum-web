@@ -4,10 +4,13 @@ import { useAuthStore } from '../../../store/auth-store';
 
 export function useLogin() {
   const setSession = useAuthStore((state) => state.setSession);
-  const clearSession = useAuthStore((state) => state.clearSession);
 
   return useMutation({
     mutationFn: login,
-    onSuccess: (session) => setSession(session.user, session.accessToken, session.csrfToken),
+    onSuccess: (result) => {
+      if (isAuthSession(result)) {
+        setSession(result.user, result.accessToken, result.csrfToken);
+      }
+    },
   });
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
+import type { FormEvent } from 'react';
 import QRCode from 'qrcode';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
@@ -16,6 +17,7 @@ import { enableTwoFactor, isAuthSession, setupTwoFactor, verifyTwoFactor } from 
 import { useAuthStore } from '../../../store/auth-store';
 import { z } from 'zod';
 import { ApiError, RateLimitError } from '../../../services/api-client';
+import { DEFAULT_RETRY_AFTER_SECONDS } from '../../../services/api-client';
 import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
 import { LockoutNotice } from './LockoutNotice';
 
@@ -41,6 +43,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const t = useT();
   const errorMessage = useErrorMessage();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const { errors } = form.formState;
 
@@ -55,9 +58,15 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
-      await loginMutation.mutateAsync({ email: data.email, password: data.password });
-      lockout.reset();
-      onSuccess?.();
+      const result = await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      if (isAuthSession(result)) {
+        lockout.reset();
+        onSuccess?.();
+      } else if ('mfaRequired' in result) {
+        setChallenge({ kind: 'mfa', token: result.mfaToken });
+      } else {
+        setChallenge({ kind: 'enrollment', token: result.enrollmentToken });
+      }
     } catch (error) {
       // 429 lockout: show a countdown and keep submit disabled until it ends.
       // The message is account-agnostic on purpose — it must not reveal
@@ -68,8 +77,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       }
       if (error instanceof ApiError) {
         if (error.status === 429) {
-          setServerError('Too many sign-in attempts. Please wait before trying again.');
-          setLockoutSeconds(error.retryAfterSeconds ?? 0);
+          lockout.start(DEFAULT_RETRY_AFTER_SECONDS);
           return;
         }
         const fieldErrors = mapServerErrors(error.body);
@@ -92,7 +100,12 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         onExpired={() => {
           setChallenge(null);
           form.reset({ email: '', password: '' });
-          setServerError('Your sign-in step expired. Enter your password again to request a new code.');
+          setServerError(
+            t(
+              'auth.twoFactor.mfaExpired',
+              'Your sign-in step expired. Enter your password again to request a new code.',
+            ),
+          );
         }}
         onSuccess={onSuccess}
       />
@@ -106,12 +119,22 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         onExpired={() => {
           setChallenge(null);
           form.reset({ email: '', password: '' });
-          setServerError('Your enrolment step expired. Enter your password again to restart sign-in.');
+          setServerError(
+            t(
+              'auth.twoFactor.enrollmentExpired',
+              'Your enrollment step expired. Enter your password again to restart sign-in.',
+            ),
+          );
         }}
         onFinished={() => {
           setChallenge(null);
           form.reset({ email: '', password: '' });
-          setServerError('Two-factor authentication is enabled. Sign in again with your password and authenticator code.');
+          setServerError(
+            t(
+              'auth.twoFactor.enrollmentComplete',
+              'Two-factor authentication is enabled. Sign in again with your password and authenticator code.',
+            ),
+          );
         }}
       />
     );
@@ -180,27 +203,33 @@ function MfaChallenge({
     setPending(true);
     try {
       const session = await verifyTwoFactor(token, normalizedCode(code));
-      setSession(session.user, session.accessToken);
+      setSession(session.user, session.accessToken, session.csrfToken);
       onSuccess?.();
     } catch (reason) {
       if (errorCode(reason) === 'INVALID_MFA_TOKEN') {
         onExpired();
       } else if (errorCode(reason) === 'INVALID_TOTP_CODE') {
-        setError('That code is incorrect or has already been used. Try a new code or recovery code.');
+        setError(
+          t(
+            'auth.twoFactor.invalidCode',
+            'That code is incorrect or has already been used. Try a new code or recovery code.',
+          ),
+        );
       } else {
-        setError(reason instanceof Error ? reason.message : 'Could not verify the code. Try again.');
+        setError(t('auth.twoFactor.verifyError', 'Could not verify the code. Try again.'));
       }
     } finally {
       setPending(false);
     }
   }
 
+  const t = useT();
   return (
     <form onSubmit={submit} noValidate>
-      <h2>Two-factor sign-in</h2>
-      <p>Enter a six-digit authenticator code or one of your recovery codes.</p>
+      <h2>{t('auth.twoFactor.signInTitle', 'Two-factor sign-in')}</h2>
+      <p>{t('auth.twoFactor.signInDescription', 'Enter a six-digit authenticator code or one of your recovery codes.')}</p>
       {error && <FormError message={error} />}
-      <label htmlFor="mfa-code">Authenticator or recovery code</label>
+      <label htmlFor="mfa-code">{t('auth.twoFactor.codeLabel', 'Authenticator or recovery code')}</label>
       <input
         id="mfa-code"
         name="code"
@@ -212,10 +241,10 @@ function MfaChallenge({
         required
       />
       <Button type="submit" loading={pending} disabled={!normalizedCode(code)}>
-        Verify and sign in
+        {t('auth.twoFactor.verify', 'Verify and sign in')}
       </Button>
       <Button type="button" variant="secondary" onClick={onBack}>
-        Back to password
+        {t('auth.twoFactor.back', 'Back to password')}
       </Button>
     </form>
   );
@@ -233,6 +262,12 @@ function ForcedEnrollment({
   const setupPromise = useRef<Promise<{ secret: string; qrCode: string }> | null>(null);
   const onExpiredRef = useRef(onExpired);
   onExpiredRef.current = onExpired;
+  const t = useT();
+  const setupErrorMessage = t('auth.twoFactor.setupError', 'Could not load authenticator setup.');
+  const setupErrorMessageRef = useRef(setupErrorMessage);
+  setupErrorMessageRef.current = setupErrorMessage;
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const [setup, setSetup] = useState<{ secret: string; qrCode: string } | null>(null);
   const [code, setCode] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
@@ -246,15 +281,16 @@ function ForcedEnrollment({
         qrCode: await QRCode.toDataURL(response.otpauthUri),
       }));
     }
+    const request = setupPromise.current;
     let active = true;
-    void setupPromise.current
+    void request
       .then((response) => {
         if (active) setSetup(response);
       })
       .catch((reason: unknown) => {
         if (active) {
           if (errorCode(reason) === 'INVALID_MFA_TOKEN') onExpiredRef.current();
-          else setError(reason instanceof Error ? reason.message : 'Could not load authenticator setup.');
+          else setError(translateRef.current('auth.twoFactor.setupError', setupErrorMessageRef.current));
         }
       });
     return () => {
@@ -271,8 +307,11 @@ function ForcedEnrollment({
       setRecoveryCodes(result.recoveryCodes);
     } catch (reason) {
       if (errorCode(reason) === 'INVALID_MFA_TOKEN') onExpired();
-      else if (reason instanceof ApiError && reason.status === 400) setError('That code is incorrect. Check your authenticator app and try again.');
-      else setError(reason instanceof Error ? reason.message : 'Could not enable two-factor authentication.');
+      else if (reason instanceof ApiError && reason.status === 400) {
+        setError(t('auth.twoFactor.invalidEnrollmentCode', 'That code is incorrect. Check your authenticator app and try again.'));
+      } else {
+        setError(t('auth.twoFactor.enableError', 'Could not enable two-factor authentication.'));
+      }
     } finally {
       setPending(false);
     }
@@ -281,32 +320,34 @@ function ForcedEnrollment({
   if (recoveryCodes) {
     return (
       <section>
-        <h2>Save your recovery codes</h2>
-        <p>These codes are shown once. Store them somewhere safe; each can only be used once.</p>
+        <h2>{t('auth.twoFactor.recoveryTitle', 'Save your recovery codes')}</h2>
+        <p>{t('auth.twoFactor.recoveryDescription', 'These codes are shown once. Store them somewhere safe; each can only be used once.')}</p>
         <ol>{recoveryCodes.map((recoveryCode) => <li key={recoveryCode}><code>{recoveryCode}</code></li>)}</ol>
         <RecoveryCodeActions codes={recoveryCodes} />
-        <Button type="button" onClick={onFinished}>Continue to sign in</Button>
+        <Button type="button" onClick={onFinished}>{t('auth.twoFactor.continueToSignIn', 'Continue to sign in')}</Button>
       </section>
     );
   }
 
   return (
     <section>
-      <h2>Set up two-factor authentication</h2>
-      <p>Scan this QR code with an authenticator app, or enter the secret manually.</p>
+      <h2>{t('auth.twoFactor.enrollmentTitle', 'Set up two-factor authentication')}</h2>
+      <p>{t('auth.twoFactor.enrollmentDescription', 'Scan this QR code with an authenticator app, or enter the secret manually.')}</p>
       {error && <FormError message={error} />}
       {setup ? (
         <>
-          <img src={setup.qrCode} alt="Authenticator app setup QR code" width="220" height="220" />
-          <p>Setup key: <code>{setup.secret}</code></p>
+          <img src={setup.qrCode} alt={t('auth.twoFactor.qrAlt', 'Authenticator app setup QR code')} width="220" height="220" />
+          <p>{t('auth.twoFactor.setupKey', 'Setup key')}: <code>{setup.secret}</code></p>
           <form onSubmit={submit} noValidate>
-            <label htmlFor="enrollment-code">Six-digit authenticator code</label>
+            <label htmlFor="enrollment-code">{t('auth.twoFactor.enrollmentCodeLabel', 'Six-digit authenticator code')}</label>
             <input id="enrollment-code" type="text" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required />
-            <Button type="submit" loading={pending} disabled={!normalizedCode(code)}>Enable and show recovery codes</Button>
+            <Button type="submit" loading={pending} disabled={!normalizedCode(code)}>
+              {t('auth.twoFactor.enableAndShowCodes', 'Enable and show recovery codes')}
+            </Button>
           </form>
         </>
       ) : (
-        <p role="status">Preparing your authenticator setup…</p>
+        <p role="status">{t('auth.twoFactor.preparing', 'Preparing your authenticator setup…')}</p>
       )}
     </section>
   );

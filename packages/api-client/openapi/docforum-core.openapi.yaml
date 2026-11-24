@@ -71,10 +71,84 @@ paths:
             schema: { $ref: '#/components/schemas/LoginInput' }
       responses:
         '200':
-          description: Session created
+          description: Session created or a second-factor challenge
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/verify:
+    post:
+      tags: [auth]
+      operationId: verifyTwoFactor
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorVerifyInput' }
+      responses:
+        '200':
+          description: Authenticated session and rotated refresh cookie
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/setup:
+    post:
+      tags: [auth]
+      operationId: setupTwoFactor
+      responses:
+        '200':
+          description: One-time authenticator setup secret
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorSetup' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/2fa/enable:
+    post:
+      tags: [auth]
+      operationId: enableTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorCodeInput' }
+      responses:
+        '200':
+          description: Recovery codes shown once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorEnableResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/status:
+    get:
+      tags: [auth]
+      operationId: getTwoFactorStatus
+      responses:
+        '200':
+          description: Current two-factor status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/disable:
+    post:
+      tags: [auth]
+      operationId: disableTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorCodeInput' }
+      responses:
+        '204': { description: Two-factor authentication disabled }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /auth/logout:
@@ -917,6 +991,61 @@ components:
       properties:
         user: { $ref: '#/components/schemas/User' }
         accessToken: { type: string }
+
+    LoginResult:
+      oneOf:
+        - $ref: '#/components/schemas/AuthSession'
+        - $ref: '#/components/schemas/MfaRequiredResponse'
+        - $ref: '#/components/schemas/EnrollmentRequiredResponse'
+
+    MfaRequiredResponse:
+      type: object
+      required: [mfaRequired, mfaToken]
+      properties:
+        mfaRequired: { type: boolean, enum: [true] }
+        mfaToken: { type: string }
+
+    EnrollmentRequiredResponse:
+      type: object
+      required: [enrollmentRequired, enrollmentToken]
+      properties:
+        enrollmentRequired: { type: boolean, enum: [true] }
+        enrollmentToken: { type: string }
+
+    TwoFactorVerifyInput:
+      type: object
+      required: [mfaToken, code]
+      properties:
+        mfaToken: { type: string }
+        code: { type: string }
+
+    TwoFactorCodeInput:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+
+    TwoFactorSetup:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret: { type: string }
+        otpauthUri: { type: string }
+
+    TwoFactorEnableResult:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          items: { type: string }
+
+    TwoFactorStatus:
+      type: object
+      required: [enabled, unusedRecoveryCodes]
+      properties:
+        enabled: { type: boolean }
+        unusedRecoveryCodes: { type: integer, minimum: 0 }
 
     SignupInput:
       type: object

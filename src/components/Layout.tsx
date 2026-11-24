@@ -199,6 +199,16 @@ export function Layout() {
             </RRNavLink>
           ))}
           {user && (
+            <RRNavLink
+              to={paths.accountSecurity}
+              className={({ isActive }) =>
+                styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
+              }
+            >
+              {t('accountSecurity.nav', 'Account security')}
+            </RRNavLink>
+          )}
+          {user && (
             <Flag name="notification_preferences">
               <RRNavLink
                 to={paths.notificationSettings}
@@ -287,6 +297,15 @@ export function Layout() {
                   {item.messageId ? t(item.messageId, item.label) : item.label}
                 </RRNavLink>
               ))}
+              <RRNavLink
+                to={paths.accountSecurity}
+                className={({ isActive }) =>
+                  styles.drawerLink + (isActive ? ` ${styles.drawerLinkActive}` : '')
+                }
+                onClick={closeDrawer}
+              >
+                {t('accountSecurity.nav', 'Account security')}
+              </RRNavLink>
               <Flag name="notification_preferences">
                 <RRNavLink
                   to={paths.notificationSettings}

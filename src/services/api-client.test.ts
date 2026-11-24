@@ -632,5 +632,25 @@ describe('session recovery (issue #9)', () => {
       await expect(apiFetch('/public')).rejects.toMatchObject({ status: 401 });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it.each(['INVALID_MFA_TOKEN', 'INVALID_TOTP_CODE'])(
+      'does not refresh or clear the session for %s',
+      async (code) => {
+        useAuthStore.getState().setSession(patient, 'active-token', 'csrf-1');
+        fetchMock.mockResolvedValueOnce(jsonBody({ code }, 401));
+
+        await expect(
+          apiFetch('/auth/2fa/disable', {
+            method: 'POST',
+            body: { code: 'wrong' },
+            accessToken: 'active-token',
+          }),
+        ).rejects.toMatchObject({ status: 401, code });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(useAuthStore.getState().accessToken).toBe('active-token');
+        expect(useAuthStore.getState().user).not.toBeNull();
+      },
+    );
   });
 });

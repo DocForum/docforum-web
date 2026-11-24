@@ -369,6 +369,7 @@ async function withAuthRetry<T>(
     return await run(options);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401 || !options.accessToken) throw error;
+    if (error.code === 'INVALID_MFA_TOKEN' || error.code === 'INVALID_TOTP_CODE') throw error;
     const refreshedToken = await refreshSession();
     if (!refreshedToken) throw error;
     return run({ ...options, accessToken: refreshedToken });

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 
 export function RecoveryCodeActions({ codes }: { codes: string[] }) {
+  const t = useT();
   const [copyError, setCopyError] = useState<string | null>(null);
   const codesText = codes.join('\n');
 
@@ -10,7 +12,9 @@ export function RecoveryCodeActions({ codes }: { codes: string[] }) {
       await navigator.clipboard.writeText(codesText);
       setCopyError(null);
     } catch {
-      setCopyError('Clipboard access is unavailable. Select and copy the codes above.');
+      setCopyError(
+        t('auth.twoFactor.clipboardUnavailable', 'Clipboard access is unavailable. Select and copy the codes above.'),
+      );
     }
   }
 
@@ -27,10 +31,10 @@ export function RecoveryCodeActions({ codes }: { codes: string[] }) {
     <>
       {copyError && <p role="alert">{copyError}</p>}
       <Button type="button" variant="secondary" onClick={() => void copyCodes()}>
-        Copy recovery codes
+        {t('auth.twoFactor.copyCodes', 'Copy recovery codes')}
       </Button>
       <Button type="button" variant="secondary" onClick={downloadCodes}>
-        Download recovery codes
+        {t('auth.twoFactor.downloadCodes', 'Download recovery codes')}
       </Button>
     </>
   );

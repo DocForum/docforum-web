@@ -13,6 +13,7 @@ import {
 import type { TwoFactorSetup, TwoFactorStatus } from '../../../types/models';
 import { useAuthStore } from '../../../store/auth-store';
 import { RecoveryCodeActions } from '../../auth/components/RecoveryCodeActions';
+import { useT } from '../../../i18n/useT';
 
 function errorCode(error: unknown): string | undefined {
   if (!(error instanceof ApiError) || typeof error.body !== 'object' || error.body === null) return undefined;
@@ -25,6 +26,12 @@ function normalizeCode(value: string): string {
 }
 
 export function TwoFactorSection() {
+  const t = useT();
+  const loadErrorMessage = t('accountSecurity.loadError', 'Could not load two-factor status.');
+  const loadErrorMessageRef = useRef(loadErrorMessage);
+  loadErrorMessageRef.current = loadErrorMessage;
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const accessToken = useAuthStore((state) => state.accessToken);
   const [status, setStatus] = useState<TwoFactorStatus | null>(null);
   const [setup, setSetup] = useState<(TwoFactorSetup & { qrCode: string }) | null>(null);
@@ -45,9 +52,9 @@ export function TwoFactorSection() {
         setStatus(next);
         setError(null);
       }
-    } catch (reason) {
+    } catch {
       if (requestId === statusRequest.current) {
-        setError(reason instanceof Error ? reason.message : 'Could not load two-factor status.');
+        setError(translateRef.current('accountSecurity.loadError', loadErrorMessageRef.current));
       }
     } finally {
       if (requestId === statusRequest.current) setLoading(false);
@@ -70,7 +77,7 @@ export function TwoFactorSection() {
       if (errorCode(reason) === 'TWO_FACTOR_ALREADY_ENABLED') {
         await refreshStatus();
       } else {
-        setError(reason instanceof Error ? reason.message : 'Could not start authenticator setup.');
+        setError(t('accountSecurity.setupError', 'Could not start authenticator setup.'));
       }
     } finally {
       setPending(false);
@@ -90,9 +97,9 @@ export function TwoFactorSection() {
       setSetupCode('');
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 400) {
-        setError('That code is incorrect. Check your authenticator app and try again.');
+        setError(t('accountSecurity.invalidCode', 'That code is incorrect. Check your authenticator app and try again.'));
       } else {
-        setError(reason instanceof Error ? reason.message : 'Could not enable two-factor authentication.');
+        setError(t('accountSecurity.enableError', 'Could not enable two-factor authentication.'));
       }
     } finally {
       setPending(false);
@@ -111,9 +118,14 @@ export function TwoFactorSection() {
       setRecoveryCodes(null);
     } catch (reason) {
       if (errorCode(reason) === 'INVALID_TOTP_CODE') {
-        setError('That code is incorrect. Your account is still signed in and two-factor authentication remains enabled.');
+        setError(
+          t(
+            'accountSecurity.invalidDisableCode',
+            'That code is incorrect. Your account is still signed in and two-factor authentication remains enabled.',
+          ),
+        );
       } else {
-        setError(reason instanceof Error ? reason.message : 'Could not disable two-factor authentication.');
+        setError(t('accountSecurity.disableError', 'Could not disable two-factor authentication.'));
       }
     } finally {
       setPending(false);
@@ -122,50 +134,62 @@ export function TwoFactorSection() {
 
   return (
     <section className="card" aria-labelledby="two-factor-title">
-      <h2 id="two-factor-title">Two-factor authentication</h2>
+      <h2 id="two-factor-title">{t('accountSecurity.twoFactor.title', 'Two-factor authentication')}</h2>
       {error && <FormError message={error} />}
       {loading ? (
-        <p role="status">Loading security status…</p>
+        <p role="status">{t('accountSecurity.loading', 'Loading security status…')}</p>
       ) : status?.enabled ? (
         <>
-          <p>Two-factor authentication is on. {status.unusedRecoveryCodes} recovery codes remain unused.</p>
+          <p>
+            {t(
+              'accountSecurity.enabled',
+              'Two-factor authentication is on. {count} recovery codes remain unused.',
+              { count: status.unusedRecoveryCodes },
+            )}
+          </p>
           {recoveryCodes ? (
             <>
-              <p>Save these recovery codes now. They will only be shown in this session.</p>
+              <p>{t('accountSecurity.saveCodes', 'Save these recovery codes now. They will only be shown in this session.')}</p>
               <ol>{recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}</ol>
               <RecoveryCodeActions codes={recoveryCodes} />
               <Button type="button" variant="secondary" onClick={() => setRecoveryCodes(null)}>
-                I have saved my codes
+                {t('accountSecurity.codesSaved', 'I have saved my codes')}
               </Button>
             </>
           ) : null}
           <form onSubmit={disable}>
-            <label htmlFor="disable-two-factor-code">Code to turn off two-factor authentication</label>
+            <label htmlFor="disable-two-factor-code">
+              {t('accountSecurity.disableCodeLabel', 'Code to turn off two-factor authentication')}
+            </label>
             <input id="disable-two-factor-code" type="text" autoComplete="one-time-code" value={disableCode} onChange={(event) => setDisableCode(event.target.value)} required />
             <Button type="submit" variant="secondary" loading={pending} disabled={!normalizeCode(disableCode)}>
-              Turn off two-factor authentication
+              {t('accountSecurity.disable', 'Turn off two-factor authentication')}
             </Button>
           </form>
         </>
       ) : setup ? (
         <>
-          <p>Scan the QR code with an authenticator app, or enter the secret manually.</p>
-          <img src={setup.qrCode} alt="Authenticator app setup QR code" width="220" height="220" />
-          <p>Setup key: <code>{setup.secret}</code></p>
+          <p>{t('accountSecurity.enrollmentDescription', 'Scan the QR code with an authenticator app, or enter the secret manually.')}</p>
+          <img src={setup.qrCode} alt={t('accountSecurity.qrAlt', 'Authenticator app setup QR code')} width="220" height="220" />
+          <p>{t('accountSecurity.setupKey', 'Setup key')}: <code>{setup.secret}</code></p>
           <form onSubmit={enable}>
-            <label htmlFor="enable-two-factor-code">Six-digit authenticator code</label>
+            <label htmlFor="enable-two-factor-code">
+              {t('accountSecurity.enableCodeLabel', 'Six-digit authenticator code')}
+            </label>
             <input id="enable-two-factor-code" type="text" autoComplete="one-time-code" value={setupCode} onChange={(event) => setSetupCode(event.target.value)} required />
             <Button type="submit" loading={pending} disabled={!normalizeCode(setupCode)}>
-              Enable and show recovery codes
+              {t('accountSecurity.enableAndShowCodes', 'Enable and show recovery codes')}
             </Button>
-            <Button type="button" variant="secondary" onClick={() => setSetup(null)}>Cancel setup</Button>
+            <Button type="button" variant="secondary" onClick={() => setSetup(null)}>
+              {t('accountSecurity.cancelSetup', 'Cancel setup')}
+            </Button>
           </form>
         </>
       ) : (
         <>
-          <p>Protect sign-in with an authenticator app and one-time recovery codes.</p>
+          <p>{t('accountSecurity.twoFactor.description', 'Protect sign-in with an authenticator app and one-time recovery codes.')}</p>
           <Button type="button" onClick={() => void beginSetup()} loading={pending}>
-            Set up two-factor authentication
+            {t('accountSecurity.beginSetup', 'Set up two-factor authentication')}
           </Button>
         </>
       )}

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { render, screen, waitFor } from '../../../test/render';
 import { ApiError } from '../../../services/api-client';
 import * as authService from '../../../services/auth-service';
@@ -30,10 +31,11 @@ describe('TwoFactorSection', () => {
     });
     vi.mocked(authService.enableTwoFactor).mockResolvedValue({ recoveryCodes: ['AAAAA-11111', 'BBBBB-22222'] });
     const user = userEvent.setup();
-    render(<TwoFactorSection />);
+    const { container } = render(<TwoFactorSection />);
 
     await user.click(await screen.findByRole('button', { name: /set up two-factor authentication/i }));
     expect(await screen.findByAltText(/authenticator app setup qr code/i)).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
     await user.type(screen.getByLabelText(/six-digit authenticator code/i), '123456');
     await user.click(screen.getByRole('button', { name: /enable and show recovery codes/i }));
 

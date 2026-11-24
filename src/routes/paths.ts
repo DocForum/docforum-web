@@ -39,6 +39,7 @@ export const paths = {
   home: '/',
   login: '/login',
   signup: '/signup',
+  accountSecurity: '/account/security',
   claimAccount: '/claim-account',
   invite: '/invite',
   accountDeleted: '/account-deleted',
