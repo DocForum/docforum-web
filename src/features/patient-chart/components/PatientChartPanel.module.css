@@ -1,0 +1,142 @@
+.panel {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.card h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.card p.empty {
+  margin: 0;
+  color: #999;
+  font-style: italic;
+}
+
+.card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card li {
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.card li:last-child {
+  border-bottom: none;
+}
+
+.consultList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.consultItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.consultItem:last-child {
+  border-bottom: none;
+}
+
+.consultDate {
+  width: 120px;
+}
+
+.consultType {
+  width: 80px;
+  text-transform: capitalize;
+}
+
+.consultReason {
+  flex: 1;
+  font-style: italic;
+}
+
+.ordersTable,
+.resultsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ordersTable th,
+.ordersTable td,
+.resultsTable th,
+.resultsTable td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.ordersTable th,
+.resultsTable th {
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statusBadge.critical {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.statusBadge.abnormal {
+  background: #fff8e1;
+  color: #ef6c00;
+}
+
+.statusBadge.normal {
+  background: #e8f5e9;
+  color: #2e7d32;
+}

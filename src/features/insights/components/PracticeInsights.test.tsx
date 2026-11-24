@@ -8,7 +8,7 @@ import { TurnaroundMetricsCard } from './TurnaroundMetricsCard';
 import { DateRangeSelector } from './DateRangeSelector';
 import { useAuthStore } from '../../../store/auth-store';
 import * as insightsService from '../../../services/insights-service';
-import { EMPTY_INSIGHTS, MOCK_INSIGHTS } from '../../../test/factories';
+import { EMPTY_INSIGHTS, MOCK_INSIGHTS } from '../../../test/insights-fixtures';
 import type { DoctorPracticeInsights } from '../../../types/models';
 
 vi.mock('../../../services/insights-service');

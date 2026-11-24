@@ -18,7 +18,7 @@ describe('feature flags service', () => {
     await expect(listFeatureFlags('admin-token')).resolves.toEqual([]);
 
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toMatch(/\/admin\/flags$/);
+    expect(String(url)).toMatch(/\/admin\/feature-flags/);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer admin-token');
   });
 
@@ -27,7 +27,7 @@ describe('feature flags service', () => {
     await updateFeatureFlag('odd/key', { enabled: true, expectedUpdatedAt: '2026-10-01T00:00:00.000Z' }, 'admin-token');
 
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toMatch(/\/admin\/flags\/odd%2Fkey$/);
+    expect(String(url)).toMatch(/\/admin\/feature-flags\/odd%2Fkey/);
     expect(init?.method).toBe('PATCH');
     expect(JSON.parse(String(init?.body))).toEqual({ enabled: true, expectedUpdatedAt: '2026-10-01T00:00:00.000Z' });
   });

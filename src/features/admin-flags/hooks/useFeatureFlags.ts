@@ -3,14 +3,16 @@ import * as flagsService from '../../../services/feature-flags-service';
 import * as auditService from '../../../services/audit-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
+import { invalidateFor } from '../../../invalidations';
+import { flagKeys } from '../../../query-keys';
 import { applyUpdate } from '../draft';
 import { FLAG_ENTITY_TYPE } from '../flags';
 import type { FeatureFlag, UpdateFeatureFlagInput } from '../../../types/models';
 
 // Sibling keys, not nested ones: invalidating the list mustn't also cancel
 // or refetch the audit lookup, and vice versa.
-export const FLAGS_KEY = ['admin', 'flags', 'list'] as const;
-const HISTORY_KEY = ['admin', 'flags', 'history'] as const;
+export const FLAGS_KEY = flagKeys.list();
+const HISTORY_KEY = flagKeys.history();
 const UPDATE_KEY = ['admin', 'flags', 'update'] as const;
 
 // The most the audit listing serves in one page (docforum-core#43).
@@ -100,8 +102,7 @@ export function useUpdateFeatureFlag() {
     // has a new "last changed" entry when the save went through. Not awaited
     // — a slow (cold-start) refetch mustn't hold the flag in "Saving…".
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: FLAGS_KEY });
-      void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+      void invalidateFor(queryClient, 'admin.feature-flags.write');
     },
   });
 }

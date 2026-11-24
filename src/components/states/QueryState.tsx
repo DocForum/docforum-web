@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
-import { ApiError } from '../../services/api-client';
+import { ApiError, ApiTimeoutError } from '../../services/api-client';
 import { EmptyState } from './EmptyState';
+import { InlineError } from './InlineError';
+import { PageError } from './PageError';
 import { Skeleton } from './Skeleton';
-import styles from './QueryState.module.css';
 
 /** The slice of a React Query result `QueryState` needs. Structural, so it
- * accepts `useQuery`, `useInfiniteQuery` and view-model objects. */
+ * accepts `useQuery`, `useInfiniteQuery` (via its first page) and the
+ * view-model objects feature hooks return. */
 export interface QueryStateResult<T> {
   isPending: boolean;
   isError: boolean;
@@ -26,11 +28,19 @@ export interface QueryStateProps<T> {
   /** Called once data arrives. Return true to render `empty` instead. */
   isEmpty?: (data: T) => boolean;
   empty?: ReactNode;
+  /** `page` renders `PageError`; `inline` (default) renders `InlineError`. */
+  errorLayout?: 'inline' | 'page';
+  /** When the whole route has nothing but this query, use `page` so the
+   * retry gets the space it deserves. */
+  fallback?: { label: string; to: string };
   children: ReactNode | ((data: T) => ReactNode);
 }
 
 /** Human-readable message for anything a query can reject with. */
 export function queryErrorMessage(error: unknown): string {
+  if (error instanceof ApiTimeoutError) {
+    return 'The server is taking too long to respond. It may be waking up — try again in a moment.';
+  }
   if (error instanceof ApiError) {
     if (error.status === 0) return "We couldn't reach the server. Check your connection and try again.";
     if (error.status === 403) return "You don't have access to this. Sign in again if your session expired.";
@@ -43,13 +53,25 @@ export function queryErrorMessage(error: unknown): string {
 }
 
 /**
- * Picks the right state for a query result: a skeleton while the first page
- * loads, an error with retry when it fails, the caller's empty state when the
- * data is genuinely empty, and the content otherwise.
+ * Picks the right state for a query result (issue #106): skeleton while the
+ * first page loads, an error with retry when it fails, the caller's empty state
+ * when the data is genuinely empty, and the content otherwise.
  *
- * Refetching after data has arrived is not a skeleton — the previous content
- * stays on screen, because replacing real figures with placeholders on every
- * poll is worse than a brief stale read.
+ * ```tsx
+ * <QueryState
+ *   result={ordersQuery}
+ *   isEmpty={(orders) => orders.length === 0}
+ *   empty={<EmptyState title="No orders yet" action={{ label: 'Back to your care hub', to: '/patient' }} />}
+ *   onRetry={() => ordersQuery.refetch()}
+ * >
+ *   <OrdersTable orders={ordersQuery.data ?? []} />
+ * </QueryState>
+ * ```
+ *
+ * Refetching after data arrived is *not* a skeleton: the previous rows stay on
+ * screen and the screen's own refresh affordance reports progress, because
+ * replacing content with placeholders on every poll is worse than a brief stale
+ * read.
  */
 export function QueryState<T>({
   result,
@@ -60,34 +82,38 @@ export function QueryState<T>({
   onRetry,
   isEmpty,
   empty,
+  errorLayout = 'inline',
+  fallback,
   children,
 }: QueryStateProps<T>) {
   if (result.isPending) {
     return <>{loading ?? <Skeleton lines={3} label={loadingLabel} />}</>;
   }
 
-  // An error while refetching or loading a later page must not replace
-  // content that has already arrived. Only a first-load failure with no data
-  // takes over the area; callers surface background failures separately.
-  if (result.isError && result.data === undefined) {
+  if (result.isError) {
     const message =
       typeof errorMessage === 'function'
         ? errorMessage(result.error)
         : errorMessage ?? queryErrorMessage(result.error);
-    const retry = onRetry ?? (result.refetch ? () => void result.refetch?.() : undefined);
+    const retry = onRetry ?? (() => void result.refetch?.());
+
+    if (errorLayout === 'page') {
+      return (
+        <PageError
+          title={errorTitle ?? "This couldn't be loaded"}
+          message={message}
+          onRetry={result.refetch || onRetry ? retry : undefined}
+          fallback={fallback}
+        />
+      );
+    }
 
     return (
-      <div className={styles.error} role="alert">
-        <div>
-          <p className={styles.errorTitle}>{errorTitle ?? "This couldn't be loaded"}</p>
-          <p className={styles.errorMessage}>{message}</p>
-        </div>
-        {retry && (
-          <button type="button" className={styles.retry} onClick={retry}>
-            Try again
-          </button>
-        )}
-      </div>
+      <InlineError
+        title={errorTitle}
+        message={message}
+        onRetry={result.refetch || onRetry ? retry : undefined}
+      />
     );
   }
 

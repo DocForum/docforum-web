@@ -24,6 +24,8 @@
   display: block;
   border-radius: var(--radius-sm);
   background: var(--color-surface-alt);
+  /* Slow, low-amplitude opacity pulse — communicates progress without the
+     gloss of a shimmer gradient (this design system uses solid colours only). */
   animation: skeletonPulse 1.6s ease-in-out infinite;
 }
 
@@ -37,6 +39,8 @@
   }
 }
 
+/* Functional progress is not decorative, but a pulsing block is still motion:
+   stop it for users who asked for less, and keep a static outline. */
 @media (prefers-reduced-motion: reduce) {
   .line {
     animation: none;

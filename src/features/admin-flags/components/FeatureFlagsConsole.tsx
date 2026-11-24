@@ -1,19 +1,21 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
 import { useFeatureFlags, useFlagHistory, useSavingFlagKeys, useUpdateFeatureFlag } from '../hooks/useFeatureFlags';
 import { applyUpdate, draftFromFlag } from '../draft';
 import { describeListError, describeSaveError } from '../errors';
 import {
   KIND_LABELS,
   STATE_FILTERS,
-  STATE_LABELS,
   auditTrailLink,
   countByState,
   describeAudience,
   filterFlags,
   flagState,
+  kindLabel,
+  stateLabel,
   latestChangeByFlag,
   parseFlagSearch,
   toFlagSearch,
@@ -24,6 +26,7 @@ import type { FlagFilters, KindFilter } from '../flags';
 import type { LastChange } from './LastChanged';
 import type { UpdateFlagVariables } from '../hooks/useFeatureFlags';
 import type { FeatureFlag } from '../../../types/models';
+import { useT } from '../../../i18n/useT';
 import styles from './FeatureFlags.module.css';
 
 type OpenDialog = { mode: 'edit' | 'toggle'; flag: FeatureFlag } | null;
@@ -48,6 +51,7 @@ const NOTICE_CLASS = {
  * in the URL.
  */
 export function FeatureFlagsConsole() {
+  const t = useT();
   const titleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseFlagSearch(searchParams), [searchParams]);
@@ -87,9 +91,16 @@ export function FeatureFlagsConsole() {
     try {
       const saved = await update.mutateAsync(variables);
       const shown = saved?.key ? saved : applyUpdate(variables.flag, variables.input);
-      setNotice({ tone: 'success', message: `${shown.key} saved. ${describeAudience(shown)}`, flagId: shown.id });
+      setNotice({
+        tone: 'success',
+        message: t('adminFlags.save.success', '{key} saved. {audience}', {
+          key: shown.key,
+          audience: describeAudience(shown, t),
+        }),
+        flagId: shown.id,
+      });
     } catch (error) {
-      const failure = describeSaveError(error, variables.flag.key);
+      const failure = describeSaveError(error, variables.flag.key, t);
       setNotice({
         tone: failure.kind === 'conflict' ? 'warning' : 'error',
         message: failure.message,
@@ -100,26 +111,38 @@ export function FeatureFlagsConsole() {
 
   let body;
   if (flags.isLoading) {
-    body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading feature flags…</span>
-      </div>
-    );
+    body = <Skeleton lines={4} height="2.5rem" label={t('adminFlags.loading', 'Loading feature flags')} />;
   } else if (flags.error) {
     body = (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeListError(flags.error)}</p>
-        <Button variant="secondary" onClick={() => void flags.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title={t('adminFlags.error.loadTitle', 'Feature flags could not be loaded')}
+        message={describeListError(flags.error, t)}
+        onRetry={() => void flags.refetch()}
+        retryLabel={t('common.tryAgain', 'Try again')}
+      />
     );
   } else if (visible.length === 0) {
     body = (
-      <p className={styles.empty}>
-        {all.length === 0 ? 'No feature flags are defined in this environment yet.' : 'No flags match these filters.'}
-      </p>
+      <EmptyState
+        title={
+          all.length === 0
+            ? t('adminFlags.empty.noneTitle', 'No feature flags are defined in this environment yet.')
+            : t('adminFlags.empty.noMatchesTitle', 'No flags match these filters.')
+        }
+        description={
+          all.length === 0
+            ? t('adminFlags.empty.noneDescription', 'Flags created in docforum-core appear here with their rollout and targeting.')
+            : t('adminFlags.empty.noMatchesDescription', 'Clear the search or filters to see every flag in this environment.')
+        }
+        action={
+          all.length === 0
+            ? { label: t('adminFlags.refresh', 'Refresh flags'), onClick: () => void flags.refetch() }
+            : {
+                label: t('adminFlags.clearFilters', 'Clear filters'),
+                onClick: () => updateFilters({ query: '', kind: 'all', state: 'all' }),
+              }
+        }
+      />
     );
   } else {
     body = (
@@ -146,45 +169,44 @@ export function FeatureFlagsConsole() {
     <section className={styles.console} aria-labelledby={titleId}>
       <header>
         <h1 id={titleId} className={styles.title}>
-          Feature flags
+          {t('adminFlags.title', 'Feature flags')}
         </h1>
         <p className={styles.subtitle}>
-          Staged rollouts served by docforum-core in this environment. Changes take effect for users as soon as they
-          are saved, and every change is recorded in the audit trail under your account.
+          {t('adminFlags.subtitle', 'Staged rollouts served by docforum-core in this environment. Changes take effect for users as soon as they are saved, and every change is recorded in the audit trail under your account.')}
         </p>
       </header>
 
       <div className={styles.toolbar}>
         <div className={styles.toolbarFields}>
           <label className={styles.searchField}>
-            <span className={styles.fieldLabel}>Search</span>
+            <span className={styles.fieldLabel}>{t('adminFlags.search', 'Search')}</span>
             <input
               type="search"
               className={styles.input}
-              placeholder="Key or description"
+              placeholder={t('adminFlags.searchPlaceholder', 'Key or description')}
               value={filters.query}
               maxLength={100}
               onChange={(event) => updateFilters({ query: event.target.value })}
             />
           </label>
           <label className={styles.selectField}>
-            <span className={styles.fieldLabel}>Type</span>
+            <span className={styles.fieldLabel}>{t('adminFlags.type', 'Type')}</span>
             <select
               className={styles.select}
               value={filters.kind}
               onChange={(event) => updateFilters({ kind: event.target.value as KindFilter })}
             >
-              <option value="all">All types</option>
+              <option value="all">{t('adminFlags.allTypes', 'All types')}</option>
               {Object.entries(KIND_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {kindLabel(value as Exclude<KindFilter, 'all'>, t) || label}
                 </option>
               ))}
             </select>
           </label>
         </div>
 
-        <div className={styles.stateFilter} role="group" aria-label="Filter by state">
+        <div className={styles.stateFilter} role="group" aria-label={t('adminFlags.filterState', 'Filter by state')}>
           {STATE_FILTERS.map((key) => (
             <button
               key={key}
@@ -193,7 +215,7 @@ export function FeatureFlagsConsole() {
               aria-pressed={filters.state === key}
               onClick={() => updateFilters({ state: key })}
             >
-              {key === 'all' ? 'All' : STATE_LABELS[key]}
+              {key === 'all' ? t('adminFlags.state.all', 'All') : stateLabel(key, t)}
               <span className={styles.chipCount}>{counts[key]}</span>
             </button>
           ))}
@@ -207,11 +229,11 @@ export function FeatureFlagsConsole() {
             {notice.flagId && (
               <>
                 {' '}
-                <Link to={auditTrailLink(notice.flagId)}>View in audit trail</Link>
+                <Link to={auditTrailLink(notice.flagId)}>{t('adminFlags.viewAudit', 'View in audit trail')}</Link>
               </>
             )}
           </p>
-          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label={t('common.dismiss', 'Dismiss')}>
             ×
           </button>
         </div>
@@ -220,12 +242,14 @@ export function FeatureFlagsConsole() {
       {!flags.isLoading && !flags.error && all.length > 0 && (
         <div className={styles.summaryRow}>
           <p className={styles.summary} aria-live="polite">
-            {filtered ? `${visible.length} of ${all.length} flags` : `${all.length} ${all.length === 1 ? 'flag' : 'flags'}`}
-            {flags.isFetching && ' · updating…'}
+            {filtered
+              ? t('adminFlags.summary.filtered', '{visible} of {total} flags', { visible: visible.length, total: all.length })
+              : t('adminFlags.summary.count', '{count, plural, one {# flag} other {# flags}}', { count: all.length })}
+            {flags.isFetching && t('adminFlags.summary.updating', ' · updating…')}
           </p>
           {filtered && (
             <button type="button" className={styles.clearFilters} onClick={() => setSearchParams({}, { replace: true })}>
-              Clear filters
+              {t('adminFlags.clearFilters', 'Clear filters')}
             </button>
           )}
         </div>

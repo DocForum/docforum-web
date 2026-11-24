@@ -224,7 +224,45 @@
 
 .statusRefunded {
   background: #f1f5f9;
-  color: #64748b;
+  color: #475569;
+}
+
+.statusFailed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.orderTitle {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.orderMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.orderMeta code {
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+.amount {
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.escrowCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.mutedCell {
+  color: var(--color-text-muted);
 }
 
 .warningAlertBox {
@@ -277,31 +315,8 @@
   padding-top: var(--space-4);
 }
 
-.loadMoreError {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid #fecaca;
-  border-radius: var(--radius-md);
-  background: #fef2f2;
-  color: #991b1b;
-  font-size: var(--text-sm);
-}
-
-.retryLink {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.retryLink:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+.staleNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }

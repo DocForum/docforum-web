@@ -87,6 +87,7 @@ export function PracticeInsightsView() {
             size="page"
             title="No appointments in this range"
             description="There are no scheduled visits, referrals or message threads in the selected period. Choose a wider date range to see your practice metrics."
+            action={{ label: 'Choose a wider date range', onClick: () => setPreset('90d') }}
           />
         }
       >

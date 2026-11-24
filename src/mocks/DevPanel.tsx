@@ -4,22 +4,65 @@
 // application tree itself never imports anything under src/mocks/.
 import { useState } from 'react';
 import { queryClient } from '../query-client';
-import { resetDb } from './db';
+import { db, resetDb } from './db';
+import { notificationKeys } from '../query-keys';
+import { resetMockSessions } from './handlers/auth';
 import styles from './DevPanel.module.css';
 import { useMockStore, type MockScenario } from './mock-store';
+import { FLAG_DESCRIPTIONS, KNOWN_FLAGS } from '../features/feature-flags/flags';
 import { activateMockRole, mockSignOut } from './roles';
 import type { Role } from '../types/models';
 
 const ROLES: Role[] = ['patient', 'doctor', 'facility', 'admin'];
-const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error'];
+const SCENARIOS: MockScenario[] = [
+  'normal',
+  'empty',
+  'error',
+  'network-once',
+  'wallet_missing',
+  'trustline_missing',
+];
+
+const SCENARIO_LABELS: Record<MockScenario, string> = {
+  normal: 'normal',
+  empty: 'empty states',
+  error: 'errors',
+  'network-once': 'network once',
+  wallet_missing: 'no payout wallet',
+  trustline_missing: 'missing trustline',
+};
+
+let simulatedCount = 0;
+
+/**
+ * Adds an unread notification to the mock inbox and refetches it, so the
+ * bell's "new notification" announcement (issue #246) can be checked with a
+ * screen reader without waiting for the 60s poll.
+ */
+function simulateNotification(): void {
+  simulatedCount += 1;
+  db.notifications.push({
+    id: `ntf-simulated-${simulatedCount}`,
+    kind: 'system_announcement',
+    title: `Simulated notification ${simulatedCount} (fake)`,
+    body: 'Added from the mock API panel to test new-notification announcements.',
+    link: null,
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  });
+  void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+}
 
 export function DevPanel() {
   const [open, setOpen] = useState(true);
   const scenario = useMockStore((s) => s.scenario);
   const latencyMs = useMockStore((s) => s.latencyMs);
   const activeRole = useMockStore((s) => s.activeRole);
+  const flagOverrides = useMockStore((s) => s.flagOverrides);
   const setScenario = useMockStore((s) => s.setScenario);
   const setLatencyMs = useMockStore((s) => s.setLatencyMs);
+  const setFlagOverride = useMockStore((s) => s.setFlagOverride);
+  const resetFlagOverrides = useMockStore((s) => s.resetFlagOverrides);
 
   if (!open) {
     return (
@@ -83,10 +126,47 @@ export function DevPanel() {
                 queryClient.invalidateQueries();
               }}
             >
-              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : 'errors'}
+              {SCENARIO_LABELS[s]}
             </button>
           ))}
         </div>
+      </div>
+
+      <div className={styles.group}>
+        <span className={styles.groupLabel} id="mock-flags-label">
+          Feature flags (evaluated client view)
+        </span>
+        <div className={styles.flagList} role="group" aria-labelledby="mock-flags-label">
+          {KNOWN_FLAGS.map((flag) => {
+            const checked = flagOverrides[flag] ?? flag === 'notification_preferences';
+            return (
+              <label key={flag} className={styles.flagRow} title={FLAG_DESCRIPTIONS[flag]}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    setFlagOverride(flag, event.target.checked);
+                    queryClient.invalidateQueries({ queryKey: ['me', 'flags'] });
+                  }}
+                />
+                <span>
+                  <code>{flag}</code>
+                  <small>{FLAG_DESCRIPTIONS[flag]}</small>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => {
+            resetFlagOverrides();
+            queryClient.invalidateQueries({ queryKey: ['me', 'flags'] });
+          }}
+        >
+          Reset flags
+        </button>
       </div>
 
       <div className={styles.group}>
@@ -115,10 +195,14 @@ export function DevPanel() {
           className={styles.action}
           onClick={() => {
             resetDb();
+            resetMockSessions();
             queryClient.invalidateQueries();
           }}
         >
           Reset data
+        </button>
+        <button type="button" className={styles.action} onClick={simulateNotification}>
+          Simulate a new notification
         </button>
         <button type="button" className={styles.action} onClick={mockSignOut}>
           Sign out
