@@ -1,5 +1,5 @@
 import { ApiError, apiFetch } from './api-client';
-import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport } from '../types/models';
+import type { BackgroundJob, JobRun, OutboxDeadLetters, ReadinessReport } from '../types/models';
 
 // docforum-core answers "not ready" with a 503 whose body is still the full
 // report — that's what Render's probe keys off. Only unwrap it when it
@@ -37,7 +37,7 @@ export function runJob(jobName: string, accessToken: string): Promise<JobRun> {
   return apiFetch<JobRun>(`/admin/jobs/${encodeURIComponent(jobName)}/run`, { method: 'POST', accessToken });
 }
 
-/** Assumed contract (docforum-core#94). A `404` means the outbox isn't exposed. */
-export function getOutboxSummary(accessToken: string, signal?: AbortSignal): Promise<OutboxSummary> {
-  return apiFetch<OutboxSummary>('/admin/outbox', { accessToken, signal });
+/** Mirrors docforum-core's admin outbox dead-letter contract. */
+export function getOutboxDeadLetters(accessToken: string, signal?: AbortSignal): Promise<OutboxDeadLetters> {
+  return apiFetch<OutboxDeadLetters>('/admin/outbox/dead-letters?limit=50', { accessToken, signal });
 }

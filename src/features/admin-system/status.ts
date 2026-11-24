@@ -1,4 +1,4 @@
-import type { BackgroundJob, JobRun, OutboxSummary, ReadinessCheck, ReadinessStatus } from '../../types/models';
+import type { BackgroundJob, JobRun, OutboxDeadLetters, ReadinessCheck, ReadinessStatus } from '../../types/models';
 
 /** Every status on the page maps onto one of these, so colours mean the same
  * thing across readiness, jobs and the outbox. */
@@ -170,8 +170,8 @@ export function checksSummary(checks: ReadinessCheck[]): string {
 }
 
 /** Any dead letter needs a human: it already exhausted its retries. */
-export function outboxTone(summary: OutboxSummary): Tone {
-  return summary.deadLetterCount > 0 ? 'danger' : 'ok';
+export function outboxTone(deadLetters: OutboxDeadLetters): Tone {
+  return deadLetters.items.length > 0 ? 'danger' : 'ok';
 }
 
 const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });

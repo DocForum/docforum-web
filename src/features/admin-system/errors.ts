@@ -5,10 +5,10 @@ import type { JobRun, ReadinessReport } from '../../types/models';
 
 export type HealthSource = 'readiness' | 'jobs' | 'outbox';
 
-const SOURCES: Record<HealthSource, { noun: string; issue: string }> = {
+const SOURCES: Record<HealthSource, { noun: string; issue?: string }> = {
   readiness: { noun: 'readiness checks', issue: 'docforum-core#104' },
   jobs: { noun: 'background job history', issue: 'docforum-core#100' },
-  outbox: { noun: 'outbox stats', issue: 'docforum-core#94' },
+  outbox: { noun: 'outbox dead letters' },
 };
 
 const AUTH_MESSAGE = 'Your session no longer has admin access. Sign in again with an admin account.';
@@ -24,7 +24,9 @@ export function isAuthError(error: unknown): boolean {
 export function describeLoadError(error: unknown, source: HealthSource): string {
   const { noun, issue } = SOURCES[source];
   if (isAuthError(error)) return AUTH_MESSAGE;
-  if (isNotServed(error)) return `docforum-core doesn't serve ${noun} yet (${issue}).`;
+  if (isNotServed(error)) {
+    return `docforum-core doesn't serve ${noun} yet${issue ? ` (${issue})` : ''}.`;
+  }
   return `Couldn't load ${noun}. The preview backend may be waking up — this page tries again every 30 seconds.`;
 }
 

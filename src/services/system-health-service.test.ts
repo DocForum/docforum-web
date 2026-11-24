@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getReadiness, runJob } from './system-health-service';
+import { getOutboxDeadLetters, getReadiness, runJob } from './system-health-service';
 import { ApiError } from './api-client';
 import type { ReadinessReport } from '../types/models';
 
@@ -47,5 +47,16 @@ describe('runJob', () => {
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toMatch(/\/admin\/jobs\/reports%2Fdaily%20digest\/run$/);
     expect(init).toMatchObject({ method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
+  });
+
+  describe('getOutboxDeadLetters', () => {
+    it('requests the real dead-letter endpoint with a bounded page size', async () => {
+      const fetchSpy = respond(200, { items: [] });
+      await expect(getOutboxDeadLetters('token')).resolves.toEqual({ items: [] });
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(String(url)).toMatch(/\/admin\/outbox\/dead-letters\?limit=50$/);
+      expect(init).toMatchObject({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
+    });
   });
 });

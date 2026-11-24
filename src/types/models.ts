@@ -757,11 +757,8 @@ export interface CancelReferralInput {
 }
 
 // --- Phase W6 — System health (issue #73) ------------------------------------
-// All assumed. Readiness follows docforum-core#104 (`/health/ready`: database,
-// migrations, required config, optional Stellar RPC); jobs follow #100's
-// `JobRun` table and `GET /admin/jobs`; the outbox summary follows #94's
-// dead-letter state. None of the three has landed. See
-// ARCHITECTURE_ESSENTIALS.md "Known assumptions — Phase W6".
+// Readiness and jobs are assumed; the outbox dead-letter list mirrors the
+// implemented docforum-core GET /admin/outbox/dead-letters contract.
 
 /** `degraded`: only optional checks are failing (e.g. Stellar RPC down takes
  * payments out, not the whole API — docforum-core#104). */
@@ -815,11 +812,17 @@ export interface BackgroundJob {
   running: boolean;
 }
 
-export interface OutboxSummary {
-  pendingCount: number;
-  /** Events that exhausted their delivery attempts (docforum-core#94). */
-  deadLetterCount: number;
-  oldestPendingAt: string | null;
+export interface OutboxDeadLetter {
+  id: string;
+  type: string;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  deadLetteredAt: string;
+}
+
+export interface OutboxDeadLetters {
+  items: OutboxDeadLetter[];
 }
 
 // --- Phase W6 — Feature flags console (issue #74) -----------------------------
