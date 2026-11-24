@@ -6,7 +6,7 @@ import { Skeleton } from '../components/states/Skeleton';
 import { PaymentReceipt } from '../features/payments/components/PaymentReceipt';
 import { contractUrl, transactionUrl } from '../features/payments/explorer';
 import { usePaymentHistoryEntry } from '../features/payments/hooks/usePaymentHistory';
-import { historyErrorCopy, statusLabel } from '../features/payments/status';
+import { paymentDetailErrorCopy, statusLabel } from '../features/payments/status';
 import { useFormatters } from '../i18n/formatters';
 import { useT } from '../i18n/useT';
 import styles from './PaymentDetailPage.module.css';
@@ -22,10 +22,10 @@ export function PaymentDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1 className={styles.title}>Payment</h1>
+          <h1 className={styles.title}>{t('payments.detail.title', 'Payment')}</h1>
           <InlineError
-            title="Payment couldn't be loaded"
-            message={historyErrorCopy(entryQuery.error)}
+            title={t('payments.detail.errorTitle', "Payment couldn't be loaded")}
+            message={paymentDetailErrorCopy(entryQuery.error, t)}
             onRetry={() => void entryQuery.refetch()}
           />
           <p className={styles.back}>
@@ -41,7 +41,7 @@ export function PaymentDetailPage() {
     return (
       <div className="container">
         <div className="card">
-          <h1 className={styles.title}>Payment</h1>
+          <h1 className={styles.title}>{t('payments.detail.title', 'Payment')}</h1>
           {entryQuery.isFetching ? (
             <Skeleton
               lines={6}

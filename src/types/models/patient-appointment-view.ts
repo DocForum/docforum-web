@@ -10,7 +10,7 @@ import type { AppointmentStatus } from './doctor-core-flow';
 // because that is what JSON carries.
 
 export type SlotStatus = 'open' | 'held' | 'booked';
-export type AppointmentOrigin = 'direct_booking' | 'referral';
+export type AppointmentOrigin = 'direct_booking' | 'referral' | 'follow_up';
 
 export interface AvailabilitySlot {
   id: string;

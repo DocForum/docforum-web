@@ -9,12 +9,17 @@ import * as prescriptionsService from '../../../services/prescriptions-service';
 import * as doctorProfileService from '../../../services/doctor-profile-service';
 import * as facilityService from '../../../services/facility-service';
 import * as appointmentService from '../../../services/appointment-service';
+import * as verificationService from '../../../services/doctor-verification-service';
+import * as searchService from '../../../services/search-service';
 import type {
   Consultation,
+  ConsultationReferral,
+  DoctorSearchResult,
   EligibleFacility,
   IssuedLabOrder,
   IssuedPrescription,
   MyDoctorProfile,
+  Specialty,
 } from '../../../types/models';
 
 vi.mock('../../../services/consultation-service');
@@ -22,6 +27,8 @@ vi.mock('../../../services/prescriptions-service');
 vi.mock('../../../services/doctor-profile-service');
 vi.mock('../../../services/facility-service');
 vi.mock('../../../services/appointment-service');
+vi.mock('../../../services/doctor-verification-service');
+vi.mock('../../../services/search-service');
 
 const CONSULTATION: Consultation = {
   id: 'con-1',
@@ -119,6 +126,49 @@ const FACILITIES: EligibleFacility[] = [
   },
 ];
 
+const SPECIALTIES: Specialty[] = [
+  { id: 'spc-cardio', name: 'Cardiology', slug: 'cardiology' },
+  { id: 'spc-derm', name: 'Dermatology', slug: 'dermatology' },
+];
+
+const DOCTORS: DoctorSearchResult[] = [
+  {
+    id: 'doc-1',
+    fullName: 'Dr. Demo Doctor (fake)',
+    verificationStatus: 'verified',
+    specialties: [SPECIALTIES[0]],
+    openSlotCount: 0,
+    nextAvailableAt: null,
+  },
+  {
+    id: 'doc-2',
+    fullName: 'Dr. Other Cardiologist (fake)',
+    verificationStatus: 'verified',
+    specialties: [SPECIALTIES[0]],
+    openSlotCount: 2,
+    nextAvailableAt: '2026-11-24T09:00:00.000Z',
+  },
+  {
+    id: 'doc-3',
+    fullName: 'Dr. Unverified (fake)',
+    verificationStatus: 'pending',
+    specialties: [SPECIALTIES[0]],
+    openSlotCount: 0,
+    nextAvailableAt: null,
+  },
+];
+
+const REFERRAL: ConsultationReferral = {
+  id: 'ref-1',
+  consultationId: 'con-1',
+  targetSpecialty: 'Cardiology',
+  targetSpecialtyId: 'spc-cardio',
+  targetDoctorId: null,
+  reason: 'Chest pain follow-up (fake).',
+  status: 'pending',
+  createdAt: '2026-11-20T09:01:00.000Z',
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
   useAuthStore.setState({ accessToken: 'test-token', user: null });
@@ -137,6 +187,9 @@ beforeEach(() => {
     status: 'completed',
   });
   vi.mocked(consultationService.createConsultation).mockResolvedValue(CONSULTATION);
+  vi.mocked(consultationService.createConsultationReferral).mockResolvedValue([REFERRAL]);
+  vi.mocked(verificationService.listSpecialties).mockResolvedValue(SPECIALTIES);
+  vi.mocked(searchService.searchDoctors).mockResolvedValue(DOCTORS);
   vi.mocked(prescriptionsService.issuePrescription).mockResolvedValue(PRESCRIPTION);
   vi.mocked(prescriptionsService.issueLabOrder).mockResolvedValue(LAB_ORDER);
 });
@@ -151,6 +204,18 @@ async function closeConsultation() {
 
   await screen.findByText(/consultation closed/i);
   return user;
+}
+
+async function fillReferralTarget(
+  user: ReturnType<typeof userEvent.setup>,
+  index: number,
+  specialtyId: string,
+  notes: string,
+) {
+  const specialties = screen.getAllByLabelText(/target specialty/i);
+  const notesFields = screen.getAllByLabelText(/snapshot notes/i);
+  await user.selectOptions(specialties[index], specialtyId);
+  await user.type(notesFields[index], notes);
 }
 
 describe('ConsultationOutcomePanel', () => {
@@ -183,6 +248,151 @@ describe('ConsultationOutcomePanel', () => {
 
     expect(await screen.findByText(/already has a consultation/i)).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /prescription/i })).not.toBeInTheDocument();
+  });
+
+  it('creates one atomic referral batch with an optional doctor, excluding self-referral', async () => {
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await user.type(screen.getByLabelText(/outcome notes/i), 'Needs cardiology review (fake).');
+    await fillReferralTarget(user, 0, 'spc-cardio', 'Chest pain follow-up (fake).');
+
+    expect(await screen.findByRole('option', { name: 'Dr. Other Cardiologist (fake)' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Dr. Demo Doctor (fake)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Dr. Unverified (fake)' })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/optional doctor/i), 'doc-2');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    await waitFor(() => {
+      expect(consultationService.createConsultationReferral).toHaveBeenCalledWith(
+        'con-1',
+        {
+          targets: [
+            {
+              targetSpecialtyId: 'spc-cardio',
+              targetDoctorId: 'doc-2',
+              snapshotNotes: 'Chest pain follow-up (fake).',
+            },
+          ],
+        },
+        'test-token',
+      );
+    });
+    expect(await screen.findByText(/referral to cardiology/i)).toBeInTheDocument();
+  });
+
+  it('sends multiple referral targets in one batch', async () => {
+    const second: ConsultationReferral = {
+      ...REFERRAL,
+      id: 'ref-2',
+      targetSpecialty: 'Dermatology',
+      targetSpecialtyId: 'spc-derm',
+    };
+    vi.mocked(consultationService.createConsultationReferral).mockResolvedValue([
+      REFERRAL,
+      second,
+    ]);
+
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await fillReferralTarget(user, 0, 'spc-cardio', 'Cardiology review (fake).');
+    await user.click(screen.getByRole('button', { name: /add referral target/i }));
+    await fillReferralTarget(user, 1, 'spc-derm', 'Skin check (fake).');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    await waitFor(() => {
+      expect(consultationService.createConsultationReferral).toHaveBeenCalledWith(
+        'con-1',
+        {
+          targets: [
+            {
+              targetSpecialtyId: 'spc-cardio',
+              targetDoctorId: undefined,
+              snapshotNotes: 'Cardiology review (fake).',
+            },
+            {
+              targetSpecialtyId: 'spc-derm',
+              targetDoctorId: undefined,
+              snapshotNotes: 'Skin check (fake).',
+            },
+          ],
+        },
+        'test-token',
+      );
+    });
+    expect(await screen.findByText(/referral to dermatology/i)).toBeInTheDocument();
+  });
+
+  it('rejects duplicate referral targets before closing the consultation', async () => {
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await fillReferralTarget(user, 0, 'spc-cardio', 'First target (fake).');
+    await user.click(screen.getByRole('button', { name: /add referral target/i }));
+    await fillReferralTarget(user, 1, 'spc-cardio', 'Duplicate target (fake).');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    expect(await screen.findByText(/remove duplicate referral targets/i)).toBeInTheDocument();
+    expect(consultationService.createConsultation).not.toHaveBeenCalled();
+    expect(consultationService.createConsultationReferral).not.toHaveBeenCalled();
+  });
+
+  it('requires snapshot notes for every referral target', async () => {
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await user.selectOptions(screen.getByLabelText(/target specialty/i), 'spc-cardio');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    expect(
+      await screen.findByText(/snapshot notes are required for every referral target/i),
+    ).toBeInTheDocument();
+    expect(consultationService.createConsultation).not.toHaveBeenCalled();
+  });
+
+  it('does not close the consultation twice when retrying failed referrals', async () => {
+    vi.mocked(consultationService.createConsultationReferral)
+      .mockRejectedValueOnce(new Error('Referral routing unavailable'))
+      .mockResolvedValueOnce([REFERRAL]);
+
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await fillReferralTarget(user, 0, 'spc-cardio', 'Chest pain follow-up (fake).');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    expect(await screen.findByText(/referrals not created/i)).toBeInTheDocument();
+    expect(screen.getByText(/referral routing unavailable/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /retry referrals/i }));
+
+    expect(await screen.findByText(/referral to cardiology/i)).toBeInTheDocument();
+    expect(consultationService.createConsultation).toHaveBeenCalledTimes(1);
+    expect(consultationService.createConsultationReferral).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps a no-eligible-target 422 to recovery copy', async () => {
+    vi.mocked(consultationService.createConsultationReferral).mockRejectedValue(
+      new ApiError('No eligible doctor for this specialty.', 422, undefined, {
+        code: 'REFERRAL_NO_ELIGIBLE_TARGET',
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<ConsultationOutcomePanel appointmentId="apt-1" />);
+
+    await user.selectOptions(screen.getByLabelText(/consultation outcome/i), 'referred');
+    await fillReferralTarget(user, 0, 'spc-cardio', 'Chest pain follow-up (fake).');
+    await user.click(screen.getByRole('button', { name: /close consultation/i }));
+
+    expect(await screen.findByText(/no eligible doctor could be found/i)).toBeInTheDocument();
   });
 
   it('issues a multi-item prescription with exactly one price field', async () => {

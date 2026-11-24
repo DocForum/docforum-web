@@ -34,6 +34,7 @@ import type {
   FacilityPrice,
   FacilitySettings,
   FacilityWithDistance,
+  FollowUpRequest,
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
@@ -157,6 +158,7 @@ export interface MockDb {
   consultationRecords: ConsultationRecord[];
   consultationReferrals: ConsultationReferral[];
   consultationOrders: ConsultationIssuedOrder[];
+  followUps: FollowUpRequest[];
   insights: DoctorPracticeInsights;
   facilityInsights: FacilityPerformanceInsights;
   facilities: FacilityWithDistance[];
@@ -463,6 +465,35 @@ export function createSeedDb(): MockDb {
       checkInAt: null,
       startedAt: null,
       completedAt: null,
+    },
+  ];
+
+  const followUps: FollowUpRequest[] = [
+    {
+      id: 'follow-up-demo-open',
+      consultationId: 'cons-demo-follow-up',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      patientProfileId: PATIENT_PROFILE_ID,
+      notesSnapshot: 'Please book a review to check how the treatment is working.',
+      intakeFormId: 'itk-demo-1',
+      windowStart: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      windowEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'open',
+      bookedAppointmentId: null,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'follow-up-demo-expired',
+      consultationId: 'cons-demo-expired',
+      doctorProfileId: DOCTOR_PROFILE_ID,
+      patientProfileId: PATIENT_PROFILE_ID,
+      notesSnapshot: 'This follow-up window has ended.',
+      intakeFormId: 'itk-demo-1',
+      windowStart: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+      windowEnd: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'expired',
+      bookedAppointmentId: null,
+      createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
     },
   ];
 
@@ -2345,6 +2376,7 @@ export function createSeedDb(): MockDb {
     consultationRecords: [],
     consultationReferrals: [],
     consultationOrders: [],
+    followUps,
     insights,
     facilityInsights,
     facilities,
