@@ -136,7 +136,9 @@ export const consultationHandlers = [
       if (new Set(targetKeys).size !== targetKeys.length) {
         return HttpResponse.json({ message: 'Duplicate referral target', code: 'REFERRAL_DUPLICATE_TARGET' }, { status: 400 });
       }
-      const specialtyById = new Map(SPECIALTIES.map((specialty) => [specialty.id, specialty]));
+      const specialtyById = new Map(
+        db.specialties.map((specialty) => [specialty.id, specialty] as const),
+      );
       const referrals = body.targets.map((target, index) => {
         const specialty = target.targetSpecialtyId ? specialtyById.get(target.targetSpecialtyId) : null;
         const doctor = target.targetDoctorId
