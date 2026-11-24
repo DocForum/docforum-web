@@ -23,6 +23,35 @@ export interface User {
   updatedAt: string;
 }
 
+export interface AuthSession {
+  user: User;
+  accessToken: string;
+}
+
+export interface MfaRequiredResponse {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export interface EnrollmentRequiredResponse {
+  enrollmentRequired: true;
+  enrollmentToken: string;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  otpauthUri: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  unusedRecoveryCodes: number;
+}
+
+export interface TwoFactorEnableResult {
+  recoveryCodes: string[];
+}
+
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 
 export interface PatientProfile {

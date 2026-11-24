@@ -3,6 +3,7 @@ import { DataExportSection } from '../features/account/components/DataExportSect
 import { DeleteAccountSection } from '../features/account/components/DeleteAccountSection';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { CalendarSubscriptionSection } from '../features/settings/components/CalendarSubscriptionSection';
+import { TwoFactorSection } from '../features/account/components/TwoFactorSection';
 
 export function AccountSettingsPage() {
   const exportSectionRef = useRef<HTMLDivElement>(null);
@@ -28,6 +29,7 @@ export function AccountSettingsPage() {
       </div>
 
       <CalendarSubscriptionSection />
+      <TwoFactorSection />
 
       <div>
         <DeleteAccountSection onRequestExportClick={handleScrollToExport} />

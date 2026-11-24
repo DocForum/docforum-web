@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import type { Role } from '../types/models';
 
@@ -12,8 +12,17 @@ interface RequireAuthProps {
  * signed-in user's role isn't allowed for this route. */
 export function RequireAuth({ allowedRoles, children }: RequireAuthProps) {
   const user = useAuthStore((state) => state.user);
+  const location = useLocation();
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ returnTo: `${location.pathname}${location.search}${location.hash}` }}
+      />
+    );
+  }
   if (!allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
 
   return <>{children}</>;

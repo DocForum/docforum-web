@@ -100,6 +100,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
     );
   }
 
+  base.push({ to: '/account/security', label: 'Account security', roles: ['patient', 'doctor', 'facility', 'admin'] });
   return base.filter((item) => !item.roles || item.roles.includes(userRole));
 }
 

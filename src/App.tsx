@@ -28,6 +28,7 @@ import { AdminDisputeDetailPage } from './pages/AdminDisputeDetailPage';
 import { OrderVerifyPage } from './pages/OrderVerifyPage';
 import { FacilityPaymentsPage } from './pages/FacilityPaymentsPage';
 import { PatientChartPage } from "./pages/PatientChartPage";
+import { AccountSecurityPage } from './pages/AccountSecurityPage';
 
 export default function App() {
   return (
@@ -37,6 +38,14 @@ export default function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="claim-account" element={<ClaimAccountPage />} />
+        <Route
+          path="account/security"
+          element={
+            <RequireAuth allowedRoles={['patient', 'doctor', 'facility', 'admin']}>
+              <AccountSecurityPage />
+            </RequireAuth>
+          }
+        />
         {/* Issue-path routes (#34 `/account/access-log`, #37 `/payments`) stay
             at the literal path the issues name, guarded to patients, rather
             than being folded under /patient where the hub's nested routes
