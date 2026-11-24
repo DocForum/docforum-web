@@ -1,5 +1,5 @@
 ---
-file: ARCHITECTURE_ESSENTIALS.md
+file: ROADMAP.md
 section: Phase W7 — Platform quality: reliability, accessibility, performance, testing
 ---
 ### Footer link reliability (issue #221)
