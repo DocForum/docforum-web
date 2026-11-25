@@ -40,6 +40,37 @@ export const appointmentKeys = {
   detail: (appointmentId: string) => ['appointments', 'detail', appointmentId] as const,
   /** The check-in queue view shown on an appointment page (assumed core#129). */
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
+  /** The cancellation policy the dialog's copy is derived from (issue #15). */
+  cancellationPolicy: (appointmentId: string) =>
+    ['appointments', appointmentId, 'cancellation-policy'] as const,
+};
+
+/** A patient's lab results (issue #24). The list is session-scoped; the detail
+ * nests under the same root so a re-read of the list never drops the detail. */
+export const labResultKeys = {
+  all: ['lab-results'] as const,
+  list: () => ['lab-results', 'list'] as const,
+  detail: (resultId: string) => ['lab-results', 'detail', resultId] as const,
+};
+
+/** Admin user management (issue #70). */
+export const adminUserKeys = {
+  all: ['admin', 'users'] as const,
+  page: (query: unknown) => ['admin', 'users', 'page', query] as const,
+  detail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
+  invites: () => ['admin', 'users', 'invites'] as const,
+};
+
+/** Admin operations overview (issue #68) — one aggregated board. */
+export const overviewKeys = {
+  all: ['admin', 'overview'] as const,
+};
+
+export const followUpKeys = {
+  all: ['follow-ups'] as const,
+  mine: () => ['follow-ups', 'mine'] as const,
+  slots: (followUpId: string, doctorProfileId: string) =>
+    ['follow-ups', followUpId, 'slots', doctorProfileId] as const,
 };
 
 /**
@@ -131,6 +162,11 @@ export const facilitySearchKeys = {
 export const auditKeys = {
   all: ['admin', 'audit'] as const,
   page: (tab: string, query: unknown) => ['admin', 'audit', tab, query] as const,
+};
+
+export const adminMetricsKeys = {
+  all: ['admin', 'metrics'] as const,
+  range: (from: string, to: string) => ['admin', 'metrics', from, to] as const,
 };
 
 /** Stuck-referral queue and the reassignment picker. */

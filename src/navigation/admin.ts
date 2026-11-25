@@ -3,7 +3,9 @@ import type { NavItem } from './types';
 
 /** Admin navigation, in display order. */
 export const adminNavItems: NavItem[] = [
-  { to: paths.admin.root, label: 'Payments', roles: ['admin'] },
+  { to: paths.admin.root, label: 'Overview', roles: ['admin'] },
+  { to: paths.admin.users, label: 'Users', roles: ['admin'] },
+  { to: paths.admin.paymentsConsole, label: 'Payments', roles: ['admin'] },
   { to: paths.admin.verifications, label: 'Verifications', roles: ['admin'] },
   { to: paths.admin.verification, label: 'Specialty claims', roles: ['admin'] },
   { to: paths.admin.referrals, label: 'Referrals', roles: ['admin'] },

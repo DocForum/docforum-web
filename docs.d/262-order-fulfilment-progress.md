@@ -1,3 +1,7 @@
+---
+file: ARCHITECTURE_ESSENTIALS.md
+section: Known assumptions > Phase W4 — Partial fulfilment (issue #54, depends on docforum-core#73)
+---
 ### Item-level fulfilment progress (issue #262)
 
 `GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=` returns

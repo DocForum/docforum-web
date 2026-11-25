@@ -64,8 +64,8 @@ export function createConsultationReferral(
   consultationId: string,
   input: CreateConsultationReferralInput,
   accessToken: string,
-): Promise<ConsultationReferral> {
-  return apiFetch<ConsultationReferral>(`/consultations/${consultationId}/referrals`, {
+): Promise<ConsultationReferral[]> {
+  return apiFetch<ConsultationReferral[]>(`/consultations/${consultationId}/referrals`, {
     method: 'POST',
     body: input,
     accessToken,

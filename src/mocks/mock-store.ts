@@ -4,7 +4,15 @@
 import { create } from 'zustand';
 import type { Role } from '../types/models';
 
-export type MockScenario = 'normal' | 'empty' | 'error' | 'network-once';
+export type MockScenario =
+  | 'normal'
+  | 'empty'
+  | 'error'
+  | 'network-once'
+  // Payout-setup blockers (issue #279) so the facility banner can be
+  // exercised without a real docforum-core:
+  | 'wallet_missing'
+  | 'trustline_missing';
 
 interface MockState {
   scenario: MockScenario;

@@ -29,6 +29,13 @@ export function adminRoutes(_context: RouteContext): RouteObject[] {
       { path: 'admin/system', lazy: lazyPage(() => import('../pages/AdminSystemPage'), 'AdminSystemPage') },
       { path: 'admin/flags', lazy: lazyPage(() => import('../pages/AdminFlagsPage'), 'AdminFlagsPage') },
       { path: 'admin/catalogs', lazy: lazyPage(() => import('../pages/AdminCatalogsPage'), 'AdminCatalogsPage') },
+      { path: 'admin/users', lazy: lazyPage(() => import('../pages/AdminUsersPage'), 'AdminUsersPage') },
+      // The payments console moved off `/admin` when the overview took over
+      // the landing page (issue #68); the page itself is unchanged.
+      {
+        path: 'admin/payments/console',
+        lazy: lazyPage(() => import('../pages/AdminPaymentsConsolePage'), 'AdminPaymentsConsolePage'),
+      },
       { path: 'admin/*', lazy: lazyPage(() => import('../pages/AdminDashboardPage'), 'AdminDashboardPage') },
     ]),
   ];
