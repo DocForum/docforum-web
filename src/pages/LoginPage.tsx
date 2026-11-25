@@ -25,6 +25,9 @@ export function LoginPage() {
   // in-memory reason when a route guard's redirect strips it.
   const signedOutForIdle =
     searchParams.get('reason') === 'idle-timeout' || signOutReason === 'idle-timeout';
+  // Set when a refresh attempt for an existing session fails with HTTP 401 or 403.
+  // The login page explains this so the user knows their session has expired.
+  const signedOutForSessionExpired = signOutReason === 'session-expired';
 
   // Set when an existing user followed "Log in to accept this invitation"
   // from the invite landing (issue #81) — after logging in, send them back
@@ -61,11 +64,17 @@ export function LoginPage() {
     <div className="authContainer">
       <div className="card">
         <h1>{t('auth.login.title', 'Welcome back')}</h1>
-        {signedOutForIdle && (
+{signedOutForIdle && (
           <p className={styles.idleNotice} role="status">
             You were signed out automatically after a period of inactivity — DocForum does this on
-            shared devices to protect patient records. Anything you hadn’t saved is gone; sign in
+            shared devices to protect patient records. Anything you hadn't saved is gone; sign in
             again to pick up where you left off.
+          </p>
+        )}
+        {signedOutForSessionExpired && (
+          <p className={styles.idleNotice} role="status">
+            Your session has expired — you have been signed out. Anything you hadn't saved is gone; sign
+            in again to continue.
           </p>
         )}
         <p>
