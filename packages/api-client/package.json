@@ -19,5 +19,8 @@
   "scripts": {
     "generate": "node scripts/generate.mjs",
     "check-version": "node scripts/check-version.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
   }
 }

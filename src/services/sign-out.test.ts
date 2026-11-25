@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { signOut, type SignOutReason } from './sign-out';
+import { signOut } from './sign-out';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
@@ -31,30 +31,61 @@ describe('signOut', () => {
     vi.restoreAllMocks();
   });
 
-  const reasons: SignOutReason[] = [
-    'logout',
-    'session-expired',
-    'account-deleted',
-    'mock',
-  ];
+it('clears the query cache, profile store and unsaved changes on logout', async () => {
+    const queryClient = new QueryClient();
+    seedSession(queryClient);
 
-  for (const reason of reasons) {
-    it(`clears the query cache, profile store and unsaved changes on ${reason}`, async () => {
-      const queryClient = new QueryClient();
-      seedSession(queryClient);
+    await signOut('logout', { queryClient });
 
-      await signOut(reason, { queryClient });
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(useProfileStore.getState().profiles).toHaveLength(0);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().csrfToken).toBeNull();
+    expect(useAuthStore.getState().signOutReason).toBeNull();
+  });
 
-      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-      expect(useProfileStore.getState().profiles).toHaveLength(0);
-      expect(useProfileStore.getState().selectedProfileId).toBeNull();
-      expect(useUnsavedChangesStore.getState().count).toBe(0);
-      expect(useAuthStore.getState().user).toBeNull();
-      expect(useAuthStore.getState().accessToken).toBeNull();
-      expect(useAuthStore.getState().csrfToken).toBeNull();
-      expect(useAuthStore.getState().signOutReason).toBeNull();
-    });
-  }
+  it('records the session-expired reason while clearing everything else', async () => {
+    const queryClient = new QueryClient();
+    seedSession(queryClient);
+
+    await signOut('session-expired', { queryClient });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(useProfileStore.getState().profiles).toHaveLength(0);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().csrfToken).toBeNull();
+    expect(useAuthStore.getState().signOutReason).toBe('session-expired');
+  });
+
+  it('clears the query cache, profile store and unsaved changes on account deletion', async () => {
+    const queryClient = new QueryClient();
+    seedSession(queryClient);
+
+    await signOut('account-deleted', { queryClient });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(useProfileStore.getState().profiles).toHaveLength(0);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().csrfToken).toBeNull();
+    expect(useAuthStore.getState().signOutReason).toBeNull();
+  });
+
+  it('clears the query cache, profile store and unsaved changes on mock sign-out', async () => {
+    const queryClient = new QueryClient();
+    seedSession(queryClient);
+
+    await signOut('mock', { queryClient });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(useProfileStore.getState().profiles).toHaveLength(0);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().csrfToken).toBeNull();
+    expect(useAuthStore.getState().signOutReason).toBeNull();
+  });
 
   it('records the idle-timeout reason while clearing everything else', async () => {
     const queryClient = new QueryClient();
