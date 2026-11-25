@@ -8,7 +8,7 @@ import { Skeleton } from '../../../components/states/Skeleton';
 import { FormError } from '../../../components/FormError';
 import { useT } from '../../../i18n/useT';
 import { useHealthEntries, useAddHealthEntry, useUpdateHealthEntry, useRemoveHealthEntry } from '../hooks/useHealthEntries';
-import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDate } from '../../../i18n/time-zone';
 import { useErrorMessage } from '../../../hooks/useErrorText';
@@ -52,8 +52,8 @@ export function HealthSection({ section }: Props) {
 
   // The idle-timeout warning (issue #82) tells the user when signing them
   // out would lose typed-but-unsaved input.
-  useUnsavedChangesWarning(showAdd && (name.trim().length > 0 || details.trim().length > 0));
-  useUnsavedChangesWarning(
+  useUnsavedChangesGuard(showAdd && (name.trim().length > 0 || details.trim().length > 0));
+  useUnsavedChangesGuard(
     editingId !== null &&
       editOriginals !== null &&
       (editName !== editOriginals.name || editDetails !== editOriginals.details),
