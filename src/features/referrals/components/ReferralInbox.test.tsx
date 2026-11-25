@@ -18,6 +18,7 @@ const LABELS: Record<ReferralStatus, string> = {
   declined: 'Declined',
   completed: 'Completed',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
 function makeSummary(id: string, overrides: Partial<ReferralSummary> = {}): ReferralSummary {
@@ -44,7 +45,7 @@ describe('ReferralInbox', () => {
   });
 
   it('renders every status with its label, the snapshot date, and honest action copy', async () => {
-    const statuses: ReferralStatus[] = ['pending', 'accepted', 'declined', 'completed', 'expired'];
+    const statuses: ReferralStatus[] = ['pending', 'accepted', 'declined', 'completed', 'expired', 'cancelled'];
     vi.mocked(referralsService.listReferrals).mockResolvedValue(
       makePage(
         statuses.map((status, index) => makeSummary(`ref-${index + 1}`, { status })),

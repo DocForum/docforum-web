@@ -75,6 +75,15 @@ function FacilitySelectionDialog({ order, onClose, onSelected }: FacilitySelecti
         );
         return;
       }
+      if (caught instanceof ApiError && caught.status === 400) {
+        setError(
+          t(
+            'orders.list.dialog.invalidItems',
+            'One of these items is not valid for this order. Refresh the order and try again.',
+          ),
+        );
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message

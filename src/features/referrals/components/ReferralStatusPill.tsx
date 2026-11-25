@@ -16,6 +16,8 @@ function referralStatusLabel(status: ReferralStatus, t: Translate): string {
       return t('referrals.status.completed', 'Completed');
     case 'expired':
       return t('referrals.status.expired', 'Expired');
+    case 'cancelled':
+      return t('referrals.status.cancelled', 'Cancelled');
   }
 }
 

@@ -18,22 +18,18 @@ interface Meta {
 
 type StoryObj = { render: () => ReactNode };
 
-function defineMeta(meta: Meta): Meta {
-  return meta;
-}
-
 const withProviders = (locale: string) => (story: () => ReactNode) => (
   <IntlProvider locale={locale} defaultLocale="en" messages={{}} onError={() => undefined}>
     <TimeZoneProvider>{story()}</TimeZoneProvider>
   </IntlProvider>
 );
 
-const meta = defineMeta({
+const meta: Meta = {
   title: 'Components/DatePicker',
   component: DatePicker,
   decorators: [withProviders('en-US')],
   tags: ['autodocs'],
-});
+};
 
 export default meta;
 

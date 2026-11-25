@@ -119,7 +119,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                 <th>{t('integrations.apiKeys.colScopes', 'Scopes')}</th>
                 <th>{t('integrations.apiKeys.colCreated', 'Created')}</th>
                 <th>{t('integrations.apiKeys.colLastUsed', 'Last used')}</th>
-                <th aria-label={t('integrations.common.actions', 'Actions')} />
+                <th>{t('integrations.common.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>

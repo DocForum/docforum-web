@@ -3,6 +3,7 @@ import * as paymentsService from '../../../services/payments-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { paymentKeys } from '../../../query-keys';
+import { clearPayoutBlock } from '../../../store/payout-block-store';
 
 const WALLET_LINK_QUERY_KEY = paymentKeys.walletLink();
 
@@ -25,6 +26,11 @@ export function useLinkWallet() {
 
   return useMutation({
     mutationFn: (stellarPublicKey: string) => paymentsService.linkWallet(stellarPublicKey, accessToken!),
-    onSuccess: () => invalidateFor(queryClient, 'payments.wallet-link'),
+    onSuccess: () => {
+      // The link is confirmed (issue #279): drop the payout-block banner now
+      // rather than waiting for the next payment call to prove it.
+      clearPayoutBlock();
+      return invalidateFor(queryClient, 'payments.wallet-link');
+    },
   });
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { render, screen } from '../test/render';
-import { AdminDashboardPage } from './AdminDashboardPage';
+import { AdminPaymentsConsolePage } from './AdminPaymentsConsolePage';
 import { useAuthStore } from '../store/auth-store';
 
 vi.mock('../services/payments-service');
@@ -14,14 +14,14 @@ beforeEach(() => {
   });
 });
 
-describe('AdminDashboardPage accessibility (#90)', () => {
+describe('AdminPaymentsConsolePage accessibility (#90)', () => {
   it('has no detectable axe violations', async () => {
-    const { container } = render(<AdminDashboardPage />);
+    const { container } = render(<AdminPaymentsConsolePage />);
     expect(await axe(container)).toHaveNoViolations();
   });
 
   it('gives the lookup a real form and a labelled field', async () => {
-    render(<AdminDashboardPage />);
+    render(<AdminPaymentsConsolePage />);
 
     expect(screen.getByRole('form')).toBeInTheDocument();
     expect(screen.getByLabelText(/payment intent id/i)).toHaveAccessibleDescription(
