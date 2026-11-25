@@ -35,6 +35,9 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as adminMetricsService from '../services/admin-metrics-service';
+import * as appointmentsService from '../services/appointments-service';
+import * as followUpsService from '../services/follow-ups-service';
 import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
 import * as myFlagsService from '../services/my-flags-service';
@@ -233,6 +236,38 @@ describe('dependents', () => {
     expect(created.fullName).toBe('Seventeen (fake)');
   });
 
+  describe('follow-up requests (issue #31)', () => {
+    it('lists open and expired requests and books a matching slot once', async () => {
+      const requests = await followUpsService.listMyFollowUps(MOCK_ACCESS_TOKEN);
+      expect(requests.map(({ status }) => status)).toEqual(['open', 'expired']);
+
+      const open = requests[0];
+      const slots = await appointmentsService.getOpenSlots(open.doctorProfileId);
+      const slot = slots[0];
+      expect(Date.parse(slot.startTime)).toBeGreaterThanOrEqual(Date.parse(open.windowStart));
+      expect(Date.parse(slot.endTime)).toBeLessThanOrEqual(Date.parse(open.windowEnd));
+
+      const result = await followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN);
+      expect(result.followUp).toMatchObject({ status: 'booked', bookedAppointmentId: result.appointment.id });
+      expect(result.appointment).toMatchObject({ origin: 'follow_up' });
+      expect(result.followUp.intakeFormId).toBe(open.intakeFormId);
+      await expect(
+        followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+  });
+
+  describe('admin success metrics (issue #69)', () => {
+    it('returns aggregate measures and clearly unavailable cells through the mock API', async () => {
+      const from = '2026-10-01T00:00:00.000Z';
+      const to = '2026-11-01T00:00:00.000Z';
+      const metrics = await adminMetricsService.getAdminSuccessMetrics(from, to, MOCK_ACCESS_TOKEN);
+      expect(metrics.window).toEqual({ from, to, timeZone: 'UTC' });
+      expect(metrics.metrics.noShowRate).toMatchObject({ status: 'available', denominator: 55 });
+      expect(metrics.metrics.referralCompletionRate.status).toBe('not_yet_available');
+    });
+  });
+
   it('rejects a dependent at the age of majority', async () => {
     const error = await dependentsService
       .addDependent(
@@ -418,10 +453,15 @@ describe('consultation notes', () => {
 
     const referral = await consultationService.createConsultationReferral(
       record.id,
-      { targetSpecialty: 'Cardiology', reason: 'Demo referral reason (fake).' },
+      {
+        targets: [{
+          targetSpecialtyId: 'spc-cardio',
+          snapshotNotes: 'Demo referral reason (fake).',
+        }],
+      },
       MOCK_ACCESS_TOKEN,
     );
-    expect(referral.status).toBe('pending');
+    expect(referral[0].status).toBe('pending');
 
     const order = await consultationService.issueConsultationOrder(
       record.id,
@@ -476,12 +516,12 @@ describe('patient orders', () => {
     expect(selected.selectedFacility?.id).toBe(FACILITY_ID);
 
     await expect(
-      ordersService.selectFulfillingFacility(
+      ordersService.routeRemainingItems(
         'ord-demo-rx-102',
-        { facilityId: FACILITY_ID, expectedVersion: 1 },
+        { facilityId: FACILITY_ID, itemIds: ['missing-item'] },
         MOCK_ACCESS_TOKEN,
       ),
-    ).rejects.toMatchObject({ status: 409 });
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 
@@ -938,7 +978,7 @@ describe('facility fulfillment queue', () => {
       ),
     ).rejects.toMatchObject({ status: 409 });
 
-    const file = new File(['demo lab result'], 'demo-result.pdf', {
+    const file = new File(['%PDF-1.4 demo lab result'], 'demo-result.pdf', {
       type: 'application/pdf',
     });
     const uploaded = await fulfillmentService.uploadFulfillmentLabResult(
@@ -947,7 +987,7 @@ describe('facility fulfillment queue', () => {
       file,
       MOCK_ACCESS_TOKEN,
     );
-    expect(uploaded.labResult?.fileName).toBe('demo-result.pdf');
+    expect(uploaded.labResult?.fileName).toBe('lab-result.pdf');
     expect(uploaded.labResult?.sizeBytes).toBe(file.size);
 
     await expect(

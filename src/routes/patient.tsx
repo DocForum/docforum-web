@@ -41,6 +41,16 @@ export function patientRoutes({ queryClient }: RouteContext): RouteObject[] {
         prefetch: (_args, token) =>
           settlePrefetch([queryClient.ensureQueryData(myAppointmentsQueryOptions(token))]),
       },
+      // Lab results list and detail (issue #24). The detail page resolves the
+      // result against the patient's own list, so it never trusts an id alone.
+      {
+        path: 'patient/results',
+        lazy: lazyPage(() => import('../pages/LabResultsPage'), 'LabResultsPage'),
+      },
+      {
+        path: 'patient/results/:resultId',
+        lazy: lazyPage(() => import('../pages/LabResultDetailPage'), 'LabResultDetailPage'),
+      },
       // Doctor profile + week availability (issue #13). The issue specifies
       // this literal path; booking hands off to the nested /patient/book route.
       {

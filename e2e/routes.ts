@@ -25,7 +25,7 @@ export const routes: ReadonlyArray<{ path: string; role: Role; heading: string }
   { path: '/facility/verify', role: 'facility', heading: 'Verify' },
   { path: '/facility/payments', role: 'facility', heading: 'Payout' },
   { path: '/facility/team', role: 'facility', heading: 'Team' },
-  { path: '/admin', role: 'admin', heading: 'Welcome' },
+  { path: '/admin', role: 'admin', heading: 'Operations overview' },
   { path: '/admin/audit', role: 'admin', heading: 'Audit' },
   { path: '/admin/disputes', role: 'admin', heading: 'Disputes' },
   { path: '/admin/referrals', role: 'admin', heading: 'referrals' },
