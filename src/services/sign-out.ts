@@ -63,6 +63,9 @@ export async function signOut(
     useAuthStore.getState().signOutDueToIdle();
   } else {
     useAuthStore.getState().clearSession();
+    if (reason === 'session-expired') {
+      useAuthStore.getState().setSignOutReason('session-expired');
+    }
   }
 
   // Hashed static assets stay cached so the offline shell still works.

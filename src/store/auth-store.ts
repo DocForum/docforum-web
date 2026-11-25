@@ -39,14 +39,15 @@ interface AuthState {
   status: AuthStatus;
   /** Why the last sign-out happened, while signed out. Set by the idle
    * timeout (issue #82) so the login page can explain it even when a
-   * route guard's redirect wins the navigation race and drops the
+   * route guard's redirect wins the race and drops the
    * `?reason=` query param. Cleared by `setSession`. In-memory only. */
-  signOutReason: 'idle-timeout' | null;
+  signOutReason: 'idle-timeout' | 'session-expired' | null;
   setSession: (user: User, accessToken: string, csrfToken?: string) => void;
   clearSession: () => void;
   beginAuthCheck: () => void;
   endAuthCheck: () => void;
   signOutDueToIdle: () => void;
+  setSignOutReason: (reason: 'idle-timeout' | 'session-expired') => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -91,4 +92,5 @@ export const useAuthStore = create<AuthState>((set) => ({
       signOutReason: 'idle-timeout',
     });
   },
+  setSignOutReason: (reason: 'idle-timeout' | 'session-expired') => set({ signOutReason: reason }),
 }));
