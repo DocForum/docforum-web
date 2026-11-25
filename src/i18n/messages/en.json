@@ -1814,6 +1814,7 @@
   "shell.brandAria": "DocForum home",
   "shell.drawer.aria": "Mobile navigation",
   "shell.drawer.close": "Close navigation menu",
+  "shell.drawer.dialogLabel": "Mobile navigation menu",
   "shell.footer.privacy": "Privacy & analytics",
   "shell.menuToggle": "Toggle navigation menu",
   "shell.nav.badge": "{label}, {count} new",
