@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { InlineError } from '../../../components/states/InlineError';
@@ -92,6 +92,46 @@ export function AvailabilityCalendar({
 
   const isPending = pendingSlotIds.length > 0;
   const zone = timeZoneLabel(timeZone);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  const lastAction = useRef<{ ids: readonly string[]; index: number } | null>(null);
+
+  // The action buttons stay put, but they are disabled the moment the
+  // selection they act on is cleared (and the slots themselves are replaced),
+  // so focus can drop to <body>. After the slot list settles, move focus to
+  // the slot that was acted on, else the slot that took its place, else the
+  // calendar itself: never `<body>` (WCAG 2.4.3, issue #245).
+  useEffect(() => {
+    const request = lastAction.current;
+    if (!request) return;
+    lastAction.current = null;
+
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body && active.isConnected && !active.hasAttribute('disabled')) {
+      return;
+    }
+
+    const cells = Array.from(
+      sectionRef.current?.querySelectorAll<HTMLElement>('[data-slot-id]') ?? [],
+    );
+    const byId = new Map(cells.map((cell) => [cell.getAttribute('data-slot-id'), cell]));
+    const actedOn = request.ids.map((id) => byId.get(id)).find(Boolean);
+    const replacement = cells[Math.min(request.index, cells.length - 1)];
+    (actedOn ?? replacement ?? sectionRef.current)?.focus();
+  }, [slots]);
+
+  const handleAction = (
+    action: AvailabilityAction,
+    slotIds: string[],
+    range: SlotTimeRange | null,
+  ) => {
+    lastAction.current = {
+      ids: slotIds,
+      index: Math.max(0, slots.findIndex((slot) => slot.id === slotIds[0])),
+    };
+    onAction(action, slotIds, range);
+  };
+
   const scope =
     view === 'day'
       ? t('availability.calendar.scopeDay', '{day}', { day: labels[0] ?? '' })
@@ -101,7 +141,12 @@ export function AvailabilityCalendar({
         });
 
   return (
-    <section className={styles.calendar} aria-label={t('availability.calendar.ariaLabel', 'Availability calendar')}>
+    <section
+      ref={sectionRef}
+      className={styles.calendar}
+      aria-label={t('availability.calendar.ariaLabel', 'Availability calendar')}
+      tabIndex={-1}
+    >
       <header className={styles.header}>
         <p className={styles.zone}>
           <span className={styles.zonePrefix} aria-hidden="true">
@@ -181,20 +226,20 @@ export function AvailabilityCalendar({
               )}
         </p>
         <div className={styles.actionButtons}>
-          <Button variant="primary" disabled={!range || isPending} onClick={() => onAction('block', openIdsInSpan, range)}>
+          <Button variant="primary" disabled={!range || isPending} onClick={() => handleAction('block', openIdsInSpan, range)}>
             {t('availability.action.block', 'Block selected range')}
           </Button>
           <Button
             variant="secondary"
             disabled={counts.open === 0 || isPending}
-            onClick={() => onAction('remove', selectedSlots.filter((slot) => slot.status === 'open').map((slot) => slot.id), range)}
+            onClick={() => handleAction('remove', selectedSlots.filter((slot) => slot.status === 'open').map((slot) => slot.id), range)}
           >
             {t('availability.action.remove', 'Remove selected open slots')}
           </Button>
           <Button
             variant="secondary"
             disabled={counts.held === 0 || isPending}
-            onClick={() => onAction('unblock', selectedSlots.filter((slot) => slot.status === 'held').map((slot) => slot.id), range)}
+            onClick={() => handleAction('unblock', selectedSlots.filter((slot) => slot.status === 'held').map((slot) => slot.id), range)}
           >
             {t('availability.action.unblock', 'Unblock selected slots')}
           </Button>

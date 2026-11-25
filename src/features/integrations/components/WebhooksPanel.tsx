@@ -1,11 +1,14 @@
 /* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateWebhookDialog } from './CreateWebhookDialog';
 import { WebhookDeliveries } from './WebhookDeliveries';
 import {
@@ -52,19 +55,38 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
     ? errorText(error) ?? 'Webhook endpoints could not be loaded.'
     : null;
 
+  const listRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    endpoints.map((endpoint) => endpoint.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
+
+  // Deleting an endpoint removes the card that held the focused Delete button:
+  // move focus to the neighbouring endpoint (or the heading) and announce the
+  // deletion (issue #245).
   const handleDelete = (endpointId: string, url: string) => {
     if (
-      window.confirm(
+      !window.confirm(
         t('integrations.webhooks.deleteConfirm', 'Delete webhook endpoint {url}? Pending deliveries will be dropped. This cannot be undone.', {
           url,
         }),
       )
     ) {
-      deleteMutation.mutate(endpointId);
-      if (expandedEndpointId === endpointId) {
-        setExpandedEndpointId(null);
-      }
+      return;
     }
+    rememberRemovedRow(endpointId);
+    if (expandedEndpointId === endpointId) {
+      setExpandedEndpointId(null);
+    }
+    deleteMutation.mutate(endpointId, {
+      onSuccess: () =>
+        announce(
+          t('integrations.webhooks.deletedAnnounce', 'Webhook endpoint {url} was deleted.', { url }),
+        ),
+      onError: () => forgetRemovedRow(),
+    });
   };
 
   const handleTest = (endpointId: string) => {
@@ -104,8 +126,11 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
-        <h2>{t('integrations.webhooks.title', 'Webhooks')}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {t('integrations.webhooks.title', 'Webhooks')}
+        </h2>
         <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.webhooks.addEndpoint', 'Add endpoint')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
@@ -127,9 +152,12 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
           action={{ label: 'Add your first endpoint', onClick: () => setCreateDialogOpen(true) }}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <div
+          ref={listRef}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+        >
           {endpoints.map((endpoint) => (
-            <div key={endpoint.id} className={styles.webhookCard}>
+            <div key={endpoint.id} className={styles.webhookCard} data-row-id={endpoint.id}>
               <div className={styles.webhookCardHeader}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
                   <span className={styles.webhookUrl}>{endpoint.url}</span>

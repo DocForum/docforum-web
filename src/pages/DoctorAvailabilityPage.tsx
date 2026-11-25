@@ -27,6 +27,8 @@ import type { IsoDate, SlotTimeRange } from '../features/availability/calendar';
 import { InlineError } from '../components/states/InlineError';
 import { Skeleton } from '../components/states/Skeleton';
 import { useErrorMessage } from '../hooks/useErrorText';
+import { useAnnouncer } from '../hooks/useAnnouncer';
+import { LiveRegion } from '../components/LiveRegion';
 import { Button } from '../components/Button';
 import type { AvailabilitySlot, SlotAppointment } from '../types/models';
 
@@ -81,6 +83,7 @@ export function DoctorAvailabilityPage() {
   const profileQuery = useMyDoctorProfile();
   const doctorProfileId = profileQuery.data?.id ?? null;
   const errorText = useErrorMessage();
+  const { message: announcement, announce } = useAnnouncer();
 
   const dates = useMemo(
     () => (view === 'week' ? buildWeekDates(anchorDate) : [anchorDate]),
@@ -119,7 +122,7 @@ export function DoctorAvailabilityPage() {
     );
   }
 
-  function handleAction(action: AvailabilityAction, slotIds: string[], range: SlotTimeRange | null) {
+  async function handleAction(action: AvailabilityAction, slotIds: string[], range: SlotTimeRange | null) {
     setRollbackNotice(null);
     setServerConflicts([]);
     if (!range) return;
@@ -138,16 +141,37 @@ export function DoctorAvailabilityPage() {
 
     if (action === 'remove') {
       removeSlots.mutate(slotIds, {
-        onSuccess: () => setSelectedIds([]),
+        onSuccess: () => {
+          setSelectedIds([]);
+          announce(
+            t(
+              'availability.announce.removed',
+              '{count, plural, one {# slot removed.} other {# slots removed.}}',
+              { count: slotIds.length },
+            ),
+          );
+        },
         onError: (error) => setRollbackNotice(rollbackMessage(error, t)),
       });
       return;
     }
 
-    for (const slotId of slotIds) {
-      unblockSlot.mutate(slotId, { onError: (error) => setRollbackNotice(rollbackMessage(error, t)) });
-    }
+    // Unblocking runs one request per slot, so wait for the whole batch before
+    // announcing how many actually changed (failures still surface inline).
     setSelectedIds([]);
+    const results = await Promise.allSettled(slotIds.map((slotId) => unblockSlot.mutateAsync(slotId)));
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed?.status === 'rejected') setRollbackNotice(rollbackMessage(failed.reason, t));
+    const unblocked = results.filter((result) => result.status === 'fulfilled').length;
+    if (unblocked > 0) {
+      announce(
+        t(
+          'availability.announce.unblocked',
+          '{count, plural, one {# slot unblocked.} other {# slots unblocked.}}',
+          { count: unblocked },
+        ),
+      );
+    }
   }
 
   const profileError = profileQuery.isError
@@ -161,6 +185,7 @@ export function DoctorAvailabilityPage() {
 
   return (
     <div style={PAGE_STYLE}>
+      <LiveRegion message={announcement} />
       <header>
         <h1>Doctor availability</h1>
         <p>
