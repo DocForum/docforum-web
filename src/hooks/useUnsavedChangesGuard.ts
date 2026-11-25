@@ -63,16 +63,17 @@ export function useUnsavedChangesGuard(isDirty: boolean, message?: string): void
       const nextUrl = new URL(anchor.href, window.location.href);
       if (nextUrl.href === window.location.href) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-
-      // Show the shared confirmation dialog.
+      // Show the shared confirmation dialog before preventing navigation.
+      // If the user confirms (discard changes), allow the navigation.
+      // If the user cancels (stay), prevent the navigation.
       if (window.confirm(effectiveMessage)) {
-        // User chose to discard changes and leave — the caller should
-        // navigate away; the hook does not decide the destination.
+        // User chose to discard changes and leave — do NOT preventDefault();
+        // the caller will handle navigation after the dialog response.
+        // stopPropagation is not needed since we're not preventing.
       } else {
-        // User chose to stay — the navigation was already prevented
-        // via event.preventDefault() above; keep the user on the page.
+        // User chose to stay — prevent the navigation.
+        event.preventDefault();
+        event.stopPropagation();
       }
     };
 
