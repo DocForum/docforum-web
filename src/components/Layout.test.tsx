@@ -149,6 +149,23 @@ describe('Layout — role-aware navigation', () => {
     );
   });
 
+  it('titles the document after the current route, translated', () => {
+    const { unmount } = render(<Layout />, { route: '/patient/orders' });
+    expect(document.title).toBe('My orders · DocForum');
+    unmount();
+
+    render(<Layout />, { route: '/patient/orders', locale: 'es' });
+    expect(document.title).toBe('Mis órdenes · DocForum');
+  });
+
+  it('leaves the title to the public pages that own their metadata', () => {
+    document.title = 'Accessibility statement — DocForum';
+
+    render(<Layout />, { route: '/accessibility' });
+
+    expect(document.title).toBe('Accessibility statement — DocForum');
+  });
+
   it('has a skip-to-content link reachable by keyboard', () => {
     renderLayout();
     const skip = screen.getByRole('link', { name: 'Skip to content' });
