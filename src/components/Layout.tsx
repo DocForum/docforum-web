@@ -26,6 +26,7 @@ import { pageTitleForPath } from '../navigation/breadcrumbs';
 import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
 import { useRealtimeCacheSync } from '../hooks/useRealtimeCacheSync';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import styles from './Layout.module.css';
 import type { NavItem } from '../navigation/types';
 import { adminNavItems } from '../navigation/admin';
@@ -80,6 +81,10 @@ export function Layout() {
     const meta = pageTitleForPath(location.pathname);
     return meta.messageId ? t(meta.messageId, meta.label) : meta.label;
   }, [location.pathname, t]);
+
+  // Every app route titles its tab with its own generic label (issue #237).
+  // Public pages own their metadata (`usePageMeta`), so they opt out here.
+  useDocumentTitle(isPublicContent ? null : pageTitle);
 
   // Close the drawer on route change.
   useEffect(() => {
