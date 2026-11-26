@@ -1,5 +1,9 @@
+import { useRef } from 'react';
 import { useT } from '../../../i18n/useT';
 import { Button } from '../../../components/Button';
+import { LiveRegion } from '../../../components/LiveRegion';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDate } from '../../../i18n/time-zone';
 import type { FacilityInvite } from '../../../types/models';
@@ -24,15 +28,38 @@ export function PendingInvitesList({
 }: PendingInvitesListProps) {
   const t = useT();
   const { timeZone } = useTimeZone();
+  const listRef = useRef<HTMLTableSectionElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    invites.map((invite) => invite.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
+
+  // A revoked invite takes its row (and the focused button) with it: keep
+  // focus on the neighbouring row and announce what happened (issue #245).
+  const handleRevoke = (invite: FacilityInvite) => {
+    rememberRemovedRow(invite.id);
+    void onRevoke(invite.id).then(
+      () =>
+        announce(
+          t('facilityTeam.inviteRevoked', 'Invitation to {email} was revoked.', { email: invite.email }),
+        ),
+      () => forgetRemovedRow(),
+    );
+  };
 
   // If not owner, do not render pending invites (hidden for staff)
   if (!isOwner) return null;
 
   return (
     <section className={styles.card} aria-labelledby="invites-heading">
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="invites-heading">{t('facilityTeam.invitesTitle', 'Pending invitations')}</h2>
+          <h2 id="invites-heading" ref={headingRef} tabIndex={-1}>
+            {t('facilityTeam.invitesTitle', 'Pending invitations')}
+          </h2>
           <p className={styles.headerSubtitle}>
             {t('facilityTeam.invitesSubtitle', 'Outstanding invitations awaiting acceptance by invited staff.')}
           </p>
@@ -57,9 +84,9 @@ export function PendingInvitesList({
                 <th scope="col" className={styles.actionCell}>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={listRef}>
               {invites.map((invite) => (
-                <tr key={invite.id}>
+                <tr key={invite.id} data-row-id={invite.id}>
                   <th scope="row"><strong>{invite.email}</strong></th>
                   <td>
                     <span
@@ -90,7 +117,7 @@ export function PendingInvitesList({
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => onRevoke(invite.id)}
+                        onClick={() => handleRevoke(invite)}
                         loading={isRevoking}
                         aria-label={`${t('facilityTeam.revoke', 'Revoke')} invite for ${invite.email}`}
                         style={{ fontSize: 'var(--text-xs)', padding: '0.2rem 0.6rem', color: '#b3261e' }}

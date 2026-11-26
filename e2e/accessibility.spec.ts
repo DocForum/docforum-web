@@ -146,6 +146,30 @@ test('a new notification is announced in a polite live region', async ({ page, v
   await expect(page.getByRole('status').filter({ hasText: '1 new notification.' })).toHaveAttribute('aria-live', 'polite');
 });
 
+// Issue #237 (WCAG 2.4.2 Page Titled): every route names its own tab, the
+// names are unique across the app, and none of them carries patient data.
+test('every route has a unique, descriptive document title', async ({ page, visit }) => {
+  test.slow();
+  const titles = new Map<string, string[]>();
+
+  for (const { path, role } of routes) {
+    await visit(path, role);
+    await expect(page.locator('main h1, main h2, #root h1, #root h2').first()).toBeVisible();
+
+    const title = (await page.title()).trim();
+    expect(title, `${path} has a document title`).not.toBe('');
+    expect(title, `${path} title names the product`).toContain('DocForum');
+    // Generic labels only: a record screen is titled after the record *type*,
+    // never after the patient, medication or appointment it shows.
+    expect(title, `${path} title leaks patient data`).not.toMatch(/Placeholder|Example \(fake\)|Tyke|Junior/);
+
+    titles.set(title, [...(titles.get(title) ?? []), path]);
+  }
+
+  const duplicate = [...titles].filter(([, paths]) => paths.length > 1);
+  expect(duplicate, 'routes that share a document title').toEqual([]);
+});
+
 for (const { path, role } of reflowRoutes) {
   test(`${path} has no horizontal page scroll at 320px`, async ({ page, visit }) => {
     await page.setViewportSize({ width: 320, height: 640 });
