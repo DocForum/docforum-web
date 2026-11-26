@@ -1,12 +1,13 @@
 // Role-switching helpers for mock mode: applies a seeded persona to the
 // app's real auth/profile stores and routes to that role's home screen.
-import { homePathForRole } from '../navigation/role-home';
+import { homePathForRole, LOGIN_PATH } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { signOut } from '../services/sign-out';
 import { DEPENDENT_PROFILE_ID, MOCK_ACCESS_TOKEN, MOCK_CSRF_TOKEN, PATIENT_PROFILE_ID } from './fixtures';
 import { personaForRole } from './handlers/auth';
 import { useMockStore } from './mock-store';
+import { mockNavigate } from './navigation';
 import type { Role } from '../types/models';
 
 /**
@@ -30,7 +31,7 @@ export function activateMockRole(
         ]
       : [],
   );
-  if (navigate) window.location.hash = `#${homePathForRole(role)}`;
+  if (navigate) mockNavigate(homePathForRole(role));
 }
 
 /** Clear the session and land on the login screen (to test the real flow). */
@@ -38,7 +39,7 @@ export function mockSignOut(): void {
   // Route through the shared helper so mock sign-out clears the query cache
   // and acting-for profiles like every other path (issue #227).
   void signOut('mock');
-  window.location.hash = '#/login';
+  mockNavigate(LOGIN_PATH);
 }
 
 const ROLES: readonly Role[] = ['patient', 'doctor', 'facility', 'admin'];
