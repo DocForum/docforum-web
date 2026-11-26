@@ -2,7 +2,17 @@ import type { Role } from './fixtures';
 
 // Every concrete route. Dynamic routes use committed mock IDs; `template`
 // connects their concrete URL to the router pattern in the guard test.
-export const routes: ReadonlyArray<{ path: string; role: Role; heading: string; template?: string }> = [
+// `aliasOf` marks a second URL for the same screen (it shares that screen's
+// document title on purpose). `liveStream` marks screens that hold the
+// server-sent event stream open, so the network never goes idle there.
+export const routes: ReadonlyArray<{
+  path: string;
+  role: Role;
+  heading: string;
+  template?: string;
+  aliasOf?: string;
+  liveStream?: true;
+}> = [
   { path: '/', role: 'patient', heading: 'DocForum' },
   { path: '/how-it-works', role: 'patient', heading: 'How DocForum works' },
   { path: '/for-doctors', role: 'patient', heading: 'For doctors' },
@@ -21,11 +31,11 @@ export const routes: ReadonlyArray<{ path: string; role: Role; heading: string; 
   { path: '/settings/notifications', role: 'patient', heading: 'Notification settings' },
   { path: '/care', role: 'patient', heading: 'Care' },
   { path: '/care/cth-demo-1', role: 'patient', heading: 'Care', template: '/care/:threadId' },
-  { path: '/care/threads/cth-demo-1', role: 'patient', heading: 'Care', template: '/care/threads/:threadId' },
+  { path: '/care/threads/cth-demo-1', role: 'patient', heading: 'Care', template: '/care/threads/:threadId', aliasOf: '/care/cth-demo-1' },
   { path: '/account/access-log', role: 'patient', heading: 'Access' },
   { path: '/payments', role: 'patient', heading: 'Payments' },
   { path: '/payments/pin-demo-1', role: 'patient', heading: 'Payment', template: '/payments/:intentId' },
-  { path: '/appointments/apt-demo-1', role: 'patient', heading: 'Appointment', template: '/appointments/:id' },
+  { path: '/appointments/apt-demo-1', role: 'patient', heading: 'Appointment', template: '/appointments/:id', aliasOf: '/patient/appointments/apt-demo-1' },
   { path: '/doctors/prf-doctor-demo', role: 'patient', heading: 'Doctor', template: '/doctors/:doctorId' },
   { path: '/patient', role: 'patient', heading: 'Welcome' },
   { path: '/patient/search', role: 'patient', heading: 'doctor' },
@@ -43,7 +53,7 @@ export const routes: ReadonlyArray<{ path: string; role: Role; heading: string; 
   { path: '/patient/waitlist', role: 'patient', heading: 'Waitlist' },
   { path: '/patient/health', role: 'patient', heading: 'Health' },
   { path: '/patient/facilities', role: 'patient', heading: 'facilities' },
-  { path: '/patient/messages/mth-demo-1', role: 'patient', heading: 'Messages', template: '/patient/messages/:threadId' },
+  { path: '/patient/messages/mth-demo-1', role: 'patient', heading: 'Messages', template: '/patient/messages/:threadId', liveStream: true },
   { path: '/patient/settings', role: 'patient', heading: 'Account' },
   { path: '/patient/care', role: 'patient', heading: 'Care' },
   { path: '/doctor', role: 'doctor', heading: 'Doctor dashboard' },
@@ -51,7 +61,7 @@ export const routes: ReadonlyArray<{ path: string; role: Role; heading: string; 
   { path: '/doctor/verification', role: 'doctor', heading: 'Doctor verification application' },
   { path: '/doctor/consultation/apt-demo-2', role: 'doctor', heading: 'Consultation', template: '/doctor/consultation/:appointmentId' },
   { path: '/doctor/messages', role: 'doctor', heading: 'Messages' },
-  { path: '/doctor/messages/mth-demo-1', role: 'doctor', heading: 'Messages', template: '/doctor/messages/:threadId' },
+  { path: '/doctor/messages/mth-demo-1', role: 'doctor', heading: 'Messages', template: '/doctor/messages/:threadId', liveStream: true },
   { path: '/doctor/patient-chart/prf-patient-demo', role: 'doctor', heading: 'Patient', template: '/doctor/patient-chart/:patientProfileId' },
   { path: '/facility', role: 'facility', heading: 'Facility dashboard' },
   { path: '/facility/verify', role: 'facility', heading: 'Verify' },
