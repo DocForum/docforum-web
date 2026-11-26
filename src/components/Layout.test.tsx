@@ -37,6 +37,29 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument();
   });
 
+  it('offers no logout control to a signed-out visitor (issue #214)', () => {
+    renderLayout();
+    expect(screen.queryByRole('button', { name: 'Log out', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('offers no logout control while a session is only half restored (issue #214)', () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: { id: 'patient-1', email: 'patient@docforum.org', role: 'patient', createdAt: '', updatedAt: '' },
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Layout />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Log out', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('offers the logout control once signed in (issue #214)', () => {
+    renderLayout('patient');
+    expect(screen.getAllByRole('button', { name: 'Log out', hidden: true }).length).toBeGreaterThan(0);
+  });
+
   function desktopNavHrefs(): string[] {
     const nav = screen.getByRole('navigation', { name: 'Main' });
     return within(nav)

@@ -73,5 +73,6 @@ export type * from './models/session-idle-timeout';
 export type * from './models/specialty-verification-review';
 export type * from './models/stuck-referrals';
 export type * from './models/system-health';
+export type * from './models/two-factor';
 export type * from './models/typed-client-aliases';
 export type * from './models/waitlist';
