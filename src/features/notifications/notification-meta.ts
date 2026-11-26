@@ -8,7 +8,9 @@
 //     carries a safe app-relative link, that link. This app ships ahead of
 //     docforum-core's dispatch provider (docforum-core#93), so new kinds will
 //     arrive before the UI knows them.
+import type { useT } from '../../i18n/useT';
 import type { Notification, Role } from '../../types/models';
+import { paths } from '../../routes/paths';
 
 export type NotificationCategory =
   | 'appointment'
@@ -26,78 +28,108 @@ export interface NotificationMeta {
   label: string;
 }
 
-const META: Record<string, NotificationMeta> = {
-  appointment_booked: { category: 'appointment', label: 'Appointment' },
-  appointment_reminder: { category: 'appointment', label: 'Appointment' },
-  appointment_cancelled: { category: 'appointment', label: 'Appointment' },
-  referral_created: { category: 'referral', label: 'Referral' },
-  referral_accepted: { category: 'referral', label: 'Referral' },
-  order_issued: { category: 'order', label: 'Order' },
-  order_fulfilled: { category: 'order', label: 'Order' },
-  order_rejected: { category: 'order', label: 'Order' },
-  result_ready: { category: 'result', label: 'Result' },
-  payment_due: { category: 'payment', label: 'Payment' },
-  payment_escrowed: { category: 'payment', label: 'Payment' },
-  payment_released: { category: 'payment', label: 'Payment' },
-  payment_refunded: { category: 'payment', label: 'Payment' },
-  message_received: { category: 'message', label: 'Message' },
-  dispute_opened: { category: 'dispute', label: 'Dispute' },
-  dispute_resolved: { category: 'dispute', label: 'Dispute' },
-};
+type T = ReturnType<typeof useT>;
 
-const UNKNOWN_META: NotificationMeta = { category: 'other', label: 'Update' };
+/** Identity translator: keeps pure callers and unit tests rendering the
+ * English source copy when no `IntlProvider` is in scope. */
+const english: T = (_id, defaultMessage) => defaultMessage;
 
-export function notificationMeta(kind: string): NotificationMeta {
-  return META[kind] ?? UNKNOWN_META;
+/** Category chips are UI copy, so every label is a static catalogue call —
+ * never a dynamically built message id. */
+export function notificationCategoryLabel(category: NotificationCategory, t: T): string {
+  switch (category) {
+    case 'appointment':
+      return t('notifications.category.appointment', 'Appointment');
+    case 'referral':
+      return t('notifications.category.referral', 'Referral');
+    case 'order':
+      return t('notifications.category.order', 'Order');
+    case 'result':
+      return t('notifications.category.result', 'Result');
+    case 'payment':
+      return t('notifications.category.payment', 'Payment');
+    case 'message':
+      return t('notifications.category.message', 'Message');
+    case 'dispute':
+      return t('notifications.category.dispute', 'Dispute');
+    default:
+      return t('notifications.category.other', 'Update');
+  }
 }
+
+const META: Record<string, NotificationCategory> = {
+  appointment_booked: 'appointment',
+  appointment_reminder: 'appointment',
+  appointment_cancelled: 'appointment',
+  referral_created: 'referral',
+  referral_accepted: 'referral',
+  order_issued: 'order',
+  order_fulfilled: 'order',
+  order_rejected: 'order',
+  result_ready: 'result',
+  payment_due: 'payment',
+  payment_escrowed: 'payment',
+  payment_released: 'payment',
+  payment_refunded: 'payment',
+  message_received: 'message',
+  dispute_opened: 'dispute',
+  dispute_resolved: 'dispute',
+};
 
 /** Fallback destination per category and role, used when the payload has no
  * `link` (or when the kind is unknown and carries none either). */
 const FALLBACKS: Record<NotificationCategory, Partial<Record<Role, string>>> = {
   appointment: {
-    patient: '/patient/appointments',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    // Appointment detail needs an id, so without a payload link the care
+    // hub is the closest the patient can act on.
+    patient: paths.patient.root,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   referral: {
-    patient: '/care',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin/referrals',
+    patient: paths.care,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.referrals,
   },
   order: {
-    patient: '/patient/orders',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.patient.orders,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   result: {
-    patient: '/patient/records',
-    doctor: '/doctor',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.patient.root,
+    doctor: paths.doctor.root,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   payment: {
-    patient: '/payments',
-    doctor: '/doctor',
-    facility: '/facility/payments',
-    admin: '/admin',
+    patient: paths.payments,
+    doctor: paths.doctor.root,
+    facility: paths.facility.payments,
+    admin: paths.admin.root,
   },
   message: {
-    patient: '/care',
-    doctor: '/doctor/messages',
-    facility: '/facility',
-    admin: '/admin',
+    patient: paths.care,
+    doctor: paths.doctor.messages,
+    facility: paths.facility.root,
+    admin: paths.admin.root,
   },
   dispute: {
-    patient: '/patient/orders',
-    doctor: '/doctor',
-    facility: '/facility/payments',
-    admin: '/admin/disputes',
+    patient: paths.patient.orders,
+    doctor: paths.doctor.root,
+    facility: paths.facility.payments,
+    admin: paths.admin.disputes,
   },
   other: {},
 };
+
+export function notificationMeta(kind: string, t: T = english): NotificationMeta {
+  const category = META[kind] ?? 'other';
+  return { category, label: notificationCategoryLabel(category, t) };
+}
 
 /**
  * Only app-relative paths are ever rendered as links. A protocol-relative
@@ -126,9 +158,9 @@ export function notificationDestination(
   notification: Pick<Notification, 'kind' | 'link'>,
   role: Role | null,
 ): string | null {
-  const meta = META[notification.kind];
+  const category = META[notification.kind];
   const payloadLink = safeAppPath(notification.link);
 
-  if (meta) return payloadLink ?? (role ? FALLBACKS[meta.category][role] ?? null : null);
+  if (category) return payloadLink ?? (role ? FALLBACKS[category][role] ?? null : null);
   return payloadLink;
 }

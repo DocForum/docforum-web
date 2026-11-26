@@ -30,7 +30,7 @@ export function useUpdateDependent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: DependentInput }) =>
+    mutationFn: ({ id, input }: { id: string; input: Required<DependentInput> }) =>
       dependentsService.updateDependent(id, input, accessToken!),
     onSuccess: () => invalidateFor(queryClient, 'dependents.write'),
   });

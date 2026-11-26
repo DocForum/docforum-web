@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/useConsultationNote';
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
@@ -11,8 +12,8 @@ import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatDateTime as formatZonedDateTime } from '../../../i18n/time-zone';
-import { ConsultationOutcomePanel } from './ConsultationOutcomePanel';
 import styles from './ConsultationNote.module.css';
+import { paths } from '../../../routes/paths';
 
 const NOTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   day: 'numeric',
@@ -41,9 +42,11 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const [addendumContent, setAddendumContent] = useState('');
   const [confirmingSignOff, setConfirmingSignOff] = useState(false);
   const [editing, setEditing] = useState(!query.data?.signedAt);
-
   const note = query.data;
-  const signed = Boolean(note?.signedAt);
+  const isDirty = editing && draft.trim() !== note?.content?.trim();
+  useUnsavedChangesGuard(isDirty);
+
+const signed = Boolean(note?.signedAt);
 
   // Keep the draft in sync once the note loads.
   useEffect(() => {
@@ -128,7 +131,7 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
         {appointmentQuery.data?.patientProfileId && (
           <Button
             variant="secondary"
-            onClick={() => navigate(`/doctor/patient-chart/${appointmentQuery.data.patientProfileId}`)}
+            onClick={() => navigate(paths.doctor.patientChart(appointmentQuery.data.patientProfileId))}
           >
             View patient chart
           </Button>
@@ -236,9 +239,6 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
         </>
       )}
 
-      {appointmentId ? (
-        <ConsultationOutcomePanel appointmentId={appointmentId} notes={draft} />
-      ) : null}
     </section>
   );
 }

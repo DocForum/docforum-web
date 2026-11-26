@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
+import { renderAppAt } from '../../../test/render-app';
 import { AuditLogViewer } from './AuditLogViewer';
 import { ApiError } from '../../../services/api-client';
 import * as auditService from '../../../services/audit-service';
@@ -65,15 +67,17 @@ function signIn(role: Role) {
   });
 }
 
-function renderViewer(path = '/admin/audit') {
+function renderViewer(path = '/admin/audit', locale: 'en' | 'es' = 'en') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <AuditLogViewer />
-        <LocationProbe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <AuditLogViewer />
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
@@ -119,8 +123,9 @@ describe('AuditLogViewer — URL-synced filters', () => {
     expect(screen.getByLabelText('Entity type')).toHaveValue('PaymentIntent');
     expect(screen.getByLabelText('Entity id')).toHaveValue('pi-42');
     expect(screen.getByLabelText('Actor user id')).toHaveValue('user-admin-1');
-    expect(screen.getByLabelText('From')).toHaveValue('2026-10-01');
-    expect(screen.getByLabelText('To')).toHaveValue('2026-10-18');
+    // DatePicker (issue #114) shows the locale's format; the value is ISO.
+    expect(screen.getByLabelText('From')).toHaveValue('10/01/2026');
+    expect(screen.getByLabelText('To')).toHaveValue('10/18/2026');
   });
 
   it('writes applied filters to the URL and resets to the first page', async () => {
@@ -202,6 +207,16 @@ describe('AuditLogViewer — cursor pagination', () => {
     expect(currentLocation()).toBe('/admin/audit?actor=user-admin-1');
   });
 
+  describe('AuditLogViewer — Spanish', () => {
+    it('renders the audit console in Spanish', async () => {
+      renderViewer('/admin/audit', 'es');
+
+      expect(await screen.findByRole('heading', { name: 'Registro de auditoría' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Cambios de estado' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Aplicar filtros' })).toBeInTheDocument();
+    });
+  });
+
   it('offers a way back to the newest page from a stale cursor link', async () => {
     const user = userEvent.setup();
     vi.mocked(auditService.listAuditEvents).mockImplementation(async (query) => {
@@ -269,7 +284,10 @@ describe('AuditLogViewer — rows', () => {
     renderViewer();
     await screen.findByText('appointment.booked');
 
-    expect(screen.getByRole('link', { name: 'pi-42' })).toHaveAttribute('href', '/admin?intent=pi-42');
+    expect(screen.getByRole('link', { name: 'pi-42' })).toHaveAttribute(
+      'href',
+      '/admin/payments/console?intent=pi-42',
+    );
     // Appointments have no admin-facing view, so the id is plain text.
     expect(screen.queryByRole('link', { name: 'appt-1' })).not.toBeInTheDocument();
     expect(screen.getByText('appt-1')).toBeInTheDocument();
@@ -331,29 +349,19 @@ describe('AuditLogViewer — rows', () => {
 });
 
 describe('/admin/audit route', () => {
-  function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/audit']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-  }
-
   it('is reachable by admins', async () => {
-    renderApp();
+    renderAppAt('/admin/audit');
     expect(await screen.findByRole('heading', { name: 'Audit trail' })).toBeInTheDocument();
   });
 
-  // RequireAuth sends them to `/`, which forwards signed-in users to their own dashboard.
+  // The admin guard loader sends them to `/`, which forwards signed-in users
+  // to their own dashboard.
   it.each<Role>(['patient', 'doctor', 'facility'])('redirects a %s away without fetching anything', async (role) => {
     signIn(role);
-    renderApp();
+    const { router } = renderAppAt('/admin/audit');
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Audit trail' })).not.toBeInTheDocument();
     expect(auditService.listAuditEvents).not.toHaveBeenCalled();
   });

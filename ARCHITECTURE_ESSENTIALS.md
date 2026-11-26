@@ -43,7 +43,7 @@ those first if you're new to the org, not just this file.
   compose them.
 - `src/store/` — Zustand stores. Auth and acting-for state are in memory.
 - `src/prerender/` — build-time prerendering for the public pages (issue
-  #120). `entry-server.tsx` renders the real `<App/>` with an empty auth
+  #120). `entry-server.tsx` renders the real route table with an empty auth
   store; `html.ts` is pure HTML assembly/validation (head metadata, link
   rewriting, `#root` injection). `scripts/prerender.mjs` does the file I/O
   and fails the build on any validation problem. See "Public pages &
@@ -218,8 +218,8 @@ between this repo's `github.io` domain and Render's, so it's required for
 the cookie to be sent/received at all). Session restore on reload landed
 2026-10-20 (issue #9):
 - The boot refresh is `POST /auth/refresh` from `src/services/session.ts`,
-  kicked off by `main.tsx` without blocking first render. `RequireAuth`
-  shows a `Restoring your session…` state while the store's `status` is
+  kicked off by `main.tsx` without blocking first render. The route guard
+  loaders (`src/routes/guards.ts`, issue #112) wait while the store's `status` is
   `resolving`, instead of bouncing a signed-in user to `/login`.
 - A `401` on an authenticated request triggers **one** refresh and one
   retry. Concurrent 401s share the same in-flight promise in
@@ -346,6 +346,16 @@ the browser only relays XDR (hard rule 1, enforced by
   (`pin-demo-2`, a `created` intent on the seeded lab order), prepare and
   submit; the confirm state lands on a mock explorer link.
 
+### Wallet link address validation (issue #280)
+
+`WalletLinkForm` validates the payout address offline before POSTing it:
+StrKey base32 decoding plus the CRC16-XModem checksum embedded in every
+Stellar address, implemented in `src/features/payments/strkey.ts` with no
+Stellar SDK and no network call. Muxed (`M...`) addresses are rejected — only
+ed25519 `G...` keys are accepted for payouts. Lowercase input is rejected
+with a hint rather than silently uppercased, and surrounding whitespace is
+trimmed. docforum-core remains the authority and re-validates the key.
+
 ### Session idle timeout — shared devices (issue #82)
 
 Clinic computers and family tablets are shared, so a configurable idle
@@ -377,7 +387,7 @@ shape is worth mirroring in an issue there.
   `/login?reason=idle-timeout`. The login page shows its explanation
   when EITHER the query param is present OR the in-memory
   `auth-store.signOutReason` says `idle-timeout` — a route guard's
-  redirect (e.g. `RequireAuth` on the page being left) can win the
+  redirect (e.g. `RoleGate` on the page being left) can win the
   navigation race and strip the query param, and the reason must not be
   lost with it. `setSession` clears the in-memory reason.
 - The warning modal (`SessionTimeoutWarning`) says when unsaved form
@@ -472,25 +482,25 @@ store). Every patient API call and React Query key includes the selected
 - `GET /orders/:orderId/qualified-facilities` → `QualifiedOrderFacility[]` = `{id, userId, name, type, isOpen, capabilities, location?}`. The backend's capability matching (docforum-core#14) is the only source of this list; the UI never infers eligibility from facility type.
 - `POST /orders/:orderId/fulfillment-facility` (body: `{facilityId, expectedVersion}`) → the updated `PatientOrder`. `expectedVersion` lets docforum-core answer `409` if the order changed while the patient was choosing; the UI then asks the patient to reload rather than silently overwriting a correction.
 
-### Phase W3 — Doctor core flow (assumed, not yet in docforum-core)
+### Phase W3 — Doctor core flow (confirmed appointment APIs; other contracts assumed)
 
-These shapes back issues #6, #7 and #45–#49. docforum-core issues #61 (message
-thread), #129 (in-person check-in / live queue position) and the
-today's-appointments/consultation contracts are not landed yet, so the
-endpoints below are the smallest reasonable assumption and must be reconciled
-once the real API exists.
+These shapes back issues #6, #7 and #45–#49. The appointment list and visit
+start/complete endpoints below match docforum-core's API. Intake, queue
+position, check-in, running-delay and the consultation/message contracts
+remain assumptions pending docforum-core issues #129 and #61 and the
+consultation contracts.
 
 #### Today's appointments & live queue (issues #6 and #49)
-- `GET /doctor/appointments/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
-- `GET /appointments/:id/intake` → `IntakeForm | null` — the structured intake the patient submitted for that appointment. `404` means no intake was submitted; the UI shows that as an empty state, not an error. The endpoint is doctor-scoped: it must only return intake for appointments assigned to the signed-in doctor.
+- `GET /appointments/doctor/today` → `Appointment[]` — today's appointments for the signed-in doctor, ordered by `startsAt`.
+- `GET /appointments/:id/intake` → `IntakeForm | null` — assumed endpoint for the structured intake the patient submitted for that appointment. `404` means no intake was submitted; the UI shows that as an empty state, not an error. The endpoint is doctor-scoped: it must only return intake for appointments assigned to the signed-in doctor.
 - `IntakeForm` shape: `{id, appointmentId, patientProfileId, submittedAt, chiefComplaint, symptomDuration?, severity?: number|null (0–10), currentMedications: string[], allergies: string[], notes?}`.
-- `GET /doctor/queue/today` → `QueueEntry[]` — checked-in patients in queue order (computed server-side from `checkInAt`).
-- `POST /appointments/:id/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`). Idempotent if already started.
-- `POST /appointments/:id/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`).
+- `GET /doctor/queue/today` → `QueueEntry[]` — assumed endpoint for checked-in patients in queue order (computed server-side from `checkInAt`).
+- `PATCH /appointments/:appointmentId/start` → `Appointment` — marks a checked-in visit `in_progress` (sets `startedAt`); a `409` means it is no longer scheduled or checked in.
+- `PATCH /appointments/:appointmentId/complete` → `Appointment` — marks an in-progress visit `completed` (sets `completedAt`); a `409` means it is no longer in progress.
 - `GET /doctor/queue/running-delay` → `RunningDelay` — computed delay from the current in-progress visit vs its scheduled end, plus any manual override.
 - `PATCH /doctor/queue/running-delay` (body: `{manualOverrideMin?: number | null}`) → `RunningDelay` — set/clear a manual "running late by X min" override.
 
-Undo behaviour: start/complete are applied optimistically and can be reverted within a short undo window (a few seconds) by re-calling the inverse action or clearing the optimistic timestamp; the UI surfaces an undo toast.
+Undo behaviour: start/complete are applied optimistically and the write is deferred for exactly four seconds. Undo within that window cancels the write and restores the previous status; after it expires, undo does nothing. A `409` rolls back the optimistic status and invalidates the appointment list and queue.
 
 #### Doctor messages inbox (issue #47)
 - `GET /doctor/messages/threads?filter=&cursor=&limit=` → `{threads: MessageThread[], nextCursor?: string | null}` — threads with unread counts, last-message preview (PHI — kept short), waiting time, oldest unanswered first by default.
@@ -517,6 +527,25 @@ Undo behaviour: start/complete are applied optimistically and can be reverted wi
 - Small-sample caveats (`sampleSizeWarning: true`) automatically flagged when denominators are low (total slots < 10, referrals < 5, message threads < 5) to warn against misleading rate volatility.
 - Every chart view has a full accessible `<table>` alternative with semantic captions, headers, and tabular numeric alignment.
 
+### Referrals I've sent (issue #265)
+
+`GET /referrals/created` is real in docforum-core: doctor-only, returns a
+plain array (no cursor/`{items}` envelope), newest first, including expired
+rows (`referringDoctorNotifiedAt`, `expiredReason`) and loop-flagged rows
+(`loopFlaggedAt`, `loopFlagReason`). The view sorts attention-needing rows
+(pending, loop-flagged, expired-and-notified) ahead of settled ones and never
+renders `snapshotNotes` — the list is triage, and the snapshot stays on the
+detail screen.
+
+**Assumed:** the rows expand `targetDoctor` (`{id, fullName}`) and
+`targetSpecialty` (`{id, name, slug}`) alongside `targetDoctorId` /
+`targetSpecialtyId`. Core currently returns only the scalar ids; when the
+names are absent the UI falls back to a short id prefix. Reconcile the type in
+`src/types/models/sent-referrals.ts` if core keeps the raw shape or adds a
+different expansion. `GET /referrals/:id` remains the assumed role-scoped
+detail contract from docforum-core#307 (referring doctor included); rows open
+it with `?from=sent` so the back link returns to this view.
+
 ### Phase W4 — Facility staff accounts & fulfillment attribution (issue #51, docforum-core#75)
 - `GET /facilities/:facilityId/members` → `FacilityMember[]` — facility staff and owners.
 - `GET /facilities/:facilityId/invites` → `FacilityInvite[]` — pending invitations (owner-only access; hidden for staff).
@@ -542,6 +571,43 @@ These shapes are **assumed** until `docforum-core#73` lands. All calls still go 
 - `POST /orders/:orderId/route-remaining` (body: `{facilityId, itemIds}`) → `PatientOrder` — routes outstanding quantities to a second facility; the destination gets its own fulfillment queue rows. A `409` means another facility already dispensed (or another client already routed) an item.
 - `POST /facilities/:facilityId/fulfillment-queue/:itemId/dispense` (body: `{quantity}`) → `FulfillmentQueueItem` — item-level partial dispensing. The backend owns quantity validation (whole numbers, ≤ outstanding) and must return `409` for dispensed-elsewhere/already-routed items. Queue items may carry `orderItemId` to link the facility row back to the patient's order item.
 - `OrderPaymentSummary` (assumed): `{status: 'held'|'partially_released'|'released'|'refunded'|'none', heldStroops, releasedStroops, refundedStroops, rule}`. `rule` is plain language from the backend; the patient/facility UIs explain assumptions but do not decide release amounts (pending #73).
+
+### Item-level fulfilment progress (issue #262)
+
+`GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=` returns
+`{ totalItems, dispensedItems, status }`, where `status` is `issued`,
+`partially_fulfilled` or `fulfilled`, derived by docforum-core from the
+order's item rows. The UI renders exactly that response — it never recomputes
+order-level progress from item rows it happens to have cached.
+
+Assumed details, to reconcile against core's docs:
+
+- `orderType` is the order's own stored value: `prescription` or `lab_order`.
+  The mock API rejects a missing or mismatched `orderType` with
+  `400 VALIDATION_ERROR`, so the client always sends it.
+- One call per order version, keyed in React Query by order id **and**
+  order type. Progress is fetched with the list/detail order shape from
+  issue #5 (`/orders/mine`, `/orders/:orderId`); those remain the existing
+  assumed contracts.
+- Superseded versions are not queried. The list hides them and states how
+  many earlier versions were replaced; the detail shows a superseded notice
+  instead of a badge. The mock answers `409` if progress is requested for a
+  superseded version, which guards against accidentally showing a replaced
+  order's counts.
+- Refresh: progress is stale immediately, refetches on window focus and every
+  30 seconds, and is invalidated after remaining items are routed. There is no
+  patient notification feed in this repo yet; the polling/focus refresh is
+  what surfaces notification-driven dispensing changes. Wire an explicit
+  invalidation here if a notification centre is added.
+- A partially filled order reuses the remaining-items picker from issue #54:
+  `GET /orders/:orderId/remaining-items/facilities?itemIds=` and
+  `POST /orders/:orderId/route-remaining`. Routing does not itself dispense
+  items, so the order stays `partially_fulfilled` until the receiving facility
+  confirms dispensing.
+- The endpoint is presented as real (it exists in core), but its
+  `orderType` parameter values and the `409` superseded behaviour are not
+  documented in the issue, so they are recorded here as assumptions rather
+  than treated as confirmed.
 
 ### Phase W6 — Admin audit & access log viewer (issue #71)
 
@@ -763,6 +829,477 @@ everything below is assumed and mirrored in `models.ts` under "Phase W7".
   - Approaching deadline warnings: prominent alerts when held escrow refund deadline is < 48 hours away and order is unfulfilled (Threat Model T8 compliance).
   - Direct explorer links to Stellar testnet transactions (`https://stellar.expert/explorer/testnet/tx/...`).
 
+### Phase W2 — Facility finder on `GET /facilities/eligible` (issue #257)
+
+The finder calls docforum-core's public `GET /facilities/eligible` with
+`type` (required; the "All facilities" tab sends one request per type and
+merges), optional `catalogItemCode`, and `near=lat,lng` when the patient
+shares a location. `radiusKm` is not sent. The endpoint has no free-text
+search, so the area box filters the returned list by name, city and address
+in the browser. Results are sorted nearest first with `distanceKm: null`
+last. The endpoint is not yet in the vendored OpenAPI file, so the call goes
+through `apiFetch` with the response shape from `types/models/facility-finder.ts`.
+
+### Phase W2 — Facility prices for an order item (issue #258)
+
+`docforum-core` has no public per-item facility pricing endpoint yet, so these
+shapes are assumed and mirrored in `types/models/facility-finder.ts`:
+
+- `GET /facilities/eligible?catalogItemCode=&type=&lat=&lng=&query=` →
+  `EligibleFacility[]` — `FacilityWithDistance` plus
+  `price: {amountStroops, effectiveFrom} | null` and `priceOnRequest: boolean`.
+  `price` is the version in force now; a facility with no published price (or
+  only a scheduled one) returns `price: null` with `priceOnRequest: true`. The
+  finder's own filters are passed through too, so its type/distance controls
+  keep working when it is opened from an order.
+- `GET /facilities/:facilityId/prices` is the public view of the facility price
+  history already used by facility settings. The finder reads it per card for a
+  "price changed on …" note and picks the row in force itself — a future-dated
+  (scheduled) version is never treated as current.
+- `amountStroops` stays a string and is handled in BigInt
+  (`features/payments/stroops.ts`, `features/orders/facility-price.ts`); it is
+  never converted through `Number`, including when sorting by price.
+- `PatientOrder.catalogItemCode` is an assumed optional field, used only to open
+  the finder for that order's item; when it is absent the orders list keeps the
+  ordinary facility picker and the finder shows no prices.
+
+### Account deletion against the real API (issue #260)
+
+`docforum-core` #41 has landed, so this is no longer an assumption:
+
+- `DELETE /patients/me` (patient, bearer token) with body `{password}` →
+  `204 No Content`. The typed `DELETE` phrase is a client-side safeguard
+  only and is never sent.
+- A wrong password is `403 PASSWORD_CONFIRMATION_FAILED`; the UI renders it
+  on the password field, not as a form-level error. Repeated wrong passwords
+  count against docforum-core's login throttle, so a `429` honours
+  `Retry-After`.
+- `204` is success with no body: the client clears the React Query cache,
+  the Zustand session and the acting-profile state, then redirects to
+  `/account-deleted`. A repeat request is idempotent (core returns `204`
+  again).
+- Guardians may delete their account. Core revokes every guardianship in
+  the same transaction and leaves dependents' profiles and appointments
+  untouched, so the UI does not block deletion for a guardian with active
+  dependents.
+
+### Phase W7 — Error catalogue documented codes (issue #276)
+
+`src/services/error-catalogue.ts` maps all error codes documented in `docforum-core`'s `docs/api/README.md` (including `EMAIL_NOT_VERIFIED`, `FEATURE_DISABLED`, `GUARDIANSHIP_INACTIVE`, `DEPENDENT_NOT_A_MINOR`, `EXPORT_NOT_READY`, `EXPORT_EXPIRED`, `LAB_RESULT_*`, `REFERRAL_NO_ELIGIBLE_TARGET`, `WALLET_NOT_LINKED`, `FACILITY_WALLET_NOT_LINKED`, `PAYEE_TRUSTLINE_MISSING`, `INVALID_CURSOR`, `OBJECT_STORAGE_NOT_CONFIGURED`, and others) to localized user-facing copy and recovery actions.
+
+### Patient payment history filters & CSV export (issue #277)
+
+`GET /payments/mine` is assumed against `docforum-core#90` with query parameters:
+- `status`: filter by payment status (`created`, `awaiting_signature`, `escrowed`, `released`, `refunded`, `failed`).
+- `from` and `to`: ISO date strings filtering payment creation date range.
+- `limit`: page size (default 50, up to 100).
+- `cursor`: pagination cursor.
+
+Response returns `{ intents: PaymentHistoryEntry[], nextCursor: string | null }` (or `{ items: PaymentHistoryEntry[], nextCursor: string | null }`).
+Each entry retains assumed `facilityName` and `refundDeadlineAt` fields. In-memory CSV generation parses stroop amounts using BigInt without floating-point conversion, neutralises formula prefixes, and formats Stellar explorer links.
+
+### Phase W2 — structured intake, patient referrals and waitlist (added 2026-11-19)
+
+These contracts are assumed; reconcile against `docforum-core` once the
+corresponding backend issues land. Client types live in
+`src/types/models/intake.ts`, `patient-referrals.ts` and `waitlist.ts`.
+
+#### Structured intake write (issue #36, docforum-core#1/#2)
+- `POST /appointments/:appointmentId/intake` (body: `SubmitIntakeInput`) → `IntakeForm`, the same shape the doctor-side `GET /appointments/:id/intake` already returns.
+- `SubmitIntakeInput` shape: `{slotId, chiefComplaint, symptomDuration?, severity?, currentMedications: string[], allergies: string[], notes?}`.
+- `409`/`404` mean the slot expired or was released while the patient was typing. The client keeps its in-memory draft, never retries automatically, and explains the slot is gone.
+- Drafts are client-only: a Zustand store for the tab session, cleared on success, sign-out, idle timeout and acting-for profile switch. Nothing is written to browser storage.
+
+#### Patient referrals (issue #4, docforum-core#5–#8)
+- `GET /patients/me/referrals` → `{items: PatientReferral[]}`
+- `POST /referrals/:id/accept` → `{referral, appointment: ReferralAppointment}`
+- `POST /referrals/:id/decline` → `{referral}`
+- `PatientReferral` adds `targetSpecialty`, `referringDoctor`, `targetDoctor`, `appointment` (`null` until accepted) and `referralNote?` to the existing `Referral` shape.
+- A referral is never auto-booked: only accept creates an appointment. `409`/`404` are presented as "someone already answered this referral", not a generic failure.
+- `ReferralAppointment.requiresIntake` routes the patient to `/patient/appointments/:id/intake` instead of collecting intake again inside the accept flow.
+
+#### Waitlist with time-boxed offers (issue #16, docforum-core#57)
+- `GET /patients/me/waitlist` → `{items: WaitlistEntry[], serverNow}`
+- `POST /patients/me/waitlist` (body: `{doctorId?, specialtyId?, preferredWindow}`) → `WaitlistEntry`
+- `PATCH /patients/me/waitlist/:id` (body: `{preferredWindow, expectedUpdatedAt}`) → `WaitlistEntry`; `409` on a concurrent edit.
+- `DELETE /patients/me/waitlist/:id` → `void`
+- `POST /waitlist/offers/:offerId/accept` → `{entry, appointmentId, requiresIntake}`; `409` when the hold already lapsed.
+- `POST /waitlist/offers/:offerId/decline` → `{entry}`
+- Countdowns are anchored to the `serverNow` sent with the list and with each offer, never to the device clock alone.
+
+### Backend liveness probe and reachability
+
+- `GET /health/live` → HTTP 200 `{"status":"ok"}`. Public, unauthenticated liveness
+  probe fired once at boot (non-blocking) and on user retry to warm cold-started
+  Render instances and detect reachability failures separately from browser offline state.
+
+### Phase W2 — Doctor directory & specialty search (issues #1, #13)
+
+No assumption remains for doctor discovery: `docforum-core`'s public directory
+endpoints are real and are the only source this repo calls.
+
+- `GET /specialties` → `Specialty[]` (`{ id, name, slug }`).
+- `GET /doctors?specialty=<slug>&q=&limit=&cursor=` →
+  `{ items: [{ id, fullName, specialties: [{ id, name, slug }] }], nextCursor }`.
+  Only verified profiles and public fields are returned; `limit` is 1–50 and
+  pagination is a keyset cursor.
+- `GET /availability/doctors/:doctorProfileId/slots` → open future
+  `AvailabilitySlot[]` (`{ id, doctorProfileId, status, startTime, endTime,
+  createdAt, updatedAt }`). Public by design.
+
+`src/services/doctor-directory-service.ts` owns the directory reads and pages
+the list explicitly (`listAllPublicDoctors`, `getPublicDoctor`) because there is
+no public single-doctor route. Availability is read through
+`src/services/appointments-service.ts`'s `getOpenSlots`.
+
+The older symptom-search path (issue #30, `src/features/search/`) still uses its
+own assumed `/symptoms` + `specialtyIds` contract; it is deliberately untouched
+here and remains tracked as an assumption.
+
+### Doctor profile week view — doctor time zone (issue #13)
+
+The profile page renders every slot in the patient's chosen IANA zone
+(`TimeZoneProvider`) and states that zone above the grid. When the doctor's
+zone is known and differs, it is shown as "…'s local time: `<zone>`".
+
+**Assumed:** `GET /doctors` does not expose the `DoctorProfile.timeZone` column
+today, even though the column exists in docforum-core's schema. The frontend
+types it as optional (`PublicDoctor.timeZone`); until the public projection
+includes it, the doctor-zone line is simply absent and only the patient's zone
+is shown. No request is made to an endpoint that does not exist — the profile
+itself is resolved by paging the real public list, which also avoids assuming a
+`GET /doctors/:id` route.
+
+### Phase W2 — Booking & structured intake (issue #2)
+
+Both writes are real; nothing in this flow is mocked or assumed.
+
+- `POST /intake` (patient) — body
+  `{ symptoms: [{ symptom, duration, severity: 'mild'|'moderate'|'severe' }],
+  freeTextNotes? }` → the created `IntakeForm` row. `symptoms` requires at
+  least one entry.
+- `POST /appointments` (patient) — body
+  `{ availabilitySlotId, patientProfileId? }` → the created `Appointment` row
+  (`{ id, patientProfileId, doctorProfileId, availabilitySlotId, status,
+  origin, createdAt, updatedAt }`). `409` means the slot is no longer open;
+  the UI treats that as its own recoverable state, not a generic failure.
+
+Gaps worth knowing:
+- The intake write and the booking write are separate calls with no link
+  between them yet — core's `POST /appointments` does not accept an intake id
+  (the `intakeId` TODO in its schema remains open). The booking flow submits
+  intake first so a 409 never leaves a confirmed visit without intake.
+- `POST /intake` always records against the caller's own patient profile; it
+  has no `patientProfileId` parameter. When a guardian books for a dependent
+  (`patientProfileId` on the booking), the appointment targets the dependent
+  but the intake row is the guardian's. The booking screen says so plainly.
+- `GET /appointments/mine` carries `doctorProfileId` but no clinician name;
+  patient screens resolve names from the public `GET /doctors` directory and
+  show "Your clinician" when a doctor is no longer listed.
+
+### Price list editor against `/facilities/me/prices` (issue #270)
+
+- **Endpoint shape:** Calls `GET /facilities/me/prices` and `POST /facilities/me/prices` — the `/me` variant resolves the facility from the authenticated user's session rather than accepting a `facilityId` parameter. The previous `/facilities/:facilityId/prices` shape is still supported for backward compatibility but the `/me` endpoint is the canonical path going forward.
+
+- **Amount conversion:** Entered amounts are decimal strings (e.g. `"27.5"`). The `parseAssetAmount` helper in `src/features/facility-settings/validation.ts` converts these to raw stroops integers using `BigInt` arithmetic, respecting per-asset decimal precision (XLM and USDC both support 7 decimal places = 10_000_000 stroops per whole unit). Exponent notation (e.g. `1e-5`) and decimals beyond the asset's precision limit are rejected with a `400` error, matching the backend's validation.
+
+- **Versioned writes:** Creating a price version via `POST` does not edit an existing record; it adds a new entry to the version history. The frontend presents history as three states: **current** (effective now), **scheduled** (effectiveFrom in the future), and **superseded** (older versions). A duplicate `effectiveFrom` returns `409` from the backend, which the UI handles by keeping the earlier snapshot and explaining the conflict.
+
+- **Verified email requirement:** Write mutations (`createFacilityPrice`) require the user's email to be verified. If the session has an unverified email, the save is rejected with a clear error — the backend enforces this guard.
+
+- **BigInt-safe throughout:** The shared `validation.ts` `parseAssetAmount` and `formatAmountFromStroops` functions use `BigInt` internally and never pass through `Number()`, preserving exact stroop values for all asset amounts.
+
+### Stuck referrals console against `/referrals/admin/*` (issue #273)
+
+- **Queue list:** `GET /referrals/admin/queue?olderThan=<24h|48h|72h|168h>` — returns `{items: StuckReferral[], nextCursor}` oldest first. The `olderThan` parameter is the only server-side filter; the UI's 1/2/3/7-day thresholds map to the durational values `24h`, `48h`, `72h`, `168h`. A `reason` filter is applied client-side over the loaded pages, since docforum-core#68 does not expose a server-side `reason` query parameter (unknown params return `400`).
+
+- **StuckReferral shape:** Embedded `stuckReason: 'no_doctor'|'doctor_inactive'|'loop_flagged'`, `targetSpecialty: Specialty`, `referringDoctor`/`targetDoctor` as `{id, fullName}`, and `chain: ReferralChainLink[] | null` (present only for `loop_flagged`, oldest hop first, ending with the referral itself). `ReferralChainLink` = `{referralId, referringDoctor, targetSpecialty, targetDoctor, status, createdAt}`. No patient name or ID is shown.
+
+- **Reassign:** `POST /referrals/admin/:id/reassign` body = `{targetDoctorId, reason, expectedUpdatedAt}`. Returns the updated `Referral`. `409` if the referral is not in `pending` status — the dialog closes and the queue refetches. Client-side eligibility checks: only verified doctors in the target specialty, excluding the current target doctor and the referring doctor. Availability (open slots in next 7 days) is also re-checked from `/admin/doctors?specialtyId=...&verificationStatus=verified`.
+
+- **Cancel:** `POST /referrals/admin/:id/cancel` body = `{reason, expectedUpdatedAt}`. Docforum-core notifies the patient; the client only records the action. The resulting status is not assumed to be `cancelled` in `ReferralStatus` (no cancelled value yet).
+
+- **Audit events:** `GET /referrals/admin/:id/audit-events` returns `{items: AuditEvent[], nextCursor}` newest first. Each event has `actorUserId`, `actorRole`, `entityType: 'Referral'`, `entityId`, `action`, `fromState`, `toState`, `requestId`, `metadata`, `createdAt`. The console links each action to `/admin/audit?entityType=Referral&entityId=<id>`.
+
+- **409 conflict handling:** If reassign or cancel receives `409` (someone else modified the referral), the dialog closes and the queue is refetched. Network failures leave the dialog open; retrying is safe because a duplicate submission comes back as `409`.
+
+### Feature flags console against `/admin/feature-flags` (issue #274)
+
+- **List endpoint:** `GET /admin/feature-flags` — returns an unpaginated array of `FeatureFlag` items in the current environment. There are typically dozens of flags, not thousands. Each flag has `key`, `description`, `enabled`, `kind` (`boolean` or `percentage`), `rolloutPercentage` (optional), and `targeting` (`roles: Role[]`, `userIds: string[]`).
+
+- **Update endpoint:** `PATCH /admin/feature-flags/:key` — partial update with `{ expectedUpdatedAt, enabled?, rolloutPercentage?, targeting? }`. The `:key` path parameter is validated by the backend as a lowercase dotted segment of up to 64 characters; a `400` is returned for malformed keys (e.g. uppercase, spaces, exceeding 64 chars). The `expectedUpdatedAt` field enables conflict detection: if the flag has been modified since the admin loaded it, the server returns `409`.
+
+- **Key format:** New keys must conform to the pattern `lowercase.dotted.segments` with a maximum of 64 characters total. The UI validates this on save and shows a `400` error message if the key is invalid. Existing keys are preserved; only the admin can create new keys via the edit dialog.
+
+- **Audit trail:** Every save creates an audit event with `entityType: 'FeatureFlag'` and `action: 'feature_flag.updated'`. The `updatedAt` timestamp and `actorUserId`/`actorRole` are stored. The console shows "Changed X ago by Y" per flag and provides a "View in audit trail" link to `/admin/audit?entityType=FeatureFlag&entityId=<flagKey>`.
+
+- **State & rollout:** Three states: `on` (enabled, rolloutPercentage = 100 or absent), `rollout` (enabled, rolloutPercentage < 100), `off` (enabled = false). The rollout percentage must be a whole number 0–100. Role targeting is a multi-select; the allowlist is a free‑form list of user UUIDs (one per line, comma-, or space-separated). Duplicate or invalid UUIDs are rejected before the save request is sent.
+
+- **Conflict handling:** If another admin saves the same flag between the time the current admin opens the edit dialog and confirms, the save receives `409`. The UI shows "was changed by someone else after you opened it" and offers "Start again from the latest" to refetch the flag and reset the draft. The save is not silently applied; only the flag that failed is rolled back, never another in-flight save.
+
+- **Permission model:** Admin accounts are seeded/invited (PRD OQ-2), not self-registered. The console is only accessible to users with the `admin` role.
+
+### Phase W2 — Orders scoped to the acting profile (issue #295)
+
+`GET /orders/mine` takes an assumed optional `?patientProfileId=` query
+parameter. Without it the endpoint returns every order for the caller, and a
+guardian acting for a dependent cannot be scoped: the same browser session is
+used for both profiles, so the client sends the selected profile id explicitly
+(`services/orders-service.ts`, `features/orders/hooks/useOrders.ts`) and the
+dev-mock filters on it. Reconcile with docforum-core when the acting-profile
+contract lands; health and care-thread reads already scope by the
+`/patients/:profileId/...` path.
+
+### Appointment cancellation (issue #15, assumed docforum-core#56)
+
+docforum-core#56 (cancellation policy: patient/doctor cancellation, cutoff windows, slot release) has not landed, so both calls are assumed:
+
+- `GET /appointments/:id/cancellation-policy` (patient, own appointment) → `CancellationPolicy` = `{lateCancellationCutoffMinutes, releaseSlotBeforeCutoff, releaseSlotAfterCutoff, recordLateCancellation, referralHandling}`. `referralHandling` is `returns_to_referral_queue | referral_unaffected | referral_closed`.
+- `POST /appointments/:id/cancel` (body `{reason, note?, expectedUpdatedAt}`) → the cancelled `PatientAppointment` plus `cancellation: {cancelledAt, cancellationReason, note, late, slotReleased}`. `409` means the appointment changed since it was loaded; `422` means the backend rejected the cancellation under its policy.
+
+The frontend never hard-codes a cutoff: `src/features/appointments/cancellation.ts` turns the served policy into the sentence shown before confirming, and disables cancelling when the policy cannot be read. Cancelling is deliberately still offered after the cutoff (it is labelled late, not blocked); it is blocked only for settled visits and a start time that has passed. `cutoffMinutes` is measured back from the slot start, and the boundary instant counts as late. Referral-origin appointments get one extra sentence describing the policy's `referralHandling`.
+
+### Live queue endpoints (issue #236)
+
+The doctor queue now matches docforum-core: visits transition with
+`PATCH /appointments/:appointmentId/start` and
+`PATCH /appointments/:appointmentId/complete`, and today's list is
+`GET /appointments/doctor/today`. No date is sent or derived in the browser —
+the backend scopes "today" from the doctor's practice time zone, so a doctor
+near midnight sees the server's day. `start` accepts only a checked-in visit
+and `complete` only an in-progress one (both idempotent on the state they
+produce); anything else is `409`. The UI applies the change optimistically,
+defers the PATCH for the 4-second undo window, sends at most one PATCH per
+appointment, rolls the row back on any failure and refetches so the server
+stays authoritative. Undo after the window has elapsed is a no-op: reversing a
+sent transition would need a second, conflicting PATCH.
+
+### Patient lab results (issue #24, assumed docforum-core#72)
+
+docforum-core#72 (abnormal lab result escalation and doctor acknowledgement tracking) has not landed, so every read is assumed:
+
+- `GET /patients/me/lab-results` → `LabResultSummary[]` = `{id, orderId, testName, facilityName, resultedAt, status, flag, summary, requiresDoctorReview}`. `status` is `pending | held | available | reviewed`; `flag` is `normal | abnormal | critical`.
+- `GET /lab-results/:id` → `LabResultDetail` adds `{patientProfileId, doctorName, orderedAt, values, acknowledgement, file}`. `values` are `{name, value, unit, referenceRange, flag}`; `acknowledgement` is `{status: not_required | pending | acknowledged, acknowledgedAt?, acknowledgedBy?, nextStep?}`; `file` is `{kind: pdf | image, fileName, mimeType, sizeBytes, contentPath}` or null.
+- `GET` the file's own `contentPath` → the file bytes (blob).
+
+The frontend never classifies a result: it renders the backend's `flag` and `status`. A `pending` or `held` result has no readable file, and a held result's values are hidden too, even if the API sends them. Files are fetched through `api-client.ts` with the bearer token and turned into an object URL (revoked when the viewer closes); the report is never embedded from a third-party host. `nextStep` copy is backend-supplied and rendered as text.
+
+### Audit CSV headers stay English (issue #248)
+
+The audit trail's client-side CSV export (`src/features/admin-audit/csv.ts`)
+keeps stable English column headers (`occurred_at`, `actor_user_id`,
+`entity_type`, …) in every locale. They are a data interchange format used by
+admins' own spreadsheets and scripts, not UI copy: translating them would
+silently break downstream filters when the operator changes language. The
+export's filename, quoting and spreadsheet-formula escaping are unchanged;
+only on-screen copy goes through `useT`. If a localised export is ever needed,
+it should be a separate, explicitly labelled download rather than a change to
+these headers.
+
+### Dependents create body is strict — relationship is edit-only (issue #261)
+
+`POST /patients/me/dependents` in docforum-core accepts exactly
+`{ fullName, dateOfBirth }` and returns `400` for any other field. This client
+therefore sends only those two fields when adding a dependent. `relationship`
+is still sent by `PATCH /patients/me/dependents/:id`, so it remains editable
+on an existing dependent; the add form no longer asks for it, because a value
+chosen there would be silently discarded.
+
+The age-of-majority rule is mirrored client-side from
+`VITE_AGE_OF_MAJORITY_YEARS` (default `18`), comparing calendar dates in the
+user's local time so a date-only DOB never shifts across time zones. A
+dependent whose birthday is today counts as at the age of majority. The server
+stays authoritative: `400 DEPENDENT_NOT_A_MINOR` is mapped to the date-of-birth
+field rather than shown as a form-level error.
+
+`403 GUARDIANSHIP_INACTIVE` on profile-scoped acting-for calls is shown as the
+handover explanation: the dependent's account has been handed over, so they
+now manage their own bookings and records and the guardian can only view past
+records.
+
+Open question for docforum-core: whether `relationship` should be accepted on
+create. Until then it is assumed to be derived server-side and returned on the
+created `Dependent`.
+
+### Pharmacy fulfillment routing (issue #263)
+
+Pharmacy routing uses `POST /pharmacy-orders/fulfillments` with
+`{ orderType: 'prescription', orderId, facilityId, orderItemIds? }`. Omitting
+`orderItemIds` routes the whole order; providing remaining item ids performs
+partial routing. `400` identifies an item outside the order and `409` means an
+item was already dispensed elsewhere. The UI refreshes order state after both
+success and conflict recovery.
+
+### Appointment status: no-show and cancellation (issue #264)
+
+`PATCH /appointments/:appointmentId/status` with body `{ status }`, where
+`status` is `completed`, `cancelled` or `no_show`, returns the updated
+`Appointment`. docforum-core only accepts this while the appointment is still
+`scheduled`; anything else answers `409` with its `{ message }` envelope. The
+client treats `409` as "someone else already acted": it closes the
+confirmation, says the visit is no longer scheduled, and refetches today's
+list, the live queue and insights.
+
+Assumed details, to reconcile against core's docs:
+
+- `Appointment` gains an optional
+  `referral: { id, targetSpecialtyName, priorNoShows } | null` when the visit
+  came from a referral. `priorNoShows` counts no-shows already recorded on
+  that referral **before** this appointment, and drives the wording only —
+  docforum-core performs the cascade. Assumed rule, matching #264's
+  "re-pending or expiring": cancelling and a first no-show put the referral
+  back to pending; a no-show when `priorNoShows >= 1` expires it. If core
+  counts differently, `referralExplanation` in
+  `src/features/doctor-today/components/AppointmentStatusActions.tsx` is the
+  one place to change.
+- The success response is used only to know the call worked; the UI reads the
+  new state from the refetched `GET /doctor/appointments/today` and
+  `GET /doctor/queue/today`, never from a hand-patched cache.
+- Marks added by this PR: today's list and practice insights invalidate on
+  every status change; the live queue invalidates too, although a scheduled
+  appointment has not checked in and so is not in it yet.
+- No-show is offered only once `Date.now() >= startsAt`; cancellation is
+  offered for any scheduled visit. Both actions are available from today's
+  appointments list and from the queue's "Still expected" rows, which render
+  scheduled appointments that have not checked in (they never appear in the
+  live queue itself).
+- `completed` is accepted by the service for completeness but no UI path
+  calls it — the consultation/queue flow owns completion.
+- The mock API enforces the same rules: unknown statuses are `400`, unknown
+  appointments `404`, and any status other than `scheduled` is `409`; a
+  no-show increments the fixture appointment's `referral.priorNoShows`.
+
+### Multi-target consultation referrals (issue #266)
+
+Consultation referrals use `POST /consultations/:consultationId/referrals`
+with `targets: [{ targetDoctorId?, targetSpecialtyId?, snapshotNotes }]`.
+Specialty-only targets are routed to an eligible doctor. The batch is atomic;
+the UI maps no-eligible-target and loop/hop `422` errors and duplicate-target
+`400` errors. Optional doctor selection excludes the referring doctor.
+
+### Phase W3 — Order issuance via the real `/orders/consultations` endpoints (issue #267)
+
+These are **real** docforum-core contracts (`backend/src/modules/orders`,
+`backend/prisma/schema/{consultations,prescriptions-labs}.prisma`), not
+assumptions. Everything this screen sends was checked against the current
+core source; the only remaining gaps are reads core does not serve yet.
+
+- `POST /orders/consultations` (body: `{ appointmentId, outcome?, notes? }`) → `Consultation` (`201`). Doctor-only and gated on a verified **email** as well as a verified doctor profile once orders are issued. One consultation per appointment (DB unique), so a repeat is `409`. `notes` is clinical free text, encrypted server-side — this UI never logs it.
+- `POST /orders/consultations/:consultationId/prescriptions` (body: `{ facilityProfileId, items: [{drugName, dosage, frequency, duration}], amountStroops | catalogItemCode }`) → `Prescription & { paymentIntent }` (`201`). 1–100 items, each field 1–200 characters.
+- `POST /orders/consultations/:consultationId/lab-orders` (body: `{ facilityProfileId, testType, urgency?: 'routine'|'urgent', notes?, amountStroops | catalogItemCode }`) → `LabOrder & { paymentIntent }` (`201`). Core takes one `testType` per order, so a multi-test form submits one request per test and shows each issued order separately; a failure mid-batch stops the loop, keeps the unissued tests in the form and shows the error, so a retry cannot re-issue the ones that already succeeded.
+- **Exactly one price**, never both: `catalogItemCode` (priced from `GET /facilities/eligible?catalogItemCode=` / the facility's published list, snapshotted on the intent) or `amountStroops` (a positive integer string; the form takes XLM and converts with 7 decimals). An unknown code is `422 { code: 'PRICE_ON_REQUEST' }` and writes no order.
+- `GET /facilities/eligible?type=lab|pharmacy` → `{ facilities: [{ facilityId, name, type, address, distanceKm, priceOnRequest, price }] }`. The `type` must match the order kind: a prescription needs a `pharmacy`, a lab order a `lab`.
+- `GET /doctors/me` → the signed-in doctor's profile, including `verificationStatus`. Used to show the gate before the doctor fills a form in.
+- The server's verified-profile gate answers `403` with `"A verified doctor profile is required to issue orders."`; the UI explains it and links to `/doctor/verification` rather than showing a raw error.
+- **Read gaps:** core has no read endpoint for an issued prescription or for a newly issued lab order (`GET /lab-orders/:id` serves the older `Order` table, not `LabOrder`), and no consultation lookup by appointment id. So the panel shows each order's full detail inline from the `201` response, and the consultation id comes from the create response for the current session — reloading the consultation screen loses the ability to issue further orders until core adds those reads. Worth a `docforum-core` issue.
+- Orders are append-only; corrections use core's supersede flow (`supersedesPrescriptionId` / `supersedesLabOrderId`), which this UI does not offer yet. There is no edit path for an issued order by design.
+
+### Raw lab result uploads (issue #268)
+
+Lab results are uploaded as raw request bodies to
+`POST /orders/lab-orders/:id/result` with `application/pdf`, `image/png`, or
+`image/jpeg`. Files are limited to 10 MiB and rejected when content and declared
+type differ. Uploads use the shared XHR transport for progress and no automatic
+retry. Codes `LAB_RESULT_UNSUPPORTED_TYPE`, `LAB_RESULT_CONTENT_MISMATCH`,
+`LAB_RESULT_TOO_LARGE`, `LAB_RESULT_ALREADY_ATTACHED`,
+`LAB_ORDER_SUPERSEDED`, and `OBJECT_STORAGE_NOT_CONFIGURED` are shown with
+specific recovery copy.
+
+### Pharmacy-order fulfillment writes (issue #269)
+
+Fulfillment writes now use docforum-core's real pharmacy-order routes:
+`PATCH /pharmacy-orders/fulfillments/:id` with `status: in_progress | rejected`,
+and `PATCH /pharmacy-orders/fulfillments/:id/items/:itemId` with
+`status: dispensed | unfulfilled` (plus an optional `quantityDispensed`). A
+record's `fulfilled` state is derived server-side from its items and is never
+sent by this client. Item PATCHes are one-shot and are not retried
+automatically after a timeout; a `409` means another facility, or an earlier
+attempt, already closed the item, so the queue is refreshed before the user
+can try again.
+
+The queue listing (`GET /facilities/:facilityId/fulfillment-queue`) remains an
+assumed contract. Until docforum-core exposes a queue-listing route, the
+listing must carry `fulfillmentRecordId` and `fulfillmentItemId` so the real
+PATCH calls above can address the record and item; when either is absent the
+client falls back to the queue row id.
+
+### Patient payment intent detail (issue #272)
+
+Patient payment receipts use `GET /payments/intents/:id`. The detail query is
+seeded from the in-memory payment-history cache and still refetches by id.
+Authorization and not-found responses both produce a 404; the receipt view
+shows "Payment not found" and a link back to payment history.
+
+### Payout-blocked banner (issue #279)
+
+- **Error envelope:** docforum-core's error body carries a machine-readable
+  `code` beside `message`. `ApiError.code` (from the transport) is the primary
+  source, with the raw body's `code` as a fallback; the UI branches on the
+  code, never on the message text or the HTTP status. Codes:
+  `FACILITY_WALLET_NOT_LINKED` (no payout wallet linked) and
+  `PAYEE_TRUSTLINE_MISSING` (the linked wallet cannot hold the payout asset,
+  currently USDC).
+- **Assumed payout-readiness source:** `GET /payments/wallet-link` answers
+  `404` (real core) or a `null` body (mock API) when nothing is linked; both
+  are treated as "no payout wallet". `WalletLink` has no trustline field, so
+  the wallet read cannot report trustline state.
+- **There is no trustline endpoint**, and hard rule 1 forbids checking Stellar
+  from the browser. The trustline banner can therefore only be raised by
+  `PAYEE_TRUSTLINE_MISSING` on a facility payment call. The banner makes that
+  call itself as a readiness probe (`useFacilityLedger`, default filters and
+  the same query key as the payouts page, so both screens share one request),
+  which is what lets the dashboard show the trustline state on a cold visit.
+  It is cleared when a facility payment call succeeds again, a wallet relink
+  succeeds, or the wallet link is re-confirmed. That is weaker than a real trustline
+  confirmation — none is available. If docforum-core later exposes payout
+  readiness (for example a `trustlineStatus` on the wallet link), reconcile
+  `usePayoutBlockStatus` with it and drop the "cleared on next success" rule.
+- The readiness probe reads `GET /payments/facility/ledger` (issue #271, the
+  real endpoint). docforum-core is expected to return the two codes above
+  when payouts are blocked; the mock handler for that endpoint answers with
+  them in the `wallet_missing` / `trustline_missing` scenarios so both states
+  can be reproduced in `npm run dev:mock`.
+- The detected code is kept in memory only
+  (`src/store/payout-block-store.ts`, no persistence), and no patient or staff
+  personal data is recorded with it.
+
+### Service endpoint assumptions (issue #301)
+
+`npm run check:contract-drift` is the live inventory. It extracts every
+`apiFetch`-family call from `src/services/*` and `packages/api-client/src/client.ts`
+and marks each one `documented` (in core's `docs/api/README.md`), `assumed`
+(or `drifted` when neither, i.e. no evidence core serves it).
+
+- A call is `assumed` when the service puts an `ASSUMED` comment directly above
+  the exported function, explaining what core has not shipped yet. That comment
+  is the only place to record the assumption, so the report stays truthful as
+  endpoints land.
+- Marking a call `assumed` does not make the path correct. It means the
+  frontend knows the contract is provisional; fix the call when core's docs
+  list it under a different method or path.
+- The report reads a local `docforum-core` checkout (`--core-path` or
+  `DOCFORUM_CORE_PATH`) or fetches the pinned ref (`DOCFORUM_CORE_REF`). It runs
+  warn-only in CI: a drifted row is a review prompt, never a merge blocker.
+
+### Phase W6 — Admin operations overview (issue #68, assumed docforum-core#123)
+
+- `GET /admin/overview` (admin) → `OperationsOverview` = `{generatedAt, queues: OverviewQueue[]}`.
+- `OverviewQueue` = `{key, label, count, oldestAt, href, available, detail?}`. `key` is `verifications | stuck_referrals | unrouted_orders | stuck_payments | failed_jobs | disputes`; `oldestAt` is the oldest waiting item (null when the queue is empty); `href` is an in-app drill-down path.
+- `available: false` means the backend could not report that section (source down, or not implemented). The board renders it muted with `detail` and still links to the console — a partial outage must not turn the landing page into an error.
+
+The client never totals queues from other endpoints; counts and ages are the backend's. Polling is 60 s with `refetchIntervalInBackground: false`, so a hidden tab stops polling and refetches on focus. A whole-response `404`/`501` is shown as "not available on this deployment yet" with links to every console, which is the state the live API is in until docforum-core#123 lands. The payments console lives at `/admin/payments/console` since #68; `/admin?intent=<id>` became `/admin/payments/console?intent=<id>`.
+
+### Phase W6 — Admin user management (issue #70, assumed docforum-core#39)
+
+- `GET /admin/users?search=&role=&status=&page=&pageSize=` → `{items, total, page, pageSize}` (`AdminUserPage`). Only `search`, `role` and `status` are sent when meaningful; `pageSize` is 10.
+- `AdminUser` = `{id, email, fullName, role, status: active | deactivated, activeSessionCount, createdAt, lastActiveAt?, deactivatedAt?, deactivationReason?}`. The client shows no clinical data and no other PII.
+- `GET /admin/users/:id` → `AdminUser` (the dialog can render from the list row; the detail call exists for a future direct link).
+- `POST /admin/users/:id/deactivate` (body `{reason}`, 10–500 characters) → `AdminUser`. A `409` with code `LAST_ADMIN` (or a 409 message naming the last admin — the live envelope only carries `{message}`) means the last active admin cannot be disabled, and the UI says so explicitly.
+- `POST /admin/users/:id/reactivate` → `AdminUser`.
+- `GET /admin/invites` → `AdminInvite[]`; `POST /admin/invites` (body `{email}`) → `AdminInvite` (`409` for a duplicate pending invite); `DELETE /admin/invites/:id` → `{success}`.
+
+Search, role, status and page live in the URL (`q`, `role`, `status`, `page`); values outside the allowed sets are discarded before any request. Deactivation is never optimistic: the row updates only after the server confirms, because a silently failed deactivation is a security problem.
+
 ## Generated contract
 
 All API routes covered by this repository's typed client are declared in
@@ -801,6 +1338,48 @@ and typed errors.
   are isolated in `src/types/models.ts` and the relevant service modules.
 - Theme preferences are stored under `docforum-theme` in local storage and
   fall back to system media queries when unset.
+
+# Shared file upload
+
+`src/components/Upload.tsx` is the shared upload control for intake forms,
+lab results, facility fulfillment and messaging. It supports drag-and-drop
+and a keyboard-operable picker, an optional mobile camera input
+(`capture="environment"`), per-file progress, cancel and retry.
+
+File state stays local to the component. Nothing is written to Zustand,
+localStorage or sessionStorage, and no object URL is created.
+
+## Validation and image handling
+
+`src/components/upload-utils.ts` reads the file signature rather than
+trusting `File.type`, so a renamed non-image cannot pass as an image. PNG,
+JPEG, GIF, WebP, HEIC, PDF and ZIP signatures are recognised. Defaults are a
+10 MB limit and `image/*,application/pdf`; callers can override `accept`,
+`maxSizeBytes`, `imageMaxDimension` and `imageQuality`.
+
+Images whose longest side exceeds `imageMaxDimension` (2048 by default) are
+downscaled through `createImageBitmap` and canvas before upload. If the
+browser lacks that pipeline, the original file is sent unchanged.
+
+## Transport and assumed API shape
+
+`src/services/api-client.ts` exposes `apiUpload`, an XHR transport used only
+because `fetch` cannot report upload progress. It sends credentials like
+`apiFetch`, adds the bearer token when supplied, and uses the same
+`{ message }` error envelope.
+
+The component's default transport posts `multipart/form-data` to the
+caller-supplied `endpoint`, with the file under `fieldName` (`file` by
+default). The endpoint is assumed until `docforum-core` ships real upload
+routes; the successful JSON response is passed to `onUploaded`. Tests and
+custom flows can inject `uploadFile` instead of a live endpoint.
+
+## Storybook
+
+`Upload.stories.tsx` is dependency-free CSF so it can be adopted when
+Storybook lands in issue #97 without adding Storybook to this change.
+
+Closes [#115](https://github.com/DocForum/docforum-web/issues/115).
 
 ## Privacy and platform guarantees
 
@@ -841,10 +1420,36 @@ and typed errors.
 - Plausible/Umami event body: `{event, path, domain, referrer, screenWidth, props?}`. If the self-hosted endpoint expects a different shape, only `send()` in `analytics.ts` needs updating.
 
 #### Configurable router contract (issue #119, docs/adr/0001-routing-strategy.md)
-- `VITE_USE_HASH_ROUTER=true` → `HashRouter`; absent or `false` → `BrowserRouter`.
+- `VITE_USE_HASH_ROUTER=true` → `createHashRouter`; absent or `false` → `createBrowserRouter` (data routers since issue #112; see `src/router.ts`).
 - GitHub Pages builds always pass `VITE_USE_HASH_ROUTER: "true"` (set in `deploy-pages.yml`).
 - `HashRedirectShim` is mounted only in BrowserRouter mode; it reads `window.location.hash` directly to detect `#/` prefixes on the root path.
 - Email links from docforum-core should use clean paths (`/reset?token=…`), not hash paths. Old hash-format links are transparently redirected by the shim.
+
+#### Data router, loaders and route guards (issue #112)
+- Routes are data-router route objects: one factory per area in `src/routes/<area>.tsx`, assembled by `createAppRoutes({ queryClient })` in `src/routes/index.tsx`. The browser (`src/router.ts`), tests (`renderAppAt` in `src/test/render-app.tsx`) and the prerender (`createStaticHandler` in `src/prerender/entry-server.tsx`) all use that one table.
+- Every page is a `lazy` route (`lazyPage(() => import(...), 'ExportName')`). `src/routes/route-helpers.test.tsx` fails if a page route is added eagerly. `main.tsx` resolves only the first URL's lazy modules before the first render (no blank flash); everything else loads on navigation.
+- Role guards are loaders, not components: `guardedSection(id, roles, children)` gives each child `requireRoles(roles, prefetch)` (waits for the boot session restore, then redirects to `/login` or `/`, same as the old `RequireAuth`) and the section a `RoleGate` element (re-checks live on sign-out/idle timeout) and an `errorElement`. The guard sits on each child loader because React Router runs parent and child loaders in parallel; that is what guarantees no prefetch fires before the guard decides.
+- Prefetch: a child's `prefetch(args, token)` calls `queryClient.ensureQueryData(...)` with the same `queryOptions` factory its page's hook uses, wrapped in `settlePrefetch` (waits at most `PREFETCH_BUDGET_MS`, never rejects — a failed prefetch leaves the page's own error state to report it). Add a factory next to the hook when prefetching a new page; never duplicate a key.
+- Errors: loader, lazy-chunk and render failures inside a section render `RouteErrorElement` inside the layout's `<main>`; "Try again" reloads (the reliable fix for a stale chunk after a deploy). Render errors inside a mounted page are still caught by the route `ErrorBoundary` in `Layout`.
+
+#### Mutation feedback: toasts, optimistic updates, undo (issue #113)
+- `ToastRegion` is mounted once in `App.tsx`; call `showToast({ message, tone, action?, durationMs? })` from anywhere (`src/store/toast-store.ts`). Messages are short, already-translated UI copy, never server records or PHI. Errors go to the assertive region, everything else to the polite one; toasts never take focus.
+- A toast is never the only place a **form** error appears — show it next to the form (`FormError`/field errors). Toasts are for background results.
+- `useOptimisticMutation` qualifies only for reversible UI state the server will almost always accept: read/unread, toggles, reordering, dismissing. `useUndoableAction` (delayed commit) is for easily mis-clicked reversible actions with no compensating API call.
+- **Never** optimistic or delayed for money movement or escrow: payment intents, wallet payments, payouts, refunds, dispute resolutions. Also not for server-validated form submissions (booking, sign-up). `src/hooks/optimistic-policy.test.ts` scans `src/features/payments/`, `src/features/fulfillment/`, `src/features/admin-disputes/` and `src/services/payments-service.ts` and fails CI on any optimistic helper or `onMutate`.
+- Current users: notification mark-one-read (optimistic + rollback toast) and mark-all-read (undoable, committed on unmount/pagehide rather than dropped; other tabs are told on commit).
+
+#### Date and time inputs (issue #114)
+- Use `DatePicker`/`TimePicker` (`src/components/`) for every date or time field; don't add `<input type="date|time|datetime-local">`. Values stay in the native formats (`YYYY-MM-DD`, 24-hour `HH:mm`), so services and validation are unchanged. A date-and-time field is one of each (see `PriceListEditor`).
+- Like native inputs, a typed date/time outside `min`/`max` is still reported (and flagged `aria-invalid` on blur); the form's own validation decides and its `error` prop wins over the picker's message.
+- "Today" and the zone hint come from an explicit IANA zone (`timeZone` prop, else the user's `TimeZoneProvider` zone). The pickers never convert a value between zones; date maths is calendar-day arithmetic in UTC (`src/utils/date-input.ts`), so DST cannot shift a day.
+- They work without an `IntlProvider` (English defaults, `en` locale) via `useOptionalT`, so isolated component tests and stories need no wrapper.
+
+#### Performance budget (issue #99)
+- `performance-budget.json` holds the bundle budgets; `npm run check:bundle` (CI, after `npm run build`) fails when first-load JS (entry + modulepreloads, gzip) or any lazy chunk exceeds them, and writes the numbers to the job summary. Raise a budget only in a PR that explains why.
+- Lighthouse CI (`.lighthouserc.json`, `lighthouse` job in `ci.yml`) runs against the mock-only preview build (hash routing, MSW, reserved-invalid API origin; `?previewRole=` for signed-in pages) and fails on LCP, CLS, TBT or script-size regressions. Its script-size budget (450 kB transferred per page) is for that mock build: it includes the MSW mock layer (~120 kB gzip) that production never ships, on top of the production entry (~171 kB gzip) and the heaviest signed-in route (patient dashboard, ~420 kB measured). The production first-load budget is the `check:bundle` one. Desktop preset, median of three runs, so shared runners don't make it flaky; the gzip budget protects mobile download cost deterministically.
+- `npm run analyze` writes the rollup-visualiser treemap to `bundle-stats/` (git-ignored); CI uploads it as the `bundle-stats` artifact.
+- GSAP stays behind `import('gsap')` in `useMotion` and is not fetched at all under `prefers-reduced-motion: reduce`. Route fallbacks reserve space (`.routeFallback`) so lazy loading does not shift the footer.
 
 ### Responsive navigation and layout (issue #103)
 
@@ -906,6 +1511,18 @@ server strips it). The full thread UX (optimistic send, live updates,
 per-side layout) is #22's scope — `MessageThread` here is a minimal shared
 shell so the attachment composer/preview have a real home.
 
+### Localised copy never includes clinical or patient data (issues #248, #250)
+
+Translation covers interface copy only. Medication and test names, doses,
+quantities, instructions, facility names, doctor and patient names, audit
+action tokens, entity ids and feature-flag keys are rendered exactly as the API
+returned them — they are data, not labels. Counts, statuses and role targeting
+go through ICU `plural`/`select` messages in the catalogue instead of string
+concatenation, so a locale chooses its own plural rules. Every string is
+written with an English `defaultMessage` beside its id, so the UI still renders
+sensibly before (or without) a locale chunk. Unknown enum values fall back to
+the server's token rather than a blank label.
+
 ## Preview builds for pull requests (issue #104)
 Every PR is built in mock-API mode and attached to the PR as a downloadable
 artifact. It is never published to GitHub Pages or any other shared origin.
@@ -955,10 +1572,10 @@ artifact. It is never published to GitHub Pages or any other shared origin.
   working). `src/mocks/handlers.test.ts` shares this server instead of
   creating a second one — two MSW servers in one worker double-intercept
   requests.
-- **Coverage gate:** `npm run test:coverage` (v8) measures
-  `src/features/**` and `src/services/**` and enforces the thresholds in
-  `vite.config.ts`; CI runs that instead of plain `npm test`. Thresholds are
-  the floor measured when they were last raised — raise, never lower.
+- **Coverage gate:** `npm run test:coverage` (v8) measures `src/features/**`,
+  `src/services/**`, `src/components/**` and `src/hooks/**` and enforces the
+  thresholds in `vite.config.ts`; CI runs it instead of plain `npm test`.
+  Thresholds are floors measured when last raised — raise, never lower.
 
 ### Shared loading, empty and error states (issue #106)
 `src/components/states/` is the one place these live; screens do not hand-roll
@@ -980,6 +1597,38 @@ them:
 Empty states added in this change deliberately keep the copy existing tests
 assert on (e.g. "No open disputes…", "docforum-core has no background jobs
 registered."), so the visual change does not silently rewrite product text.
+
+### Coverage gate folders and floors (issue #292)
+
+`vite.config.ts` `test.coverage` gates the whole measured set **and** each of
+the two folders that joined it in #292 separately:
+
+| Set | floor stmt/branch/fn/line | measured 2026-11-20 |
+| --- | --- | --- |
+| aggregate — `src/features`, `src/services`, `src/components`, `src/hooks` | 78 / 70 / 77 / 79 | 83.6 / 75.4 / 82.3 / 85.5 |
+| `src/components/**` | 87 / 82 / 89 / 88 | 88.2 / 82.4 / 89.7 / 88.9 |
+| `src/hooks/**` | 95 / 89 / 95 / 97 | 95.6 / 91.0 / 95.7 / 97.9 |
+
+The per-folder floors are the levels measured on 2026-11-20, the day both
+folders entered the gate (vitest treats any non-threshold key in
+`thresholds` as a glob and checks that glob's own summary, so a shared
+component or hook can no longer drop to zero tests while the aggregate keeps
+clearing 78). The aggregate floors are unchanged from #105: adding these two
+well-covered folders moved the measured total *up*, so lowering nothing was
+possible and nothing was lowered.
+
+A floor is a claim about a tree, and `main` moves daily. Rebasing onto the
+commits that landed while this was in review dropped `src/hooks/**` to
+93.8 / 88.1 / 94.8 / 96.9 — not because a test was deleted, but because a new,
+partly untested hook (`useUnsavedChangesGuard.ts`, from #329) arrived in the
+gated folder. The gate did its job: the fix was the missing cases, never the
+number. Re-run `npm run test:coverage` after every rebase onto a `main` that
+touched these two folders.
+
+`src/pages/**` stays out of the gate — pages compose the folders above and are
+covered through them — and `src/mocks/**` is dev-only. `**/*.test.*`,
+`**/*.stories.*`, `**/*.d.ts` and the `index.ts` barrels (re-exports only, no
+behaviour) are excluded.
 
 ## Known assumptions (issue #107) — notification centre
 Assumed contract: `docforum-core`#93 (Notification model, provider-agnostic
@@ -1009,6 +1658,18 @@ dispatch interface and the in-app inbox API) has not landed. Shapes mirror
 - **PHI-light by design:** `title`/`body` are display strings written by the
   backend, rendered as text only. Cross-tab broadcasts carry ids and the same
   payload the other tab already has; nothing is persisted in localStorage.
+
+### New-notification announcements and quiet hours (issue #246)
+
+The bell announces increases in the server's `unreadCount`. It assumes quiet
+hours (#108) are applied by docforum-core when a notification is delivered, as
+the quiet-hours setting describes ("Pause non-urgent email, SMS and in-app
+notifications"). A notification that reaches the in-app inbox was meant to be
+seen now, so the client announces it and does not apply quiet hours a second
+time. Doing so would also mute the safety-critical results and security alerts
+that must get through. The preference model has no separate setting to silence
+in-app screen-reader announcements. If one is added, the hook should read it.
+Announcements contain only counts, never notification titles or bodies.
 
 ## Roadmap / status
 See `ROADMAP.md` in this repo, and Phase 7 in `docforum-core`'s

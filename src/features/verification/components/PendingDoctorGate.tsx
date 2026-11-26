@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Spinner } from '../../../components/Spinner';
+import { useT } from '../../../i18n/useT';
 import { ApiError } from '../../../services/api-client';
 import { useDoctorProfile } from '../hooks/useVerification';
-import { NO_REJECTION_REASON, VERIFICATION_STATUS_LABELS } from '../requirements';
+import { noRejectionReason, verificationStatusLabel } from '../requirements';
 import type { VerificationStatus } from '../../../types/models';
 import styles from './VerificationStatusBanner.module.css';
 
@@ -28,6 +29,7 @@ export function PendingDoctorGate({
   status,
   rejectionReason,
 }: PendingDoctorGateProps) {
+  const t = useT();
   const profileQuery = useDoctorProfile({ enabled: status === undefined });
   const resolved: VerificationStatus | null = status ?? profileQuery.data?.verificationStatus ?? null;
   // A freshly signed-up doctor may not have a profile row yet, and `GET
@@ -42,7 +44,7 @@ export function PendingDoctorGate({
       return (
         <div className={styles.body}>
           <Spinner size={20} />
-          <span>Checking your verification status…</span>
+          <span>{t('verification.gate.checking', 'Checking your verification status…')}</span>
         </div>
       );
     }
@@ -50,13 +52,15 @@ export function PendingDoctorGate({
     if (profileQuery.isError && !noProfileYet) {
       return (
         <section className={styles.banner} data-status="pending" role="status">
-          <h2 className={styles.headline}>We could not read your application</h2>
+          <h2 className={styles.headline}>{t('verification.gate.readFailed', 'We could not read your application')}</h2>
           <p className={styles.body}>
-            Your verification status is unavailable right now, so the doctor area stays closed. Reload this page, or
-            open your application directly.
+            {t(
+              'verification.gate.readFailedBody',
+              'Your verification status is unavailable right now, so the doctor area stays closed. Reload this page, or open your application directly.',
+            )}
           </p>
           <Link className={styles.link} to={verificationPath}>
-            Open my verification application
+            {t('verification.gate.openApplication', 'Open my verification application')}
           </Link>
         </section>
       );
@@ -68,21 +72,27 @@ export function PendingDoctorGate({
 
   return (
     <section className={styles.banner} data-status={effective} role="status">
-      <span className={styles.pill}>{VERIFICATION_STATUS_LABELS[effective]}</span>
-      <h2 className={styles.headline}>Finish your verification application</h2>
+      <span className={styles.pill}>{verificationStatusLabel(effective, t)}</span>
+      <h2 className={styles.headline}>{t('verification.gate.finish', 'Finish your verification application')}</h2>
       <p className={styles.body}>
         {effective === 'rejected'
-          ? 'An admin rejected part of your application. Correct the items named below and resubmit them — appointments, availability and your profile stay closed until the review passes.'
-          : 'An admin verifies each document and specialty claim before the rest of the doctor area opens. Upload what is missing and track each item here.'}
+          ? t(
+              'verification.gate.rejectedBody',
+              'An admin rejected part of your application. Correct the items named below and resubmit them — appointments, availability and your profile stay closed until the review passes.',
+            )
+          : t(
+              'verification.gate.pendingBody',
+              'An admin verifies each document and specialty claim before the rest of the doctor area opens. Upload what is missing and track each item here.',
+            )}
       </p>
       {effective === 'rejected' && (
         <p className={styles.reason}>
-          <span className={styles.reasonLabel}>Reason: </span>
-          {rejectionReason || NO_REJECTION_REASON}
+          <span className={styles.reasonLabel}>{t('verification.reason.label', 'Reason: ')}</span>
+          {rejectionReason || noRejectionReason(t)}
         </p>
       )}
       <Link className={styles.link} to={verificationPath}>
-        Go to my verification application
+        {t('verification.gate.goToApplication', 'Go to my verification application')}
       </Link>
     </section>
   );

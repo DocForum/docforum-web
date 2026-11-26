@@ -1,16 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import * as doctorTodayService from '../../../services/doctor-today-service';
 import * as queueService from '../../../services/queue-service';
 import { useAuthStore } from '../../../store/auth-store';
 
-export function useTodayAppointments() {
-  const accessToken = useAuthStore((state) => state.accessToken);
-
-  return useQuery({
+/** Shared by `useTodayAppointments` and the doctor dashboard loader (#112). */
+export function todayAppointmentsQueryOptions(accessToken: string | null) {
+  return queryOptions({
     queryKey: ['doctor', 'appointments', 'today'],
     queryFn: ({ signal }) => queueService.listTodayAppointments(accessToken!, signal),
     enabled: Boolean(accessToken),
   });
+}
+
+export function useTodayAppointments() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useQuery(todayAppointmentsQueryOptions(accessToken));
 }
 
 export function useAppointmentIntake(appointmentId: string, enabled: boolean) {

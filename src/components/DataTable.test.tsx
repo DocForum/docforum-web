@@ -117,6 +117,23 @@ describe('DataTable', () => {
     expect(onSortChange).toHaveBeenLastCalledWith(null);
   });
 
+  it('keeps sorting available in the stacked (narrow-width) layout', () => {
+    const onSortChange = vi.fn();
+    makeTable({ onSortChange });
+
+    const sortGroup = screen.getByRole('group', { name: 'Test table sort options' });
+    const stackedButtons = sortGroup.querySelectorAll('button');
+    expect(stackedButtons).toHaveLength(2);
+    fireEvent.click(stackedButtons[1]);
+    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'name', direction: 'asc' });
+  });
+
+  it('marks the active stacked sort control', () => {
+    makeTable({ sort: { key: 'id', direction: 'asc' } });
+    const sortGroup = screen.getByRole('group', { name: 'Test table sort options' });
+    expect(sortGroup.querySelector('button')?.getAttribute('aria-label')).toMatch(/descending/);
+  });
+
   it('sets aria-sort on sorted columns', () => {
     makeTable({ sort: { key: 'name', direction: 'asc' } });
     const headers = screen.getAllByRole('columnheader');

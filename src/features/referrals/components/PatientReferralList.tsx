@@ -23,6 +23,7 @@ const STATUS_LABEL: Record<ReferralStatus, string> = {
   declined: 'Declined',
   completed: 'Completed',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
 function formatAppointment(value: string): string {

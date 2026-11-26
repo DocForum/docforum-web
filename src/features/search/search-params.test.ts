@@ -25,14 +25,14 @@ describe('parseSearchParams', () => {
     const { filters, issues } = parseSearchParams(params('symptom=DROP%20TABLE%20users'));
     expect(filters.symptomSlug).toBe('');
     expect(issues).toHaveLength(1);
-    expect(issues[0]).toMatch(/symptom link was not valid/i);
+    expect(issues[0]).toBe('invalidSymptom');
   });
 
   it('drops an invalid availability value with a notice', () => {
     const { filters, issues } = parseSearchParams(params('availability=whenever'));
     expect(filters.availability).toBe('any');
     expect(issues).toHaveLength(1);
-    expect(issues[0]).toMatch(/availability filter .* not valid/i);
+    expect(issues[0]).toBe('invalidAvailability');
   });
 
   it('keeps the symptom when only availability is invalid', () => {

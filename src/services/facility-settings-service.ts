@@ -38,18 +38,22 @@ export function searchCatalogItems(
 }
 
 export function listFacilityPrices(
-  facilityId: string,
+  _facilityId: string,
   accessToken: string,
 ): Promise<FacilityPrice[]> {
-  return apiFetch<FacilityPrice[]>(`/facilities/${facilityId}/prices`, { accessToken });
+  // Phase W4: use /me endpoint so the backend determines the facility from the
+  // signed-in user rather than a passed-in id.
+  return apiFetch<FacilityPrice[]>(`/facilities/me/prices`, { accessToken });
 }
 
 export function createFacilityPrice(
-  facilityId: string,
+  _facilityId: string,
   input: FacilityPriceInput,
   accessToken: string,
 ): Promise<FacilityPrice> {
-  return apiFetch<FacilityPrice>(`/facilities/${facilityId}/prices`, {
+  // Phase W4: use /me endpoint so the backend determines the facility from the
+  // signed-in user rather than a passed-in id.
+  return apiFetch<FacilityPrice>(`/facilities/me/prices`, {
     method: 'POST',
     body: input,
     accessToken,

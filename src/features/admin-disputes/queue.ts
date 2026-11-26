@@ -1,16 +1,17 @@
 import type { DisputeReason, FulfillmentDisputeSummary } from '../../types/models';
+import type { Translator } from '../../i18n/useT';
 import { ageLabel } from './format';
+import { englishTranslator } from '../../i18n/englishTranslator';
 
-export const DISPUTE_REASONS: Record<DisputeReason, string> = {
-  not_received: 'Not received',
-  wrong_item: 'Wrong item',
-  incomplete: 'Incomplete order',
-  damaged: 'Damaged',
-  other: 'Other',
-};
-
-export function reasonLabel(reason: DisputeReason): string {
-  return DISPUTE_REASONS[reason] ?? reason;
+export function reasonLabel(reason: DisputeReason, t: Translator = englishTranslator): string {
+  const labels: Record<DisputeReason, string> = {
+    not_received: t('adminDisputes.reason.notReceived', 'Not received'),
+    wrong_item: t('adminDisputes.reason.wrongItem', 'Wrong item'),
+    incomplete: t('adminDisputes.reason.incomplete', 'Incomplete order'),
+    damaged: t('adminDisputes.reason.damaged', 'Damaged'),
+    other: t('adminDisputes.reason.other', 'Other'),
+  };
+  return labels[reason] ?? reason;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -39,8 +40,8 @@ export function sortByAge<T extends Pick<FulfillmentDisputeSummary, 'openedAt'>>
   return [...disputes].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt));
 }
 
-export function oldestAgeLabel(disputes: FulfillmentDisputeSummary[], now: number): string | null {
+export function oldestAgeLabel(disputes: FulfillmentDisputeSummary[], now: number, t?: Translator): string | null {
   if (disputes.length === 0) return null;
   const oldest = sortByAge(disputes)[0];
-  return hoursSince(oldest.openedAt, now) === null ? null : ageLabel(oldest.openedAt, now);
+  return hoursSince(oldest.openedAt, now) === null ? null : ageLabel(oldest.openedAt, now, t);
 }

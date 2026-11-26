@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLogout } from '../features/auth/hooks/useLogout';
@@ -16,6 +17,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { OfflineBanner } from './OfflineBanner';
+import { paths } from '../routes/paths';
 import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
@@ -99,40 +101,24 @@ export function Layout() {
     toggleRef.current?.focus();
   }, []);
 
-  // Trap focus inside the drawer while it's open (keyboard access).
-  useEffect(() => {
-    if (!drawerOpen || !drawerRef.current) return undefined;
-    const drawer = drawerRef.current;
-    const focusables = drawer.querySelectorAll<HTMLElement>(
-      'a[href], button, [tabindex]:not([tabindex="-1"])',
-    );
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-    };
-    drawer.addEventListener('keydown', handleKey);
-    first?.focus();
-    return () => drawer.removeEventListener('keydown', handleKey);
-  }, [drawerOpen]);
+  // The open drawer is a modal dialog: focus moves inside, Tab is contained
+  // (re-computed on every keypress, so links added later are covered), Escape
+  // closes it and focus returns to the trigger. The closed drawer is inert, so
+  // none of its links are reachable at all (issue #239).
+  useFocusTrap(drawerRef, drawerOpen, closeDrawer);
 
   const logout = () => {
-    logoutMutation.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) });
+    logoutMutation.mutate(undefined, { onSuccess: () => navigate(paths.login, { replace: true }) });
     closeDrawer();
   };
 
   return (
     <div className={styles.shell}>
+      {/* Everything behind the drawer: inert while the drawer is open (issue #239). */}
+      <div className={styles.page} inert={drawerOpen || undefined}>
       {/* Skip to content for keyboard users */}
       <a href="#main-content" className={styles.skipLink}>
-        Skip to content
+        {t('shell.skipLink', 'Skip to content')}
       </a>
 
       <OfflineBanner />
@@ -146,20 +132,20 @@ export function Layout() {
             className={styles.menuToggle}
             aria-expanded={drawerOpen}
             aria-controls="mobile-drawer"
-            aria-label="Toggle navigation menu"
+            aria-label={t('shell.menuToggle', 'Toggle navigation menu')}
             onClick={() => setDrawerOpen((open) => !open)}
           >
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
             <span className={styles.toggleBar} />
           </button>
-          <Link to="/" className={styles.brand} aria-label="DocForum home">
+          <Link to="/" className={styles.brand} aria-label={t('shell.brandAria', 'DocForum home')}>
             <Logo size={24} />
             <span>DocForum</span>
           </Link>
         </div>
 
-        <nav className={styles.desktopNav} role="navigation" aria-label="Main">
+        <nav className={styles.desktopNav} role="navigation" aria-label={t('shell.nav.main', 'Main')}>
           {primaryItems.map((item) => (
             <RRNavLink
               key={item.to}
@@ -171,7 +157,13 @@ export function Layout() {
             >
               {item.messageId ? t(item.messageId, item.label) : item.label}
               {item.badge != null && item.badge > 0 && (
-                <span className={styles.badge} aria-label={`${item.label}, ${item.badge} new`}>
+                <span
+                  className={styles.badge}
+                  aria-label={t('shell.nav.badge', '{label}, {count} new', {
+                    label: item.messageId ? t(item.messageId, item.label) : item.label,
+                    count: item.badge,
+                  })}
+                >
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
@@ -194,12 +186,12 @@ export function Layout() {
           {user && (
             <Flag name="notification_preferences">
               <RRNavLink
-                to="/settings/notifications"
+                to={paths.notificationSettings}
                 className={({ isActive }) =>
                   styles.navLink + (isActive ? ` ${styles.navLinkActive}` : '')
                 }
               >
-                Notifications
+                {t('shell.nav.notifications', 'Notifications')}
               </RRNavLink>
             </Flag>
           )}
@@ -230,30 +222,77 @@ export function Layout() {
         </div>
       </header>
 
-      {/* Mobile drawer */}
+      <main
+        ref={mainRef}
+        className={styles.main}
+        id="main-content"
+        role="main"
+        tabIndex={-1}
+      >
+        {/* Public information pages (#120) render their own <header>/<h1>;
+            the app shell must not add a second one. */}
+        {isPublicContent ? null : <PageHeader title={pageTitle} />}
+        <ErrorBoundary key={location.pathname} level="route">
+          <Outlet context={{}} />
+        </ErrorBoundary>
+      </main>
+
+      <footer className={styles.footer} role="contentinfo">
+        <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
+        <Link to={paths.accessibility} className={styles.navLink}>
+          {t('app.accessibility', 'Accessibility')}
+        </Link>
+        {/* Router link, not a raw href: under the GitHub Pages base path a bare
+            "/…" href leaves the app. The analytics disclosure moved to
+            /privacy/analytics when /privacy became the public privacy page. */}
+        <Link to="/privacy/analytics" className={styles.footerMutedLink}>
+          {t('shell.footer.privacy', 'Privacy & analytics')}
+        </Link>
+      </footer>
+      </div>
+
+      {/* Mobile drawer: a modal dialog while open, inert while closed (#239). */}
       <div
         ref={drawerRef}
         id="mobile-drawer"
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
-        role="navigation"
-        aria-label="Mobile navigation"
-        aria-modal={drawerOpen}
-        aria-hidden={!drawerOpen}
+        role={drawerOpen ? 'dialog' : 'navigation'}
+        aria-modal={drawerOpen || undefined}
+        aria-label={
+          drawerOpen
+            ? t('shell.drawer.dialogLabel', 'Mobile navigation menu')
+            : t('shell.drawer.aria', 'Mobile navigation')
+        }
+        aria-hidden={drawerOpen ? undefined : true}
+        inert={!drawerOpen}
+        tabIndex={-1}
       >
         <div className={styles.drawerHeader}>
           <Logo size={24} />
           <span className={styles.drawerTitle}>DocForum</span>
           <button
             className={styles.drawerClose}
-            aria-label="Close navigation menu"
+            aria-label={t('shell.drawer.close', 'Close navigation menu')}
             onClick={closeDrawer}
           >
-            ✕
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         {user ? (
           <>
-            <nav className={styles.drawerNav}>
+            <nav className={styles.drawerNav} aria-label={t('shell.drawer.aria', 'Mobile navigation')}>
               {items.map((item) => (
                 <RRNavLink
                   key={item.to}
@@ -270,28 +309,28 @@ export function Layout() {
               ))}
               <Flag name="notification_preferences">
                 <RRNavLink
-                  to="/settings/notifications"
+                  to={paths.notificationSettings}
                   className={({ isActive }) =>
                     styles.drawerLink +
                     (isActive ? ` ${styles.drawerLinkActive}` : '')
                   }
                   onClick={closeDrawer}
                 >
-                  Notifications
+                  {t('shell.nav.notifications', 'Notifications')}
                 </RRNavLink>
               </Flag>
             </nav>
             <div className={styles.drawerUser}>
               <span className={styles.drawerEmail}>{user.email}</span>
-              <span className={styles.roleBadge} data-role={user.role}>{user.role}</span>
+              <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} fullWidth>
-                {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
               </Button>
             </div>
           </>
         ) : (
           <>
-            <nav className={styles.drawerNav}>
+            <nav className={styles.drawerNav} aria-label={t('shell.drawer.aria', 'Mobile navigation')}>
               {items.map((item) => (
                 <RRNavLink
                   key={item.to}
@@ -316,33 +355,6 @@ export function Layout() {
         <div className={styles.drawerOverlay} onClick={closeDrawer} aria-hidden="true" />
       )}
 
-      <main
-        ref={mainRef}
-        className={styles.main}
-        id="main-content"
-        role="main"
-        tabIndex={-1}
-      >
-        {/* Public information pages (#120) render their own <header>/<h1>;
-            the app shell must not add a second one. */}
-        {isPublicContent ? null : <PageHeader title={pageTitle} />}
-        <ErrorBoundary key={location.pathname} level="route">
-          <Outlet context={{}} />
-        </ErrorBoundary>
-      </main>
-
-      <footer className={styles.footer} role="contentinfo">
-        <span>{t('app.footer', 'DocForum — care continuity, escrow-secured fulfillment.')}</span>
-        <Link to="/accessibility" className={styles.navLink}>
-          {t('app.accessibility', 'Accessibility')}
-        </Link>
-        {/* Router link, not a raw href: under the GitHub Pages base path a bare
-            "/…" href leaves the app. The analytics disclosure moved to
-            /privacy/analytics when /privacy became the public privacy page. */}
-        <Link to="/privacy/analytics" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-          Privacy &amp; analytics
-        </Link>
-      </footer>
     </div>
   );
 }

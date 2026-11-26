@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '../../../test/render';
 import userEvent from '@testing-library/user-event';
 import { OrderDetail } from './OrderDetail';
 import { useAuthStore } from '../../../store/auth-store';
+import { ApiError } from '../../../services/api-client';
 import * as ordersService from '../../../services/orders-service';
 import type { Order } from '../../../types/models';
 
@@ -53,6 +54,17 @@ describe('OrderDetail', () => {
     vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
     render(<OrderDetail orderId="ord-abc12345" />);
     expect(await screen.findByRole('img', { name: /order verification qr code/i })).toBeInTheDocument();
+  });
+
+  it('renders the order detail labels and accessible controls in Spanish', async () => {
+    vi.mocked(ordersService.getOrder).mockResolvedValue(makeOrder({ status: 'active' }));
+    render(<OrderDetail orderId="ord-abc12345" />, { locale: 'es' });
+
+    expect(await screen.findByLabelText('Estado: Activa')).toBeInTheDocument();
+    expect(screen.getByText('Orden de laboratorio')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Código QR de verificación del pedido' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir el código QR a pantalla completa' })).toBeInTheDocument();
+    expect(screen.getByText('Emitido')).toBeInTheDocument();
   });
 
   it('renders items list for the order', async () => {
@@ -146,6 +158,13 @@ describe('OrderDetail', () => {
     await waitFor(() => {
       expect(screen.getByText(/could not load this order/i)).toBeInTheDocument();
     });
+  });
+
+  it('localizes a missing-order error in Spanish', async () => {
+    vi.mocked(ordersService.getOrder).mockRejectedValue(new ApiError('order not found', 404));
+    render(<OrderDetail orderId="ord-abc12345" />, { locale: 'es' });
+
+    expect(await screen.findByText(/Este pedido no existe o no te pertenece/i)).toBeInTheDocument();
   });
 
   it('renders the doctor name in the meta section', async () => {

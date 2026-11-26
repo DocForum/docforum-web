@@ -1,6 +1,8 @@
 import type { Schemas } from '@docforum/api-client';
 import { api, apiFetch } from './api-client';
 import type {
+  Consultation,
+  CreateConsultationInput,
   ConsultationRecord,
   RecordConsultationInput,
   ConsultationReferral,
@@ -29,6 +31,23 @@ export function addAddendum(
   return api.consultation.addAddendum(noteId, input, { accessToken });
 }
 
+/**
+ * Closes the visit with a consultation record — the real
+ * `POST /orders/consultations` (docforum-core's orders flow). Doctor-only and
+ * gated on a verified doctor profile; `409` if the appointment already has
+ * one, because a consultation is closed once per appointment.
+ */
+export function createConsultation(
+  input: CreateConsultationInput,
+  accessToken: string,
+): Promise<Consultation> {
+  return apiFetch<Consultation>('/orders/consultations', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
+
 export function recordConsultation(
   appointmentId: string,
   input: RecordConsultationInput,
@@ -45,8 +64,8 @@ export function createConsultationReferral(
   consultationId: string,
   input: CreateConsultationReferralInput,
   accessToken: string,
-): Promise<ConsultationReferral> {
-  return apiFetch<ConsultationReferral>(`/consultations/${consultationId}/referrals`, {
+): Promise<ConsultationReferral[]> {
+  return apiFetch<ConsultationReferral[]>(`/consultations/${consultationId}/referrals`, {
     method: 'POST',
     body: input,
     accessToken,

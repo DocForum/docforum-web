@@ -1,5 +1,6 @@
 // Role-switching helpers for mock mode: applies a seeded persona to the
 // app's real auth/profile stores and routes to that role's home screen.
+import { homePathForRole, LOGIN_PATH } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useProfileStore } from '../store/profile-store';
 import { signOut } from '../services/sign-out';
@@ -30,7 +31,7 @@ export function activateMockRole(
         ]
       : [],
   );
-  if (navigate) mockNavigate(ROLE_HOME[role]);
+  if (navigate) mockNavigate(homePathForRole(role));
 }
 
 /** Clear the session and land on the login screen (to test the real flow). */
@@ -38,5 +39,33 @@ export function mockSignOut(): void {
   // Route through the shared helper so mock sign-out clears the query cache
   // and acting-for profiles like every other path (issue #227).
   void signOut('mock');
-  window.location.hash = '#/login';
+  mockNavigate(LOGIN_PATH);
+}
+
+const ROLES: readonly Role[] = ['patient', 'doctor', 'facility', 'admin'];
+
+function isRole(value: string | null): value is Role {
+  return value !== null && (ROLES as readonly string[]).includes(value);
+}
+
+/**
+ * Read and remove `?previewRole=` for mock and PR-preview builds. The
+ * parameter is a developer convenience (screenshots, reviewing a preview
+ * build), so it only exists inside `src/mocks/`; production builds never
+ * import this module. Once read, it is stripped from the address bar so a
+ * bookmarked or shared URL does not carry it.
+ */
+export function consumePreviewRole(): Role | null {
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get('previewRole');
+  if (!isRole(value)) return null;
+
+  params.delete('previewRole');
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+  );
+  return value;
 }

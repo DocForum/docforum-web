@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FacilityRejectionReason } from '../../../types/models';
 import { rejectionReasonLabel } from '../facility-insights';
+import { useT } from '../../../i18n/useT';
 import styles from './FacilityInsights.module.css';
 
 interface FacilityRejectionReasonsCardProps {
@@ -10,6 +11,7 @@ interface FacilityRejectionReasonsCardProps {
 const REASON_COLORS = ['var(--color-accent)', '#b87b28', '#d9a94a', '#8c5b00', '#6b4423', '#4a2f18'];
 
 export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReasonsCardProps) {
+  const t = useT();
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
   const totalRejections = reasons.reduce((sum, reason) => sum + reason.count, 0);
@@ -19,17 +21,17 @@ export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReaso
     <section className={styles.card} aria-labelledby="facility-rejections-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="facility-rejections-heading">Rejection reasons</h2>
-          <p>Why orders assigned to this facility were rejected in the period.</p>
+          <h2 id="facility-rejections-heading">{t('insights.rejections.title', 'Rejection reasons')}</h2>
+          <p>{t('insights.rejections.description', 'Why orders assigned to this facility were rejected in the period.')}</p>
         </div>
-        <div className={styles.viewToggle} role="group" aria-label="Rejection reasons display mode">
+        <div className={styles.viewToggle} role="group" aria-label={t('insights.rejections.displayMode', 'Rejection reasons display mode')}>
           <button
             type="button"
             className={`${styles.toggleButton} ${viewMode === 'chart' ? styles.toggleButtonActive : ''}`}
             onClick={() => setViewMode('chart')}
             aria-pressed={viewMode === 'chart'}
           >
-            Chart view
+            {t('insights.common.chartView', 'Chart view')}
           </button>
           <button
             type="button"
@@ -37,13 +39,13 @@ export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReaso
             onClick={() => setViewMode('table')}
             aria-pressed={viewMode === 'table'}
           >
-            Table view
+            {t('insights.common.tableView', 'Table view')}
           </button>
         </div>
       </div>
 
       {reasons.length === 0 ? (
-        <p className={styles.statHint}>No rejections in this period.</p>
+        <p className={styles.statHint}>{t('insights.rejections.empty', 'No rejections in this period.')}</p>
       ) : (
         <>
           {viewMode === 'chart' ? (
@@ -66,7 +68,10 @@ export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReaso
                   <div
                     className={styles.distributionBar}
                     role="img"
-                    aria-label={`${rejectionReasonLabel(reason.code, reason.label)}: ${reason.count} rejects`}
+                    aria-label={t('insights.rejections.barLabel', '{reason}: {count, plural, one {# reject} other {# rejects}}', {
+                      reason: rejectionReasonLabel(reason.code, reason.label),
+                      count: reason.count,
+                    })}
                     style={{ height: 10 }}
                   >
                     <div
@@ -83,17 +88,17 @@ export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReaso
           ) : null}
 
           <div className={viewMode === 'table' ? styles.tableWrapper : styles.srOnly}>
-            <table className={styles.dataTable} aria-label="Rejection reasons table">
-              <caption>Rejection reasons for the selected period</caption>
+            <table className={styles.dataTable} aria-label={t('insights.rejections.tableLabel', 'Rejection reasons table')}>
+              <caption>{t('insights.rejections.tableCaption', 'Rejection reasons for the selected period')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">Reason</th>
-                  <th scope="col">Code</th>
+                  <th scope="col">{t('insights.rejections.colReason', 'Reason')}</th>
+                  <th scope="col">{t('insights.rejections.colCode', 'Code')}</th>
                   <th scope="col" className="num">
-                    Count
+                    {t('insights.common.count', 'Count')}
                   </th>
                   <th scope="col" className="num">
-                    Percentage
+                    {t('insights.common.percentage', 'Percentage')}
                   </th>
                 </tr>
               </thead>
@@ -109,7 +114,7 @@ export function FacilityRejectionReasonsCard({ reasons }: FacilityRejectionReaso
                   </tr>
                 ))}
                 <tr style={{ fontWeight: 600 }}>
-                  <th scope="row">Total rejections</th>
+                  <th scope="row">{t('insights.rejections.total', 'Total rejections')}</th>
                   <td>—</td>
                   <td className="num">{totalRejections}</td>
                   <td className="num">100.0%</td>
