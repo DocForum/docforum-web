@@ -6,7 +6,7 @@ export function AdminVerificationPage() {
   return (
     <div className={styles.page}>
       <Link to="/admin" className={styles.backLink}>
-        ← Back to payments console
+        ← Back to the operations overview
       </Link>
       <SpecialtyClaimsConsole />
     </div>

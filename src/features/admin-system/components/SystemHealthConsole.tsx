@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatTime } from '../../../i18n/time-zone';
 import { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
@@ -19,6 +20,7 @@ import styles from './SystemHealth.module.css';
  * fails on its own — a missing outbox endpoint doesn't hide the jobs.
  */
 export function SystemHealthConsole() {
+  const t = useOptionalT().t;
   const titleId = useId();
   const readiness = useReadiness();
   const jobs = useJobs();
@@ -42,11 +44,13 @@ export function SystemHealthConsole() {
       <header className={styles.header}>
         <div>
           <h1 id={titleId} className={styles.title}>
-            System health
+            {t('adminSystem.title', 'System health')}
           </h1>
           <p className={styles.subtitle}>
-            Whether docforum-core is ready to serve, how its background jobs are doing, and anything stuck in the
-            outbox.
+            {t(
+              'adminSystem.subtitle',
+              'Whether docforum-core is ready to serve, how its background jobs are doing, and anything stuck in the outbox.',
+            )}
           </p>
         </div>
         <div className={styles.refresh}>
@@ -54,21 +58,25 @@ export function SystemHealthConsole() {
           <p className={styles.refreshText}>
             {lastUpdated > 0 ? (
               <>
-                Updated{' '}
+                {t('adminSystem.updated', 'Updated')}{' '}
                 <time dateTime={new Date(lastUpdated).toISOString()}>
                   {formatTime(lastUpdated, timeZone, { hour: '2-digit', minute: '2-digit', second: '2-digit' }, 'en-GB')}
                 </time>
               </>
             ) : (
-              'Not loaded yet'
+              t('adminSystem.notLoadedYet', 'Not loaded yet')
             )}
-            {fetching && ' · refreshing…'}
+            {fetching && ` · ${t('adminSystem.refreshing', 'refreshing…')}`}
           </p>
           <p className={styles.refreshHint}>
-            Refreshes every {REFRESH_INTERVAL_MS / 1000} seconds while this tab is visible.
+            {t(
+              'adminSystem.refreshHint',
+              'Refreshes every {seconds} seconds while this tab is visible.',
+              { seconds: REFRESH_INTERVAL_MS / 1000 },
+            )}
           </p>
           <Button variant="secondary" onClick={refreshAll} disabled={fetching}>
-            Refresh now
+            {t('adminSystem.refreshNow', 'Refresh now')}
           </Button>
         </div>
       </header>

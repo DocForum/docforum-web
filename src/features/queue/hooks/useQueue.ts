@@ -6,11 +6,14 @@ import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { appointmentKeys, queueKeys } from '../../../query-keys';
+import { useRealtimeLive } from '../../../hooks/useRealtimeLive';
 import type { QueueEntry } from '../../../types/models';
 
 const APPOINTMENTS_KEY = appointmentKeys.today();
 const QUEUE_KEY = queueKeys.today();
 const RUNNING_DELAY_KEY = queueKeys.runningDelay();
+const QUEUE_POLL_MS = 30_000;
+
 type VisitMutationVariables = {
   appointmentId: string;
   previousStatus: QueueEntry['status'];
@@ -31,22 +34,25 @@ export function useAppointments() {
 
 export function useQueue() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  // Refetch periodically so newly checked-in patients appear live.
+  const realtimeLive = useRealtimeLive();
   return useQuery({
     queryKey: QUEUE_KEY,
     queryFn: ({ signal }) => queueService.listQueue(accessToken!, signal),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000,
+    refetchInterval: realtimeLive ? false : QUEUE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
 export function useRunningDelay() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const realtimeLive = useRealtimeLive();
   return useQuery({
     queryKey: RUNNING_DELAY_KEY,
     queryFn: ({ signal }) => queueService.getRunningDelay(accessToken!, signal),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000,
+    refetchInterval: realtimeLive ? false : QUEUE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
