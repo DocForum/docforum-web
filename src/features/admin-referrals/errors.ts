@@ -1,4 +1,6 @@
 import { ApiError } from '../../services/api-client';
+import { englishTranslator } from '../../i18n/englishTranslator';
+import type { Translator } from '../../i18n/useT';
 
 export type ReferralAction = 'reassign' | 'cancel';
 
@@ -15,42 +17,73 @@ export interface ActionFailure {
   message: string;
 }
 
-const NOUNS: Record<ReferralAction, string> = {
-  reassign: 'reassignment',
-  cancel: 'cancellation',
+const NOUN_IDS: Record<ReferralAction, { id: 'reassign' | 'cancel'; noun: string }> = {
+  reassign: { id: 'reassign', noun: 'reassignment' },
+  cancel: { id: 'cancel', noun: 'cancellation' },
 };
 
-export function describeActionError(error: unknown, action: ReferralAction): ActionFailure {
+/** The noun is part of the sentence, so it is translated too — never
+ * interpolated as an English word into a Spanish message. */
+function nounFor(action: ReferralAction, t: Translator): string {
+  const { id, noun } = NOUN_IDS[action];
+  return t(`adminReferrals.errors.noun.${id}`, noun);
+}
+
+export function describeActionError(
+  error: unknown,
+  action: ReferralAction,
+  t: Translator = englishTranslator,
+): ActionFailure {
+  const { id } = NOUN_IDS[action];
+  const noun = nounFor(action, t);
   if (error instanceof ApiError) {
     if (error.status === 409 || error.status === 404) {
       return {
         kind: 'conflict',
-        message:
+        message: t(
+          'adminReferrals.errors.conflict',
           'This referral changed while you were working on it — another admin, the doctor or the patient acted on it ' +
-          'first. Nothing was changed by you; the queue has been refreshed.',
+            'first. Nothing was changed by you; the queue has been refreshed.',
+        ),
       };
     }
     if (error.status === 400 || error.status === 422) {
-      return { kind: 'rejected', message: `docforum-core refused the ${NOUNS[action]}: ${error.message}` };
+      return {
+        kind: 'rejected',
+        message: t('adminReferrals.errors.rejected', 'docforum-core refused the {noun}: {message}', {
+          noun,
+          message: error.message,
+        }),
+      };
     }
     if (error.status === 401 || error.status === 403) {
-      return { kind: 'auth', message: 'Your session no longer has admin access. Sign in again with an admin account.' };
+      return { kind: 'auth', message: t('adminReferrals.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.') };
     }
   }
   return {
     kind: 'unconfirmed',
-    message: `Couldn't confirm the ${NOUNS[action]} — the preview backend may be waking up. Try again; if the first attempt went through you'll be told, it won't be applied twice.`,
+    message: t(
+      `adminReferrals.errors.unconfirmed.${id}`,
+      "Couldn't confirm the {noun} — the preview backend may be waking up. Try again; if the first attempt went through you'll be told, it won't be applied twice.",
+      { noun },
+    ),
   };
 }
 
-export function describeQueueError(error: unknown): string {
+export function describeQueueError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
-      return 'Your session no longer has admin access. Sign in again with an admin account.';
+      return t('adminReferrals.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.');
     }
     if (error.status === 404) {
-      return "docforum-core doesn't serve the stuck-referral queue yet (docforum-core#68).";
+      return t(
+        'adminReferrals.errors.notServed',
+        "docforum-core doesn't serve the stuck-referral queue yet (docforum-core#68).",
+      );
     }
   }
-  return "Couldn't load stuck referrals. The preview backend may be waking up — try again in a minute.";
+  return t(
+    'adminReferrals.errors.queueLoad',
+    "Couldn't load stuck referrals. The preview backend may be waking up — try again in a minute.",
+  );
 }

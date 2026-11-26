@@ -77,8 +77,8 @@ describe('readiness display', () => {
   it('prefers an error over the last good report, so a failed poll never reads as Ready', () => {
     const report: ReadinessReport = { status: 'ready', checkedAt: at(-MINUTE), checks: [] };
     expect(readinessVerdict(report, undefined).label).toBe('Ready');
-    expect(readinessVerdict(report, new TypeError('Failed to fetch'))).toBe(UNREACHABLE);
-    expect(readinessVerdict(undefined, new ApiError('Bad Gateway', 502))).toBe(UNREACHABLE);
+    expect(readinessVerdict(report, new TypeError('Failed to fetch'))).toEqual(UNREACHABLE);
+    expect(readinessVerdict(undefined, new ApiError('Bad Gateway', 502))).toEqual(UNREACHABLE);
   });
 
   it('separates "not served yet" and "no access" from unreachable', () => {
