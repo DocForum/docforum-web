@@ -37,6 +37,29 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument();
   });
 
+  it('offers no logout control to a signed-out visitor (issue #214)', () => {
+    renderLayout();
+    expect(screen.queryByRole('button', { name: 'Log out', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('offers no logout control while a session is only half restored (issue #214)', () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: { id: 'patient-1', email: 'patient@docforum.org', role: 'patient', createdAt: '', updatedAt: '' },
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Layout />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Log out', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('offers the logout control once signed in (issue #214)', () => {
+    renderLayout('patient');
+    expect(screen.getAllByRole('button', { name: 'Log out', hidden: true }).length).toBeGreaterThan(0);
+  });
+
   function desktopNavHrefs(): string[] {
     const nav = screen.getByRole('navigation', { name: 'Main' });
     return within(nav)
@@ -172,6 +195,21 @@ describe('Layout — role-aware navigation', () => {
     expect(skip).toHaveAttribute('href', '#main-content');
   });
 
+  it('keeps the closed drawer inert and untabbable', () => {
+    renderLayout('patient');
+    const drawer = document.getElementById('mobile-drawer');
+    expect(drawer).not.toBeNull();
+    // happy-dom doesn't implement `inert`; assert the attribute that makes the
+    // closed drawer unreachable in a real browser, and rely on Playwright (axe)
+    // for the behavioural check.
+    expect(drawer).toHaveAttribute('inert');
+    expect(drawer).toHaveAttribute('aria-hidden', 'true');
+    expect(drawer).not.toHaveAttribute('aria-modal');
+    // The page behind is interactive while the drawer is closed.
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+    expect(document.getElementById('main-content')?.closest('[inert]')).toBeNull();
+  });
+
   it('opens the mobile drawer on menu toggle and closes it', () => {
     renderLayout('patient');
     const menu = screen.getByRole('button', { name: 'Toggle navigation menu' });
@@ -194,5 +232,48 @@ describe('Layout — role-aware navigation', () => {
     expect(icon).toHaveAttribute('aria-hidden', 'true');
     fireEvent.click(close);
     expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+  });
+
+  it('makes the open drawer a modal dialog and makes the page behind inert', () => {
+    renderLayout('patient');
+    const menu = screen.getByRole('button', { name: 'Toggle navigation menu' });
+
+    fireEvent.click(menu);
+
+    const dialog = screen.getByRole('dialog', { name: 'Mobile navigation menu' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).not.toHaveAttribute('inert');
+    expect(dialog).not.toHaveAttribute('aria-hidden');
+    // The nav lives inside the dialog and keeps its own label.
+    expect(within(dialog).getByRole('navigation', { name: 'Mobile navigation' })).toBeTruthy();
+    // Everything behind the drawer is inert while it is open.
+    expect(document.getElementById('main-content')?.closest('[inert]')).not.toBeNull();
+    expect(menu.closest('[inert]')).not.toBeNull();
+  });
+
+  it('traps focus in the open drawer and returns it to the toggle on Escape', () => {
+    renderLayout('patient');
+    const toggle = screen.getByRole('button', { name: 'Toggle navigation menu' });
+    toggle.focus();
+
+    fireEvent.click(toggle);
+
+    const dialog = screen.getByRole('dialog', { name: 'Mobile navigation menu' });
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+    );
+    expect(focusable.length).toBeGreaterThan(1);
+    // Focus moves into the dialog when it opens.
+    expect(document.activeElement).toBe(focusable[0]);
+
+    // Tab from the last item wraps to the first.
+    focusable[focusable.length - 1].focus();
+    fireEvent.keyDown(focusable[focusable.length - 1], { key: 'Tab' });
+    expect(document.activeElement).toBe(focusable[0]);
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: 'Mobile navigation menu' })).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(toggle);
   });
 });

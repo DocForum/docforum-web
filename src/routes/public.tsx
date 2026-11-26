@@ -53,6 +53,10 @@ export function publicRoutes({ queryClient }: RouteContext): RouteObject[] {
             queryClient.ensureInfiniteQueryData(notificationsQueryOptions(NOTIFICATIONS_PAGE_SIZE, token)),
           ]),
       },
+      {
+        path: 'account/security',
+        lazy: lazyPage(() => import('../pages/AccountSecurityPage'), 'AccountSecurityPage'),
+      },
     ]),
   ];
 }

@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLogout } from '../features/auth/hooks/useLogout';
@@ -58,6 +59,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 export function Layout() {
   const t = useT();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const logoutMutation = useLogout();
   useRealtimeCacheSync();
   const location = useLocation();
@@ -105,37 +107,26 @@ export function Layout() {
     toggleRef.current?.focus();
   }, []);
 
-  // Trap focus inside the drawer while it's open (keyboard access).
-  useEffect(() => {
-    if (!drawerOpen || !drawerRef.current) return undefined;
-    const drawer = drawerRef.current;
-    const focusables = drawer.querySelectorAll<HTMLElement>(
-      'a[href], button, [tabindex]:not([tabindex="-1"])',
-    );
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-    };
-    drawer.addEventListener('keydown', handleKey);
-    first?.focus();
-    return () => drawer.removeEventListener('keydown', handleKey);
-  }, [drawerOpen]);
+  // The open drawer is a modal dialog: focus moves inside, Tab is contained
+  // (re-computed on every keypress, so links added later are covered), Escape
+  // closes it and focus returns to the trigger. The closed drawer is inert, so
+  // none of its links are reachable at all (issue #239).
+  useFocusTrap(drawerRef, drawerOpen, closeDrawer);
 
   const logout = () => {
     logoutMutation.mutate(undefined, { onSuccess: () => navigate(paths.login, { replace: true }) });
     closeDrawer();
   };
 
+  // Treat a half-restored session (user set, token still settling) as signed
+  // out. During the boot refresh there must be no "Log out" control that can
+  // flash and then disappear once the state resolves.
+  const isSignedIn = Boolean(user && accessToken);
+
   return (
     <div className={styles.shell}>
+      {/* Everything behind the drawer: inert while the drawer is open (issue #239). */}
+      <div className={styles.page} inert={drawerOpen || undefined}>
       {/* Skip to content for keyboard users */}
       <a href="#main-content" className={styles.skipLink}>
         {t('shell.skipLink', 'Skip to content')}
@@ -215,7 +206,7 @@ export function Layout() {
               </RRNavLink>
             </Flag>
           )}
-          {user && (
+          {isSignedIn && user && (
             <>
               {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
@@ -231,7 +222,7 @@ export function Layout() {
           {/* In-app inbox (issue #107): unread badge + dropdown, then the
               full list at /notifications. Hidden while signed out. */}
           <NotificationBell />
-          {user && (
+          {isSignedIn && (
             <>
               <ProfileSwitcher />
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
@@ -241,104 +232,6 @@ export function Layout() {
           )}
         </div>
       </header>
-
-      {/* Mobile drawer */}
-      <div
-        ref={drawerRef}
-        id="mobile-drawer"
-        className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
-        role="navigation"
-        aria-label={t('shell.drawer.aria', 'Mobile navigation')}
-        aria-modal={drawerOpen}
-        aria-hidden={!drawerOpen}
-      >
-        <div className={styles.drawerHeader}>
-          <Logo size={24} />
-          <span className={styles.drawerTitle}>DocForum</span>
-          <button
-            className={styles.drawerClose}
-            aria-label={t('shell.drawer.close', 'Close navigation menu')}
-            onClick={closeDrawer}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-        {user ? (
-          <>
-            <nav className={styles.drawerNav}>
-              {items.map((item) => (
-                <RRNavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    styles.drawerLink +
-                    (isActive ? ` ${styles.drawerLinkActive}` : '')
-                  }
-                  end={item.to === '/'}
-                  onClick={closeDrawer}
-                >
-                  {item.messageId ? t(item.messageId, item.label) : item.label}
-                </RRNavLink>
-              ))}
-              <Flag name="notification_preferences">
-                <RRNavLink
-                  to={paths.notificationSettings}
-                  className={({ isActive }) =>
-                    styles.drawerLink +
-                    (isActive ? ` ${styles.drawerLinkActive}` : '')
-                  }
-                  onClick={closeDrawer}
-                >
-                  {t('shell.nav.notifications', 'Notifications')}
-                </RRNavLink>
-              </Flag>
-            </nav>
-            <div className={styles.drawerUser}>
-              <span className={styles.drawerEmail}>{user.email}</span>
-              <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
-              <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} fullWidth>
-                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <nav className={styles.drawerNav}>
-              {items.map((item) => (
-                <RRNavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    styles.drawerLink +
-                    (isActive ? ` ${styles.drawerLinkActive}` : '')
-                  }
-                  end={item.to === '/'}
-                  onClick={closeDrawer}
-                >
-                  {item.messageId ? t(item.messageId, item.label) : item.label}
-                </RRNavLink>
-              ))}
-            </nav>
-          </>
-        )}
-      </div>
-
-      {/* Overlay behind the drawer when open */}
-      {drawerOpen && (
-        <div className={styles.drawerOverlay} onClick={closeDrawer} aria-hidden="true" />
-      )}
 
       <main
         ref={mainRef}
@@ -367,6 +260,121 @@ export function Layout() {
           {t('shell.footer.privacy', 'Privacy & analytics')}
         </Link>
       </footer>
+      </div>
+
+      {/* Mobile drawer: a modal dialog while open, inert while closed (#239). */}
+      <div
+        ref={drawerRef}
+        id="mobile-drawer"
+        className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
+        role={drawerOpen ? 'dialog' : 'navigation'}
+        aria-modal={drawerOpen || undefined}
+        aria-label={
+          drawerOpen
+            ? t('shell.drawer.dialogLabel', 'Mobile navigation menu')
+            : t('shell.drawer.aria', 'Mobile navigation')
+        }
+        aria-hidden={drawerOpen ? undefined : true}
+        inert={!drawerOpen}
+        tabIndex={-1}
+      >
+        <div className={styles.drawerHeader}>
+          <Logo size={24} />
+          <span className={styles.drawerTitle}>DocForum</span>
+          <button
+            className={styles.drawerClose}
+            aria-label={t('shell.drawer.close', 'Close navigation menu')}
+            onClick={closeDrawer}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        {isSignedIn && user ? (
+          <>
+            <nav className={styles.drawerNav} aria-label={t('shell.drawer.aria', 'Mobile navigation')}>
+              {items.map((item) => (
+                <RRNavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    styles.drawerLink +
+                    (isActive ? ` ${styles.drawerLinkActive}` : '')
+                  }
+                  end={item.to === '/'}
+                  onClick={closeDrawer}
+                >
+                  {item.messageId ? t(item.messageId, item.label) : item.label}
+                </RRNavLink>
+              ))}
+              <RRNavLink
+                to={paths.accountSecurity}
+                className={({ isActive }) =>
+                  styles.drawerLink + (isActive ? ` ${styles.drawerLinkActive}` : '')
+                }
+                onClick={closeDrawer}
+              >
+                {t('accountSecurity.nav', 'Account security')}
+              </RRNavLink>
+              <Flag name="notification_preferences">
+                <RRNavLink
+                  to={paths.notificationSettings}
+                  className={({ isActive }) =>
+                    styles.drawerLink +
+                    (isActive ? ` ${styles.drawerLinkActive}` : '')
+                  }
+                  onClick={closeDrawer}
+                >
+                  {t('shell.nav.notifications', 'Notifications')}
+                </RRNavLink>
+              </Flag>
+            </nav>
+            <div className={styles.drawerUser}>
+              <span className={styles.drawerEmail}>{user.email}</span>
+              <span className={styles.roleBadge} data-role={user.role}>{t(`roles.${user.role}`, user.role)}</span>
+              <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} fullWidth>
+                {logoutMutation.isPending ? t('nav.loggingOut', 'Logging out…') : t('nav.logOut', 'Log out')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <nav className={styles.drawerNav} aria-label={t('shell.drawer.aria', 'Mobile navigation')}>
+              {items.map((item) => (
+                <RRNavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    styles.drawerLink +
+                    (isActive ? ` ${styles.drawerLinkActive}` : '')
+                  }
+                  end={item.to === '/'}
+                  onClick={closeDrawer}
+                >
+                  {item.messageId ? t(item.messageId, item.label) : item.label}
+                </RRNavLink>
+              ))}
+            </nav>
+          </>
+        )}
+      </div>
+
+      {/* Overlay behind the drawer when open */}
+      {drawerOpen && (
+        <div className={styles.drawerOverlay} onClick={closeDrawer} aria-hidden="true" />
+      )}
+
     </div>
   );
 }

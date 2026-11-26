@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useDecideVerification } from '../hooks/useVerifications';
 import { describeDecisionError } from '../errors';
 import {
@@ -33,6 +34,7 @@ const FOCUSABLE =
  * overwriting (the parent shows the message).
  */
 export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionDialogProps) {
+  const t = useOptionalT().t;
   const titleId = useId();
   const descId = useId();
   const reasonId = useId();
@@ -46,8 +48,8 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
   const [failure, setFailure] = useState<string | null>(null);
 
   const mutation = useDecideVerification(detail.profile.id);
-  const label = decisionLabel(status);
-  const consequence = decisionConsequence(status);
+  const label = decisionLabel(status, t);
+  const consequence = decisionConsequence(status, t);
   const reasonLength = normaliseReason(reason).length;
   const canSubmit = !mutation.isPending;
 
@@ -99,7 +101,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
     event.preventDefault();
     setFailure(null);
 
-    const error = validateReason(reason);
+    const error = validateReason(reason, t);
     if (error) {
       setReasonError(error);
       return;
@@ -114,7 +116,7 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
       });
       onDecided({ status });
     } catch (cause) {
-      const described = describeDecisionError(cause);
+      const described = describeDecisionError(cause, t);
       if (described.kind === 'conflict' || described.kind === 'auth') {
         onDecided({ status, message: described.message });
         return;
@@ -133,10 +135,17 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
     >
       <div className={styles.dialog} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descId}>
         <h3 className={styles.dialogTitle} id={titleId}>
-          {label} {detail.profile.fullName}?
+          {t('adminVerification.decisionDialog.title', '{decision} {name}?', {
+            decision: label,
+            name: detail.profile.fullName,
+          })}
         </h3>
         <p className={styles.dialogText} id={descId}>
-          {consequence} Your reason is saved to the audit trail with your admin account.
+          {t(
+            'adminVerification.decisionDialog.description',
+            '{consequence} Your reason is saved to the audit trail with your admin account.',
+            { consequence },
+          )}
         </p>
 
         <form className={styles.dialogBody} onSubmit={(event) => void submit(event)} noValidate>
@@ -148,11 +157,18 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
 
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={reasonId}>
-              Reason (required)
+              {t('adminVerification.decisionDialog.reasonLabel', 'Reason (required)')}
             </label>
             <p className={styles.fieldHint} id={`${reasonId}-hint`}>
-              Why this doctor is being {status === 'verified' ? 'approved' : 'rejected'} — keep clinical details out;
-              this text is retained in the audit trail.
+              {status === 'verified'
+                ? t(
+                    'adminVerification.decisionDialog.reasonHintApprove',
+                    'Why this doctor is being approved — keep clinical details out; this text is retained in the audit trail.',
+                  )
+                : t(
+                    'adminVerification.decisionDialog.reasonHintReject',
+                    'Why this doctor is being rejected — keep clinical details out; this text is retained in the audit trail.',
+                  )}
             </p>
             <textarea
               className={styles.textarea}
@@ -184,9 +200,14 @@ export function DecisionDialog({ detail, status, onClose, onDecided }: DecisionD
 
           <div className={styles.dialogActions}>
             <Button type="button" variant="secondary" onClick={close} disabled={mutation.isPending} data-initial-focus>
-              Cancel
+              {t('adminVerification.decisionDialog.cancel', 'Cancel')}
             </Button>
-            <Button type="submit" variant={status === 'verified' ? 'primary' : 'danger'} disabled={!canSubmit} loading={mutation.isPending}>
+            <Button
+              type="submit"
+              variant={status === 'verified' ? 'primary' : 'danger'}
+              disabled={!canSubmit}
+              loading={mutation.isPending}
+            >
               {label}
             </Button>
           </div>
