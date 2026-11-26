@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
@@ -7,7 +8,18 @@ import { useT, type Translate } from '../../../i18n/useT';
 import { ApiError } from '../../../services/api-client';
 import type { Appointment, IntakeForm } from '../../../types/models';
 import { useAppointmentIntake, useTodayAppointments } from '../hooks/useDoctorToday';
+import { paths } from '../../../routes/paths';
 import styles from './TodayAppointments.module.css';
+
+/** Statuses where the consultation screen has something to open. A cancelled or
+ * no-show appointment never had a consultation, so the row explains that
+ * instead of offering a dead link. */
+const CONSULTATION_STATUSES: Appointment['status'][] = [
+  'scheduled',
+  'checked_in',
+  'in_progress',
+  'completed',
+];
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, {
@@ -108,6 +120,47 @@ function IntakeSection({ appointmentId }: { appointmentId: string }) {
   return <IntakeSummary intake={intake.data} />;
 }
 
+function AppointmentActions({ appointment }: { appointment: Appointment }) {
+  const t = useT();
+
+  return (
+    <div className={styles.actions}>
+      <Link
+        className={styles.actionLink}
+        to={paths.doctor.patientChart(appointment.patientProfileId)}
+        aria-label={t('doctorToday.row.openChartFor', 'Open chart for {patient}', {
+          patient: appointment.patientName,
+        })}
+      >
+        {t('doctorToday.row.openChart', 'Open chart')}
+      </Link>
+      {CONSULTATION_STATUSES.includes(appointment.status) ? (
+        <Link
+          className={styles.actionLink}
+          to={paths.doctor.consultation(appointment.id)}
+          aria-label={t('doctorToday.row.openConsultationFor', 'Open consultation for {patient}', {
+            patient: appointment.patientName,
+          })}
+        >
+          {t('doctorToday.row.openConsultation', 'Open consultation')}
+        </Link>
+      ) : (
+        <p className={styles.muted}>
+          {appointment.status === 'cancelled'
+            ? t(
+                'doctorToday.row.consultationCancelled',
+                'This appointment was cancelled, so there is no consultation to open.',
+              )
+            : t(
+                'doctorToday.row.consultationNoShow',
+                'This appointment was marked as a no-show, so there is no consultation to open.',
+              )}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AppointmentRow({ appointment }: { appointment: Appointment }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
@@ -138,6 +191,7 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
       </button>
       {expanded ? (
         <div id={intakeId} className={styles.expanded}>
+          <AppointmentActions appointment={appointment} />
           <h3 className={styles.intakeHeading}>{t('doctorToday.row.intake', 'Intake')}</h3>
           <IntakeSection appointmentId={appointment.id} />
         </div>

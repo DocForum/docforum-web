@@ -276,11 +276,14 @@ export function QueuePanel() {
                     {entry.status === 'completed' && <span className={styles.done}>{t('queue.done', 'Done')}</span>}
                     <Button
                       variant="secondary"
+                      aria-label={t('queue.chartFor', 'Open chart for {patient}', {
+                        patient: entry.fullName,
+                      })}
                       onClick={() => {
                         navigate(paths.doctor.patientChart(entry.patientProfileId));
                       }}
                     >
-                      Chart
+                      {t('queue.chart', 'Chart')}
                     </Button>
                   </td>
                 </tr>
