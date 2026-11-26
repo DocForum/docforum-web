@@ -17,18 +17,12 @@
       integrity="sha256-OYtA3B2r2u0ooGm1Tr90Dccm294TL/7TbYvJvno5ZM0="
       crossorigin
     />
-    <link
-      rel="preload"
-      href="/fonts/ibmplexsans-400.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
     <!-- Preload the two faces used above the fold (issue #99): body text
          (IBM Plex Sans 400) and headings (Fraunces 600). The rest load on
-         demand via fonts.css; font-display: swap keeps text visible. -->
-    <link rel="preload" href="/fonts/ibmplexsans-400.ttf" as="font" type="font/ttf" crossorigin />
-    <link rel="preload" href="/fonts/fraunces-600.ttf" as="font" type="font/ttf" crossorigin />
+         demand via fonts.css; font-display: swap keeps text visible. The
+         TTFs were replaced by subsetted WOFF2 files (issue #308). -->
+    <link rel="preload" href="/fonts/ibmplexsans-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/fraunces-600.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Pre-hydration loading shell, styled by an external same-origin sheet -->
     <link rel="stylesheet" href="/loading-shell.css" />
     <!-- Connect to the API origin early in production. -->
