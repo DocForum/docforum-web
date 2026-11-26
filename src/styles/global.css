@@ -373,6 +373,12 @@ code,
   margin-bottom: var(--space-4);
 }
 
+@media (forced-colors: active) {
+  .statusPill { color: CanvasText; background: Canvas; border: 2px solid Highlight; }
+  button[aria-pressed='true'] { outline: 2px solid Highlight; outline-offset: -2px; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}
+
 /* Utility: hide elements that should never appear in print/PDF output
    (interactive controls, navigation, etc.). Applied as an HTML class so
    CSS Modules don't tree-shake it away. */

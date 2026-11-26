@@ -86,7 +86,7 @@ function NotificationRow({
           type="button"
           className={styles.markRead}
           onClick={() => onMarkRead(notification.id)}
-          aria-label={t('notifications.row.markReadAria', 'Mark "{title}" as read', {
+          aria-label={t('notifications.row.markReadAria', 'Mark read: {title}', {
             title: notification.title,
           })}
         >

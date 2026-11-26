@@ -43,12 +43,20 @@ for (const { path, role } of routes) {
 
 // Issue #238: one meaningful <h1> per route. The app shell used to add a
 // second, route-derived <h1> ("Doctor · Apt Demo 2") on top of the page's own.
-for (const { path, role } of routes) {
+for (const { path, role, liveStream } of routes) {
   test(`${path} has exactly one h1, without a raw id`, async ({ page, visit }) => {
     await visit(path, role);
     const h1 = page.locator('h1');
     await expect(h1.first()).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    // Wait for late data so a second <h1> would have rendered. Screens that
+    // keep the event stream open never reach `networkidle`; for those, wait
+    // for the page's own requests to settle instead.
+    if (liveStream) {
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(1_500);
+    } else {
+      await page.waitForLoadState('networkidle');
+    }
     await expect(h1, `Expected exactly one <h1> on ${path}`).toHaveCount(1);
 
     const text = (await h1.textContent())?.trim() ?? '';
@@ -68,6 +76,19 @@ for (const { path, role } of routes) {
 // Issue #246: icon-only header controls meet the WCAG 2.5.8 minimum target
 // size (24×24 CSS px) and have an accessible name, at desktop and phone widths.
 const MIN_TARGET = 24;
+
+test('forced colors keeps status badges and insight bars outlined', async ({ page, visit }) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await visit('/patient', 'patient');
+  const badge = page.locator('button[aria-label^="Notifications,"] [class*="badge"]').first();
+  await expect(badge).toBeVisible();
+  expect(await badge.evaluate((element) => getComputedStyle(element).borderStyle)).not.toBe('none');
+
+  await visit('/doctor/insights', 'doctor');
+  const bar = page.locator('svg rect').first();
+  await expect(bar).toBeVisible();
+  expect(await bar.evaluate((element) => getComputedStyle(element).stroke)).not.toBe('none');
+});
 
 async function expectTarget(locator: import('@playwright/test').Locator, label: string) {
   await expect(locator, `${label} is visible`).toBeVisible();
@@ -161,9 +182,12 @@ test('a new notification is announced in a polite live region', async ({ page, v
 // names are unique across the app, and none of them carries patient data.
 test('every route has a unique, descriptive document title', async ({ page, visit }) => {
   test.slow();
+  // Unique per role: a patient and a doctor never see each other's tabs, so
+  // the two sides of one message thread may share a title. An `aliasOf` URL
+  // is the same screen as its target and shares its title on purpose.
   const titles = new Map<string, string[]>();
 
-  for (const { path, role } of routes) {
+  for (const { path, role, aliasOf } of routes) {
     await visit(path, role);
     await expect(page.locator('main h1, main h2, #root h1, #root h2').first()).toBeVisible();
 
@@ -174,7 +198,9 @@ test('every route has a unique, descriptive document title', async ({ page, visi
     // never after the patient, medication or appointment it shows.
     expect(title, `${path} title leaks patient data`).not.toMatch(/Placeholder|Example \(fake\)|Tyke|Junior/);
 
-    titles.set(title, [...(titles.get(title) ?? []), path]);
+    if (aliasOf) continue;
+    const key = `${role} ${title}`;
+    titles.set(key, [...(titles.get(key) ?? []), path]);
   }
 
   const duplicate = [...titles].filter(([, paths]) => paths.length > 1);

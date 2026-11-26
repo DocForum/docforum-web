@@ -122,21 +122,35 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
   const [dialogStatus, setDialogStatus] = useState<DecisionStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // The app shell no longer adds a route <h1> (#238), so every state names
+  // the page; the loaded state uses the doctor's name instead.
+  const pendingTitle = (
+    <h1 className={styles.title}>{t('adminVerification.detail.title', 'Verification application')}</h1>
+  );
+
   if (detail.isLoading) {
-    return <p className={styles.status}>{t('adminVerification.detail.loading', 'Loading application…')}</p>;
+    return (
+      <>
+        {pendingTitle}
+        <p className={styles.status}>{t('adminVerification.detail.loading', 'Loading application…')}</p>
+      </>
+    );
   }
 
   if (detail.isError) {
     return (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeDetailError(detail.error, t)}</p>
-        <Link to="/admin/verifications">{t('adminVerification.detail.backToQueue', '← Back to the queue')}</Link>
-      </div>
+      <>
+        {pendingTitle}
+        <div className={styles.errorBox} role="alert">
+          <p>{describeDetailError(detail.error, t)}</p>
+          <Link to="/admin/verifications">{t('adminVerification.detail.backToQueue', '← Back to the queue')}</Link>
+        </div>
+      </>
     );
   }
 
   const data = detail.data;
-  if (!data) return null;
+  if (!data) return pendingTitle;
 
   const decided = data.profile.verificationStatus !== 'pending';
   const documents = data.documents;

@@ -97,6 +97,7 @@ export function AppointmentDetailPage() {
   if (detail.isError) {
     return (
       <div className="container">
+        <h1 className={styles.title}>Your appointment</h1>
         <PageError
           title="We couldn't load your appointment."
           message={`${detail.error instanceof ApiError ? `${detail.error.message} ` : ''}Nothing about your appointment has changed — please try again.`}
@@ -111,6 +112,7 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card">
+          <h1 className={styles.title}>Your appointment</h1>
           <EmptyState
             title="We couldn't find that appointment on your account."
             description="It may have been cancelled, or this link points at an appointment that isn't yours. Your appointment list is unchanged."

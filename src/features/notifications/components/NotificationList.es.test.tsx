@@ -32,7 +32,7 @@ describe('NotificationList (es)', () => {
     expect(screen.getByRole('button', { name: 'Marcar todas como leídas' })).toBeInTheDocument();
     expect(screen.getByText('Cita')).toBeInTheDocument();
     expect(screen.getByText('Sin leer')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Marcar «Cita confirmada» como leída' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Marcar como leída: «Cita confirmada»' })).toBeInTheDocument();
   });
 
   it('translates the empty state', () => {

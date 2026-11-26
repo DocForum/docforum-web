@@ -15,6 +15,16 @@
 
 import type { HealthSectionKey } from './types/models';
 
+/** Query freshness policy (#309). A stale query may refetch on mount; an
+ * invalidated query refetches regardless of these times. Sign-out clears the
+ * client, so session-scoped data never survives an account switch. */
+export const STALE_TIME = {
+  reference: 60 * 60 * 1_000,
+  profile: 2 * 60 * 1_000,
+  short: 10 * 1_000,
+  live: 0,
+} as const;
+
 export const orderKeys = {
   all: ['orders'] as const,
   mine: () => ['orders', 'mine'] as const,
@@ -125,6 +135,11 @@ export const healthKeys = {
  */
 export const dependentKeys = {
   all: ['dependents'] as const,
+};
+
+export const profileKeys = {
+  all: ['patient-profiles'] as const,
+  me: () => ['patient-profiles', 'me'] as const,
 };
 
 /** Per-facility admin resources (members, invites, fulfillment queue). */

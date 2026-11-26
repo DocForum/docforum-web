@@ -394,6 +394,7 @@
 
 /* High contrast */
 @media (forced-colors: active) {
+  .badge { background: Highlight; color: HighlightText; border: 1px solid CanvasText; }
   .menuToggle,
   .navLink,
   .drawerLink {
