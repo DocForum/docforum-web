@@ -28,14 +28,22 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
   } = usePatientChart(patientProfileId ?? undefined);
 
   if (isLoading) {
-    return <Skeleton lines={6} height="1.5rem" label={t('patientChart.loading', 'Loading patient chart')} />;
+    return (
+      <section className={styles.panel}>
+        <h1>{t('patientChart.title', 'Patient chart')}</h1>
+        <Skeleton lines={6} height="1.5rem" label={t('patientChart.loading', 'Loading patient chart')} />
+      </section>
+    );
   }
   if (error) {
     return (
-      <InlineError
-        title={t('patientChart.loadFailed', "The patient chart couldn't be loaded")}
-        message={queryErrorMessage(error)}
-      />
+      <section className={styles.panel}>
+        <h1>{t('patientChart.title', 'Patient chart')}</h1>
+        <InlineError
+          title={t('patientChart.loadFailed', "The patient chart couldn't be loaded")}
+          message={queryErrorMessage(error)}
+        />
+      </section>
     );
   }
 
@@ -46,14 +54,14 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
   return (
     <section className={styles.panel}>
-      <h2>{t('patientChart.title', 'Patient chart')}</h2>
+      <h1>{t('patientChart.title', 'Patient chart')}</h1>
 
       {/* Health Profile */}
       <div className={styles.section}>
-        <h3>{t('patientChart.healthProfile', 'Health profile')}</h3>
+        <h2>{t('patientChart.healthProfile', 'Health profile')}</h2>
         <div className={styles.grid}>
           <div className={styles.card}>
-            <h4>{t('patientChart.allergies', 'Allergies')}</h4>
+            <h3>{t('patientChart.allergies', 'Allergies')}</h3>
             {allergies.length === 0 ? (
               <p className={styles.empty}>{t('patientChart.noAllergies', 'No allergies recorded.')}</p>
             ) : (
@@ -70,7 +78,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
             )}
           </div>
           <div className={styles.card}>
-            <h4>{t('patientChart.conditions', 'Conditions')}</h4>
+            <h3>{t('patientChart.conditions', 'Conditions')}</h3>
             {conditions.length === 0 ? (
               <p className={styles.empty}>{t('patientChart.noConditions', 'No conditions recorded.')}</p>
             ) : (
@@ -87,7 +95,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
             )}
           </div>
           <div className={styles.card}>
-            <h4>{t('patientChart.medications', 'Medications')}</h4>
+            <h3>{t('patientChart.medications', 'Medications')}</h3>
             {medications.length === 0 ? (
               <p className={styles.empty}>{t('patientChart.noMedications', 'No medications recorded.')}</p>
             ) : (
@@ -108,7 +116,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
       {/* Prior Consultations in Thread */}
       <div className={styles.section}>
-        <h3>{t('patientChart.priorConsultations', 'Prior consultations in thread')}</h3>
+        <h2>{t('patientChart.priorConsultations', 'Prior consultations in thread')}</h2>
         {priorConsultations.length === 0 ? (
           <p className={styles.empty}>
             {t('patientChart.noPriorConsultations', 'No prior consultations in this care thread.')}
@@ -136,7 +144,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
       {/* Active Orders */}
       <div className={styles.section}>
-        <h3>{t('patientChart.activeOrders', 'Active orders')}</h3>
+        <h2>{t('patientChart.activeOrders', 'Active orders')}</h2>
         {activeOrders.length === 0 ? (
           <p className={styles.empty}>{t('patientChart.noActiveOrders', 'No active orders.')}</p>
         ) : (
@@ -171,7 +179,7 @@ export function PatientChartPanel({ patientProfileId }: { patientProfileId?: str
 
       {/* Recent Results */}
       <div className={styles.section}>
-        <h3>{t('patientChart.recentResults', 'Recent results')}</h3>
+        <h2>{t('patientChart.recentResults', 'Recent results')}</h2>
         {recentResults.length === 0 ? (
           <p className={styles.empty}>{t('patientChart.noRecentResults', 'No recent results.')}</p>
         ) : (

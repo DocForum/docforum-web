@@ -56,6 +56,18 @@ describe('PageHeader', () => {
     expect(screen.getByText('Custom')).toHaveAttribute('aria-current', 'page');
   });
 
+  it('gives the heading a valid id token, never one built from a label', () => {
+    renderHeader({ title: 'Apt Demo 2' });
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveAttribute('id', 'page-title');
+    expect(heading.id).not.toMatch(/\s/);
+  });
+
+  it('accepts an explicit heading id', () => {
+    renderHeader({ title: 'Health profile', titleId: 'health-title' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('id', 'health-title');
+  });
+
   it('never links a consultation route intermediate that has no route', () => {
     renderHeader({ title: 'Consultation note' }, '/doctor/consultation/apt-1');
 
@@ -97,5 +109,13 @@ describe('PageHeader', () => {
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
     expect(currentCrumb('Unknown page')).toHaveAttribute('aria-current', 'page');
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('renders only the breadcrumb trail, with no heading, when showTitle is false', () => {
+    renderHeader({ title: 'Consultation note', showTitle: false }, '/doctor/consultation/apt-1');
+
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+    expect(currentCrumb('Consultation note')).toHaveAttribute('aria-current', 'page');
   });
 });
