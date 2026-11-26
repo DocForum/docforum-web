@@ -1,14 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { eventStreamManager } from '../services/event-stream-service';
-import type { ServerEvent, ServerEventName } from '../services/event-stream-service';
-import { useServerEvent } from './useServerEvents';
+import type {
+  EventStreamState,
+  ServerEvent,
+  ServerEventName,
+} from '../services/event-stream-service';
+import {
+  useEventStreamState,
+  useRealtimeConnected,
+  useServerEvent,
+} from './useServerEvents';
 
-// No real connections: the tab-wide manager is replaced with a recorder.
 vi.mock('../services/event-stream-service', () => ({
   eventStreamManager: {
     subscribe: vi.fn(),
     clearReplay: vi.fn(),
+    getState: vi.fn(),
+    subscribeState: vi.fn(),
   },
 }));
 
@@ -112,5 +121,59 @@ describe('useServerEvent', () => {
 
     expect(subscribeCalls().map((call) => call[0])).toEqual(['queue.updated', 'message.created']);
     expect(unsubscribeCalls).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('stream state hooks', () => {
+  let current: EventStreamState;
+  let listeners: Set<(state: EventStreamState) => void>;
+
+  beforeEach(() => {
+    current = 'idle';
+    listeners = new Set();
+    vi.mocked(eventStreamManager.subscribe).mockReset();
+    vi.mocked(eventStreamManager.subscribe).mockImplementation(() => () => {});
+    vi.mocked(eventStreamManager.getState).mockReset().mockImplementation(() => current);
+    vi.mocked(eventStreamManager.subscribeState).mockReset().mockImplementation((handler) => {
+      listeners.add(handler);
+      return () => {
+        listeners.delete(handler);
+      };
+    });
+  });
+
+  it('re-renders on connection state changes and unsubscribes on unmount', () => {
+    const { result, unmount } = renderHook(() => useEventStreamState());
+    expect(result.current).toBe('idle');
+
+    act(() => {
+      current = 'open';
+      for (const listener of listeners) listener(current);
+    });
+    expect(result.current).toBe('open');
+
+    unmount();
+    expect(listeners.size).toBe(0);
+  });
+
+  it('is connected only while the stream is open', () => {
+    const { result, rerender } = renderHook(() => useRealtimeConnected());
+    expect(result.current).toBe(false);
+
+    for (const state of ['connecting', 'reconnecting', 'error'] as const) {
+      act(() => {
+        current = state;
+        for (const listener of listeners) listener(current);
+      });
+      rerender();
+      expect(result.current).toBe(false);
+    }
+
+    act(() => {
+      current = 'open';
+      for (const listener of listeners) listener(current);
+    });
+    rerender();
+    expect(result.current).toBe(true);
   });
 });

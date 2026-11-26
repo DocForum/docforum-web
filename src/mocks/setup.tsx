@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { worker } from './browser';
 import { DevPanel } from './DevPanel';
 import { activateMockRole, consumePreviewRole } from './roles';
+import { isMockDeepLink } from './navigation';
 import { useMockStore } from './mock-store';
 
 /**
@@ -41,13 +42,11 @@ export async function startMockApi(): Promise<void> {
   // unless the URL already deep-links a route, which we leave untouched.
   // Logging in through the real login screen works too (handlers answer
   // any credentials).
-  const hash = window.location.hash;
-  const deepLinked = hash !== '' && hash !== '#/' && hash !== '#';
   // `?previewRole=` is a mock/preview-build convenience only (it is never
   // read by production code); consume it before the first render so its
   // fake session cannot contradict the API, and strip it from the URL.
   const role = consumePreviewRole() ?? useMockStore.getState().activeRole;
-  activateMockRole(role, { navigate: !deepLinked });
+  activateMockRole(role, { navigate: !isMockDeepLink() });
 
   const panelRoot = document.createElement('div');
   panelRoot.id = 'mock-dev-panel-root';

@@ -1,9 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import {
   eventStreamManager,
+  type EventStreamState,
   type ServerEvent,
   type ServerEventName,
 } from '../services/event-stream-service';
+
+const subscribeStreamState = (listener: () => void): (() => void) =>
+  eventStreamManager.subscribeState(listener);
+const getStreamState = (): EventStreamState => eventStreamManager.getState();
 
 /**
  * Subscribe to one typed SSE event. All callers share the tab-wide
@@ -27,4 +32,12 @@ export function useServerEvent<K extends ServerEventName>(
     if (!enabled) return;
     return eventStreamManager.subscribe(type, (event) => handlerRef.current(event), { enabled });
   }, [type, enabled]);
+}
+
+export function useEventStreamState(): EventStreamState {
+  return useSyncExternalStore(subscribeStreamState, getStreamState, getStreamState);
+}
+
+export function useRealtimeConnected(): boolean {
+  return useEventStreamState() === 'open';
 }
