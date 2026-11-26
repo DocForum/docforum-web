@@ -42,7 +42,9 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
   { pattern: 'login', label: 'Log in', messageId: 'breadcrumb.logIn' },
   { pattern: 'signup', label: 'Sign up', messageId: 'breadcrumb.signUp' },
   { pattern: 'claim-account', label: 'Claim account', messageId: 'breadcrumb.claimAccount' },
+  { pattern: 'invite', label: 'Accept invitation', messageId: 'breadcrumb.invite' },
   { pattern: 'account-deleted', label: 'Account deleted', messageId: 'breadcrumb.accountDeleted' },
+  { pattern: 'privacy/analytics', label: 'Privacy & analytics', messageId: 'breadcrumb.privacyAnalytics' },
   { pattern: 'notifications', label: 'Notifications', messageId: 'breadcrumb.notifications' },
   {
     pattern: 'settings/notifications',
@@ -57,6 +59,11 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     messageId: 'breadcrumb.paymentDetails',
     parent: 'payments',
     roles: ['patient'],
+  },
+  {
+    pattern: 'account/security',
+    label: 'Account security',
+    messageId: 'breadcrumb.accountSecurity',
   },
   {
     pattern: 'account/access-log',
@@ -85,6 +92,12 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     messageId: 'breadcrumb.appointment',
     roles: ['patient'],
   },
+  {
+    pattern: 'doctors/:doctorId',
+    label: 'Doctor profile',
+    messageId: 'breadcrumb.doctorProfile',
+    roles: ['patient'],
+  },
 
   // Patient
   { pattern: 'patient', label: 'Patient dashboard', messageId: 'breadcrumb.patientDashboard', roles: ['patient'] },
@@ -92,6 +105,41 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     pattern: 'patient/search',
     label: 'Find a doctor',
     messageId: 'breadcrumb.findADoctor',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/doctors',
+    label: 'Doctor directory',
+    messageId: 'breadcrumb.doctorDirectory',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/book',
+    label: 'Book appointment',
+    messageId: 'breadcrumb.bookAppointment',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/appointments',
+    label: 'Appointments',
+    messageId: 'breadcrumb.appointments',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/referrals',
+    label: 'My referrals',
+    messageId: 'breadcrumb.myReferrals',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/waitlist',
+    label: 'Waitlist',
+    messageId: 'breadcrumb.waitlist',
     parent: 'patient',
     roles: ['patient'],
   },
@@ -107,6 +155,20 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     label: 'Order details',
     messageId: 'breadcrumb.orderDetails',
     parent: 'patient/orders',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/results',
+    label: 'Lab results',
+    messageId: 'breadcrumb.labResults',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
+    pattern: 'patient/results/:resultId',
+    label: 'Lab result details',
+    messageId: 'breadcrumb.labResultDetails',
+    parent: 'patient/results',
     roles: ['patient'],
   },
   {
@@ -152,9 +214,26 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     roles: ['patient'],
   },
   {
+    pattern: 'patient/appointments/:appointmentId/intake',
+    label: 'Intake form',
+    messageId: 'breadcrumb.intakeForm',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  // The patient console's own copy of the care timeline. It gets its own label
+  // so its tab title differs from /care, which is the same screen reached from
+  // the main navigation (#237).
+  {
+    pattern: 'patient/care',
+    label: 'Care timeline',
+    messageId: 'breadcrumb.careTimeline',
+    parent: 'patient',
+    roles: ['patient'],
+  },
+  {
     pattern: 'patient/care/*',
-    label: 'Care journey',
-    messageId: 'breadcrumb.careJourney',
+    label: 'Care timeline',
+    messageId: 'breadcrumb.careTimeline',
     parent: 'patient',
     roles: ['patient'],
   },
@@ -193,6 +272,13 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     pattern: 'doctor/patient-chart/:patientProfileId',
     label: 'Patient chart',
     messageId: 'breadcrumb.patientChart',
+    parent: 'doctor',
+    roles: ['doctor'],
+  },
+  {
+    pattern: 'doctor/verification',
+    label: 'Doctor verification',
+    messageId: 'breadcrumb.doctorVerification',
     parent: 'doctor',
     roles: ['doctor'],
   },
@@ -244,6 +330,20 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
 
   // Admin
   { pattern: 'admin', label: 'Admin dashboard', messageId: 'breadcrumb.adminDashboard', roles: ['admin'] },
+  {
+    pattern: 'admin/users',
+    label: 'Users',
+    messageId: 'breadcrumb.users',
+    parent: 'admin',
+    roles: ['admin'],
+  },
+  {
+    pattern: 'admin/payments/console',
+    label: 'Payments console',
+    messageId: 'breadcrumb.paymentsConsole',
+    parent: 'admin',
+    roles: ['admin'],
+  },
   {
     pattern: 'admin/audit',
     label: 'Audit log',

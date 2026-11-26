@@ -1,11 +1,14 @@
 /* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateApiKeyDialog } from './CreateApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
 import { useT } from '../../../i18n/useT';
@@ -54,16 +57,35 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     ? errorText(error) ?? 'API keys could not be loaded.'
     : null;
 
+  const listRef = useRef<HTMLTableSectionElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    activeKeys.map((key) => key.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
+
+  // A revoked key leaves the active list, taking its Revoke button with it:
+  // move focus to the next key (or the heading) and announce the result
+  // (issue #245).
   const handleRevoke = (keyId: string, keyName: string) => {
     if (
-      window.confirm(
+      !window.confirm(
         t('integrations.apiKeys.revokeConfirm', 'Revoke "{name}"? Integrations using this key will immediately lose access. This cannot be undone.', {
           name: keyName,
         }),
       )
     ) {
-      revokeMutation.mutate(keyId);
+      return;
     }
+    rememberRemovedRow(keyId);
+    revokeMutation.mutate(keyId, {
+      onSuccess: () =>
+        announce(
+          t('integrations.apiKeys.revokedAnnounce', 'API key {name} was revoked.', { name: keyName }),
+        ),
+      onError: () => forgetRemovedRow(),
+    });
   };
 
   if (isLoading) {
@@ -91,8 +113,11 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
-        <h2>{t('integrations.apiKeys.title', 'API Keys')}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {t('integrations.apiKeys.title', 'API Keys')}
+        </h2>
         <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.apiKeys.create', 'Create key')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
@@ -122,9 +147,9 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                 <th>{t('integrations.common.actions', 'Actions')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={listRef}>
               {activeKeys.map((key) => (
-                <tr key={key.id}>
+                <tr key={key.id} data-row-id={key.id}>
                   <td>{key.name}</td>
                   <td>
                     <span className={styles.prefixCell}>{key.prefix}…</span>
