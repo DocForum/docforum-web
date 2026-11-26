@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { describeLoadError, isNotServed } from '../errors';
 import { JobCard } from './JobCard';
 import { TimeAgo } from './TimeAgo';
@@ -16,26 +17,34 @@ interface JobsPanelProps {
 }
 
 export function JobsPanel({ jobs, now, onRunNow }: JobsPanelProps) {
+  const t = useOptionalT().t;
   const titleId = useId();
   const list = jobs.data;
 
   let body;
   if (jobs.isLoading) {
-    body = <Skeleton lines={3} height="2.5rem" label="Loading background jobs" />;
+    body = <Skeleton lines={3} height="2.5rem" label={t('adminSystem.jobs.loading', 'Loading background jobs')} />;
   } else if (jobs.error && !list) {
     body = (
       <InlineError
-        title={isNotServed(jobs.error) ? 'Not exposed by docforum-core yet' : "The job list couldn't be loaded"}
-        message={describeLoadError(jobs.error, 'jobs')}
+        title={
+          isNotServed(jobs.error)
+            ? t('adminSystem.jobs.notExposedTitle', 'Not exposed by docforum-core yet')
+            : t('adminSystem.jobs.loadFailedTitle', "The job list couldn't be loaded")
+        }
+        message={describeLoadError(jobs.error, 'jobs', t)}
         onRetry={() => void jobs.refetch()}
       />
     );
   } else if (list && list.length === 0) {
     body = (
       <EmptyState
-        title="docforum-core has no background jobs registered."
-        description="Scheduled jobs (expiry sweeps, reminder dispatch) appear here once the backend registers them."
-        action={{ label: 'Refresh jobs', onClick: () => void jobs.refetch() }}
+        title={t('adminSystem.jobs.emptyTitle', 'docforum-core has no background jobs registered.')}
+        description={t(
+          'adminSystem.jobs.emptyDescription',
+          'Scheduled jobs (expiry sweeps, reminder dispatch) appear here once the backend registers them.',
+        )}
+        action={{ label: t('adminSystem.jobs.refresh', 'Refresh jobs'), onClick: () => void jobs.refetch() }}
       />
     );
   } else if (list) {
@@ -54,13 +63,13 @@ export function JobsPanel({ jobs, now, onRunNow }: JobsPanelProps) {
     <section className={styles.panel} aria-labelledby={titleId}>
       <div className={styles.panelHead}>
         <h2 id={titleId} className={styles.panelTitle}>
-          Background jobs
+          {t('adminSystem.jobs.title', 'Background jobs')}
         </h2>
       </div>
       {/* A failed poll keeps the last list on screen, but says it's stale. */}
       {jobs.error && list && (
         <p className={styles.staleBanner} role="alert">
-          Couldn't refresh the job list — showing what docforum-core reported{' '}
+          {t('adminSystem.jobs.stale', "Couldn't refresh the job list — showing what docforum-core reported")}{' '}
           <TimeAgo iso={new Date(jobs.dataUpdatedAt).toISOString()} now={now} />.
         </p>
       )}

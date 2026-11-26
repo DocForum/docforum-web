@@ -57,9 +57,17 @@ export interface BackgroundJob {
   running: boolean;
 }
 
-export interface OutboxSummary {
-  pendingCount: number;
-  /** Events that exhausted their delivery attempts (docforum-core#94). */
-  deadLetterCount: number;
-  oldestPendingAt: string | null;
+/** One event that exhausted its delivery attempts, as returned by
+ * docforum-core's `GET /admin/outbox/dead-letters`. */
+export interface OutboxDeadLetter {
+  id: string;
+  type: string;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  deadLetteredAt: string;
+}
+
+export interface OutboxDeadLetters {
+  items: OutboxDeadLetter[];
 }

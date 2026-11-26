@@ -12,6 +12,8 @@ export const ROLE_HOME: Record<Role, string> = {
   admin: '/admin',
 };
 
+export const LOGIN_PATH = '/login';
+
 export function homePathForRole(role: string | null | undefined): string {
   if (role && Object.hasOwn(ROLE_HOME, role)) {
     return ROLE_HOME[role as Role];

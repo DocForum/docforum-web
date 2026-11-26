@@ -1,5 +1,5 @@
 import { ApiError, SLOW_REQUEST_TIMEOUT_MS, apiFetch } from './api-client';
-import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport } from '../types/models';
+import type { BackgroundJob, JobRun, OutboxDeadLetters, ReadinessReport } from '../types/models';
 
 /** Timeout for the lightweight boot liveness ping. */
 export const PING_TIMEOUT_MS = 5_000;
@@ -75,9 +75,10 @@ export function runJob(jobName: string, accessToken: string): Promise<JobRun> {
   });
 }
 
-/** Assumed contract (docforum-core#94). A `404` means the outbox isn't exposed. */
-export function getOutboxSummary(accessToken: string, signal?: AbortSignal): Promise<OutboxSummary> {
-  return apiFetch<OutboxSummary>('/admin/outbox', { accessToken, signal });
+/** Mirrors docforum-core's `GET /admin/outbox/dead-letters` (most recent
+ * first). A `404` means this core version doesn't expose it. */
+export function getOutboxDeadLetters(accessToken: string, signal?: AbortSignal): Promise<OutboxDeadLetters> {
+  return apiFetch<OutboxDeadLetters>('/admin/outbox/dead-letters?limit=50', { accessToken, signal });
 }
 
 export interface ClearLoginAttemptsInput {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useReviewSpecialtyClaim } from '../hooks/useSpecialtyClaims';
 import { describeReviewError } from '../errors';
 import { normaliseReason, validateReason } from '../reason';
@@ -29,6 +30,7 @@ export function ReviewClaimDialog({
   onReviewed,
   onConflict,
 }: ReviewClaimDialogProps) {
+  const t = useOptionalT().t;
   const review = useReviewSpecialtyClaim();
   const [decision, setDecision] = useState<ClaimDecision>(initialDecision);
   const [reason, setReason] = useState('');
@@ -38,7 +40,7 @@ export function ReviewClaimDialog({
   const rejecting = decision === 'reject';
 
   const handleSubmit = async () => {
-    const nextError = validateReason(reason, rejecting);
+    const nextError = validateReason(reason, rejecting, t);
     setReasonError(nextError);
     setFailure(null);
     if (nextError) return;
@@ -54,7 +56,7 @@ export function ReviewClaimDialog({
       });
       onReviewed(decision, claim);
     } catch (error) {
-      const outcome = describeReviewError(error, decision);
+      const outcome = describeReviewError(error, decision, t);
       if (outcome.kind === 'conflict') onConflict(outcome.message);
       else setFailure(outcome.message);
     }
@@ -62,17 +64,30 @@ export function ReviewClaimDialog({
 
   return (
     <ActionDialog
-      title="Review specialty claim"
+      title={t('adminVerification.reviewDialog.title', 'Review specialty claim')}
       description={
         <>
           <p>
-            <strong>{claim.doctor.fullName}</strong> claims <strong>{claim.specialty.name}</strong>. Only pairs you
-            approve count for search and referral routing — a rejected claim never routes patients.
+            {t('adminVerification.reviewDialog.claim', '{doctor} claims {specialty}.', {
+              doctor: claim.doctor.fullName,
+              specialty: claim.specialty.name,
+            })}{' '}
+            {t(
+              'adminVerification.reviewDialog.onlyApproved',
+              'Only pairs you approve count for search and referral routing — a rejected claim never routes patients.',
+            )}
           </p>
           <p className={styles.doctorNotice}>
             {rejecting
-              ? 'The doctor is told your reason as what to fix or resubmit. Write it for them, not for the audit trail.'
-              : `Approving lets ${claim.doctor.fullName} appear in ${claim.specialty.name} searches and receive ${claim.specialty.name} referrals.`}
+              ? t(
+                  'adminVerification.reviewDialog.rejectNotice',
+                  'The doctor is told your reason as what to fix or resubmit. Write it for them, not for the audit trail.',
+                )
+              : t(
+                  'adminVerification.reviewDialog.approveNotice',
+                  'Approving lets {doctor} appear in {specialty} searches and receive {specialty} referrals.',
+                  { doctor: claim.doctor.fullName, specialty: claim.specialty.name },
+                )}
           </p>
         </>
       }
@@ -82,26 +97,22 @@ export function ReviewClaimDialog({
       actions={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={review.isPending}>
-            Cancel
+            {t('adminVerification.reviewDialog.cancel', 'Cancel')}
           </Button>
-          <Button
-            type="submit"
-            variant={rejecting ? 'danger' : 'primary'}
-            loading={review.isPending}
-          >
+          <Button type="submit" variant={rejecting ? 'danger' : 'primary'} loading={review.isPending}>
             {review.isPending
               ? rejecting
-                ? 'Rejecting…'
-                : 'Approving…'
+                ? t('adminVerification.reviewDialog.rejecting', 'Rejecting…')
+                : t('adminVerification.reviewDialog.approving', 'Approving…')
               : rejecting
-                ? 'Reject claim'
-                : 'Approve claim'}
+                ? t('adminVerification.reviewDialog.rejectClaim', 'Reject claim')
+                : t('adminVerification.reviewDialog.approveClaim', 'Approve claim')}
           </Button>
         </>
       }
     >
       <fieldset className={styles.field}>
-        <legend className={styles.fieldLabel}>Decision</legend>
+        <legend className={styles.fieldLabel}>{t('adminVerification.reviewDialog.decisionLabel', 'Decision')}</legend>
         <label>
           <input
             type="radio"
@@ -114,7 +125,7 @@ export function ReviewClaimDialog({
             }}
             disabled={review.isPending}
           />{' '}
-          Approve
+          {t('adminVerification.decision.approve', 'Approve')}
         </label>
         <label>
           <input
@@ -128,15 +139,25 @@ export function ReviewClaimDialog({
             }}
             disabled={review.isPending}
           />{' '}
-          Reject
+          {t('adminVerification.decision.reject', 'Reject')}
         </label>
       </fieldset>
       <ReasonField
-        label={rejecting ? 'Reason sent to the doctor (required)' : 'Note for the audit trail (optional)'}
+        label={
+          rejecting
+            ? t('adminVerification.reviewDialog.reasonLabelReject', 'Reason sent to the doctor (required)')
+            : t('adminVerification.reviewDialog.reasonLabelApprove', 'Note for the audit trail (optional)')
+        }
         hint={
           rejecting
-            ? 'Required — say which credential is missing or invalid and what to resubmit. The doctor sees this text.'
-            : 'Optional. Saved to the audit trail with your admin account; the doctor is not shown this text.'
+            ? t(
+                'adminVerification.reviewDialog.reasonHintReject',
+                'Required — say which credential is missing or invalid and what to resubmit. The doctor sees this text.',
+              )
+            : t(
+                'adminVerification.reviewDialog.reasonHintApprove',
+                'Optional. Saved to the audit trail with your admin account; the doctor is not shown this text.',
+              )
         }
         value={reason}
         onChange={(value) => {

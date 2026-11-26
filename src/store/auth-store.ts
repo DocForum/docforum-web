@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import type { User } from '../types/models';
 import { clearCsrfToken, writeCsrfToken } from '../services/csrf-storage';
 import { useIntakeDraftStore } from './intake-draft-store';
+import { useLocaleStore } from './locale-store';
 import { useMessageDraftStore } from './message-draft-store';
 
 /**
@@ -57,6 +58,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOutReason: null,
   setSession: (user, accessToken, csrfToken) => {
     if (csrfToken) writeCsrfToken(csrfToken);
+    // docforum-core stores the user's locale at signup and returns it on
+    // login and refresh (issue #256). It wins over the browser language, but
+    // never over a locale the person picked in this session.
+    useLocaleStore.getState().applyUserLocale(user.locale);
     set({
       user,
       accessToken,

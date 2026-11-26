@@ -58,6 +58,7 @@ function roleNavItems(userRole: Role | null): NavItem[] {
 export function Layout() {
   const t = useT();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const logoutMutation = useLogout();
   useRealtimeCacheSync();
   const location = useLocation();
@@ -111,6 +112,11 @@ export function Layout() {
     logoutMutation.mutate(undefined, { onSuccess: () => navigate(paths.login, { replace: true }) });
     closeDrawer();
   };
+
+  // Treat a half-restored session (user set, token still settling) as signed
+  // out. During the boot refresh there must be no "Log out" control that can
+  // flash and then disappear once the state resolves.
+  const isSignedIn = Boolean(user && accessToken);
 
   return (
     <div className={styles.shell}>
@@ -195,7 +201,7 @@ export function Layout() {
               </RRNavLink>
             </Flag>
           )}
-          {user && (
+          {isSignedIn && user && (
             <>
               {user.role === 'doctor' && <UnreadBadge />}
               <span className={styles.userChip}>
@@ -211,7 +217,7 @@ export function Layout() {
           {/* In-app inbox (issue #107): unread badge + dropdown, then the
               full list at /notifications. Hidden while signed out. */}
           <NotificationBell />
-          {user && (
+          {isSignedIn && (
             <>
               <ProfileSwitcher />
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">
@@ -290,7 +296,7 @@ export function Layout() {
             </svg>
           </button>
         </div>
-        {user ? (
+        {isSignedIn && user ? (
           <>
             <nav className={styles.drawerNav} aria-label={t('shell.drawer.aria', 'Mobile navigation')}>
               {items.map((item) => (
@@ -307,6 +313,15 @@ export function Layout() {
                   {item.messageId ? t(item.messageId, item.label) : item.label}
                 </RRNavLink>
               ))}
+              <RRNavLink
+                to={paths.accountSecurity}
+                className={({ isActive }) =>
+                  styles.drawerLink + (isActive ? ` ${styles.drawerLinkActive}` : '')
+                }
+                onClick={closeDrawer}
+              >
+                {t('accountSecurity.nav', 'Account security')}
+              </RRNavLink>
               <Flag name="notification_preferences">
                 <RRNavLink
                   to={paths.notificationSettings}
