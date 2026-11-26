@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DataTable,
   useTableUrlState,
@@ -13,7 +13,9 @@ import { formatDateTime } from '../../../i18n/time-zone';
 import { ApiError } from '../../../services/api-client';
 import { formatStroops } from '../../../services/payments-service';
 import { transactionUrl } from '../explorer';
+import { fetchLedgerForFilter, downloadLedgerCsv } from '../ledger-csv';
 import { useFacilityLedger } from '../hooks/useFacilityLedger';
+import { useAuthStore } from '../../../store/auth-store';
 import type {
   FacilityLedgerItem,
   FacilityLedgerStatus,
@@ -152,6 +154,51 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
   const items = data?.items ?? [];
   const totals = data?.totals ?? [];
 
+  // CSV export (issue #278): the whole filtered ledger, not just this page.
+  // Nothing is downloaded until every page has arrived, so a cancelled or
+  // failed export can never leave a partial file that looks complete.
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [exporting, setExporting] = useState(false);
+  const [exportedRows, setExportedRows] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => exportController.current?.abort();
+  }, []);
+
+  const startExport = async () => {
+    if (!accessToken || exporting) return;
+    const controller = new AbortController();
+    exportController.current = controller;
+    setExporting(true);
+    setExportedRows(0);
+    setExportError(null);
+    try {
+      const rows = await fetchLedgerForFilter(
+        accessToken,
+        { status: filterValues.status || undefined, from: filterValues.from || undefined, to: filterValues.to || undefined },
+        {
+          signal: controller.signal,
+          onProgress: (count) => {
+            if (!controller.signal.aborted) setExportedRows(count);
+          },
+        },
+      );
+      downloadLedgerCsv(rows);
+    } catch {
+      // A cancel is a normal outcome, not a failure to report.
+      if (!controller.signal.aborted) {
+        setExportError('The CSV export failed and nothing was downloaded. Try again.');
+      }
+    } finally {
+      if (exportController.current === controller) exportController.current = null;
+      setExporting(false);
+    }
+  };
+
+  const cancelExport = () => exportController.current?.abort();
+
   const invalidCursor = error instanceof ApiError && error.code === 'INVALID_CURSOR';
 
   // A cursor from a previous filter selection (e.g. a bookmarked URL) is no
@@ -251,12 +298,46 @@ export function FacilityPayoutLedger({ facilityId = 'fac-main' }: FacilityPayout
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Facility payout ledger</h1>
-        <p className={styles.subtitle}>
-          Every escrow payment routed to this facility, with the lifecycle totals for the selected
-          range. Only order references are shown — patient details stay out of the payout ledger.
-        </p>
+        <div>
+          <h1 className={styles.title}>Facility payout ledger</h1>
+          <p className={styles.subtitle}>
+            Every escrow payment routed to this facility, with the lifecycle totals for the selected
+            range. Only order references are shown — patient details stay out of the payout ledger.
+          </p>
+        </div>
+        <div className={styles.exportGroup}>
+          {exporting ? (
+            <Button variant="secondary" size="small" onClick={cancelExport}>
+              Cancel export
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => void startExport()}
+              disabled={isLoading || !accessToken}
+              // WCAG 2.5.3: the accessible name must contain the visible
+              // label ("Export CSV"), so a screen reader and a sighted user
+              // asking for the same button get the same words.
+              aria-label="Export CSV of the filtered payout ledger"
+            >
+              Export CSV
+            </Button>
+          )}
+        </div>
       </div>
+
+      {exporting ? (
+        <p className={styles.exportStatus} role="status" aria-live="polite">
+          Exporting every page of this filter… {exportedRows} {exportedRows === 1 ? 'row' : 'rows'} loaded
+        </p>
+      ) : null}
+
+      {exportError ? (
+        <p className={styles.exportError} role="alert">
+          {exportError}
+        </p>
+      ) : null}
 
       <div className={styles.threatNotice} role="note">
         <strong>Held funds:</strong> payments stay in escrow until docforum-core's release rule

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { Button } from '../../../components/Button';
-import { JOB_HEALTH, jobHealth, overdueBy } from '../status';
+import { useOptionalT } from '../../../i18n/useOptionalT';
+import { jobHealth, jobHealthDisplay, overdueBy } from '../status';
 import { StatusPill } from './StatusPill';
 import { TimeAgo } from './TimeAgo';
 import type { BackgroundJob } from '../../../types/models';
@@ -13,11 +14,14 @@ interface JobCardProps {
 }
 
 function NextRun({ job, now }: { job: BackgroundJob; now: number }) {
-  if (!job.nextRunAt) return <>{job.running ? 'After the current run' : 'Not scheduled'}</>;
+  const t = useOptionalT().t;
+  if (!job.nextRunAt) {
+    return <>{job.running ? t('adminSystem.job.afterCurrentRun', 'After the current run') : t('adminSystem.job.notScheduled', 'Not scheduled')}</>;
+  }
   if (overdueBy(job, now) > 0) {
     return (
       <span className={styles.overdue}>
-        was due <TimeAgo iso={job.nextRunAt} now={now} />
+        {t('adminSystem.job.wasDue', 'was due')} <TimeAgo iso={job.nextRunAt} now={now} />
       </span>
     );
   }
@@ -25,8 +29,9 @@ function NextRun({ job, now }: { job: BackgroundJob; now: number }) {
 }
 
 export function JobCard({ job, now, onRunNow }: JobCardProps) {
+  const t = useOptionalT().t;
   const nameId = useId();
-  const health = JOB_HEALTH[jobHealth(job, now)];
+  const health = jobHealthDisplay(jobHealth(job, now), t);
   const success = job.lastSuccess;
   const failure = job.lastFailure;
 
@@ -44,30 +49,32 @@ export function JobCard({ job, now, onRunNow }: JobCardProps) {
 
       <dl className={styles.facts}>
         <div>
-          <dt>Last success</dt>
+          <dt>{t('adminSystem.job.lastSuccess', 'Last success')}</dt>
           <dd>
             {success ? (
               <>
                 <TimeAgo iso={success.startedAt} now={now} />
                 {success.itemsProcessed !== null && (
                   <span className={styles.factNote}>
-                    {success.itemsProcessed} {success.itemsProcessed === 1 ? 'item' : 'items'} processed
+                    {t('adminSystem.job.itemsProcessed', '{count, plural, one {# item} other {# items}} processed', {
+                      count: success.itemsProcessed,
+                    })}
                   </span>
                 )}
               </>
             ) : (
-              'Never'
+              t('adminSystem.job.never', 'Never')
             )}
           </dd>
         </div>
         <div>
-          <dt>Last failure</dt>
+          <dt>{t('adminSystem.job.lastFailure', 'Last failure')}</dt>
           <dd className={failure ? styles.failureFact : undefined}>
-            {failure ? <TimeAgo iso={failure.startedAt} now={now} /> : 'None recorded'}
+            {failure ? <TimeAgo iso={failure.startedAt} now={now} /> : t('adminSystem.job.noneRecorded', 'None recorded')}
           </dd>
         </div>
         <div>
-          <dt>Next run</dt>
+          <dt>{t('adminSystem.job.nextRun', 'Next run')}</dt>
           <dd>
             <NextRun job={job} now={now} />
           </dd>
@@ -81,7 +88,7 @@ export function JobCard({ job, now, onRunNow }: JobCardProps) {
           disabled={job.running}
           aria-describedby={nameId}
         >
-          {job.running ? 'Running…' : 'Run now'}
+          {job.running ? t('adminSystem.job.running', 'Running…') : t('adminSystem.job.runNow', 'Run now')}
         </Button>
       </div>
     </article>

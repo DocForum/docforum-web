@@ -25,6 +25,7 @@ export interface components {
     "id": string;
     "email": string;
     "role": components["schemas"]["Role"];
+    "locale"?: (string) | null;
     "createdAt": string;
     "updatedAt": string;
   };
