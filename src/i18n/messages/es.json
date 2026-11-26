@@ -1100,7 +1100,6 @@
   "insights.noShow.visualOverview": "Resumen visual",
   "insights.practice.dashboardLabel": "Panel de datos de la consulta",
   "insights.practice.loading": "Cargando datos de la consulta",
-  "insights.practice.previewTitle": "Mostrando datos de vista previa",
   "insights.practice.privacyBody": "Esta vista es estrictamente privada de tu cuenta. No se realizan comparaciones con otros médicos identificados.",
   "insights.practice.privacyLabel": "Garantía de privacidad del médico:",
   "insights.practice.subtitle": "Métricas privadas de rendimiento y operación de tu consulta clínica.",
@@ -2415,5 +2414,9 @@
   "adminVerification.errors.noun.approve": "aprobación",
   "adminVerification.errors.noun.reject": "rechazo",
   "adminVerification.errors.reviewUnconfirmed.approve": "No se pudo confirmar la {noun}: es posible que el backend de vista previa esté despertando. Inténtalo de nuevo; si el primer intento se aplicó, se te avisará y no se aplicará dos veces.",
-  "adminVerification.errors.reviewUnconfirmed.reject": "No se pudo confirmar la {noun}: es posible que el backend de vista previa esté despertando. Inténtalo de nuevo; si el primer intento se aplicó, se te avisará y no se aplicará dos veces."
+  "adminVerification.errors.reviewUnconfirmed.reject": "No se pudo confirmar la {noun}: es posible que el backend de vista previa esté despertando. Inténtalo de nuevo; si el primer intento se aplicó, se te avisará y no se aplicará dos veces.",
+  "insights.practice.errorTitle": "No se pudieron cargar los datos de la consulta",
+  "insights.practice.emptyTitle": "No hay citas en este periodo",
+  "insights.practice.emptyDescription": "No hay visitas programadas, derivaciones ni conversaciones en el periodo seleccionado. Elige un rango de fechas más amplio para ver las métricas de tu consulta.",
+  "insights.practice.emptyAction": "Elegir un rango de fechas más amplio"
 }
