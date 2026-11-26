@@ -1,7 +1,10 @@
 # changelog.d
 
-One new file per PR for the `ROADMAP.md` changelog. This avoids every open
-PR editing the same lines in `ROADMAP.md`.
+One new file per PR for the `ROADMAP.md` changelog.
+
+When every PR appended its entry to the end of `ROADMAP.md`, any two open PRs
+edited the same lines, so each merge put most of the other PRs into conflict.
+A new file per PR never collides with anyone else's.
 
 ## Adding your entry
 

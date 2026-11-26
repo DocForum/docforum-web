@@ -217,7 +217,7 @@ export function Layout() {
           {/* In-app inbox (issue #107): unread badge + dropdown, then the
               full list at /notifications. Hidden while signed out. */}
           <NotificationBell />
-          {user && (
+          {isSignedIn && (
             <>
               <ProfileSwitcher />
               <Button variant="secondary" onClick={logout} loading={logoutMutation.isPending} size="small">

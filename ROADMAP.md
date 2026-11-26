@@ -23,7 +23,34 @@ API" for the one documented local-dev cookie caveat.
   for all three roles (facility users just don't self-register). 14 tests
   passing (`npm test`), including one that asserts facility is never
   offered at signup.
-- [x] Header auth controls only render for a fully restored session. Tracked as [issue #214](https://github.com/DocForum/docforum-web/issues/214) — signed-out visitors see only Log in / Sign up; a half-restored boot session cannot flash Log out; regression tests cover all three states.
+- [x] Invite landing + redemption for admins and facility staff. Tracked
+  as [issue #81](https://github.com/DocForum/docforum-web/issues/81)
+  (High, 200 pts) — `InvitePage` at `/invite?token=` +
+  `src/features/invite/`. Validates the token, shows the inviting
+  organisation, role and inviter, and creates the account with the
+  invite's role (never a form field, never in the request payload) or
+  lets an already-signed-in user accept with one click (existing users
+  are routed through `/login` and back to the invite via router state).
+  Clear expired / revoked / already-used / not-found states. The token
+  is read from the URL once and immediately stripped. **Built against
+  assumed shapes:** docforum-core#39 (admin invites) and #75 (facility
+  staff invites) haven't landed — see `ARCHITECTURE_ESSENTIALS.md`
+  "Known assumptions".
+- [x] Idle timeout & automatic sign-out for shared devices. Tracked as
+  [issue #82](https://github.com/DocForum/docforum-web/issues/82)
+  (High, 200 pts) — `src/hooks/idle-timeout.ts` (pure timestamp logic) +
+  `src/hooks/useIdleTimeout.ts`, `SessionTimeoutWarning` /
+  `SessionTimeoutController` mounted in `Layout`. Timestamp-based
+  activity tracking (input, focus, visibility — never
+  interval-counting, so throttled background tabs stay correct), a
+  warning modal with "Stay signed in", cross-tab `BroadcastChannel`
+  coordination, and role-based defaults (patient 30 min, doctor/facility
+  15 min, admin 10 min) with a backend value taking precedence when
+  served. On timeout: API logout, ALL client state cleared, then
+  `/login?reason=idle-timeout` with an explanation. Unsaved form data is
+  flagged in the modal via `useUnsavedChangesWarning`. **Built against
+  assumed shape:** `GET /auth/session-timeout` (not in docforum-core) —
+  see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
 - [ ] Restore session on reload via `POST /auth/refresh` (single-flight refresh, one retry on `401`, `RequireAuth` waits for boot refresh). Tracked as [issue #9](https://github.com/DocForum/docforum-web/issues/9) (Medium, 150 pts).
 - [ ] Not done: any integration test against a real `docforum-core`
   instance. Tracked as [issue #12](https://github.com/DocForum/docforum-web/issues/12) (High, 200 pts) — an end-to-end smoke test against a throwaway `docforum-core` backend.
