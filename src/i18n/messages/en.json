@@ -210,6 +210,7 @@
   "adminDisputes.detail.meta": "{type} order {id} · {facility} · opened {date}",
   "adminDisputes.detail.noSelection": "No dispute was selected. Return to the queue.",
   "adminDisputes.detail.notFound": "This dispute no longer exists.",
+  "adminDisputes.detail.title": "Dispute",
   "adminDisputes.error.adminSession": "Your session no longer has admin access. Sign in again with an admin account.",
   "adminDisputes.error.attachmentLink": "Could not get a fresh link for this attachment. Check your connection and try again.",
   "adminDisputes.error.attachmentUnavailable": "This attachment is no longer available. Ask the facility to resubmit it.",

@@ -210,6 +210,7 @@
   "adminDisputes.detail.meta": "Pedido de {type} {id} · {facility} · abierto el {date}",
   "adminDisputes.detail.noSelection": "No se seleccionó ninguna disputa. Vuelve a la cola.",
   "adminDisputes.detail.notFound": "Esta disputa ya no existe.",
+  "adminDisputes.detail.title": "Disputa",
   "adminDisputes.error.adminSession": "Tu sesión ya no tiene acceso de administrador. Inicia sesión de nuevo con una cuenta de administrador.",
   "adminDisputes.error.attachmentLink": "No se pudo obtener un enlace nuevo para este archivo. Comprueba tu conexión e inténtalo de nuevo.",
   "adminDisputes.error.attachmentUnavailable": "Este archivo ya no está disponible. Pide al centro que lo vuelva a enviar.",
