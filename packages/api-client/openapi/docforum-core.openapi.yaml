@@ -1020,6 +1020,9 @@ components:
         id: { type: string }
         email: { type: string }
         role: { $ref: '#/components/schemas/Role' }
+        # Best match from Accept-Language at signup (issue #256), returned by
+        # login, signup and refresh. Not every account has one yet.
+        locale: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

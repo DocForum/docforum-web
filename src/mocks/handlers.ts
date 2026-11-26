@@ -1,8 +1,11 @@
 // All mock handlers, composed. Order matters only where paths could
 // overlap — specific (`/patients/me/…`) before generic (`/patients/:id/…`).
 import { accountHandlers } from './handlers/account';
+import { adminOverviewHandlers } from './handlers/admin-overview';
+import { adminUserHandlers } from './handlers/admin-users';
 import { adminVerificationHandlers } from './handlers/admin-verification';
 import { adminMetricsHandlers } from './handlers/admin-metrics';
+import { appointmentHandlers } from './handlers/appointments';
 import { authHandlers } from './handlers/auth';
 import { careThreadHandlers } from './handlers/care-thread';
 import { consultationHandlers } from './handlers/consultation';
@@ -19,6 +22,7 @@ import { followUpHandlers } from './handlers/follow-ups';
 import { healthProfileHandlers } from './handlers/health-profile';
 import { insightsHandlers } from './handlers/insights';
 import { integrationsHandlers } from './handlers/integrations';
+import { labResultHandlers } from './handlers/lab-results';
 import { messagingHandlers } from './handlers/messaging';
 import { onboardingHandlers } from './handlers/onboarding';
 import { notificationHandlers } from './handlers/notifications';
@@ -32,8 +36,12 @@ import { verificationHandlers } from './handlers/verifications';
 export const handlers = [
   ...authHandlers,
   ...accountHandlers,
+  ...adminOverviewHandlers,
+  ...adminUserHandlers,
   ...adminVerificationHandlers,
   ...adminMetricsHandlers,
+  ...appointmentHandlers,
+  ...labResultHandlers,
   ...dependentHandlers,
   ...healthProfileHandlers,
   ...careThreadHandlers,
