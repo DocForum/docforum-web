@@ -21,11 +21,18 @@ import type { GenerateSlotsOutcome } from '../hooks/useSlotManagement';
 import styles from './GenerateSlotsForm.module.css';
 
 const SLOT_LENGTHS = [15, 20, 30, 45, 60] as const;
-const WEEKDAYS = [
-  { value: 1, label: 'Mon' }, { value: 2, label: 'Tue' }, { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' }, { value: 5, label: 'Fri' }, { value: 6, label: 'Sat' },
-  { value: 0, label: 'Sun' },
-] as const;
+/** Monday-first weekday checkboxes; `value` uses JavaScript's Sunday=0. */
+function weekdayOptions(t: Translate): { value: number; label: string }[] {
+  return [
+    { value: 1, label: t('availability.generate.weekday.mon', 'Mon') },
+    { value: 2, label: t('availability.generate.weekday.tue', 'Tue') },
+    { value: 3, label: t('availability.generate.weekday.wed', 'Wed') },
+    { value: 4, label: t('availability.generate.weekday.thu', 'Thu') },
+    { value: 5, label: t('availability.generate.weekday.fri', 'Fri') },
+    { value: 6, label: t('availability.generate.weekday.sat', 'Sat') },
+    { value: 0, label: t('availability.generate.weekday.sun', 'Sun') },
+  ];
+}
 
 interface Props {
   doctorProfileId: string | null;
@@ -228,7 +235,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
       <fieldset className={styles.weekdays} aria-describedby={fieldErrors.weekdays ? 'generate-weekday-error' : undefined}>
         <legend className={styles.label}>{t('availability.generate.weekdays', 'Weekdays')}</legend>
-        {WEEKDAYS.map((day) => (
+        {weekdayOptions(t).map((day) => (
           <label key={day.value} className={styles.weekday}>
             <input type="checkbox" checked={weekdays.includes(day.value)} onChange={(event) => {
               setWeekdays((current) => event.target.checked
