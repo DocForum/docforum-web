@@ -2302,6 +2302,7 @@
   "adminVerification.decisionDialog.reasonHintApprove": "Why this doctor is being approved — keep clinical details out; this text is retained in the audit trail.",
   "adminVerification.decisionDialog.reasonHintReject": "Why this doctor is being rejected — keep clinical details out; this text is retained in the audit trail.",
   "adminVerification.decisionDialog.cancel": "Cancel",
+  "adminVerification.detail.title": "Verification application",
   "adminVerification.detail.loading": "Loading application…",
   "adminVerification.detail.backToQueue": "← Back to the queue",
   "adminVerification.detail.applied": "Applied {date}",

@@ -2346,6 +2346,7 @@
   "adminVerification.decisionDialog.reasonHintApprove": "Por qué se aprueba a este médico: no incluyas detalles clínicos; este texto se conserva en el historial de auditoría.",
   "adminVerification.decisionDialog.reasonHintReject": "Por qué se rechaza a este médico: no incluyas detalles clínicos; este texto se conserva en el historial de auditoría.",
   "adminVerification.decisionDialog.cancel": "Cancelar",
+  "adminVerification.detail.title": "Solicitud de verificación",
   "adminVerification.detail.loading": "Cargando solicitud…",
   "adminVerification.detail.backToQueue": "← Volver a la cola",
   "adminVerification.detail.applied": "Solicitado el {date}",
