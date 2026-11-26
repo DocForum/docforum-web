@@ -2361,5 +2361,9 @@
   "orders.list.dialog.cancel": "Cancel",
   "orders.list.dialog.conflict": "This order changed while you were choosing. Close this dialog and try again.",
   "orders.list.dialog.invalidItems": "One of these items is not valid for this order. Refresh the order and try again.",
-  "orders.list.dialog.selectFailed": "Could not select this facility."
+  "orders.list.dialog.selectFailed": "Could not select this facility.",
+  "insights.practice.errorTitle": "Practice insights couldn't be loaded",
+  "insights.practice.emptyTitle": "No appointments in this range",
+  "insights.practice.emptyDescription": "There are no scheduled visits, referrals or message threads in the selected period. Choose a wider date range to see your practice metrics.",
+  "insights.practice.emptyAction": "Choose a wider date range"
 }

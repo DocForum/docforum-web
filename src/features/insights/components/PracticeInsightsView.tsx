@@ -13,7 +13,7 @@ import styles from './PracticeInsights.module.css';
 
 /** A range with no appointments is a successful, genuinely empty result —
  * not an error and not a reason to invent a preview dataset. */
-export function isEmptyInsights(insights: DoctorPracticeInsights): boolean {
+function isEmptyInsights(insights: DoctorPracticeInsights): boolean {
   return (
     insights.utilisation.overallOfferedSlots === 0 &&
     insights.noShows.totalScheduled === 0
@@ -82,15 +82,18 @@ export function PracticeInsightsView() {
         result={{ isPending, isError, error, data, refetch }}
         loading={<InsightsSkeleton loadingLabel={t('insights.practice.loading', 'Loading practice insights')} />}
         loadingLabel={t('insights.practice.loading', 'Loading practice insights')}
-        errorTitle="Practice insights couldn't be loaded"
+        errorTitle={t('insights.practice.errorTitle', "Practice insights couldn't be loaded")}
         onRetry={() => void refetch()}
         isEmpty={isEmptyInsights}
         empty={
           <EmptyState
             size="page"
-            title="No appointments in this range"
-            description="There are no scheduled visits, referrals or message threads in the selected period. Choose a wider date range to see your practice metrics."
-            action={{ label: 'Choose a wider date range', onClick: () => setPreset('90d') }}
+            title={t('insights.practice.emptyTitle', 'No appointments in this range')}
+            description={t(
+              'insights.practice.emptyDescription',
+              'There are no scheduled visits, referrals or message threads in the selected period. Choose a wider date range to see your practice metrics.',
+            )}
+            action={{ label: t('insights.practice.emptyAction', 'Choose a wider date range'), onClick: () => setPreset('90d') }}
           />
         }
       >
