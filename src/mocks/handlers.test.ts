@@ -67,6 +67,8 @@ describe('auth', () => {
       email: DOCTOR_USER.email,
       password: 'whatever',
     });
+    expect(authService.isAuthSession(session)).toBe(true);
+    if (!authService.isAuthSession(session)) throw new Error('Expected normal login session');
     expect(session.user.role).toBe('doctor');
     expect(session.accessToken).toBe(MOCK_ACCESS_TOKEN);
   });
@@ -77,8 +79,60 @@ describe('auth', () => {
       email: 'someone@example.test',
       password: 'whatever',
     });
+    expect(authService.isAuthSession(session)).toBe(true);
+    if (!authService.isAuthSession(session)) throw new Error('Expected normal login session');
     expect(session.user.role).toBe('doctor');
     expect(session.user.email).toBe('someone@example.test');
+  });
+
+  it('returns an MFA challenge instead of a session for a protected account', async () => {
+    const result = await authService.login({ email: 'two-factor@docforum.org', password: 'whatever' });
+    expect(result).toEqual({ mfaRequired: true, mfaToken: 'mock-mfa-token' });
+  });
+
+  it('requires an admin without enrollment to enrol before a session exists', async () => {
+    const result = await authService.login({ email: 'admin-enrollment@docforum.org', password: 'whatever' });
+    expect(result).toEqual({ enrollmentRequired: true, enrollmentToken: 'mock-enrollment-token' });
+  });
+
+  it('verifies a TOTP or recovery code and returns a normal session', async () => {
+    const session = await authService.verifyTwoFactor('mock-mfa-token', '123456');
+    expect(session.user.email).toBe('two-factor@docforum.org');
+    expect(session.accessToken).toBe(MOCK_ACCESS_TOKEN);
+  });
+
+  it('returns the documented code for a wrong or expired MFA attempt', async () => {
+    await expect(authService.verifyTwoFactor('mock-mfa-token', '000000')).rejects.toMatchObject({
+      status: 401,
+      body: { code: 'INVALID_TOTP_CODE' },
+    });
+    await expect(authService.verifyTwoFactor('expired-mfa-token', '123456')).rejects.toMatchObject({
+      status: 401,
+      body: { code: 'INVALID_MFA_TOKEN' },
+    });
+  });
+
+  it('sets up and enables two-factor authentication with one-time recovery codes', async () => {
+    await expect(authService.setupTwoFactor('mock-enrollment-token')).resolves.toMatchObject({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUri: expect.stringContaining('otpauth://totp/'),
+    });
+    const result = await authService.enableTwoFactor('mock-enrollment-token', '123456');
+    expect(result.recoveryCodes).toHaveLength(10);
+    const adminLogin = await authService.login({ email: 'admin-enrollment@docforum.org', password: 'whatever' });
+    expect(adminLogin).toEqual({ mfaRequired: true, mfaToken: 'mock-admin-mfa-token' });
+  });
+
+  it('reports status and disables two-factor authentication with a valid code', async () => {
+    await expect(authService.getTwoFactorStatus(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      enabled: true,
+      unusedRecoveryCodes: 10,
+    });
+    await expect(authService.disableTwoFactor(MOCK_ACCESS_TOKEN, '123456')).resolves.toBeNull();
+    await expect(authService.getTwoFactorStatus(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      enabled: false,
+      unusedRecoveryCodes: 0,
+    });
   });
 
   it('rejects missing credentials with a 400 envelope', async () => {

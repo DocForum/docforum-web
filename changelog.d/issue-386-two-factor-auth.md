@@ -1,0 +1,1 @@
+Phase W1 two-factor authentication ([issue #386](https://github.com/DocForum/docforum-web/issues/386)): login supports TOTP or recovery-code verification, required admin enrollment, and account security settings for enabling or disabling 2FA. Challenge tokens, TOTP secrets, and recovery codes stay in memory.
