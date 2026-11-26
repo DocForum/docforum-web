@@ -51,6 +51,7 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.getByRole('link', { name: 'Dependents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Health profile' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Facilities' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lab results' })).toHaveAttribute('href', '/patient/results');
     expect(screen.getByRole('link', { name: 'My orders' })).toHaveAttribute('href', '/patient/orders');
     expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/payments');
     expect(desktopNavHrefs()).toEqual([
@@ -61,6 +62,7 @@ describe('Layout — role-aware navigation', () => {
       '/patient/dependents',
       '/patient/health',
       '/patient/facilities',
+      '/patient/results',
       '/patient/orders',
       '/payments',
       '/patient/settings',
@@ -98,13 +100,17 @@ describe('Layout — role-aware navigation', () => {
 
   it('shows admin nav items', () => {
     renderLayout('admin');
-    expect(screen.getByRole('link', { name: 'Payments' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/admin/users');
+    expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/admin/payments/console');
     expect(screen.getByRole('link', { name: 'Referrals' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Audit trail' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Flags' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'System' })).toBeInTheDocument();
     expect(desktopNavHrefs()).toEqual([
       '/admin',
+      '/admin/users',
+      '/admin/payments/console',
       '/admin/verifications',
       '/admin/verification',
       '/admin/referrals',

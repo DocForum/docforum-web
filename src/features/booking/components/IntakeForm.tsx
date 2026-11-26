@@ -5,7 +5,6 @@ import { FormError } from '../../../components/FormError';
 import { TextField } from '../../../components/TextField';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
-import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { ApiError } from '../../../services/api-client';
 import type { SubmittedIntake } from '../../../types/models';
 import { useIntakeDraft } from '../hooks/useIntakeDraft';
@@ -34,7 +33,9 @@ export function IntakeForm({ slotId, appointmentId, onSubmitted }: Props) {
 
   // The idle-timeout warning mentions this form, and leaving by link or
   // closing the tab warns while there is typed-but-unsent content.
-  useUnsavedChangesWarning(draft.dirty);
+  // The shared guard both tracks the form for the idle-timeout warning and
+  // blocks navigation when there are unsaved changes and the submit has not
+  // yet succeeded.
   useUnsavedChangesGuard(draft.dirty && !submitMutation.isSuccess);
 
   const validation = attempted ? validateIntake(draft.fields) : { ok: true, errors: {} };

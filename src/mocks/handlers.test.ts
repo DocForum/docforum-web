@@ -507,10 +507,15 @@ describe('consultation notes', () => {
 
     const referral = await consultationService.createConsultationReferral(
       record.id,
-      { targetSpecialty: 'Cardiology', reason: 'Demo referral reason (fake).' },
+      {
+        targets: [{
+          targetSpecialtyId: 'spc-cardio',
+          snapshotNotes: 'Demo referral reason (fake).',
+        }],
+      },
       MOCK_ACCESS_TOKEN,
     );
-    expect(referral.status).toBe('pending');
+    expect(referral[0].status).toBe('pending');
 
     const order = await consultationService.issueConsultationOrder(
       record.id,
@@ -565,12 +570,12 @@ describe('patient orders', () => {
     expect(selected.selectedFacility?.id).toBe(FACILITY_ID);
 
     await expect(
-      ordersService.selectFulfillingFacility(
+      ordersService.routeRemainingItems(
         'ord-demo-rx-102',
-        { facilityId: FACILITY_ID, expectedVersion: 1 },
+        { facilityId: FACILITY_ID, itemIds: ['missing-item'] },
         MOCK_ACCESS_TOKEN,
       ),
-    ).rejects.toMatchObject({ status: 409 });
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 
@@ -1027,7 +1032,7 @@ describe('facility fulfillment queue', () => {
       ),
     ).rejects.toMatchObject({ status: 409 });
 
-    const file = new File(['demo lab result'], 'demo-result.pdf', {
+    const file = new File(['%PDF-1.4 demo lab result'], 'demo-result.pdf', {
       type: 'application/pdf',
     });
     const uploaded = await fulfillmentService.uploadFulfillmentLabResult(
@@ -1036,7 +1041,7 @@ describe('facility fulfillment queue', () => {
       file,
       MOCK_ACCESS_TOKEN,
     );
-    expect(uploaded.labResult?.fileName).toBe('demo-result.pdf');
+    expect(uploaded.labResult?.fileName).toBe('lab-result.pdf');
     expect(uploaded.labResult?.sizeBytes).toBe(file.size);
 
     await expect(
