@@ -1,13 +1,26 @@
 // Pure helpers for the per-specialty claims queue (issue #65): filters,
 // age maths, and grouping flat claim rows by doctor.
+import { englishTranslator } from '../../i18n/englishTranslator';
+import type { Translator } from '../../i18n/useT';
 import type { ClaimAge } from '../../services/admin-verification-service';
 import type { Specialty, SpecialtyClaim } from '../../types/models';
 
-export const CLAIM_AGES: { value: ClaimAge; label: string }[] = [
-  { value: '24h', label: '1 day' },
-  { value: '72h', label: '3 days' },
-  { value: '168h', label: '7 days' },
+export const CLAIM_AGES: { value: ClaimAge }[] = [
+  { value: '24h' },
+  { value: '72h' },
+  { value: '168h' },
 ];
+
+const CLAIM_AGE_COPY: Record<ClaimAge, string> = {
+  '24h': '1 day',
+  '72h': '3 days',
+  '168h': '7 days',
+};
+
+/** Age threshold label for the claims filter, in the active language. */
+export function claimAgeLabel(age: ClaimAge, t: Translator = englishTranslator): string {
+  return t(`adminVerification.claimAge.${age}`, CLAIM_AGE_COPY[age]);
+}
 
 export const ALL_SPECIALTIES = '';
 
@@ -48,13 +61,15 @@ export function hoursSince(since: string, now: number): number | null {
   return Math.max(0, Math.floor((now - start) / HOUR_MS));
 }
 
-export function formatAge(hours: number): string {
-  if (hours < 1) return 'under 1 h';
-  if (hours < 48) return `${hours} h`;
+export function formatAge(hours: number, t: Translator = englishTranslator): string {
+  if (hours < 1) return t('adminVerification.age.underHour', 'under 1 h');
+  if (hours < 48) return t('adminVerification.age.hours', '{hours} h', { hours });
   const days = Math.floor(hours / 24);
   const rest = hours % 24;
   // Past a week the extra hours are noise.
-  return days < 7 && rest > 0 ? `${days} d ${rest} h` : `${days} days`;
+  return days < 7 && rest > 0
+    ? t('adminVerification.age.daysHours', '{days} d {rest} h', { days, rest })
+    : t('adminVerification.age.days', '{days, plural, one {# day} other {# days}}', { days });
 }
 
 /** Oldest claims first — the backend should already send them that way, but
@@ -102,8 +117,12 @@ export function specialtyOptions(claims: SpecialtyClaim[], selectedId: string): 
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+export function formatBytes(bytes: number, t: Translator = englishTranslator): string {
+  if (bytes < 1024) return t('adminVerification.bytes.bytes', '{size} B', { size: bytes });
+  if (bytes < 1024 * 1024) {
+    return t('adminVerification.bytes.kilobytes', '{size} KB', { size: (bytes / 1024).toFixed(0) });
+  }
+  return t('adminVerification.bytes.megabytes', '{size} MB', {
+    size: (bytes / (1024 * 1024)).toFixed(1),
+  });
 }
