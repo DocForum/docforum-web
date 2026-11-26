@@ -12,6 +12,11 @@ vi.mock('../../../services/auth-service', () => ({
   acceptInvite: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
+  isAuthSession: (result: unknown) =>
+    typeof result === 'object' &&
+    result !== null &&
+    'user' in result &&
+    'accessToken' in result,
 }));
 
 const pendingInvite: AccountInvite = {

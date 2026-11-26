@@ -12,6 +12,7 @@ export const routes: ReadonlyArray<{ path: string; role: Role; heading: string; 
   { path: '/faq', role: 'patient', heading: 'questions' },
   { path: '/login', role: 'patient', heading: 'Log in' },
   { path: '/signup', role: 'patient', heading: 'Sign up' },
+  { path: '/account/security', role: 'patient', heading: 'Account security' },
   { path: '/claim-account', role: 'patient', heading: 'Claim' },
   { path: '/invite', role: 'patient', heading: 'Invite' },
   { path: '/account-deleted', role: 'patient', heading: 'Account' },

@@ -4,9 +4,9 @@ import { axe } from 'jest-axe';
 import { render, screen } from '../../../test/render';
 import { UtilisationChart } from './UtilisationChart';
 import { DateRangeSelector } from './DateRangeSelector';
-import { DEFAULT_MOCK_INSIGHTS } from './PracticeInsightsView';
+import { MOCK_INSIGHTS } from '../../../test/insights-fixtures';
 
-const utilisation = DEFAULT_MOCK_INSIGHTS.utilisation;
+const utilisation = MOCK_INSIGHTS.utilisation;
 
 describe('Practice insights accessibility (#90)', () => {
   it('chart view has no axe violations and a named image', async () => {

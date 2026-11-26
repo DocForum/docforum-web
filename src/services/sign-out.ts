@@ -14,6 +14,7 @@
 // `useQueryClient`) pass it directly so tests can assert against their own.
 import type { QueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/auth-store';
+import { useLocaleStore } from '../store/locale-store';
 import { useProfileStore } from '../store/profile-store';
 import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
 import { clearCachedUserData } from '../pwa/caches';
@@ -54,6 +55,9 @@ export async function signOut(
   (options.queryClient ?? registeredQueryClient)?.clear();
   useProfileStore.getState().clearProfiles();
   useUnsavedChangesStore.getState().reset();
+  // The next person on this device gets their own browser language back, not
+  // the language the previous account stored (issue #256).
+  useLocaleStore.getState().resetToBrowserLocale();
 
   if (reason === 'idle-timeout') {
     useAuthStore.getState().signOutDueToIdle();

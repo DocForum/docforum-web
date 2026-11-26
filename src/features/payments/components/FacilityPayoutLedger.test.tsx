@@ -160,6 +160,77 @@ describe('FacilityPayoutLedger & formatStroops', () => {
       expect(links).toHaveLength(3);
     });
 
+    it('exports every page of the current filter as CSV', async () => {
+      const pageTwo = { ...MOCK_LEDGER_DATA, items: [MOCK_LEDGER_DATA.items[2]], nextCursor: null };
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockImplementation(async (_token, params = {}) => {
+        if (params.cursor === 'page-2') return pageTwo;
+        return { ...MOCK_LEDGER_DATA, nextCursor: 'page-2' };
+      });
+      const blobs: Blob[] = [];
+      const createObjectUrl = vi
+        .spyOn(URL, 'createObjectURL')
+        .mockImplementation((blob) => {
+          blobs.push(blob as Blob);
+          return 'blob:ledger';
+        });
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      const user = userEvent.setup();
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+      await screen.findByText('ord-rx-urgent');
+
+      await user.click(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i }));
+
+      await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+      expect(paymentsService.getFacilityPayoutLedger).toHaveBeenCalledWith(
+        'facility-access-token',
+        expect.objectContaining({ cursor: 'page-2', limit: 100 }),
+        expect.any(AbortSignal),
+      );
+
+      const csv = await blobs[0].text();
+      // Every page, not just the visible one: 3 rows from page one + 1 from page two.
+      expect(csv).toContain('ord-rx-urgent');
+      expect(csv).toContain('ord-lab-done');
+      expect(csv.trim().split('\r\n')).toHaveLength(5);
+
+      createObjectUrl.mockRestore();
+      click.mockRestore();
+    });
+
+    it('cancels a running export without downloading anything', async () => {
+      vi.mocked(paymentsService.getFacilityPayoutLedger).mockImplementation((_token, params = {}, signal) => {
+        if (params.cursor) {
+          // A real aborted fetch rejects with the abort reason.
+          return new Promise((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          });
+        }
+        return Promise.resolve({ ...MOCK_LEDGER_DATA, nextCursor: 'slow-page' });
+      });
+      const createObjectUrl = vi.spyOn(URL, 'createObjectURL');
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      const user = userEvent.setup();
+
+      render(<FacilityPayoutLedger facilityId="fac-1" />);
+      await screen.findByText('ord-rx-urgent');
+
+      await user.click(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i }));
+      expect(await screen.findByText(/exporting every page of this filter/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /cancel export/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /export csv of the filtered payout ledger/i })).toBeInTheDocument(),
+      );
+      expect(createObjectUrl).not.toHaveBeenCalled();
+      expect(click).not.toHaveBeenCalled();
+      expect(screen.queryByText(/CSV export failed/i)).not.toBeInTheDocument();
+
+      createObjectUrl.mockRestore();
+      click.mockRestore();
+    });
+
     it('sends the status filter to the server instead of filtering rows locally', async () => {
       vi.mocked(paymentsService.getFacilityPayoutLedger).mockResolvedValue(MOCK_LEDGER_DATA);
       const user = userEvent.setup();

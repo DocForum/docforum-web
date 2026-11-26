@@ -13,6 +13,7 @@ const FORBIDDEN_MARKERS = [
   'mock-access-token', // mocks/fixtures.ts
   'mock-dev-panel-root', // mocks/setup.ts
   'MOCK API', // mocks/DevPanel.tsx (panel title/pill)
+  'mock-router-bridge', // mocks/navigation.ts
   'setupWorker', // msw/browser entry
   'preview-token', // the old production `?previewRole=` fake session
   'previewRole', // mock-only role preview parameter (mocks/roles.ts)
