@@ -530,6 +530,7 @@
   "availability.summary.selection": "{count, plural, one {# seleccionado:} other {# seleccionados:}} {open, plural, one {# abierto} other {# abiertos}}, {held, plural, one {# bloqueado o retenido} other {# bloqueados o retenidos}}, {booked, plural, one {# reservado} other {# reservados}}.",
   "breadcrumb.accessLog": "Quién consultó mis registros",
   "breadcrumb.accountDeleted": "Cuenta eliminada",
+  "breadcrumb.accountSecurity": "Seguridad de la cuenta",
   "breadcrumb.accountSettings": "Configuración de la cuenta y privacidad",
   "breadcrumb.adminDashboard": "Panel de administración",
   "breadcrumb.appointment": "Cita",

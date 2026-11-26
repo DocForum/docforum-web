@@ -61,6 +61,11 @@ export const BREADCRUMB_ROUTES: BreadcrumbRoute[] = [
     roles: ['patient'],
   },
   {
+    pattern: 'account/security',
+    label: 'Account security',
+    messageId: 'breadcrumb.accountSecurity',
+  },
+  {
     pattern: 'account/access-log',
     label: 'Who viewed my records',
     messageId: 'breadcrumb.accessLog',

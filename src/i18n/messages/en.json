@@ -530,6 +530,7 @@
   "availability.summary.selection": "{count, plural, one {# selected:} other {# selected:}} {open, plural, one {# open} other {# open}}, {held, plural, one {# held or blocked} other {# held or blocked}}, {booked, plural, one {# booked} other {# booked}}.",
   "breadcrumb.accessLog": "Who viewed my records",
   "breadcrumb.accountDeleted": "Account deleted",
+  "breadcrumb.accountSecurity": "Account security",
   "breadcrumb.accountSettings": "Account settings & privacy",
   "breadcrumb.adminDashboard": "Admin dashboard",
   "breadcrumb.appointment": "Appointment",
