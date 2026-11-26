@@ -17,7 +17,6 @@ import { validateFullName, validatePassword } from '../../auth/validation';
 import { useLogout } from '../../auth/hooks/useLogout';
 import { homePathForRole } from '../../../navigation/role-home';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
-import { ROLE_HOME } from '../../../navigation/role-home';
 import type { AccountInvite, InviteRole } from '../../../types/models';
 import styles from './InviteLanding.module.css';
 
