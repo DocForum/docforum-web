@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, screen } from '../../../test/render';
 import { SystemHealthConsole } from './SystemHealthConsole';
-import { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
+import { useJobs, useOutboxDeadLetters, useReadiness } from '../hooks/useSystemHealth';
 
 vi.mock('../hooks/useSystemHealth');
 
@@ -49,7 +49,7 @@ const JOBS = {
 };
 
 const OUTBOX = {
-  data: { pendingCount: 2, deadLetterCount: 0, oldestPendingAt: '2026-11-20T09:59:00.000Z' },
+  data: { items: [] },
   error: null,
   isLoading: false,
   isFetching: false,
@@ -61,7 +61,7 @@ describe('SystemHealthConsole in Spanish (#249)', () => {
   it('renders the console, panels and statuses from the Spanish catalogue', () => {
     vi.mocked(useReadiness).mockReturnValue(READINESS as never);
     vi.mocked(useJobs).mockReturnValue(JOBS as never);
-    vi.mocked(useOutboxSummary).mockReturnValue(OUTBOX as never);
+    vi.mocked(useOutboxDeadLetters).mockReturnValue(OUTBOX as never);
 
     renderWithProviders(<SystemHealthConsole />, {
       locale: 'es',
@@ -81,7 +81,7 @@ describe('SystemHealthConsole in Spanish (#249)', () => {
   it('translates job status, run labels and durations', () => {
     vi.mocked(useReadiness).mockReturnValue(READINESS as never);
     vi.mocked(useJobs).mockReturnValue(JOBS as never);
-    vi.mocked(useOutboxSummary).mockReturnValue(OUTBOX as never);
+    vi.mocked(useOutboxDeadLetters).mockReturnValue(OUTBOX as never);
 
     renderWithProviders(<SystemHealthConsole />, {
       locale: 'es',

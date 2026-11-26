@@ -3,7 +3,7 @@ import { Button } from '../../../components/Button';
 import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 import { formatTime } from '../../../i18n/time-zone';
-import { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
+import { useJobs, useOutboxDeadLetters, useReadiness } from '../hooks/useSystemHealth';
 import { REFRESH_INTERVAL_MS } from '../status';
 import { JobsPanel } from './JobsPanel';
 import { ReadinessPanel } from './ReadinessPanel';
@@ -24,7 +24,7 @@ export function SystemHealthConsole() {
   const titleId = useId();
   const readiness = useReadiness();
   const jobs = useJobs();
-  const outbox = useOutboxSummary();
+  const outbox = useOutboxDeadLetters();
   const [runTarget, setRunTarget] = useState<BackgroundJob | null>(null);
   const { timeZone } = useTimeZone();
 

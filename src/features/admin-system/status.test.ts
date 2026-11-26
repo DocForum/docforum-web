@@ -180,8 +180,19 @@ describe('recent failures', () => {
 
 describe('outbox', () => {
   it('turns red for any dead letter', () => {
-    expect(outboxTone({ pendingCount: 40, deadLetterCount: 0, oldestPendingAt: null })).toBe('ok');
-    expect(outboxTone({ pendingCount: 0, deadLetterCount: 1, oldestPendingAt: null })).toBe('danger');
+    expect(outboxTone({ items: [] })).toBe('ok');
+    expect(
+      outboxTone({
+        items: [{
+          id: '1',
+          type: 'booking.confirmation',
+          attempts: 5,
+          lastError: null,
+          createdAt: at(-MINUTE),
+          deadLetteredAt: at(-MINUTE),
+        }],
+      }),
+    ).toBe('danger');
   });
 });
 
