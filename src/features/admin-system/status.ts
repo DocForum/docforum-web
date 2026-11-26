@@ -1,7 +1,7 @@
 import { formatDateTime } from '../../i18n/time-zone';
 import { englishTranslator } from '../../i18n/englishTranslator';
 import type { Translator } from '../../i18n/useT';
-import type { BackgroundJob, JobRun, OutboxSummary, ReadinessCheck, ReadinessStatus } from '../../types/models';
+import type { BackgroundJob, JobRun, OutboxDeadLetters, ReadinessCheck, ReadinessStatus } from '../../types/models';
 
 /** Every status on the page maps onto one of these, so colours mean the same
  * thing across readiness, jobs and the outbox. */
@@ -256,8 +256,8 @@ export function checksSummary(checks: ReadinessCheck[], t: Translator = englishT
 }
 
 /** Any dead letter needs a human: it already exhausted its retries. */
-export function outboxTone(summary: OutboxSummary): Tone {
-  return summary.deadLetterCount > 0 ? 'danger' : 'ok';
+export function outboxTone(deadLetters: OutboxDeadLetters): Tone {
+  return deadLetters.items.length > 0 ? 'danger' : 'ok';
 }
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [

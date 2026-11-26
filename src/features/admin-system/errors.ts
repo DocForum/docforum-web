@@ -7,10 +7,10 @@ import type { JobRun, ReadinessReport } from '../../types/models';
 
 export type HealthSource = 'readiness' | 'jobs' | 'outbox';
 
-const SOURCES: Record<HealthSource, { noun: string; id: 'readiness' | 'jobs' | 'outbox'; issue: string }> = {
+const SOURCES: Record<HealthSource, { noun: string; id: 'readiness' | 'jobs' | 'outbox'; issue?: string }> = {
   readiness: { noun: 'readiness checks', id: 'readiness', issue: 'docforum-core#104' },
   jobs: { noun: 'background job history', id: 'jobs', issue: 'docforum-core#100' },
-  outbox: { noun: 'outbox stats', id: 'outbox', issue: 'docforum-core#94' },
+  outbox: { noun: 'outbox dead letters', id: 'outbox' },
 };
 
 function authMessage(t: Translator): string {
@@ -38,11 +38,12 @@ export function describeLoadError(
   const noun = t(`adminSystem.errors.noun.${id}`, SOURCES[source].noun);
   if (isAuthError(error)) return authMessage(t);
   if (isNotServed(error)) {
-    return t(
-      `adminSystem.errors.notServed.${id}`,
-      "docforum-core doesn't serve {noun} yet ({issue}).",
-      { noun, issue },
-    );
+    return issue
+      ? t(`adminSystem.errors.notServed.${id}`, "docforum-core doesn't serve {noun} yet ({issue}).", {
+          noun,
+          issue,
+        })
+      : t(`adminSystem.errors.notServed.${id}`, "This docforum-core version doesn't serve {noun}.", { noun });
   }
   return t(
     `adminSystem.errors.load.${id}`,

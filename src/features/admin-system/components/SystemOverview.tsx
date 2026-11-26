@@ -5,18 +5,30 @@ import { isAuthError, isNotServed, readinessVerdict } from '../errors';
 import { checksSummary, jobsOverview, jobsVerdict, outboxTone } from '../status';
 import { StatusPill } from './StatusPill';
 import { TimeAgo } from './TimeAgo';
-import type { useJobs, useOutboxSummary, useReadiness } from '../hooks/useSystemHealth';
+import type { useJobs, useOutboxDeadLetters, useReadiness } from '../hooks/useSystemHealth';
 import type { Tone } from '../status';
 import styles from './SystemHealth.module.css';
 
 interface SystemOverviewProps {
   readiness: ReturnType<typeof useReadiness>;
   jobs: ReturnType<typeof useJobs>;
-  outbox: ReturnType<typeof useOutboxSummary>;
+  outbox: ReturnType<typeof useOutboxDeadLetters>;
   now: number;
 }
 
-function Tile({ label, tone, value, detail }: { label: string; tone: Tone; value: ReactNode; detail: ReactNode }) {
+function Tile({
+  label,
+  tone,
+  value,
+  detail,
+  children,
+}: {
+  label: string;
+  tone: Tone;
+  value: ReactNode;
+  detail: ReactNode;
+  children?: ReactNode;
+}) {
   const labelId = useId();
   return (
     <div className={styles.tile} role="group" aria-labelledby={labelId} data-tone={tone}>
@@ -25,6 +37,7 @@ function Tile({ label, tone, value, detail }: { label: string; tone: Tone; value
       </p>
       <div className={styles.tileValue}>{value}</div>
       <p className={styles.tileDetail}>{detail}</p>
+      {children}
     </div>
   );
 }
@@ -81,23 +94,39 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
 
   let outboxTile;
   if (outbox.data) {
-    const summary = outbox.data;
+    const deadLetters = outbox.data;
+    const count = deadLetters.items.length;
     outboxTile = {
-      tone: outboxTone(summary),
-      value: <span className={styles.tileCount}>{summary.deadLetterCount.toLocaleString('en-GB')}</span>,
+      tone: outboxTone(deadLetters),
+      // The list is capped at the requested page size (50), so a full page
+      // means "at least this many".
+      value: <span className={styles.tileCount}>{count === 50 ? '50+' : count.toLocaleString('en-GB')}</span>,
       detail: (
         <>
-          {t('adminSystem.overview.pending', '{count, plural, one {# pending} other {# pending}}', {
-            count: summary.pendingCount,
-          })}
-          {summary.oldestPendingAt && (
-            <>
-              {' '}
-              · {t('adminSystem.overview.oldestQueued', 'oldest queued')} <TimeAgo iso={summary.oldestPendingAt} now={now} />
-            </>
-          )}
+          {count === 0
+            ? t('adminSystem.overview.deadLettersNone', 'None')
+            : t('adminSystem.overview.deadLettersRecent', 'Most recent dead letters')}
           {outbox.error && ` · ${t('adminSystem.overview.couldNotRefresh', "couldn't refresh")}`}
         </>
+      ),
+      children: count > 0 && (
+        <ul
+          className={styles.deadLetters}
+          aria-label={t('adminSystem.overview.deadLettersListLabel', 'Recent outbox dead letters')}
+        >
+          {deadLetters.items.slice(0, 5).map((item) => (
+            <li className={styles.deadLetter} key={item.id}>
+              <span className={styles.deadLetterType}>{item.type}</span>
+              <span>
+                {t('adminSystem.overview.deadLetterAttempts', '{count, plural, one {# attempt} other {# attempts}}', {
+                  count: item.attempts,
+                })}
+              </span>
+              <code>{item.lastError ?? '—'}</code>
+              <TimeAgo iso={item.deadLetteredAt} now={now} />
+            </li>
+          ))}
+        </ul>
       ),
     };
   } else if (outbox.error) {
@@ -115,14 +144,14 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
         />
       ),
       detail: isNotServed(outbox.error)
-        ? t('adminSystem.overview.outboxNotServed', "docforum-core doesn't expose outbox stats yet (docforum-core#94)")
-        : t('adminSystem.overview.outboxLoadFailed', "Couldn't load outbox stats"),
+        ? t('adminSystem.overview.outboxNotServed', "This docforum-core version doesn't expose dead-letter details.")
+        : t('adminSystem.overview.outboxLoadFailed', "Couldn't load outbox dead letters"),
     };
   } else {
     outboxTile = {
       tone: 'neutral' as Tone,
       value: <StatusPill tone="neutral" label={t('adminSystem.overview.loading', 'Loading…')} />,
-      detail: t('adminSystem.overview.fetchingOutbox', 'Fetching outbox stats'),
+      detail: t('adminSystem.overview.fetchingOutbox', 'Fetching outbox dead letters'),
     };
   }
 
