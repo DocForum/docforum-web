@@ -1858,6 +1858,7 @@
   "shell.brandAria": "Inicio de DocForum",
   "shell.drawer.aria": "Navegación móvil",
   "shell.drawer.close": "Cerrar el menú de navegación",
+  "shell.drawer.dialogLabel": "Menú de navegación móvil",
   "shell.footer.privacy": "Privacidad y análisis",
   "shell.menuToggle": "Abrir o cerrar el menú de navegación",
   "shell.nav.badge": "{label}, {count} nuevos",

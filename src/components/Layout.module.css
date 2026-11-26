@@ -23,6 +23,12 @@
   overflow-x: hidden;
 }
 
+/* Wraps everything except the drawer so the page behind an open drawer can be
+   marked `inert` (issue #239) without changing the shell's flex layout. */
+.page {
+  display: contents;
+}
+
 .skipLink {
   position: absolute;
   top: -10000px;

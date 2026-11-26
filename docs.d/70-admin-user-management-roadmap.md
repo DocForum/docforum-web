@@ -1,5 +1,0 @@
----
-file: ROADMAP.md
-section: Phase W6 — Admin console
----
-- [x] Admin user management: search, deactivate, reactivate and invite admins. Tracked as [issue #70](https://github.com/DocForum/docforum-web/issues/70) (High, 200 pts) — `src/features/admin-users/`, `AdminUsersPage` at `/admin/users`. Search by email or name, role and status filters and pagination live in the URL; invalid link values are dropped with a notice. The detail dialog shows role, status, live session count and timestamps, and deactivation requires a 10–500 character reason (written for the audit trail) with an explicit second confirmation. The **last-active-admin** conflict is its own explanation ("invite or reactivate another admin first"), not a generic error. Pending admin invites can be sent, listed and revoked, with an inline confirm before revoking. Lists show only the details needed to identify an account. **Built against assumed shapes:** docforum-core#39 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
