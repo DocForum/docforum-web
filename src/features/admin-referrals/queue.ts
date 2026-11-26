@@ -1,17 +1,33 @@
+import { englishTranslator } from '../../i18n/englishTranslator';
+import type { Translator } from '../../i18n/useT';
 import type { StuckAge } from '../../services/admin-referrals-service';
 import type { ReferralChainLink, StuckReferral, StuckReferralReason } from '../../types/models';
 
-export const STUCK_AGES: { value: StuckAge; label: string }[] = [
-  { value: '24h', label: '1 day' },
-  { value: '48h', label: '2 days' },
-  { value: '72h', label: '3 days' },
-  { value: '168h', label: '7 days' },
+export const STUCK_AGES: { value: StuckAge }[] = [
+  { value: '24h' },
+  { value: '48h' },
+  { value: '72h' },
+  { value: '168h' },
 ];
+
+const STUCK_AGE_COPY: Record<StuckAge, string> = {
+  '24h': '1 day',
+  '48h': '2 days',
+  '72h': '3 days',
+  '168h': '7 days',
+};
+
+/** Age threshold label for the filter, in the active language. */
+export function stuckAgeLabel(age: StuckAge, t: Translator = englishTranslator): string {
+  return t(`adminReferrals.stuckAge.${age}`, STUCK_AGE_COPY[age]);
+}
 
 // docforum-core#68's own example threshold.
 export const DEFAULT_AGE: StuckAge = '48h';
 
-export const REASONS: Record<StuckReferralReason, { label: string; description: string }> = {
+export const REASON_KEYS: StuckReferralReason[] = ['no_doctor', 'doctor_inactive', 'loop_flagged'];
+
+const REASON_COPY: Record<StuckReferralReason, { label: string; description: string }> = {
   no_doctor: {
     label: 'No doctor',
     description: 'Routing found no available doctor in the target specialty.',
@@ -26,6 +42,17 @@ export const REASONS: Record<StuckReferralReason, { label: string; description: 
   },
 };
 
+export function reasonLabel(reason: StuckReferralReason, t: Translator = englishTranslator): string {
+  return t(`adminReferrals.reason.${reason}.label`, REASON_COPY[reason].label);
+}
+
+export function reasonDescription(
+  reason: StuckReferralReason,
+  t: Translator = englishTranslator,
+): string {
+  return t(`adminReferrals.reason.${reason}.description`, REASON_COPY[reason].description);
+}
+
 export type ReasonFilter = StuckReferralReason | 'all';
 
 export interface QueueFilters {
@@ -38,7 +65,7 @@ function isStuckAge(value: string | null): value is StuckAge {
 }
 
 function isReason(value: string | null): value is StuckReferralReason {
-  return value !== null && Object.hasOwn(REASONS, value);
+  return value !== null && (REASON_KEYS as string[]).includes(value);
 }
 
 /** Anything unrecognised in a hand-edited link falls back to the default. */
@@ -68,13 +95,15 @@ export function hoursSince(since: string, now: number): number | null {
   return Math.max(0, Math.floor((now - start) / HOUR_MS));
 }
 
-export function formatAge(hours: number): string {
-  if (hours < 1) return 'under 1 h';
-  if (hours < 48) return `${hours} h`;
+export function formatAge(hours: number, t: Translator = englishTranslator): string {
+  if (hours < 1) return t('adminReferrals.age.underHour', 'under 1 h');
+  if (hours < 48) return t('adminReferrals.age.hours', '{hours} h', { hours });
   const days = Math.floor(hours / 24);
   const rest = hours % 24;
   // Past a week the extra hours are noise.
-  return days < 7 && rest > 0 ? `${days} d ${rest} h` : `${days} days`;
+  return days < 7 && rest > 0
+    ? t('adminReferrals.age.daysHours', '{days} d {rest} h', { days, rest })
+    : t('adminReferrals.age.days', '{days, plural, one {# day} other {# days}}', { days });
 }
 
 export type AgeTone = 'elevated' | 'high' | 'critical';

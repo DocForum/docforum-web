@@ -21,6 +21,10 @@ export interface User {
   id: string;
   email: string;
   role: Role;
+  /** Locale docforum-core stored at signup (best match from
+   * `Accept-Language`) and returns on login/refresh — issue #256. Null or
+   * missing for accounts created before core recorded it. */
+  locale?: string | null;
   createdAt: string;
   updatedAt: string;
 }

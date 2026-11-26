@@ -130,6 +130,25 @@ const CATALOGUE: Record<string, Entry> = {
     actionMessageId: 'errors.actions.retry',
     defaultActionMessage: 'Try again',
   },
+  INVALID_TOTP_CODE: {
+    messageId: 'errors.invalidTotpCode',
+    defaultMessage: 'That authenticator or recovery code is incorrect or has already been used.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  INVALID_MFA_TOKEN: {
+    messageId: 'errors.invalidMfaToken',
+    defaultMessage: 'Your two-factor sign-in step expired. Sign in again to request a new code.',
+    action: 'reauthenticate',
+    actionMessageId: 'errors.actions.signIn',
+    defaultActionMessage: 'Sign in',
+  },
+  TWO_FACTOR_ALREADY_ENABLED: {
+    messageId: 'errors.twoFactorAlreadyEnabled',
+    defaultMessage: 'Two-factor authentication is already enabled.',
+    action: 'none',
+  },
 
   // Email verification (Phase 8, issue #34)
   EMAIL_NOT_VERIFIED: {

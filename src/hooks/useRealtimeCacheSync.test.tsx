@@ -5,9 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { eventStreamManager } from '../services/event-stream-service';
 import type { ServerEvent, ServerEventName } from '../services/event-stream-service';
 import { useFlag } from '../features/feature-flags/hooks/useFlags';
+import { appointmentKeys, queueKeys, resultKeys } from '../query-keys';
 import { useAuthStore } from '../store/auth-store';
 import { makeUser } from '../test/factories';
 import { useRealtimeCacheSync } from './useRealtimeCacheSync';
+
+const harness = vi.hoisted(() => ({ live: false }));
 
 vi.mock('../services/event-stream-service', () => ({
   eventStreamManager: {
@@ -20,6 +23,10 @@ vi.mock('../features/feature-flags/hooks/useFlags', () => ({
   useFlag: vi.fn(() => true),
 }));
 
+vi.mock('./useRealtimeLive', () => ({
+  useRealtimeLive: () => harness.live,
+}));
+
 type Handler = (event: ServerEvent) => void;
 
 function subscribeCalls(): [ServerEventName, Handler][] {
@@ -29,7 +36,6 @@ function subscribeCalls(): [ServerEventName, Handler][] {
   ][];
 }
 
-/** The handler the hook registered for one event name. */
 function handlerFor(type: ServerEventName): Handler {
   const found = subscribeCalls().find((call) => call[0] === type);
   if (!found) throw new Error(`no subscription for ${type}`);
@@ -40,7 +46,6 @@ function setup() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  // Call-through: the caches stay authoritative, the test only observes keys.
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -53,6 +58,7 @@ function setup() {
 
 describe('useRealtimeCacheSync', () => {
   beforeEach(() => {
+    harness.live = false;
     vi.mocked(eventStreamManager.subscribe).mockReset();
     vi.mocked(eventStreamManager.subscribe).mockImplementation(() => () => {});
     vi.mocked(eventStreamManager.clearReplay).mockReset();
@@ -83,14 +89,17 @@ describe('useRealtimeCacheSync', () => {
     expect(invalidate).toHaveBeenCalledTimes(2);
   });
 
-  it('refreshes the queue and the appointment lists on queue.updated', () => {
+  it('invalidates the real queue keys when queue.updated arrives', () => {
     const { invalidate, render } = setup();
     render();
+
+    expect([...new Set(subscribeCalls().map((call) => call[0]))]).not.toContain('results.updated');
     act(() => handlerFor('queue.updated')({ type: 'queue.updated', data: {}, id: null }));
 
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['doctor', 'queue'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['doctor', 'appointments'] });
-    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: queueKeys.today() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: queueKeys.runningDelay() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: appointmentKeys.today() });
+    expect(invalidate).toHaveBeenCalledTimes(3);
   });
 
   it('refreshes only inbox threads on message.created', () => {
@@ -139,10 +148,33 @@ describe('useRealtimeCacheSync', () => {
     act(() => {
       useAuthStore.getState().setSession(makeUser({ id: 'usr-2' }), 'test-token');
     });
-    // The previous subscription's teardown plus the new mount effect.
     expect(eventStreamManager.clearReplay).toHaveBeenCalledTimes(3);
 
     unmount();
     expect(eventStreamManager.clearReplay).toHaveBeenCalledTimes(4);
+  });
+
+  it('refetches queue and results once when the stream reconnects', () => {
+    const { invalidate, render } = setup();
+    const { rerender } = render();
+    expect(invalidate).not.toHaveBeenCalled();
+
+    act(() => {
+      harness.live = true;
+      rerender();
+    });
+
+    for (const key of [
+      queueKeys.today(),
+      queueKeys.runningDelay(),
+      appointmentKeys.today(),
+      resultKeys.pendingAbnormal(),
+    ]) {
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: key });
+    }
+    const callsAfterReconnect = invalidate.mock.calls.length;
+
+    rerender();
+    expect(invalidate).toHaveBeenCalledTimes(callsAfterReconnect);
   });
 });

@@ -9,7 +9,14 @@ import { useAuthStore } from '../store/auth-store';
 import { makeUser } from '../test/factories';
 import type { Role, User } from '../types/models';
 
-vi.mock('../services/auth-service', () => ({ login: vi.fn() }));
+vi.mock('../services/auth-service', () => ({
+  login: vi.fn(),
+  isAuthSession: (result: unknown) =>
+    typeof result === 'object' &&
+    result !== null &&
+    'user' in result &&
+    'accessToken' in result,
+}));
 
 function renderAt(path: string) {
   render(<LoginPage />, { initialEntries: [path] });

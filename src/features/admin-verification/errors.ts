@@ -1,28 +1,42 @@
 import { ApiError } from '../../services/api-client';
+import { englishTranslator } from '../../i18n/englishTranslator';
+import type { Translator } from '../../i18n/useT';
 import type { ClaimDecision } from '../../types/models';
 
-export function describeQueueError(error: unknown): string {
+export function describeQueueError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
-      return 'Your session no longer has admin access. Sign in again with an admin account.';
+      return t('adminVerification.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.');
     }
     if (error.status === 404) {
-      return "docforum-core doesn't serve the verification queue yet — approving and rejecting works, but the pending list does not.";
+      return t(
+        'adminVerification.errors.queueNotServed',
+        "docforum-core doesn't serve the verification queue yet — approving and rejecting works, but the pending list does not.",
+      );
     }
   }
-  return "Couldn't load the verification queue. The preview backend may be waking up — try again in a minute.";
+  return t(
+    'adminVerification.errors.queueLoad',
+    "Couldn't load the verification queue. The preview backend may be waking up — try again in a minute.",
+  );
 }
 
-export function describeDetailError(error: unknown): string {
+export function describeDetailError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
-      return 'Your session no longer has admin access. Sign in again with an admin account.';
+      return t('adminVerification.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.');
     }
     if (error.status === 404) {
-      return 'This doctor no longer exists, or docforum-core does not serve verification details yet. Return to the queue.';
+      return t(
+        'adminVerification.errors.detailNotFound',
+        'This doctor no longer exists, or docforum-core does not serve verification details yet. Return to the queue.',
+      );
     }
   }
-  return "Couldn't load this application. The preview backend may be waking up — try again in a minute.";
+  return t(
+    'adminVerification.errors.detailLoad',
+    "Couldn't load this application. The preview backend may be waking up — try again in a minute.",
+  );
 }
 
 export type DecisionFailureKind = 'conflict' | 'rejected' | 'auth' | 'unknown';
@@ -40,45 +54,69 @@ export interface DecisionFailure {
  * retrying a flip is idempotent (setting the status a profile already has is
  * a no-op in docforum-core), so the admin may simply try again.
  */
-export function describeDecisionError(error: unknown): DecisionFailure {
+export function describeDecisionError(error: unknown, t: Translator = englishTranslator): DecisionFailure {
   if (error instanceof ApiError) {
     if (error.status === 409 || error.status === 404) {
       return {
         kind: 'conflict',
-        message:
+        message: t(
+          'adminVerification.errors.decisionConflict',
           'Another admin reviewed this doctor first — nothing was changed by you. The application has been reloaded ' +
-          'so you can see the decision that was made.',
+            'so you can see the decision that was made.',
+        ),
       };
     }
     if (error.status === 400 || error.status === 422) {
-      return { kind: 'rejected', message: `docforum-core refused the decision: ${error.message}` };
+      return {
+        kind: 'rejected',
+        message: t('adminVerification.errors.decisionRejected', 'docforum-core refused the decision: {message}', {
+          message: error.message,
+        }),
+      };
     }
     if (error.status === 401 || error.status === 403) {
-      return { kind: 'auth', message: 'Your session no longer has admin access. Sign in again with an admin account.' };
+      return {
+        kind: 'auth',
+        message: t('adminVerification.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.'),
+      };
     }
   }
   return {
     kind: 'unknown',
-    message:
+    message: t(
+      'adminVerification.errors.decisionUnconfirmed',
       "Couldn't confirm the decision — the preview backend may be waking up. Try again; if it went through, " +
-      'the application will show the recorded status.',
+        'the application will show the recorded status.',
+    ),
   };
 }
 
-export function describeDocumentError(error: unknown): string {
+export function describeDocumentError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError && error.status === 404) {
-    return 'This document is no longer available. Ask the doctor to resubmit their credentials.';
+    return t(
+      'adminVerification.errors.documentGone',
+      'This document is no longer available. Ask the doctor to resubmit their credentials.',
+    );
   }
-  return "Couldn't get a fresh link for this document. Check your connection and try again.";
+  return t(
+    'adminVerification.errors.documentLoad',
+    "Couldn't get a fresh link for this document. Check your connection and try again.",
+  );
 }
 
 /** The decision history is read from the real audit trail; if that call
  * fails the detail still works, so this says so instead of failing the page. */
-export function describeHistoryError(error: unknown): string {
+export function describeHistoryError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-    return 'Your session no longer has admin access, so the decision history is unavailable.';
+    return t(
+      'adminVerification.errors.historyForbidden',
+      'Your session no longer has admin access, so the decision history is unavailable.',
+    );
   }
-  return "Couldn't load the decision history. Everything else on this page is still current.";
+  return t(
+    'adminVerification.errors.historyLoad',
+    "Couldn't load the decision history. Everything else on this page is still current.",
+  );
 }
 
 // --- Specialty claims queue (issue #65) -------------------------------------
@@ -88,16 +126,22 @@ export function describeHistoryError(error: unknown): string {
 // docforum-core#51, so it gets its own 404 wording — one function can't say
 // both things truthfully.
 
-export function describeClaimsQueueError(error: unknown): string {
+export function describeClaimsQueueError(error: unknown, t: Translator = englishTranslator): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
-      return 'Your session no longer has admin access. Sign in again with an admin account.';
+      return t('adminVerification.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.');
     }
     if (error.status === 404) {
-      return "docforum-core doesn't serve per-specialty verification yet (docforum-core#51).";
+      return t(
+        'adminVerification.errors.claimsNotServed',
+        "docforum-core doesn't serve per-specialty verification yet (docforum-core#51).",
+      );
     }
   }
-  return "Couldn't load specialty claims. The preview backend may be waking up — try again in a minute.";
+  return t(
+    'adminVerification.errors.claimsLoad',
+    "Couldn't load specialty claims. The preview backend may be waking up — try again in a minute.",
+  );
 }
 
 export interface ReviewFailure {
@@ -113,33 +157,57 @@ export interface ReviewFailure {
   message: string;
 }
 
-const REVIEW_NOUNS: Record<ClaimDecision, string> = {
-  approve: 'approval',
-  reject: 'rejection',
+const REVIEW_NOUN_IDS: Record<ClaimDecision, { id: 'approve' | 'reject'; noun: string }> = {
+  approve: { id: 'approve', noun: 'approval' },
+  reject: { id: 'reject', noun: 'rejection' },
 };
 
-export function describeReviewError(error: unknown, decision: ClaimDecision): ReviewFailure {
+/** Translated with the sentence that carries it — see admin-referrals. */
+function reviewNoun(decision: ClaimDecision, t: Translator): string {
+  const { id, noun } = REVIEW_NOUN_IDS[decision];
+  return t(`adminVerification.errors.noun.${id}`, noun);
+}
+
+export function describeReviewError(
+  error: unknown,
+  decision: ClaimDecision,
+  t: Translator = englishTranslator,
+): ReviewFailure {
+  const { id } = REVIEW_NOUN_IDS[decision];
+  const noun = reviewNoun(decision, t);
   if (error instanceof ApiError) {
     if (error.status === 409 || error.status === 404) {
       return {
         kind: 'conflict',
-        message:
+        message: t(
+          'adminVerification.errors.reviewConflict',
           'This claim changed while you were working on it — another admin reviewed it, or the doctor edited or ' +
-          'withdrew it. Nothing was changed by you; the queue has been refreshed.',
+            'withdrew it. Nothing was changed by you; the queue has been refreshed.',
+        ),
       };
     }
     if (error.status === 400 || error.status === 422) {
       return {
         kind: 'rejected',
-        message: `docforum-core refused the ${REVIEW_NOUNS[decision]}: ${error.message}`,
+        message: t('adminVerification.errors.reviewRejected', 'docforum-core refused the {noun}: {message}', {
+          noun,
+          message: error.message,
+        }),
       };
     }
     if (error.status === 401 || error.status === 403) {
-      return { kind: 'auth', message: 'Your session no longer has admin access. Sign in again with an admin account.' };
+      return {
+        kind: 'auth',
+        message: t('adminVerification.errors.auth', 'Your session no longer has admin access. Sign in again with an admin account.'),
+      };
     }
   }
   return {
     kind: 'unconfirmed',
-    message: `Couldn't confirm the ${REVIEW_NOUNS[decision]} — the preview backend may be waking up. Try again; if the first attempt went through you'll be told, it won't be applied twice.`,
+    message: t(
+      `adminVerification.errors.reviewUnconfirmed.${id}`,
+      "Couldn't confirm the {noun} — the preview backend may be waking up. Try again; if the first attempt went through you'll be told, it won't be applied twice.",
+      { noun },
+    ),
   };
 }

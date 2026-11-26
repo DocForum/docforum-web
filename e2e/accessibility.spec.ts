@@ -96,6 +96,45 @@ test('header icon controls meet the 24px target size (mobile)', async ({ page, v
   await expect(close.locator('svg')).toHaveAttribute('aria-hidden', 'true');
 });
 
+// Issue #239: at phone width the closed drawer is inert (its links can't be
+// focused at all) and the open drawer is a modal dialog that Escape closes,
+// returning focus to the toggle. Axe agrees at both states.
+test('the mobile nav drawer is inert when closed and a modal dialog when open', async ({ page, visit }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit('/patient', 'patient');
+
+  const drawer = page.locator('#mobile-drawer');
+  await expect(drawer).toHaveAttribute('inert', '');
+
+  // A closed drawer link cannot take focus, so it is not in the tab order.
+  const reachedClosedDrawer = await page.evaluate(() => {
+    const link = document.querySelector<HTMLElement>('#mobile-drawer a[href]');
+    link?.focus();
+    return document.activeElement === link;
+  });
+  expect(reachedClosedDrawer).toBe(false);
+
+  const closedScan = await new AxeBuilder({ page }).analyze();
+  expect(closedScan.violations.map((violation) => violation.id)).not.toContain('aria-hidden-focus');
+
+  const toggle = page.getByRole('button', { name: 'Toggle navigation menu' });
+  await toggle.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Mobile navigation menu' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  expect(
+    await page.evaluate(() => Boolean(document.getElementById('mobile-drawer')?.contains(document.activeElement))),
+  ).toBe(true);
+
+  const openScan = await new AxeBuilder({ page }).analyze();
+  expect(openScan.violations.map((violation) => violation.id)).not.toContain('aria-hidden-focus');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(toggle).toBeFocused();
+});
+
 // Issue #246: a new notification is announced once, politely; the count that
 // was already there on load is not.
 test('a new notification is announced in a polite live region', async ({ page, visit }) => {
