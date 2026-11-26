@@ -1,0 +1,10 @@
+# Generated files. `linguist-generated` makes GitHub collapse them in PR diffs
+# and leave them out of language stats. Only list a file here if CI
+# regenerates or verifies it, because collapsed diffs get less human review.
+#
+# If one of these conflicts after a rebase, don't hand-merge it: take main's
+# version, then regenerate it with the command noted next to it.
+
+# npm run generate:api (from packages/api-client/openapi/docforum-core.openapi.yaml);
+# CI: "Frontend" fails if typecheck's regeneration changes it.
+packages/api-client/src/generated/** linguist-generated=true

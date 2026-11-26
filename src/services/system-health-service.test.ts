@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getOutboxDeadLetters, getReadiness, runJob } from './system-health-service';
+import { getOutboxDeadLetters, getReadiness, pingHealthLive, runJob } from './system-health-service';
 import { ApiError } from './api-client';
 import type { ReadinessReport } from '../types/models';
 
@@ -48,15 +48,34 @@ describe('runJob', () => {
     expect(String(url)).toMatch(/\/admin\/jobs\/reports%2Fdaily%20digest\/run$/);
     expect(init).toMatchObject({ method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
   });
+});
 
-  describe('getOutboxDeadLetters', () => {
-    it('requests the real dead-letter endpoint with a bounded page size', async () => {
-      const fetchSpy = respond(200, { items: [] });
-      await expect(getOutboxDeadLetters('token')).resolves.toEqual({ items: [] });
+describe('pingHealthLive', () => {
+  it('calls /health/live with short timeout and retry false', async () => {
+    const fetchSpy = respond(200, { status: 'ok' });
+    const success = await pingHealthLive();
 
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(String(url)).toMatch(/\/admin\/outbox\/dead-letters\?limit=50$/);
-      expect(init).toMatchObject({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
-    });
+    expect(success).toBe(true);
+    expect(fetchSpy).toHaveBeenCalled();
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toMatch(/\/health\/live$/);
+    expect(init).toMatchObject({ method: 'GET' });
+  });
+
+  it('returns false when /health/live fails with 5xx or network error', async () => {
+    respond(503, { status: 'down' });
+    const success = await pingHealthLive();
+    expect(success).toBe(false);
+  });
+});
+
+describe('getOutboxDeadLetters', () => {
+  it('requests the real dead-letter endpoint with a bounded page size', async () => {
+    const fetchSpy = respond(200, { items: [] });
+    await expect(getOutboxDeadLetters('token')).resolves.toEqual({ items: [] });
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toMatch(/\/admin\/outbox\/dead-letters\?limit=50$/);
+    expect(init).toMatchObject({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
   });
 });

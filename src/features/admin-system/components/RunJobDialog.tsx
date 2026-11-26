@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useRunJob } from '../hooks/useSystemHealth';
 import { describeRun, describeRunError } from '../errors';
 import { overdueBy } from '../status';
@@ -25,6 +26,7 @@ interface RunJobDialogProps {
  * dismissed while the request is in flight.
  */
 export function RunJobDialog({ job, now, onClose }: RunJobDialogProps) {
+  const t = useOptionalT().t;
   const titleId = useId();
   const descriptionId = useId();
   const resultId = useId();
@@ -47,9 +49,9 @@ export function RunJobDialog({ job, now, onClose }: RunJobDialogProps) {
 
   const handleRun = async () => {
     try {
-      setOutcome(describeRun(await run.mutateAsync(job.name)));
+      setOutcome(describeRun(await run.mutateAsync(job.name), t));
     } catch (error) {
-      setOutcome(describeRunError(error, job.name));
+      setOutcome(describeRunError(error, job.name, t));
     }
   };
 
@@ -89,7 +91,9 @@ export function RunJobDialog({ job, now, onClose }: RunJobDialogProps) {
         onKeyDown={handleKeyDown}
       >
         <h2 id={titleId} className={styles.dialogTitle}>
-          {outcome ? `Manual run: ${job.name}` : `Run ${job.name} now?`}
+          {outcome
+            ? t('adminSystem.runDialog.resultTitle', 'Manual run: {jobName}', { jobName: job.name })
+            : t('adminSystem.runDialog.title', 'Run {jobName} now?', { jobName: job.name })}
         </h2>
 
         {outcome ? (
@@ -100,52 +104,69 @@ export function RunJobDialog({ job, now, onClose }: RunJobDialogProps) {
         ) : (
           <div id={descriptionId} className={styles.dialogDescription}>
             <p>
-              This runs the job immediately, outside its schedule ({job.schedule}). It does the job's real work — whatever
-              it normally changes, it changes now.
+              {t(
+                'adminSystem.runDialog.description',
+                "This runs the job immediately, outside its schedule ({schedule}). It does the job's real work — whatever it normally changes, it changes now.",
+                { schedule: job.schedule },
+              )}
             </p>
             <dl className={styles.dialogFacts}>
               <div>
-                <dt>Last run</dt>
-                <dd>{job.lastRun ? <TimeAgo iso={job.lastRun.startedAt} now={now} /> : 'Never'}</dd>
+                <dt>{t('adminSystem.runDialog.lastRun', 'Last run')}</dt>
+                <dd>
+                  {job.lastRun ? (
+                    <TimeAgo iso={job.lastRun.startedAt} now={now} />
+                  ) : (
+                    t('adminSystem.runDialog.never', 'Never')
+                  )}
+                </dd>
               </div>
               <div>
-                <dt>Next scheduled run</dt>
+                <dt>{t('adminSystem.runDialog.nextScheduled', 'Next scheduled run')}</dt>
                 <dd>
                   {job.nextRunAt ? (
                     <>
-                      {overdueBy(job, now) > 0 && 'was due '}
+                      {overdueBy(job, now) > 0 && `${t('adminSystem.job.wasDue', 'was due')} `}
                       <TimeAgo iso={job.nextRunAt} now={now} />
                     </>
                   ) : (
-                    'Not scheduled'
+                    t('adminSystem.job.notScheduled', 'Not scheduled')
                   )}
                 </dd>
               </div>
             </dl>
             <p className={styles.dialogNote}>
-              If another instance is already running it, docforum-core won't start a second run.
+              {t(
+                'adminSystem.runDialog.note',
+                "If another instance is already running it, docforum-core won't start a second run.",
+              )}
             </p>
           </div>
         )}
 
         {run.isPending && (
           <p className={styles.inlineStatus} role="status">
-            {slow ? 'Still running — long jobs, or a cold-starting backend, can take a minute.' : 'Waiting for docforum-core…'}
+            {slow
+              ? t(
+                  'adminSystem.runDialog.stillRunning',
+                  'Still running — long jobs, or a cold-starting backend, can take a minute.',
+                )
+              : t('adminSystem.runDialog.waiting', 'Waiting for docforum-core…')}
           </p>
         )}
 
         <div className={styles.dialogActions}>
           {outcome ? (
             <Button type="button" onClick={onClose}>
-              Close
+              {t('adminSystem.runDialog.close', 'Close')}
             </Button>
           ) : (
             <>
               <Button type="button" variant="secondary" onClick={onClose} disabled={run.isPending}>
-                Cancel
+                {t('adminSystem.runDialog.cancel', 'Cancel')}
               </Button>
               <Button type="button" onClick={() => void handleRun()} loading={run.isPending}>
-                {run.isPending ? 'Running…' : 'Run now'}
+                {run.isPending ? t('adminSystem.job.running', 'Running…') : t('adminSystem.job.runNow', 'Run now')}
               </Button>
             </>
           )}

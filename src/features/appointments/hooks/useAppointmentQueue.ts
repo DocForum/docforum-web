@@ -16,7 +16,7 @@ export function useAppointmentQueue(appointmentId: string | undefined, poll: boo
 
   return useQuery({
     queryKey: queueKey(appointmentId ?? ''),
-    queryFn: () => appointmentsService.getAppointmentQueue(appointmentId!, accessToken!),
+    queryFn: ({ signal }) => appointmentsService.getAppointmentQueue(appointmentId!, accessToken!, signal),
     enabled: Boolean(accessToken && appointmentId),
     // The interval belongs to this observer: React Query clears it as soon as
     // the last component using the queue unmounts, and `gcTime: 0` means an

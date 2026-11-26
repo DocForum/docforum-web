@@ -2,7 +2,7 @@
 import { http } from 'msw';
 import { db } from '../db';
 import { notFound, paramId, respond } from '../helpers';
-import type { MessageThread } from '../../types/models';
+import type { DoctorMessageThread } from '../../types/models';
 
 export const messagingHandlers = [
   http.get(
@@ -10,7 +10,7 @@ export const messagingHandlers = [
     respond('list', ({ request }) => {
       const url = new URL(request.url);
       const filter = url.searchParams.get('filter');
-      let threads: MessageThread[] = [...db.messageThreads];
+      let threads: DoctorMessageThread[] = [...db.messageThreads];
       if (filter === 'unread') threads = threads.filter((t) => t.unreadCount > 0);
       if (filter === 'closing_soon') threads = threads.filter((t) => t.closingSoon);
       // Assumed contract: oldest unanswered first.

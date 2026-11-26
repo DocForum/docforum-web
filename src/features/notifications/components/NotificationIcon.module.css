@@ -1,0 +1,32 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.icon[data-category='appointment'] {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+.icon[data-category='payment'] {
+  background: var(--color-accent-2-subtle);
+  color: var(--color-accent-2);
+}
+.icon[data-category='result'] {
+  background: var(--color-success-surface);
+  color: var(--color-success);
+}
+.icon[data-category='dispute'] {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.icon[data-category='message'] {
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}

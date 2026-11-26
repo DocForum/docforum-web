@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
 import { DisputeDetail } from './DisputeDetail';
 import { ApiError } from '../../../services/api-client';
 import * as disputesService from '../../../services/disputes-service';
@@ -90,17 +92,19 @@ const RESOLVED_FACILITY: FulfillmentDispute = {
   updatedAt: '2026-10-16T09:00:00.000Z',
 };
 
-function renderDetail(dispute: FulfillmentDispute = OPEN_DISPUTE, mockGet = true) {
+function renderDetail(dispute: FulfillmentDispute = OPEN_DISPUTE, mockGet = true, locale: 'en' | 'es' = 'en') {
   if (mockGet) vi.mocked(disputesService.getDispute).mockResolvedValue(dispute);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/admin/disputes/${dispute.id}`]}>
-        <DisputeDetail disputeId={dispute.id} />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[`/admin/disputes/${dispute.id}`]}>
+          <DisputeDetail disputeId={dispute.id} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
 }
 
@@ -132,6 +136,16 @@ describe('DisputeDetail', () => {
     expect(screen.getByText('Facility submitted proof.')).toBeInTheDocument();
     expect(screen.getByText(/Payment release is blocked/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Resolve this dispute' })).toBeInTheDocument();
+  });
+
+  it('renders the dispute detail and payment status in Spanish', async () => {
+    renderDetail(OPEN_DISPUTE, true, 'es');
+
+    expect(await screen.findByRole('heading', { name: 'Resolver esta disputa' })).toBeInTheDocument();
+    expect(screen.getByText('En depósito en garantía')).toBeInTheDocument();
+    expect(screen.getByText('No recibido')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Todas las disputas' })).toHaveAttribute('href', '/admin/disputes');
+    expect(screen.getByRole('button', { name: 'Resolver a favor del centro' })).toBeInTheDocument();
   });
 
   it('warns when the facility has submitted no proof', async () => {
@@ -230,6 +244,24 @@ describe('DisputeDetail', () => {
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(disputesService.resolveDispute).not.toHaveBeenCalled();
+  });
+
+  it('keeps keyboard focus in the resolution dialog and restores it on Escape', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const opener = await screen.findByRole('button', { name: 'Resolve for facility' });
+    await user.click(opener);
+
+    const dialog = await screen.findByRole('alertdialog');
+    const closeButton = within(dialog).getByRole('button', { name: 'Keep dispute open' });
+    expect(document.activeElement).toBe(closeButton);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(within(dialog).getByRole('checkbox'));
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(document.activeElement).toBe(opener);
   });
 
   it('refuses short notes with an explanation instead of silently failing', async () => {
