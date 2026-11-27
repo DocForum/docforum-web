@@ -2459,5 +2459,9 @@
   "insights.practice.errorTitle": "Practice insights couldn't be loaded",
   "insights.practice.emptyTitle": "No appointments in this range",
   "insights.practice.emptyDescription": "There are no scheduled visits, referrals or message threads in the selected period. Choose a wider date range to see your practice metrics.",
-  "insights.practice.emptyAction": "Choose a wider date range"
+  "insights.practice.emptyAction": "Choose a wider date range",
+  "passwordField.show": "Show password",
+  "passwordField.capsLockOn": "Caps Lock is on.",
+  "errorSummary.title": "{count, plural, one {There is # problem with this form} other {There are # problems with this form}}",
+  "facilitySettings.hours.summaryError": "{day}: {message}"
 }

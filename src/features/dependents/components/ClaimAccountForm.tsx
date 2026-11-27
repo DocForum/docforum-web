@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { TextField } from '../../../components/TextField';
+import { PasswordInput } from '../../../components/PasswordField';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { useT } from '../../../i18n/useT';
@@ -58,17 +59,17 @@ export function ClaimAccountForm({ token }: Props) {
         error={fieldErrors.email}
         required
       />
-      <TextField
+      <PasswordInput
         label={t('claim.password', 'Password')}
-        type="password"
+        autoComplete="new-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
         required
       />
-      <TextField
+      <PasswordInput
         label={t('claim.confirmPassword', 'Confirm password')}
-        type="password"
+        autoComplete="new-password"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
         error={fieldErrors.confirmPassword}

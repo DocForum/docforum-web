@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { DatePicker } from '../../../components/DatePicker';
+import { ErrorSummary, errorSummaryItems } from '../../../components/ErrorSummary';
 import { FormError } from '../../../components/FormError';
 import { useGenerateSlots } from '../hooks/useSlotManagement';
 import { useT, type Translate } from '../../../i18n/useT';
@@ -117,18 +118,31 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
   const [endHour, setEndHour] = useState(13);
   const [slotLength, setSlotLength] = useState<number>(30);
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitCount, setSubmitCount] = useState(0);
   const [outcome, setOutcome] = useState<GenerateSlotsOutcome | null>(null);
 
   const dayCount =
     isValidIsoDate(fromDate) && isValidIsoDate(toDate) && toDate >= fromDate
       ? generationDates(fromDate, toDate, weekdays, today).length : 0;
   const hours = Array.from({ length: 24 }, (_, index) => index);
+  // Errors appear after the first submit and then track every edit, so the
+  // summary and the inline messages shrink as problems are fixed (#242).
+  const fieldErrors: FieldErrors =
+    submitCount > 0
+      ? validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength, weekdays }, t)
+      : {};
+  const summaryItems = errorSummaryItems(fieldErrors, {
+    fromDate: 'generate-from',
+    toDate: 'generate-to',
+    hours: 'generate-end-hour',
+    slotLength: 'generate-slot-length',
+    weekdays: 'generate-weekday-first',
+  });
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength, weekdays }, t);
-    setFieldErrors(errors);
+    setSubmitCount((count) => count + 1);
     if (Object.values(errors).some(Boolean)) return;
 
     setOutcome(null);
@@ -150,6 +164,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
       onSubmit={handleSubmit}
       aria-label={t('availability.generate.title', 'Generate slots')}
     >
+      <ErrorSummary items={summaryItems} submitCount={submitCount} />
       <h3 className={styles.title}>{t('availability.generate.title', 'Generate slots')}</h3>
       <p className={styles.hint}>
         {t(
@@ -161,6 +176,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
       <div className={styles.grid}>
         <DatePicker
+          id="generate-from"
           label={t('availability.generate.from', 'From')}
           value={fromDate}
           error={fieldErrors.fromDate}
@@ -169,6 +185,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
           required
         />
         <DatePicker
+          id="generate-to"
           label={t('availability.generate.to', 'To')}
           value={toDate}
           error={fieldErrors.toDate}
@@ -235,9 +252,9 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
       <fieldset className={styles.weekdays} aria-describedby={fieldErrors.weekdays ? 'generate-weekday-error' : undefined}>
         <legend className={styles.label}>{t('availability.generate.weekdays', 'Weekdays')}</legend>
-        {weekdayOptions(t).map((day) => (
+        {weekdayOptions(t).map((day, index) => (
           <label key={day.value} className={styles.weekday}>
-            <input type="checkbox" checked={weekdays.includes(day.value)} onChange={(event) => {
+            <input type="checkbox" id={index === 0 ? 'generate-weekday-first' : undefined} checked={weekdays.includes(day.value)} onChange={(event) => {
               setWeekdays((current) => event.target.checked
                 ? [...current, day.value]
                 : current.filter((value) => value !== day.value));

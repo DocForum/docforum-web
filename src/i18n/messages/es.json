@@ -2459,5 +2459,9 @@
   "insights.practice.errorTitle": "No se pudieron cargar los datos de la consulta",
   "insights.practice.emptyTitle": "No hay citas en este periodo",
   "insights.practice.emptyDescription": "No hay visitas programadas, derivaciones ni conversaciones en el periodo seleccionado. Elige un rango de fechas más amplio para ver las métricas de tu consulta.",
-  "insights.practice.emptyAction": "Elegir un rango de fechas más amplio"
+  "insights.practice.emptyAction": "Elegir un rango de fechas más amplio",
+  "passwordField.show": "Mostrar contraseña",
+  "passwordField.capsLockOn": "Bloq Mayús está activado.",
+  "errorSummary.title": "{count, plural, one {Hay # problema en este formulario} other {Hay # problemas en este formulario}}",
+  "facilitySettings.hours.summaryError": "{day}: {message}"
 }

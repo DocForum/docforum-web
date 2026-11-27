@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { ErrorSummary, errorSummaryItems, type ErrorSummaryItem } from '../../../components/ErrorSummary';
 import { TextField } from '../../../components/TextField';
 import { TimePicker } from '../../../components/TimePicker';
 import { useUpdateFacilitySettings } from '../hooks/useFacilitySettings';
@@ -43,6 +44,7 @@ export function LocationContactEditor({
   const [baseline, setBaseline] = useState(() => JSON.stringify(settingsToDraft(settings)));
   const [errors, setErrors] = useState<FacilitySettingsErrors>(EMPTY_ERRORS);
   const [showValidation, setShowValidation] = useState(false);
+  const [submitCount, setSubmitCount] = useState(0);
   const [saved, setSaved] = useState(false);
   const updateMutation = useUpdateFacilitySettings(facilityId);
   const isDirty = JSON.stringify(draft) !== baseline;
@@ -85,6 +87,7 @@ export function LocationContactEditor({
     event.preventDefault();
     setSaved(false);
     setShowValidation(true);
+    setSubmitCount((count) => count + 1);
     const nextErrors = validateFacilitySettings(draft, t);
     setErrors(nextErrors);
     if (hasFacilitySettingsErrors(nextErrors)) return;
@@ -112,6 +115,27 @@ export function LocationContactEditor({
     onDirtyChange(JSON.stringify(next) !== baseline);
   };
 
+  const summaryItems: ErrorSummaryItem[] = [
+    ...errorSummaryItems(errors, {
+      address: 'facility-address',
+      city: 'facility-city',
+      phone: 'facility-phone',
+      email: 'facility-email',
+      latitude: 'facility-latitude',
+      longitude: 'facility-longitude',
+    }),
+    ...WEEKDAYS.flatMap((day) => {
+      const dayErrors = errors.openingHours[day] ?? {};
+      const dayLabel = weekdayLabel(day, locale);
+      return (['opensAt', 'closesAt'] as const).flatMap((key) => {
+        const message = dayErrors[key];
+        return message
+          ? [{ fieldId: `${day}-${key === 'opensAt' ? 'opens' : 'closes'}`, message: t('facilitySettings.hours.summaryError', '{day}: {message}', { day: dayLabel, message }) }]
+          : [];
+      });
+    }),
+  ];
+
   return (
     <section className={styles.card} aria-labelledby="facility-location-heading">
       <div className={styles.cardHeader}>
@@ -125,7 +149,9 @@ export function LocationContactEditor({
       </div>
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <ErrorSummary items={summaryItems} submitCount={submitCount} />
         <TextField
+          id="facility-address"
           label={t('facilitySettings.location.streetAddress', 'Street address')}
           value={draft.address}
           onChange={(event) => updateField('address', event.target.value)}
@@ -135,6 +161,7 @@ export function LocationContactEditor({
         />
         <div className={styles.twoColumn}>
           <TextField
+            id="facility-city"
             label={t('facilitySettings.location.city', 'City')}
             value={draft.city}
             onChange={(event) => updateField('city', event.target.value)}
@@ -143,6 +170,7 @@ export function LocationContactEditor({
             required
           />
           <TextField
+            id="facility-phone"
             label={t('facilitySettings.location.contactPhone', 'Contact phone')}
             type="tel"
             value={draft.phone}
@@ -153,6 +181,7 @@ export function LocationContactEditor({
           />
         </div>
         <TextField
+          id="facility-email"
           label={t('facilitySettings.location.contactEmail', 'Contact email (optional)')}
           type="email"
           value={draft.email}
@@ -179,6 +208,7 @@ export function LocationContactEditor({
 
         <div className={styles.twoColumn}>
           <TextField
+            id="facility-latitude"
             label={t('facilitySettings.location.latitude', 'Latitude')}
             type="number"
             inputMode="decimal"
@@ -189,6 +219,7 @@ export function LocationContactEditor({
             required
           />
           <TextField
+            id="facility-longitude"
             label={t('facilitySettings.location.longitude', 'Longitude')}
             type="number"
             inputMode="decimal"
