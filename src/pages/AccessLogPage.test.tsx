@@ -66,6 +66,7 @@ describe('AccessLogPage', () => {
     expect(accessLogService.listAccessLog).toHaveBeenLastCalledWith(
       expect.objectContaining({ cursor: 'cursor-2' }),
       'test-token',
+      expect.any(AbortSignal),
     );
     expect(screen.queryByRole('button', { name: /show older entries/i })).not.toBeInTheDocument();
   });
@@ -87,6 +88,7 @@ describe('AccessLogPage', () => {
       expect(accessLogService.listAccessLog).toHaveBeenLastCalledWith(
         expect.objectContaining({ from: '2026-10-01', to: '2026-10-15', recordType: 'referral' }),
         'test-token',
+        expect.any(AbortSignal),
       ),
     );
   });
@@ -105,6 +107,12 @@ describe('AccessLogPage', () => {
     expect(accessLogService.listAccessLog).toHaveBeenCalledTimes(1);
   });
 
+  it('shows a loading skeleton while the log is loading', () => {
+    vi.mocked(accessLogService.listAccessLog).mockReturnValue(new Promise(() => {}));
+    render(<AccessLogPage />);
+    expect(screen.getByRole('status')).toHaveTextContent(/loading your access log/i);
+  });
+
   // core#45 has not landed, so the ordinary answer today is 404. "No one has
   // opened your record" would be a false privacy claim.
   it('says the log is unavailable rather than empty when the endpoint is missing', async () => {
@@ -114,6 +122,7 @@ describe('AccessLogPage', () => {
 
     expect(await screen.findByText(/access log is not available yet/i)).toBeInTheDocument();
     expect(screen.queryByText(/no one has opened your record/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('keeps the entries it has and flags a later page that failed', async () => {
@@ -136,6 +145,7 @@ describe('AccessLogPage', () => {
     render(<AccessLogPage />);
 
     expect(await screen.findByText(/no one has opened your record yet/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to care summary/i })).toHaveAttribute('href', '/patient');
   });
 
   it('will not invent a support link that no one reads', async () => {

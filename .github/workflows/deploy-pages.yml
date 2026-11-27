@@ -37,6 +37,12 @@ jobs:
       - run: npm run build:pages
         env:
           VITE_API_BASE_URL: https://docforum-core-api.onrender.com
+          # GitHub Pages has no server-side rewrites; keep HashRouter for this build.
+          # BrowserRouter is the default for all other deployments.
+          VITE_USE_HASH_ROUTER: "true"
+      - run: npm run build-storybook
+        env:
+          STORYBOOK_BASE_PATH: /docforum-web/storybook/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -47,6 +53,23 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke:
+    name: Post-deploy Pages smoke check
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch the published site and verify every referenced asset
+        env:
+          PAGES_URL: ${{ needs.deploy.outputs.url }}
+        run: npm run check:deploy -- "$PAGES_URL"

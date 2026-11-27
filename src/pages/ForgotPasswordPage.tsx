@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
+import { paths } from '../routes/paths';
 import { Button } from '../components/Button';
 import { FormError } from '../components/FormError';
 import { FormField } from '../components/form/FormField';
 import { useZodForm } from '../hooks/useZodForm';
 import { useSlowRequestHint } from '../hooks/useSlowRequestHint';
 import { requestPasswordReset } from '../services/auth-service';
-import { ApiError } from '../services/api-client';
+import { RateLimitError } from '../services/api-client';
 
 const requestSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -37,9 +38,9 @@ export function ForgotPasswordPage() {
       await requestPasswordReset(email);
       setSubmitted(true);
     } catch (reason) {
-      if (reason instanceof ApiError && reason.status === 429) {
+      if (reason instanceof RateLimitError) {
         setError('Too many reset requests. Please wait before trying again.');
-        setRetryAfter(reason.retryAfterSeconds ?? 0);
+        setRetryAfter(reason.retryAfterSeconds);
       } else {
         setError(reason instanceof Error ? reason.message : 'Could not submit the request. Try again.');
       }
@@ -71,7 +72,7 @@ export function ForgotPasswordPage() {
               </form>
             </>
           )}
-          <p><Link to="/login">Back to sign in</Link></p>
+          <p><Link to={paths.login}>Back to sign in</Link></p>
         </div>
       </div>
     </FormProvider>

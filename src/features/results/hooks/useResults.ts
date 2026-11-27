@@ -2,17 +2,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as resultsService from '../../../services/results-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { resultKeys } from '../../../query-keys';
+import { useRealtimeLive } from '../../../hooks/useRealtimeLive';
 import type { AbnormalResult } from '../../../types/models';
 
 const PENDING_ABNORMAL_RESULTS_KEY = resultKeys.pendingAbnormal();
+const RESULTS_FALLBACK_POLL_MS = 30_000;
+const RESULTS_LIVE_POLL_MS = 60_000;
 
 export function usePendingAbnormalResults() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const realtimeLive = useRealtimeLive();
   return useQuery({
     queryKey: PENDING_ABNORMAL_RESULTS_KEY,
-    queryFn: () => resultsService.listPendingAbnormalResults(accessToken!),
+    queryFn: ({ signal }) => resultsService.listPendingAbnormalResults(accessToken!, signal),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000,
+    refetchInterval: realtimeLive ? RESULTS_LIVE_POLL_MS : RESULTS_FALLBACK_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 

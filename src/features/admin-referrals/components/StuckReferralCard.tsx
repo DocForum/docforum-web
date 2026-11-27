@@ -1,7 +1,10 @@
 import { Button } from '../../../components/Button';
-import { REASONS, ageTone, formatAge, hoursSince } from '../queue';
+import { useOptionalT } from '../../../i18n/useOptionalT';
+import { ageTone, formatAge, hoursSince, reasonDescription, reasonLabel } from '../queue';
 import { ReferralChain } from './ReferralChain';
 import type { StuckReferral } from '../../../types/models';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
+import { formatDateTime } from '../../../i18n/time-zone';
 import styles from './StuckReferrals.module.css';
 
 interface StuckReferralCardProps {
@@ -18,8 +21,9 @@ const TONE_CLASS = {
 };
 
 export function StuckReferralCard({ referral, now, onReassign, onCancel }: StuckReferralCardProps) {
+  const t = useOptionalT().t;
+  const { timeZone } = useTimeZone();
   const hours = hoursSince(referral.createdAt, now);
-  const reason = REASONS[referral.stuckReason];
   const headingId = `referral-${referral.id}`;
 
   return (
@@ -27,13 +31,15 @@ export function StuckReferralCard({ referral, now, onReassign, onCancel }: Stuck
       <div className={styles.cardTop}>
         <div className={styles.badges}>
           {hours !== null && (
-            <span className={`${styles.age} ${TONE_CLASS[ageTone(hours)]}`}>Pending {formatAge(hours)}</span>
+            <span className={`${styles.age} ${TONE_CLASS[ageTone(hours)]}`}>
+              {t('adminReferrals.card.pending', 'Pending {age}', { age: formatAge(hours, t) })}
+            </span>
           )}
           <span className={styles.reason} data-reason={referral.stuckReason}>
-            {reason?.label ?? referral.stuckReason}
+            {reasonLabel(referral.stuckReason, t)}
           </span>
         </div>
-        <code className={styles.referralId} title="Referral id">
+        <code className={styles.referralId} title={t('adminReferrals.card.referralIdTitle', 'Referral id')}>
           {referral.id}
         </code>
       </div>
@@ -41,22 +47,26 @@ export function StuckReferralCard({ referral, now, onReassign, onCancel }: Stuck
       <h2 id={headingId} className={styles.specialty}>
         {referral.targetSpecialty.name}
       </h2>
-      {reason && <p className={styles.reasonDescription}>{reason.description}</p>}
+      <p className={styles.reasonDescription}>{reasonDescription(referral.stuckReason, t)}</p>
 
       <dl className={styles.facts}>
         <div>
-          <dt>Referred by</dt>
+          <dt>{t('adminReferrals.card.referredBy', 'Referred by')}</dt>
           <dd>{referral.referringDoctor.fullName}</dd>
         </div>
         <div>
-          <dt>Waiting on</dt>
-          <dd>{referral.targetDoctor?.fullName ?? <span className={styles.unassigned}>No doctor assigned</span>}</dd>
+          <dt>{t('adminReferrals.card.waitingOn', 'Waiting on')}</dt>
+          <dd>
+            {referral.targetDoctor?.fullName ?? (
+              <span className={styles.unassigned}>{t('adminReferrals.card.noDoctor', 'No doctor assigned')}</span>
+            )}
+          </dd>
         </div>
         <div>
-          <dt>Referred on</dt>
+          <dt>{t('adminReferrals.card.referredOn', 'Referred on')}</dt>
           <dd>
             <time dateTime={referral.createdAt} title={referral.createdAt}>
-              {new Date(referral.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+              {formatDateTime(referral.createdAt, timeZone)}
             </time>
           </dd>
         </div>
@@ -68,10 +78,10 @@ export function StuckReferralCard({ referral, now, onReassign, onCancel }: Stuck
 
       <div className={styles.cardActions}>
         <Button type="button" onClick={() => onReassign(referral)} aria-describedby={headingId}>
-          Reassign
+          {t('adminReferrals.card.reassign', 'Reassign')}
         </Button>
         <Button type="button" variant="secondary" onClick={() => onCancel(referral)} aria-describedby={headingId}>
-          Cancel referral
+          {t('adminReferrals.card.cancel', 'Cancel referral')}
         </Button>
       </div>
     </article>

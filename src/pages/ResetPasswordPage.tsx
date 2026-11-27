@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
+import { paths } from '../routes/paths';
 import { Button } from '../components/Button';
 import { FormError } from '../components/FormError';
 import { FormField } from '../components/form/FormField';
@@ -43,7 +44,7 @@ export function ResetPasswordPage() {
     try {
       await confirmPasswordReset(token, newPassword);
       useAuthStore.getState().clearSession();
-      navigate('/login', { replace: true, state: { passwordResetComplete: true } });
+      navigate(paths.login, { replace: true, state: { passwordResetComplete: true } });
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 400) {
         setInvalidLink(true);
@@ -64,12 +65,12 @@ export function ResetPasswordPage() {
           {!token ? (
             <>
               <p role="alert">This reset link is invalid or missing its token.</p>
-              <Link to="/forgot-password">Request a new reset link</Link>
+              <Link to={paths.forgotPassword}>Request a new reset link</Link>
             </>
           ) : invalidLink ? (
             <>
               <FormError message={error} />
-              <Link to="/forgot-password">Request a new reset link</Link>
+              <Link to={paths.forgotPassword}>Request a new reset link</Link>
             </>
           ) : (
             <>

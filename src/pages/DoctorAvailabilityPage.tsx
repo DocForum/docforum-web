@@ -1,0 +1,277 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
+import { useT, type Translate } from '../i18n/useT';
+import { AvailabilityCalendar } from '../features/availability/components/AvailabilityCalendar';
+import { BlockConflictNotice } from '../features/availability/components/BlockConflictNotice';
+import { GenerateSlotsForm } from '../features/availability/components/GenerateSlotsForm';
+import { useAvailabilitySlots, useMyDoctorProfile } from '../features/availability/hooks/useAvailabilitySlots';
+import {
+  rollbackMessage,
+  useBlockSlotRange,
+  useRemoveSlots,
+  useUnblockSlot,
+} from '../features/availability/hooks/useSlotManagement';
+import type { AvailabilityAction } from '../features/availability/components/AvailabilityCalendar';
+import type { ConflictEntry } from '../features/availability/components/BlockConflictNotice';
+import {
+  addDays,
+  appointmentStatusLabel,
+  buildWeekDates,
+  formatClockRange,
+  formatDayHeading,
+  slotsInTimeRange,
+  systemTimeZone,
+  todayInZone,
+} from '../features/availability/calendar';
+import type { IsoDate, SlotTimeRange } from '../features/availability/calendar';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
+import { useErrorMessage } from '../hooks/useErrorText';
+import { useAnnouncer } from '../hooks/useAnnouncer';
+import { LiveRegion } from '../components/LiveRegion';
+import { Button } from '../components/Button';
+import type { AvailabilitySlot, SlotAppointment } from '../types/models';
+
+interface PendingBlock {
+  range: SlotTimeRange;
+  entries: ConflictEntry[];
+}
+
+const PAGE_STYLE = {
+  width: '100%',
+  maxWidth: '1180px',
+  margin: '0 auto',
+  padding: 'var(--space-8) var(--space-4)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-6)',
+} as const;
+
+const ROW_STYLE = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' } as const;
+const GROUP_STYLE = { display: 'flex', gap: 'var(--space-2)' } as const;
+
+/** A blocked slot's booked neighbour, described in terms the doctor can act on. */
+function bookedSlotEntry(slot: AvailabilitySlot, timeZone: string, t: Translate): ConflictEntry {
+  return {
+    key: slot.id,
+    label: slot.appointment?.patientFullName ?? t('availability.conflict.bookedAppointment', 'Booked appointment'),
+    detail: appointmentStatusLabel(slot.appointment?.status ?? 'scheduled', t),
+    time: formatClockRange(slot.startTime, slot.endTime, timeZone),
+  };
+}
+
+function conflictEntry(appointment: SlotAppointment, t: Translate): ConflictEntry {
+  return {
+    key: appointment.id,
+    label: appointment.patientFullName ?? t('availability.conflict.bookedAppointment', 'Booked appointment'),
+    detail: appointmentStatusLabel(appointment.status, t),
+  };
+}
+
+export function DoctorAvailabilityPage() {
+  const t = useT();
+  const locale = useIntl().locale;
+  const [timeZone] = useState(systemTimeZone);
+  const [anchorDate, setAnchorDate] = useState<IsoDate>(() => todayInZone(new Date(), timeZone));
+  const [view, setView] = useState<'week' | 'day'>('week');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pendingBlock, setPendingBlock] = useState<PendingBlock | null>(null);
+  const [blockedRange, setBlockedRange] = useState<SlotTimeRange | null>(null);
+  const [serverConflicts, setServerConflicts] = useState<SlotAppointment[]>([]);
+  const [rollbackNotice, setRollbackNotice] = useState<string | null>(null);
+
+  const profileQuery = useMyDoctorProfile();
+  const doctorProfileId = profileQuery.data?.id ?? null;
+  const errorText = useErrorMessage();
+  const { message: announcement, announce } = useAnnouncer();
+
+  const dates = useMemo(
+    () => (view === 'week' ? buildWeekDates(anchorDate) : [anchorDate]),
+    [view, anchorDate],
+  );
+  const slotsQuery = useAvailabilitySlots({ doctorProfileId, dates, timeZone });
+  const slots = useMemo(() => slotsQuery.data ?? [], [slotsQuery.data]);
+
+  const blockRange = useBlockSlotRange(doctorProfileId);
+  const removeSlots = useRemoveSlots(doctorProfileId, t);
+  const unblockSlot = useUnblockSlot(doctorProfileId);
+
+  // A selection is a statement about the window it was made in.
+  useEffect(() => {
+    setSelectedIds([]);
+    setPendingBlock(null);
+  }, [anchorDate, view]);
+
+  const rangeLabel = (range: SlotTimeRange) =>
+    `${formatDayHeading(todayInZone(new Date(range.startTime), timeZone), 'short', locale)}, ${formatClockRange(range.startTime, range.endTime, timeZone)}`;
+
+  function commitBlock(range: SlotTimeRange) {
+    setPendingBlock(null);
+    setServerConflicts([]);
+    blockRange.mutate(
+      { startTime: range.startTime, endTime: range.endTime },
+      {
+        onSuccess: (result) => {
+          // The backend's own list of appointments it deliberately left alone.
+          setServerConflicts(result.conflicts);
+          setBlockedRange(range);
+          setSelectedIds([]);
+        },
+        onError: (error) => setRollbackNotice(rollbackMessage(error, t)),
+      },
+    );
+  }
+
+  async function handleAction(action: AvailabilityAction, slotIds: string[], range: SlotTimeRange | null) {
+    setRollbackNotice(null);
+    setServerConflicts([]);
+    if (!range) return;
+
+    if (action === 'block') {
+      // Nothing gets cancelled quietly: name the booked appointments inside the
+      // span and require a deliberate confirmation.
+      const booked = slotsInTimeRange(slots.filter((slot) => slot.status === 'booked'), range);
+      if (booked.length > 0) {
+        setPendingBlock({ range, entries: booked.map((slot) => bookedSlotEntry(slot, timeZone, t)) });
+        return;
+      }
+      commitBlock(range);
+      return;
+    }
+
+    if (action === 'remove') {
+      removeSlots.mutate(slotIds, {
+        onSuccess: () => {
+          setSelectedIds([]);
+          announce(
+            t(
+              'availability.announce.removed',
+              '{count, plural, one {# slot removed.} other {# slots removed.}}',
+              { count: slotIds.length },
+            ),
+          );
+        },
+        onError: (error) => setRollbackNotice(rollbackMessage(error, t)),
+      });
+      return;
+    }
+
+    // Unblocking runs one request per slot, so wait for the whole batch before
+    // announcing how many actually changed (failures still surface inline).
+    setSelectedIds([]);
+    const results = await Promise.allSettled(slotIds.map((slotId) => unblockSlot.mutateAsync(slotId)));
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed?.status === 'rejected') setRollbackNotice(rollbackMessage(failed.reason, t));
+    const unblocked = results.filter((result) => result.status === 'fulfilled').length;
+    if (unblocked > 0) {
+      announce(
+        t(
+          'availability.announce.unblocked',
+          '{count, plural, one {# slot unblocked.} other {# slots unblocked.}}',
+          { count: unblocked },
+        ),
+      );
+    }
+  }
+
+  const profileError = profileQuery.isError
+    ? errorText(profileQuery.error) ?? 'Your doctor profile could not be loaded.'
+    : null;
+  const slotsError = slotsQuery.isError
+    ? errorText(slotsQuery.error) ?? 'The availability could not be loaded.'
+    : null;
+  const shift = (direction: number) =>
+    setAnchorDate((current) => addDays(current, view === 'week' ? 7 * direction : direction));
+
+  return (
+    <div style={PAGE_STYLE}>
+      <LiveRegion message={announcement} />
+      <header>
+        <h1>Doctor availability</h1>
+        <p>
+          Generate, block and remove appointment slots. Everything here is shown in {timeZone}; the server keeps slots as
+          UTC instants, so a generated window means your wall clock, not the browser&rsquo;s.
+        </p>
+      </header>
+
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <div style={ROW_STYLE}>
+          <div style={GROUP_STYLE}>
+            <Button variant="secondary" onClick={() => shift(-1)} aria-label={view === 'week' ? 'Previous week' : 'Previous day'}>
+              Previous
+            </Button>
+            <Button variant="secondary" onClick={() => setAnchorDate(todayInZone(new Date(), timeZone))}>
+              Today
+            </Button>
+            <Button variant="secondary" onClick={() => shift(1)} aria-label={view === 'week' ? 'Next week' : 'Next day'}>
+              Next
+            </Button>
+          </div>
+          <div role="group" aria-label="Calendar view" style={GROUP_STYLE}>
+            <Button variant={view === 'week' ? 'primary' : 'secondary'} aria-pressed={view === 'week'} onClick={() => setView('week')}>
+              Week
+            </Button>
+            <Button variant={view === 'day' ? 'primary' : 'secondary'} aria-pressed={view === 'day'} onClick={() => setView('day')}>
+              Day
+            </Button>
+          </div>
+        </div>
+
+        {rollbackNotice && (
+          <p role="alert" style={{ color: 'var(--color-danger)', fontSize: 'var(--text-sm)', margin: 0 }}>
+            {rollbackNotice}
+          </p>
+        )}
+
+        {profileError && (
+          <InlineError
+            title="Your doctor profile couldn't be loaded"
+            message={profileError}
+            onRetry={() => void profileQuery.refetch()}
+          />
+        )}
+
+        {serverConflicts.length > 0 && blockedRange && (
+          <BlockConflictNotice stage="server" entries={serverConflicts.map((entry) => conflictEntry(entry, t))} rangeLabel={rangeLabel(blockedRange)} />
+        )}
+
+        {pendingBlock && (
+          <BlockConflictNotice
+            stage="preview"
+            entries={pendingBlock.entries}
+            rangeLabel={rangeLabel(pendingBlock.range)}
+            confirming={blockRange.isPending}
+            onConfirm={() => commitBlock(pendingBlock.range)}
+            onCancel={() => setPendingBlock(null)}
+          />
+        )}
+
+        {profileQuery.isPending ? (
+          <Skeleton lines={2} label="Loading your doctor profile" />
+        ) : profileError ? null : (
+          <AvailabilityCalendar
+            slots={slots}
+            dates={dates}
+            view={view}
+            timeZone={timeZone}
+            selectedSlotIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            onAction={handleAction}
+            pendingSlotIds={blockRange.isPending || removeSlots.isPending ? selectedIds : []}
+            isLoading={slotsQuery.isLoading}
+            error={slotsError}
+            onRetry={() => void slotsQuery.refetch()}
+          />
+        )}
+      </div>
+
+      <div
+        className="card"
+        id="generate-slots"
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+      >
+        <GenerateSlotsForm doctorProfileId={doctorProfileId} timeZone={timeZone} />
+      </div>
+    </div>
+  );
+}
