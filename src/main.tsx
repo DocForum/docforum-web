@@ -14,6 +14,7 @@ import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
 import { createAppRouter } from './router';
 import { applyStoredTheme } from './utils/theme';
+import { demoModeEnabled } from './demo/enabled';
 import './styles/global.css';
 
 // Apply the saved light/dark/high-contrast choice before the first paint, so a
@@ -51,7 +52,16 @@ function SessionSyncBridge() {
 }
 
 async function boot(): Promise<void> {
-  if (mocksEnabled) {
+  // `?demo=1` is honoured only in a build made with VITE_DEMO_MODE=true;
+  // in every other build `demoModeEnabled` is statically false, so the demo
+  // import below is dropped and no demo or mock code ships (issue #127).
+  const demoRequested =
+    demoModeEnabled &&
+    ['1', 'true'].includes(new URLSearchParams(window.location.search).get('demo') ?? '');
+  if (demoRequested) {
+    const { startDemoMode } = await import('./demo/bootstrap');
+    await startDemoMode();
+  } else if (mocksEnabled) {
     const { startMockApi } = await import('./mocks/setup');
     await startMockApi();
   }
@@ -82,7 +92,7 @@ async function boot(): Promise<void> {
   // Wake the cold-started backend early on boot (non-blocking) before the user
   // submits login or hits scattered per-section errors. Mock and preview builds
   // must not ping the real host.
-  if (!mocksEnabled) {
+  if (!mocksEnabled && !demoRequested) {
     void pingHealthLive();
   }
 

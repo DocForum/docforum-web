@@ -4,6 +4,7 @@ import { accountHandlers } from './handlers/account';
 import { adminOverviewHandlers } from './handlers/admin-overview';
 import { adminUserHandlers } from './handlers/admin-users';
 import { adminVerificationHandlers } from './handlers/admin-verification';
+import { adminHandlers } from './handlers/admin';
 import { adminMetricsHandlers } from './handlers/admin-metrics';
 import { appointmentHandlers } from './handlers/appointments';
 import { authHandlers } from './handlers/auth';
@@ -67,4 +68,5 @@ export const handlers = [
   ...adminClosuresHandlers,
   ...disputesHandlers,
   ...verificationHandlers,
+  ...adminHandlers,
 ];

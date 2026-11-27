@@ -47,6 +47,22 @@ fixtures in `src/mocks/` in the same PR, and cover it in
 `src/mocks/handlers.test.ts` — that's what keeps `dev:mock` honest as the
 API grows.
 
+### Public demo mode
+
+A build made with `VITE_DEMO_MODE=true` also offers a demo anyone can open
+without an account: “Try the demo” on the landing page (or append `?demo=1`). It runs the same
+mock API in the browser, starts with a patient/doctor/facility/admin role
+picker, refuses to talk to the real backend at all, and keeps a “Demo — no
+real data” banner on screen with a role switcher and an exit link.
+
+The demo lives in `src/demo/` and is compiled in only when the build sets
+`VITE_DEMO_MODE=true`; production builds leave the flag unset, so they
+contain no demo or mock code at all (`npm run check:dist` enforces that).
+Try it locally with `VITE_DEMO_MODE=true npm run dev` and open `/?demo=1`. Because it shares `src/mocks/` with `dev:mock`, a new endpoint
+handler automatically makes the new screen explorable in the demo too.
+See `ARCHITECTURE_ESSENTIALS.md` “Known assumptions” and
+`docs.d/127-demo-mode.md` for how the blocking and role storage work.
+
 When you add or change a shared component in `src/components/`, add or
 update a Storybook story alongside it so its loading, error, disabled and
 interactive states can be reviewed in isolation. Run `npm run storybook`

@@ -387,3 +387,15 @@ code,
     display: none !important;
   }
 }
+
+/* Demo mode (#127): reserve room for the fixed banner so it cannot cover
+   the footer or page actions. The banner wraps to two lines on small screens. */
+html[data-demo-mode] body {
+  padding-bottom: 3.75rem;
+}
+
+@media (max-width: 640px) {
+  html[data-demo-mode] body {
+    padding-bottom: 5.25rem;
+  }
+}
