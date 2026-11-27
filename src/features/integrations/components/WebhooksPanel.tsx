@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { Dialog } from '../../../components/Dialog';
 import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
@@ -45,6 +46,10 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<WebhookEndpoint | null>(null);
+  // Blocks a second mutate from a double-click before React re-renders the
+  // confirm button into its pending state (issue #241).
+  const deleteInFlightRef = useRef(false);
   const { data: endpointsData, isLoading, isError, error, refetch } = useWebhookEndpoints(facilityId);
   const deleteMutation = useDeleteWebhookEndpoint(facilityId);
   const testMutation = useSendTestDelivery(facilityId);
@@ -63,29 +68,29 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
     { containerRef: listRef, fallbackRef: headingRef },
   );
 
-  // Deleting an endpoint removes the card that held the focused Delete button:
-  // move focus to the neighbouring endpoint (or the heading) and announce the
-  // deletion (issue #245).
-  const handleDelete = (endpointId: string, url: string) => {
-    if (
-      !window.confirm(
-        t('integrations.webhooks.deleteConfirm', 'Delete webhook endpoint {url}? Pending deliveries will be dropped. This cannot be undone.', {
-          url,
-        }),
-      )
-    ) {
-      return;
-    }
+  // Deleting is confirmed in the shared Dialog (issue #241), which returns
+  // focus to the Delete button when it closes. Once the endpoint's card is
+  // gone, focus moves to the neighbouring endpoint (or the heading) and the
+  // deletion is announced (issue #245).
+  const confirmDelete = () => {
+    if (!pendingDelete || deleteInFlightRef.current) return;
+    deleteInFlightRef.current = true;
+    const { id: endpointId, url } = pendingDelete;
     rememberRemovedRow(endpointId);
     if (expandedEndpointId === endpointId) {
       setExpandedEndpointId(null);
     }
     deleteMutation.mutate(endpointId, {
-      onSuccess: () =>
+      onSuccess: () => {
+        setPendingDelete(null);
         announce(
           t('integrations.webhooks.deletedAnnounce', 'Webhook endpoint {url} was deleted.', { url }),
-        ),
+        );
+      },
       onError: () => forgetRemovedRow(),
+      onSettled: () => {
+        deleteInFlightRef.current = false;
+      },
     });
   };
 
@@ -190,7 +195,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                   </Button>
                   <Button
                     variant="danger"
-                    onClick={() => handleDelete(endpoint.id, endpoint.url)}
+                    onClick={() => setPendingDelete(endpoint)}
                     loading={deleteMutation.isPending && deleteMutation.variables === endpoint.id}
                   >
                     {t('integrations.webhooks.delete', 'Delete')}
@@ -218,6 +223,36 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
       {createDialogOpen && (
         <CreateWebhookDialog facilityId={facilityId} onClose={() => setCreateDialogOpen(false)} />
       )}
+
+      <Dialog
+        open={Boolean(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
+        labelledBy="delete-webhook-title"
+        describedBy="delete-webhook-description"
+        overlayClassName={styles.modalOverlay}
+        panelClassName={styles.modalContent}
+      >
+        <h3 id="delete-webhook-title">{t('integrations.deleteWebhook.title', 'Delete webhook endpoint?')}</h3>
+        <p id="delete-webhook-description" className={styles.modalDescription}>
+          {t(
+            'integrations.deleteWebhook.description',
+            'Deleting {url} stops new deliveries and drops any pending ones. This cannot be undone.',
+            { url: pendingDelete?.url ?? '' },
+          )}
+        </p>
+        <div className={styles.modalActions}>
+          <Button
+            variant="secondary"
+            onClick={() => setPendingDelete(null)}
+            disabled={deleteMutation.isPending}
+          >
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button variant="danger" onClick={confirmDelete} loading={deleteMutation.isPending}>
+            {t('integrations.deleteWebhook.confirm', 'Delete endpoint')}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

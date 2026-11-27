@@ -31,7 +31,7 @@ export function AdminPaymentsConsolePage() {
         <h1>{t('admin.paymentsConsole', 'Payments console')}</h1>
         <p>{t('admin.welcome', 'Welcome, {email}', { email: user?.email ?? '' })}</p>
         <p>
-          {t('admin.consoleIntro', 'Payments console (Phase W5) — creates and drives real')}{' '}
+          {t('admin.consoleIntro', 'Payments console — creates and drives real')}{' '}
           <a href="https://github.com/DocForum/docforum-core/blob/main/docs/adr/0004-custodial-payments-v1.md">
             {t('admin.custodialEscrow', 'custodial escrow payments')}
           </a>{' '}

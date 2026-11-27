@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/auth-store';
 import { useKeyboardShortcuts, DEFAULT_SHORTCUTS } from '../hooks/useKeyboardShortcuts';
 import { Button } from '../components/Button';
 import { CommandPalette, CommandPaletteAction } from '../components/CommandPalette';
@@ -9,7 +8,6 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { QueuePanel } from '../features/queue/components/QueuePanel';
 import { TodayAppointments } from '../features/doctor-today/components/TodayAppointments';
 import { DoctorInbox } from '../features/messaging/components/DoctorInbox';
-import { UnreadBadge } from '../features/messaging/components/UnreadBadge';
 import { useT } from '../i18n/useT';
 import { AbnormalResultsInbox } from '../features/results/components/AbnormalResultsInbox';
 import { DoctorOnboarding } from '../features/onboarding/components/DoctorOnboarding';
@@ -17,7 +15,6 @@ import styles from './DoctorDashboardPage.module.css';
 import { paths } from '../routes/paths';
 
 export function DoctorDashboardPage() {
-  const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -118,7 +115,6 @@ export function DoctorDashboardPage() {
       <header className={styles.dashboardHeader}>
         <h1>{t('doctor.title', 'Doctor dashboard')}</h1>
         <div className={styles.dashboardHeaderRight}>
-          <UnreadBadge />
           <Button variant="secondary" onClick={() => navigate(paths.doctor.insights)}>
             {t('doctor.insightsButton', 'Practice insights')}
           </Button>
@@ -163,17 +159,6 @@ export function DoctorDashboardPage() {
         onClose={() => setPaletteOpen(false)}
       />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} bindings={bindings} />
-
-      <div className={styles.consultationPlaceholder}>
-        <p>
-          {user
-            ? t('doctor.signedInAs', 'Signed in as {email} ({role})', {
-                email: user.email,
-                role: user.role,
-              })
-            : ''}
-        </p>
-      </div>
     </div>
   );
 }

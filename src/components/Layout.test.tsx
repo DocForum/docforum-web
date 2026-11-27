@@ -1,9 +1,29 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '../test/render';
+import { render, screen, fireEvent, within, waitFor } from '../test/render';
 import { Layout } from './Layout';
 import { useAuthStore } from '../store/auth-store';
 import { PUBLIC_CONTENT_ROUTES } from '../pages/public-page-map';
+import * as messagingService from '../services/messaging-service';
+import type { DoctorMessageThread } from '../types/models';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+
+vi.mock('../services/messaging-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/messaging-service')>();
+  return { ...actual, listThreads: vi.fn() };
+});
+
+function thread(id: string, unreadCount: number): DoctorMessageThread {
+  return {
+    id,
+    patientProfileId: `pat-${id}`,
+    patientName: 'Ada Patient',
+    lastMessageAt: '2026-01-01T09:00:00Z',
+    unreadCount,
+    lastPreview: 'Hello',
+    waitingMinutes: 0,
+    closingSoon: false,
+  };
+}
 
 function signIn(role: 'patient' | 'doctor' | 'facility' | 'admin') {
   useAuthStore.setState({
@@ -29,6 +49,11 @@ function renderLayout(role?: 'patient' | 'doctor' | 'facility' | 'admin') {
 describe('Layout — role-aware navigation', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(messagingService.listThreads).mockClear();
+    vi.mocked(messagingService.listThreads).mockResolvedValue({
+      threads: [],
+      nextCursor: null,
+    });
   });
 
   it('shows log in / sign up when unauthenticated', () => {
@@ -148,6 +173,52 @@ describe('Layout — role-aware navigation', () => {
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Queue' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Verifications' })).not.toBeInTheDocument();
+  });
+
+  it('shows the unread count on the Messages nav item', async () => {
+    vi.mocked(messagingService.listThreads).mockResolvedValue({
+      threads: [thread('t1', 2), thread('t2', 1)],
+      nextCursor: null,
+    });
+
+    renderLayout('doctor');
+
+    // The visible label stays the accessible name's prefix (WCAG 2.5.3) and the
+    // count is exposed as visually hidden "3 new" text.
+    expect(await screen.findByRole('link', { name: 'Messages 3 new' })).toBeInTheDocument();
+  });
+
+  it('renders no badge on the Messages nav item when nothing is unread', async () => {
+    vi.mocked(messagingService.listThreads).mockResolvedValue({
+      threads: [thread('t1', 0)],
+      nextCursor: null,
+    });
+
+    renderLayout('doctor');
+
+    const messages = await screen.findByRole('link', { name: 'Messages' });
+    expect(messages).toBeInTheDocument();
+    expect(messages).not.toHaveTextContent(/\d/);
+    await waitFor(() => expect(messagingService.listThreads).toHaveBeenCalled());
+  });
+
+  it('caps the unread badge at 99+', async () => {
+    vi.mocked(messagingService.listThreads).mockResolvedValue({
+      threads: [thread('t1', 120)],
+      nextCursor: null,
+    });
+
+    renderLayout('doctor');
+
+    const messages = await screen.findByRole('link', { name: 'Messages 120 new' });
+    expect(messages).toHaveTextContent('99+');
+  });
+
+  it('does not query messages for non-doctor roles', async () => {
+    renderLayout('patient');
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(messagingService.listThreads).not.toHaveBeenCalled();
   });
 
   it('shows user email and role badge when signed in', () => {
