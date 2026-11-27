@@ -155,3 +155,34 @@ Use `src/hooks/useAnnouncer.ts` + `src/components/LiveRegion.tsx`.
   because they encode coordinates, not reading order.
 - Verify with the footer locale switch (`ar-EG`) and check tables, dialogs,
   timeline connectors and form controls.
+
+## Error summary for long forms (issue #242)
+
+Long forms (facility location and contact, slot generation, the consultation
+outcome panel) render `ErrorSummary` from `src/components/ErrorSummary.tsx`
+at the top of the form. Short forms such as login and signup keep moving focus
+to the first invalid field instead.
+
+- Pass `items` (`{ fieldId, message }[]`) and a `submitCount` that increments
+  on every submit attempt. Focus moves to the summary only when `submitCount`
+  changes and there are errors; fixing a field just shrinks the list.
+- `errorSummaryItems(errors, fieldIds)` builds the items from a
+  `{ field: message }` map, in the order of `fieldIds`. Server field errors from
+  `mapServerErrors` have the same shape, so merge them into the map before
+  calling it.
+- Each `fieldId` must be the DOM id of the control (`TextField`, `DatePicker`
+  and `TimePicker` all take an `id`). Clicking a link moves focus to that
+  control. Messages are user-facing copy; never show internal field names.
+
+## Password fields (issue #243)
+
+Every password input uses `PasswordField` (react-hook-form, via
+`useController` like `FormField`) or `PasswordInput` (controlled) from
+`src/components/PasswordField.tsx`.
+
+- The "Show password" toggle is a `type="button"` with `aria-pressed` and a
+  constant label, at least `--target-size` square.
+- While the field has focus and Caps Lock is on, a polite "Caps Lock is on."
+  hint is shown and added to the input's `aria-describedby`.
+- Submitting the form masks the field again. `autoComplete` is passed through
+  unchanged so password managers keep working.
