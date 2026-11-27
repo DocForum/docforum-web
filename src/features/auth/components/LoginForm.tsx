@@ -16,6 +16,8 @@ import { RecoveryCodeActions } from './RecoveryCodeActions';
 import { enableTwoFactor, isAuthSession, setupTwoFactor, verifyTwoFactor } from '../../../services/auth-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { z } from 'zod';
+import { Link } from 'react-router-dom';
+import { paths } from '../../../routes/paths';
 import { ApiError, RateLimitError } from '../../../services/api-client';
 import { DEFAULT_RETRY_AFTER_SECONDS } from '../../../services/api-client';
 import { useRetryAfterCountdown } from '../../../hooks/useRetryAfterCountdown';
@@ -163,6 +165,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
         />
+        <p>
+          <Link to={paths.forgotPassword}>{t('auth.forgotPassword', 'Forgot password?')}</Link>
+        </p>
         <Button type="submit" loading={loginMutation.isPending} disabled={lockout.isLockedOut}>
           {loginMutation.isPending ? t('auth.loggingIn', 'Logging in…') : t('auth.logIn', 'Log in')}
         </Button>

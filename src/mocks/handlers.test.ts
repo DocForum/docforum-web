@@ -254,6 +254,30 @@ describe('auth', () => {
   });
 });
 
+describe('password reset', () => {
+  it('uses the same password-reset request confirmation for any email', async () => {
+    await expect(authService.requestPasswordReset('known@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+    await expect(authService.requestPasswordReset('unknown@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+  });
+
+  it('surfaces password-reset throttling and confirms valid reset tokens', async () => {
+    await expect(authService.requestPasswordReset('rate-limited@docforum.org')).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 60,
+    });
+    await expect(authService.confirmPasswordReset('valid-token', 'password123')).resolves.toEqual({
+      message: 'Password updated',
+    });
+    await expect(authService.confirmPasswordReset('invalid-token', 'password123')).rejects.toMatchObject({
+      status: 400,
+    });
+  });
+});
+
 describe('dependents', () => {
   it('lists seeded dependents and adds a new one', async () => {
     const seeded = await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
