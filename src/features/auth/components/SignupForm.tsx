@@ -5,6 +5,7 @@ import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
 import { RoleSelect } from './RoleSelect';
 import { FormField } from '../../../components/form/FormField';
+import { PasswordField } from '../../../components/PasswordField';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { mapServerErrors } from '../../../utils/form';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
@@ -93,10 +94,9 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         <RoleSelect value={role} onChange={setRole} />
         <FormField name="fullName" label={t('auth.fullName', 'Full name')} autoComplete="name" />
         <FormField name="email" label={t('auth.email', 'Email')} type="email" autoComplete="email" />
-        <FormField
+        <PasswordField
           name="password"
           label={t('auth.password', 'Password')}
-          type="password"
           autoComplete="new-password"
           hint={t('auth.passwordHint', 'At least 8 characters.')}
         />

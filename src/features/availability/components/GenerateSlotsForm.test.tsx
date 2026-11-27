@@ -112,7 +112,7 @@ describe('GenerateSlotsForm', () => {
     await user.selectOptions(screen.getByLabelText('Daily window ends'), '9');
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/must be later than its start/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /must be later than its start/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -123,7 +123,7 @@ describe('GenerateSlotsForm', () => {
     await user.selectOptions(screen.getByLabelText('Slot length'), '45');
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/does not divide evenly into a 4-hour window/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /does not divide evenly into a 4-hour window/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -134,7 +134,7 @@ describe('GenerateSlotsForm', () => {
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-12-30' } });
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/keep the range to 60 days or fewer/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /keep the range to 60 days or fewer/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -145,7 +145,7 @@ describe('GenerateSlotsForm', () => {
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-01' } });
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/cannot be before the first date/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /cannot be before the first date/i })).toBeInTheDocument();
   });
 
   it('announces validation errors for assistive technology', async () => {

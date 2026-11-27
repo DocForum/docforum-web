@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
+import { ErrorSummary, type ErrorSummaryItem } from '../../../components/ErrorSummary';
 import { ApiError } from '../../../services/api-client';
 import { useAppointment } from '../../appointment/hooks/useAppointment';
 import type {
@@ -360,24 +361,41 @@ export function ConsultationOutcomePanel({ appointmentId }: ConsultationOutcomeP
   const [validation, setValidation] = useState<ReferralValidation | null>(null);
   const [referralError, setReferralError] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<ConsultationReferral[]>([]);
+  const [submitCount, setSubmitCount] = useState(0);
 
   const patientProfileId = appointment.data?.patientProfileId;
   const currentDoctorId = doctorProfile.data?.id;
   const verificationStatus = doctorProfile.data?.verificationStatus;
   const isUnverified = verificationStatus != null && verificationStatus !== 'verified';
 
-  const focusValidation = (next: ReferralValidation) => {
-    if (next.targetKey === undefined || !next.field) return;
-    const id = `referral-${next.targetKey}-${next.field}`;
-    requestAnimationFrame(() => document.getElementById(id)?.focus());
-  };
-
   const checkReferralTargets = () => {
     const next = validateReferralTargets(targets);
     setValidation(next);
-    if (next) focusValidation(next);
     return next === null;
   };
+
+  // Once a close attempt has failed, re-check on every edit so the summary
+  // and inline message clear as the problem is fixed.
+  const updateTargets = (next: ReferralTargetDraft[]) => {
+    setTargets(next);
+    if (validation) setValidation(validateReferralTargets(next));
+  };
+
+  // Error summary (#242): a failed close moves focus to the summary, whose
+  // link points at the offending control (or the first target when the
+  // problem spans the whole batch, e.g. duplicates).
+  const summaryItems: ErrorSummaryItem[] =
+    validation && outcome === 'referred' && targets.length > 0
+      ? [
+          {
+            fieldId:
+              validation.targetKey !== undefined && validation.field
+                ? `referral-${validation.targetKey}-${validation.field}`
+                : `referral-${targets[0].key}-specialty`,
+            message: validation.message,
+          },
+        ]
+      : [];
 
   const submitReferrals = async (consultationId: string) => {
     if (!checkReferralTargets()) return;
@@ -405,7 +423,10 @@ export function ConsultationOutcomePanel({ appointmentId }: ConsultationOutcomeP
 
     // Validate before closing: referrals are part of the same submission, and
     // a consultation can only be closed once (#266/#267).
-    if (outcome === 'referred' && !checkReferralTargets()) return;
+    if (outcome === 'referred' && !checkReferralTargets()) {
+      setSubmitCount((count) => count + 1);
+      return;
+    }
 
     try {
       const created = await createConsultation.mutateAsync({
@@ -454,6 +475,7 @@ export function ConsultationOutcomePanel({ appointmentId }: ConsultationOutcomeP
 
       {!consultation ? (
         <form className={styles.form} onSubmit={handleCloseVisit} noValidate>
+          <ErrorSummary items={summaryItems} submitCount={submitCount} />
           <div className={styles.field}>
             <label htmlFor="consultation-outcome" className={styles.label}>
               Consultation outcome
@@ -506,14 +528,14 @@ export function ConsultationOutcomePanel({ appointmentId }: ConsultationOutcomeP
                   canRemove={targets.length > 1}
                   validation={validation}
                   onChange={(patch) =>
-                    setTargets((current) =>
-                      current.map((row) =>
+                    updateTargets(
+                      targets.map((row) =>
                         row.key === target.key ? { ...row, ...patch } : row,
                       ),
                     )
                   }
                   onRemove={() =>
-                    setTargets((current) => current.filter((row) => row.key !== target.key))
+                    updateTargets(targets.filter((row) => row.key !== target.key))
                   }
                 />
               ))}

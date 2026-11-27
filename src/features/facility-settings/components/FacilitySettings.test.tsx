@@ -135,14 +135,16 @@ describe('Facility location & contact editor (#56)', () => {
 
     await user.clear(screen.getByLabelText(/contact phone/i));
     await user.click(screen.getByRole('button', { name: /save location & contact/i }));
-    expect(await screen.findByText(/contact phone is required/i)).toBeVisible();
+    // Inline message plus the error summary link (#242).
+    expect(await screen.findByRole('link', { name: /contact phone is required/i })).toBeVisible();
+    expect(screen.getByLabelText(/contact phone/i)).toHaveAttribute('aria-invalid', 'true');
     expect(settingsService.updateFacilitySettings).not.toHaveBeenCalled();
 
     await user.type(screen.getByLabelText(/contact phone/i), '+000 000 0099');
     await user.clear(screen.getByLabelText(/^latitude$/i));
     await user.type(screen.getByLabelText(/^latitude$/i), '200');
     await user.click(screen.getByRole('button', { name: /save location & contact/i }));
-    expect(await screen.findByText(/latitude between -90 and 90/i)).toBeVisible();
+    expect(await screen.findByRole('link', { name: /latitude between -90 and 90/i })).toBeVisible();
     expect(settingsService.updateFacilitySettings).not.toHaveBeenCalled();
 
     await user.clear(screen.getByLabelText(/^latitude$/i));

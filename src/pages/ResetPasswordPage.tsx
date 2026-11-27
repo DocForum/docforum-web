@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { paths } from '../routes/paths';
 import { Button } from '../components/Button';
 import { FormError } from '../components/FormError';
-import { FormField } from '../components/form/FormField';
+import { PasswordField } from '../components/PasswordField';
 import { useZodForm } from '../hooks/useZodForm';
 import { ApiError } from '../services/api-client';
 import { confirmPasswordReset } from '../services/auth-service';
@@ -77,7 +77,7 @@ export function ResetPasswordPage() {
               <p>Choose a new password with at least 8 characters.</p>
               <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
                 <FormError message={error} />
-                <FormField name="newPassword" label="New password" type="password" autoComplete="new-password" />
+                <PasswordField name="newPassword" label="New password" autoComplete="new-password" />
                 <Button type="submit" loading={pending}>Update password</Button>
               </form>
             </>

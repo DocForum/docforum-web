@@ -337,7 +337,7 @@ describe('ConsultationOutcomePanel', () => {
     await fillReferralTarget(user, 1, 'spc-cardio', 'Duplicate target (fake).');
     await user.click(screen.getByRole('button', { name: /close consultation/i }));
 
-    expect(await screen.findByText(/remove duplicate referral targets/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /remove duplicate referral targets/i })).toBeInTheDocument();
     expect(consultationService.createConsultation).not.toHaveBeenCalled();
     expect(consultationService.createConsultationReferral).not.toHaveBeenCalled();
   });
@@ -350,9 +350,13 @@ describe('ConsultationOutcomePanel', () => {
     await user.selectOptions(screen.getByLabelText(/target specialty/i), 'spc-cardio');
     await user.click(screen.getByRole('button', { name: /close consultation/i }));
 
-    expect(
-      await screen.findByText(/snapshot notes are required for every referral target/i),
-    ).toBeInTheDocument();
+    const summaryLink = await screen.findByRole('link', {
+      name: /snapshot notes are required for every referral target/i,
+    });
+    // The error summary takes focus and links to the offending field (#242).
+    expect(summaryLink.closest('[tabindex="-1"]')).toHaveFocus();
+    await user.click(summaryLink);
+    expect(screen.getByLabelText(/snapshot notes/i)).toHaveFocus();
     expect(consultationService.createConsultation).not.toHaveBeenCalled();
   });
 
