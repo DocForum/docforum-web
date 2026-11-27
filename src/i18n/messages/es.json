@@ -417,6 +417,7 @@
   "auth.fullName": "Full name",
   "auth.haveAccount": "Already have an account?",
   "auth.logIn": "Log in",
+  "auth.forgotPassword": "¿Olvidaste tu contraseña?",
   "auth.loggingIn": "Logging in…",
   "auth.login.subtitle": "Log in to pick up your care thread — bookings, referrals, orders, all in one place.",
   "auth.login.title": "Welcome back",

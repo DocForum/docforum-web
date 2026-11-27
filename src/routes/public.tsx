@@ -23,6 +23,8 @@ export function publicRoutes({ queryClient }: RouteContext): RouteObject[] {
       lazy: async () => ({ Component: await load() }),
     })),
     { path: 'login', lazy: lazyPage(() => import('../pages/LoginPage'), 'LoginPage') },
+    { path: 'forgot-password', lazy: lazyPage(() => import('../pages/ForgotPasswordPage'), 'ForgotPasswordPage') },
+    { path: 'reset-password', lazy: lazyPage(() => import('../pages/ResetPasswordPage'), 'ResetPasswordPage') },
     { path: 'signup', lazy: lazyPage(() => import('../pages/SignupPage'), 'SignupPage') },
     { path: 'claim-account', lazy: lazyPage(() => import('../pages/ClaimAccountPage'), 'ClaimAccountPage') },
     { path: 'invite', lazy: lazyPage(() => import('../pages/InvitePage'), 'InvitePage') },

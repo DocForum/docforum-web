@@ -76,3 +76,8 @@ export type * from './models/system-health';
 export type * from './models/two-factor';
 export type * from './models/typed-client-aliases';
 export type * from './models/waitlist';
+
+/** Response body of the password-reset endpoints (issue #387). */
+export interface PasswordResetMessage {
+  message: string;
+}
