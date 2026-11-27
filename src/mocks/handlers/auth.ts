@@ -222,6 +222,31 @@ export const authHandlers = [
     }),
   ),
 
+  http.post(
+    '*/auth/password-reset/request',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { email?: string };
+      if (body.email === 'rate-limited@docforum.org') {
+        return HttpResponse.json(
+          { message: 'Too many requests' },
+          { status: 429, headers: { 'Retry-After': '60' } },
+        );
+      }
+      return HttpResponse.json({ message: 'If that account exists, an email was sent.' }, { status: 202 });
+    }),
+  ),
+
+  http.post(
+    '*/auth/password-reset/confirm',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { token?: string; newPassword?: string };
+      if (!body.token || body.token === 'invalid-token') {
+        return HttpResponse.json({ message: 'Invalid or expired link' }, { status: 400 });
+      }
+      return { message: 'Password updated' };
+    }),
+  ),
+
   http.post('*/auth/logout', respond('void', () => null)),
 
   // Email verification (issue #388). Tokens are single-use; `invalid*` and

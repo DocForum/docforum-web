@@ -10,6 +10,7 @@ import type {
   EmailVerificationResult,
   EnrollmentRequiredResponse,
   MfaRequiredResponse,
+  PasswordResetMessage,
   RevokeOtherSessionsResult,
   TwoFactorEnableResult,
   TwoFactorSetup,
@@ -182,6 +183,22 @@ export function revokeSession(sessionId: string, accessToken: string): Promise<v
 export async function revokeOtherSessions(accessToken: string): Promise<RevokeOtherSessionsResult> {
   const result = await apiFetch<{ revoked: number }>('/auth/sessions', { method: 'DELETE', accessToken });
   return { revokedCount: result.revoked };
+}
+
+// Password reset (issue #387), implemented in docforum-core's auth module
+// (routes/index.ts, controllers/index.ts, services/password-reset.ts).
+export function requestPasswordReset(email: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/request', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export function confirmPasswordReset(token: string, newPassword: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: { token, newPassword },
+  });
 }
 
 // Email verification (issue #388). Contract source: docforum-core
