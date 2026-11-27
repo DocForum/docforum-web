@@ -57,7 +57,7 @@ import type {
   PatientOrder,
   PaymentIntent,
   PatientOnboardingStatus,
-  OutboxSummary,
+  OutboxDeadLetters,
   QualifiedOrderFacility,
   Role,
   RunningDelay,
@@ -229,7 +229,7 @@ export interface MockDb {
   doctorAvailability: DoctorAvailability[];
   readiness: ReadinessReport;
   backgroundJobs: BackgroundJob[];
-  outbox: OutboxSummary;
+  outbox: OutboxDeadLetters;
   featureFlags: FeatureFlag[];
   verifyOrders: Record<string, VerifyOrderResponse>;
   closures: Closure[];

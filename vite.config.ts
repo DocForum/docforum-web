@@ -107,28 +107,6 @@ export default defineConfig(({ command }) => {
     // touching the main Pages build. Everything else keeps the GitHub Pages /
     // root behaviour.
     base,
-    build: {
-      modulePreload: false,
-      rollupOptions: {
-        output: {
-          // Keep the demo's dependencies in their own chunks only when they
-          // are genuinely shared with the normal entry. Rollup's default
-          // manual-chunk expansion would otherwise pull React and app code
-          // into `demo`, making the public homepage import the demo chunk.
-          onlyExplicitManualChunks: true,
-          manualChunks(id) {
-            const path = id.replace(/\\/g, '/');
-            if (
-              path.includes('/src/mocks/') ||
-              path.includes('/src/demo/') ||
-              path.includes('/node_modules/msw/') ||
-              path.includes('/node_modules/@mswjs/')
-            ) return 'demo';
-            return undefined;
-          },
-        },
-      },
-    },
     plugins: [
       react(),
       cspPlugin(isProd),

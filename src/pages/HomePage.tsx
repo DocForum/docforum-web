@@ -4,6 +4,7 @@ import { motionDuration, motionEase, useMotion } from '../hooks/useMotion';
 import { homePathForRole } from '../navigation/role-home';
 import { useAuthStore } from '../store/auth-store';
 import { useT } from '../i18n/useT';
+import { demoModeEnabled } from '../demo/enabled';
 import styles from './HomePage.module.css';
 
 // The content genuinely is a sequence — booking leads to referral leads to
@@ -32,7 +33,8 @@ const THREAD = [
   },
 ];
 
-/** Same page, plus `?demo=1`, which main.tsx turns into the mock-API demo. */
+/** Same page, plus `?demo=1`, which main.tsx turns into the mock-API demo
+ * (only in a VITE_DEMO_MODE build; see src/demo/enabled.ts). */
 function demoHref(): string {
   if (typeof window === 'undefined') return `${import.meta.env.BASE_URL}?demo=1`;
   const url = new URL(window.location.href);
@@ -152,15 +154,17 @@ export function HomePage() {
             {t('home.logIn', 'Log in')}
           </Link>
         </div>
-        <p className={styles.demoNote} data-reveal>
-          Just looking?{' '}
-          {/* A full navigation, not a route: the demo runs in its own page
-              load so no cache from a real session can leak into it. */}
-          <a href={demoHref()} className={styles.demoLink}>
-            Try the demo
-          </a>{' '}
-          — every role, sample data, no backend.
-        </p>
+        {demoModeEnabled && (
+          <p className={styles.demoNote} data-reveal>
+            Just looking?{' '}
+            {/* A full navigation, not a route: the demo runs in its own page
+                load so no cache from a real session can leak into it. */}
+            <a href={demoHref()} className={styles.demoLink}>
+              Try the demo
+            </a>{' '}
+            — every role, sample data, no backend.
+          </p>
+        )}
       </section>
 
       <section

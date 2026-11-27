@@ -201,7 +201,7 @@ export const adminHandlers = [
     }),
   ),
 
-  http.get('*/admin/outbox', respond('json', () => db.outbox)),
+  http.get('*/admin/outbox/dead-letters', respond('json', () => db.outbox)),
 
   http.get('*/admin/flags', respond('list', () => db.featureFlags)),
 

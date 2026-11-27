@@ -14,6 +14,7 @@ import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
 import { createAppRouter } from './router';
 import { applyStoredTheme } from './utils/theme';
+import { demoModeEnabled } from './demo/enabled';
 import './styles/global.css';
 
 // Apply the saved light/dark/high-contrast choice before the first paint, so a
@@ -51,9 +52,12 @@ function SessionSyncBridge() {
 }
 
 async function boot(): Promise<void> {
-  const demoRequested = ['1', 'true'].includes(
-    new URLSearchParams(window.location.search).get('demo') ?? '',
-  );
+  // `?demo=1` is honoured only in a build made with VITE_DEMO_MODE=true;
+  // in every other build `demoModeEnabled` is statically false, so the demo
+  // import below is dropped and no demo or mock code ships (issue #127).
+  const demoRequested =
+    demoModeEnabled &&
+    ['1', 'true'].includes(new URLSearchParams(window.location.search).get('demo') ?? '');
   if (demoRequested) {
     const { startDemoMode } = await import('./demo/bootstrap');
     await startDemoMode();

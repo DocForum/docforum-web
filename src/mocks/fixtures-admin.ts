@@ -11,7 +11,7 @@ import type {
   BackgroundJob,
   DoctorAvailability,
   FeatureFlag,
-  OutboxSummary,
+  OutboxDeadLetters,
   ReadinessReport,
   Specialty,
   StuckReferral,
@@ -330,10 +330,17 @@ export function createAdminSeed() {
     },
   ];
 
-  const outbox: OutboxSummary = {
-    pendingCount: 4,
-    deadLetterCount: 1,
-    oldestPendingAt: ago(8 * MINUTE),
+  const outbox: OutboxDeadLetters = {
+    items: [
+      {
+        id: 'obx-demo-1',
+        type: 'notification.email',
+        attempts: 5,
+        lastError: 'SMTP relay timed out (fake)',
+        createdAt: ago(40 * MINUTE),
+        deadLetteredAt: ago(8 * MINUTE),
+      },
+    ],
   };
 
   const featureFlags: FeatureFlag[] = [

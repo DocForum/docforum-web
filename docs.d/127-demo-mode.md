@@ -9,7 +9,12 @@ Assumed behaviour of the in-browser demo; nothing here adds a
 `docforum-core` endpoint, and every request still goes through
 `src/services/` → `apiFetch`.
 
-- **Entry and scope.** `?demo=1` (or `?demo=true`) is read once in
+- **Build-time gate.** The demo exists only in a build made with
+  `VITE_DEMO_MODE=true` (`src/demo/enabled.ts`). Production builds leave it
+  unset, so `demoModeEnabled` is statically false, the `?demo=1` branch and
+  the "Try the demo" link are dead code, and no MSW, fixture or handler code
+  is emitted. `?demo=1` on a production deployment does nothing.
+- **Entry and scope.** In a demo build, `?demo=1` (or `?demo=true`) is read once in
   `src/main.tsx`; matching URLs dynamically import `src/demo/bootstrap.tsx`,
   which starts an MSW browser worker and only then renders the app. Any URL
   without that parameter runs the normal app and never downloads mock code.
@@ -36,18 +41,14 @@ Assumed behaviour of the in-browser demo; nothing here adds a
 - **Exit.** "Exit demo" removes the role key and does a full navigation to
   the same path without `?demo`, discarding the worker, caches and fixtures
   with the document.
-- **Bundling.** `vite.config.ts` keeps demo and mock modules in lazy chunks;
-  `onlyExplicitManualChunks` prevents their dependencies from being pulled
-  into the normal homepage chunk. The first-load budget remains 185 kB gzip.
-  The lazy chunk limit is 70 kB gzip to allow the demo bootstrap and MSW runtime
-  (about 65 kB) while keeping it below first-load. `scripts/check-dist-no-mocks.mjs`
-  skips only `demo-*` files and still fails if mock markers appear in any
-  other built asset.
+- **Bundling.** Bundling and budgets are unchanged for production: there is
+  no demo chunk to exempt, and `scripts/check-dist-no-mocks.mjs` still scans
+  every built file.
 - **Mock coverage added for the demo.** `src/mocks/handlers/admin.ts` and
   `src/mocks/fixtures-admin.ts` cover the W6 admin screens
   (`/admin/audit-events`, `/admin/access-logs`, `/admin/referrals`,
   `/admin/doctors`, `/health/ready`, `/admin/jobs`, `/admin/jobs/:name/run`,
-  `/admin/outbox`, `/admin/flags`, `PATCH /admin/flags/:key`);
+  `/admin/outbox/dead-letters`, `/admin/flags`, `PATCH /admin/flags/:key`);
   `src/mocks/handlers/facility-orders.ts` and `src/mocks/fixtures-facility.ts`
   cover `/payments/facility/ledger` and `/facilities/me/verify-order`.
   Their shapes mirror `src/types/models.ts` exactly, which means the W4/W6

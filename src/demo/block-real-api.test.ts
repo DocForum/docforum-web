@@ -26,7 +26,7 @@ describe('demo mode API blocking', () => {
       email: 'demo.doctor@example.test',
       password: 'anything',
     });
-    expect(session.user.role).toBe('doctor');
+    expect('user' in session && session.user.role).toBe('doctor');
 
     const page = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN);
     expect(page.items.length).toBeGreaterThan(0);

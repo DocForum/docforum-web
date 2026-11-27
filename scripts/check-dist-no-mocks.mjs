@@ -38,14 +38,9 @@ function* walk(dir) {
 let leaked = false;
 let scanned = 0;
 const knownSeen = new Set();
-let demoChunks = 0;
 
 for (const file of walk(DIST)) {
   scanned += 1;
-  if (/(^|[\\/])demo-[^\\/]+\.(js|css)$/.test(file)) {
-    demoChunks += 1;
-    continue;
-  }
   const content = readFileSync(file, 'utf8');
   for (const marker of FORBIDDEN_MARKERS) {
     if (content.includes(marker)) {
@@ -71,7 +66,4 @@ for (const marker of knownSeen) {
   console.warn(`! known fixture still shipped (#299): ${JSON.stringify(marker)}`);
 }
 
-console.log(
-  `✓ no mock code in the production app bundle (${scanned} files scanned; ` +
-    `${demoChunks} lazy demo chunk file${demoChunks === 1 ? '' : 's'} skipped)`,
-);
+console.log(`✓ no new mock code in production bundle (${scanned} files scanned)`);
