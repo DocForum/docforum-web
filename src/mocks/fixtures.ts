@@ -7,10 +7,12 @@
 // shapes are still assumed contracts.
 import { defaultPreferencesForRole } from '../features/notifications/preferences';
 import type {
+  AccessLog,
   AccountInvite,
   AdminInvite,
   AdminUser,
   Appointment,
+  BackgroundJob,
   AuditEvent,
   CatalogItem,
   CareThread,
@@ -24,6 +26,7 @@ import type {
   CredentialDocument,
   DataExport,
   Dependent,
+  DoctorAvailability,
   DoctorOnboardingStatus,
   MyDoctorProfile,
   DoctorPracticeInsights,
@@ -40,6 +43,7 @@ import type {
   FulfillmentDispute,
   FulfillmentQueueItem,
   HealthEntry,
+  FeatureFlag,
   IssuedLabOrder,
   IssuedPrescription,
   IntakeForm,
@@ -53,18 +57,24 @@ import type {
   PatientOrder,
   PaymentIntent,
   PatientOnboardingStatus,
+  OutboxDeadLetters,
   QualifiedOrderFacility,
   Role,
   RunningDelay,
+  ReadinessReport,
   SentReferral,
   Specialty,
   SpecialtyClaim,
+  StuckReferral,
   User,
   VerificationStatus,
+  VerifyOrderResponse,
   WalletLink,
   WebhookDelivery,
   WebhookEndpoint,
 } from '../types/models';
+import { createAdminSeed } from './fixtures-admin';
+import { createFacilityExtras } from './fixtures-facility';
 
 // --- Personas (one per role the dev panel can switch to) --------------------
 
@@ -221,6 +231,14 @@ export interface MockDb {
   verifications: MockVerification[];
   specialtyClaims: SpecialtyClaim[];
   auditEvents: AuditEvent[];
+  accessLogs: AccessLog[];
+  stuckReferrals: StuckReferral[];
+  doctorAvailability: DoctorAvailability[];
+  readiness: ReadinessReport;
+  backgroundJobs: BackgroundJob[];
+  outbox: OutboxDeadLetters;
+  featureFlags: FeatureFlag[];
+  verifyOrders: Record<string, VerifyOrderResponse>;
   closures: Closure[];
   notificationPreferences: Record<Role, NotificationPreferences>;
 }
@@ -2685,6 +2703,7 @@ export function createSeedDb(): MockDb {
     updatedAt: '2026-01-06T09:00:00.000Z',
   };
 
+  const adminSeed = createAdminSeed();
   return {
     dependents,
     healthEntries,
@@ -2751,9 +2770,11 @@ export function createSeedDb(): MockDb {
     symptoms: SYMPTOM_VOCABULARY.map((symptom) => ({ ...symptom })),
     verifications,
     specialtyClaims,
-    auditEvents,
     closures,
     notificationPreferences,
+    ...adminSeed,
+    ...createFacilityExtras(),
+    auditEvents: [...adminSeed.auditEvents, ...auditEvents],
   };
 }
 
