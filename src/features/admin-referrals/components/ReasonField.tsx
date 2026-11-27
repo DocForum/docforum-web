@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { REASON_MAX_LENGTH, normaliseReason } from '../reason';
 import styles from './StuckReferrals.module.css';
 
@@ -11,6 +12,7 @@ interface ReasonFieldProps {
 }
 
 export function ReasonField({ label, value, onChange, error, disabled }: ReasonFieldProps) {
+  const t = useOptionalT().t;
   const id = useId();
   const length = normaliseReason(value).length;
 
@@ -20,7 +22,10 @@ export function ReasonField({ label, value, onChange, error, disabled }: ReasonF
         {label}
       </label>
       <p id={`${id}-hint`} className={styles.fieldHint}>
-        Saved to the audit trail with your admin account. Keep clinical details out of it.
+        {t(
+          'adminReferrals.reasonField.hint',
+          'Saved to the audit trail with your admin account. Keep clinical details out of it.',
+        )}
       </p>
       <textarea
         id={id}

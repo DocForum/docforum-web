@@ -120,7 +120,7 @@ test('admin creates, funds and releases exactly one payment intent', async ({ pa
     };
     (window as Window & { __paymentCalls?: string[] }).__paymentCalls = [];
   });
-  await visit('/admin', 'admin');
+  await visit('/admin/payments/console', 'admin');
   await page.getByRole('textbox', { name: 'Order id' }).fill('ord-example-1');
   await page.getByRole('textbox', { name: 'Patient profile id' }).fill('prf-patient-demo');
   await page.getByRole('textbox', { name: 'Facility id' }).fill('fac-demo-pharmacy');
@@ -457,7 +457,7 @@ test('guardian acts for a dependent and the switch scopes every screen', async (
   // Orders for the dependent are theirs alone.
   await page.goBack();
   await recordNav.getByRole('link', { name: 'My prescriptions & lab orders' }).click();
-  await expect(page.getByRole('heading', { name: 'My orders' }).last()).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Your orders' })).toBeVisible();
   await expect(page.getByText('Demo Child Paracetamol 120mg (fake)')).toBeVisible();
   await expect(page.locator('a[href*="ord-demo-rx-102"]')).toHaveCount(0);
   const orderCalls = (await calls(page)).filter((call) => call.url.includes('/orders/mine'));
@@ -488,7 +488,7 @@ test('guardian acts for a dependent and the switch scopes every screen', async (
   await page.locator('#profile-switcher').selectOption({ label: 'Pat Placeholder (fake) (you)' });
   await expect(page.getByText(/Acting for:/)).toHaveCount(0);
   await recordNav.getByRole('link', { name: 'My prescriptions & lab orders' }).click();
-  await expect(page.getByRole('heading', { name: 'My orders' }).last()).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Your orders' })).toBeVisible();
   await expect(page.locator('a[href*="ord-demo-rx-102"]')).toBeVisible();
   await expect(page.getByText('Demo Child Paracetamol 120mg (fake)')).toHaveCount(0);
 });

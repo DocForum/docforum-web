@@ -13,6 +13,17 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
   /** Heading level override (default h1). */
   as?: 'h1' | 'h2';
+  /**
+   * id for the heading, e.g. for `aria-labelledby`. Must be a valid id token
+   * (no whitespace). Defaults to `page-title`; a page renders one PageHeader.
+   */
+  titleId?: string;
+  /**
+   * Render the heading (default). The app shell passes `false` to show only
+   * the breadcrumb trail, because each page owns its single <h1> (#238);
+   * `title` still labels the current crumb.
+   */
+  showTitle?: boolean;
 }
 
 /**
@@ -22,7 +33,14 @@ interface PageHeaderProps {
  * can simply pass a title. Landmark / heading structure is kept consistent so
  * screen-reader users can jump past chrome to the page content.
  */
-export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As = 'h1' }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  breadcrumbs: explicitCrumbs,
+  actions,
+  as: As = 'h1',
+  titleId = 'page-title',
+  showTitle = true,
+}: PageHeaderProps) {
   const t = useT();
   const location = useLocation();
 
@@ -68,11 +86,13 @@ export function PageHeader({ title, breadcrumbs: explicitCrumbs, actions, as: As
             </ol>
           </nav>
         )}
-        <div className={styles.titleArea}>
-          <CrumbElement className={styles.title} id="page-title">
-            {title}
-          </CrumbElement>
-        </div>
+        {showTitle && (
+          <div className={styles.titleArea}>
+            <CrumbElement className={styles.title} id={titleId}>
+              {title}
+            </CrumbElement>
+          </div>
+        )}
         {actions && <div className={styles.actions}>{actions}</div>}
       </div>
     </header>

@@ -246,6 +246,7 @@ export function SlotSelection({
                 style={{ gridRow: `${cell.rowStart + 1} / span ${cell.rowSpan}` }}
                 data-day={dayIndex}
                 data-cell={cellIndex}
+                data-slot-id={cell.slotId}
                 tabIndex={tabbable ? 0 : -1}
                 onFocus={() => {
                   setFocused({ day: dayIndex, cell: cellIndex });

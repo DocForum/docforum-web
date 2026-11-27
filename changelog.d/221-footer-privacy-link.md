@@ -1,3 +1,0 @@
-Phase W7: footer privacy analytics link reliability
-([issue #221](https://github.com/DocForum/docforum-web/issues/221)).
-Replaced raw `<a href="/privacy">` anchor in footer with `<Link to="/privacy/analytics">` using shared `styles.navLink` class, matching the Accessibility link behavior. Also replaced root-absolute `<a href="/admin/closures">` in AdminClosuresPage.tsx with `<Link to="/admin/closures">`. Footer links now render within the router, preserving session and avoiding full navigation / GitHub Pages 404. Translated labels retained.

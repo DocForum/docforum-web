@@ -33,15 +33,20 @@ export function publicRoutes({ queryClient }: RouteContext): RouteObject[] {
         path: 'settings/notifications',
         lazy: lazyPage(() => import('./NotificationSettingsRoute'), 'NotificationSettingsRoute'),
         // Flag gate (issue #111) decided in the loader, after the role
-        // guard: a failed flags request means "off", exactly like
-        // `<RequireFlag>`. The route component still wraps the page in
-        // `<RequireFlag>` so a flag switched off mid-session takes effect.
+        // guard: a flag that is known to be off redirects before the page
+        // chunk renders. If the flags request itself fails (a transient
+        // network error, or in mock mode a request made before the service
+        // worker controls the page), the loader doesn't guess: the route
+        // component wraps the page in `<RequireFlag>`, which waits for the
+        // flags query (it retries) and treats a final failure as "off". That
+        // also keeps the gate live if the flag is switched off mid-session.
         prefetch: async (_args, token) => {
           const userId = useAuthStore.getState().user?.id;
           const flags = await queryClient
             .ensureQueryData(myFlagsQueryOptions(userId, token))
-            .catch(() => undefined);
-          if (!flagEnabled(flags?.flags, 'notification_preferences')) throw redirect('/');
+            .catch(() => null);
+          if (flags === null) return;
+          if (!flagEnabled(flags.flags, 'notification_preferences')) throw redirect('/');
         },
       },
       // Notification centre (issue #107) — every signed-in role has an inbox.
@@ -52,6 +57,10 @@ export function publicRoutes({ queryClient }: RouteContext): RouteObject[] {
           settlePrefetch([
             queryClient.ensureInfiniteQueryData(notificationsQueryOptions(NOTIFICATIONS_PAGE_SIZE, token)),
           ]),
+      },
+      {
+        path: 'account/security',
+        lazy: lazyPage(() => import('../pages/AccountSecurityPage'), 'AccountSecurityPage'),
       },
     ]),
   ];

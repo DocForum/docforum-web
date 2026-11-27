@@ -86,7 +86,7 @@ function NotificationRow({
           type="button"
           className={styles.markRead}
           onClick={() => onMarkRead(notification.id)}
-          aria-label={t('notifications.row.markReadAria', 'Mark "{title}" as read', {
+          aria-label={t('notifications.row.markReadAria', 'Mark read: {title}', {
             title: notification.title,
           })}
         >
@@ -121,11 +121,13 @@ export function NotificationList({
       aria-label={t('notifications.list.aria', 'Notifications')}
     >
       <div className={styles.header}>
-        <h2 className={styles.heading}>
-          {isPanel
-            ? t('notifications.list.heading.panel', 'Notifications')
-            : t('notifications.list.heading.page', 'Your notifications')}
-        </h2>
+        {/* The full-page inbox has no other title, so its heading is the page's
+            <h1> (issue #238); the bell's dropdown panel keeps an h2. */}
+        {isPanel ? (
+          <h2 className={styles.heading}>{t('notifications.list.heading.panel', 'Notifications')}</h2>
+        ) : (
+          <h1 className={styles.heading}>{t('notifications.list.heading.page', 'Your notifications')}</h1>
+        )}
         <Button
           variant="secondary"
           size="small"

@@ -3,7 +3,7 @@ import { axe } from 'jest-axe';
 import { renderWithProviders, screen } from '../../../test/render';
 import { makeBackgroundJob, makeReadinessReport } from '../../../test/factories';
 import { SystemHealthConsole } from './SystemHealthConsole';
-import { useJobs, useOutboxSummary, useReadiness, useRunJob } from '../hooks/useSystemHealth';
+import { useJobs, useOutboxDeadLetters, useReadiness, useRunJob } from '../hooks/useSystemHealth';
 
 vi.mock('../hooks/useSystemHealth');
 
@@ -31,8 +31,19 @@ describe('SystemHealthConsole accessibility (#247)', () => {
         makeBackgroundJob({ name: 'release_escrow', running: true }),
       ]),
     );
-    vi.mocked(useOutboxSummary).mockReturnValue(
-      source({ pendingCount: 0, deadLetterCount: 1, oldestPendingAt: null }),
+    vi.mocked(useOutboxDeadLetters).mockReturnValue(
+      source({
+        items: [
+          {
+            id: 'evt-1',
+            type: 'booking.confirmation',
+            attempts: 5,
+            lastError: 'SMTP timeout',
+            createdAt: '2026-11-01T10:00:00.000Z',
+            deadLetteredAt: '2026-11-01T10:05:00.000Z',
+          },
+        ],
+      }),
     );
     vi.mocked(useRunJob).mockReturnValue({
       mutate: vi.fn(),

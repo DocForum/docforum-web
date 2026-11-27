@@ -19,6 +19,7 @@
     "check:csp": "node scripts/check-csp-dist.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "check:preview": "node scripts/check-preview-dist.mjs",
+    "check:deploy": "node scripts/check-deployed-site.mjs",
     "build:preview": "tsc -b && vite build",
     "check:stellar-boundary": "node scripts/check-stellar-boundary.mjs",
     "preview": "vite preview",

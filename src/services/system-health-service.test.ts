@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getReadiness, pingHealthLive, runJob } from './system-health-service';
+import { getOutboxDeadLetters, getReadiness, pingHealthLive, runJob } from './system-health-service';
 import { ApiError } from './api-client';
 import type { ReadinessReport } from '../types/models';
 
@@ -66,5 +66,16 @@ describe('pingHealthLive', () => {
     respond(503, { status: 'down' });
     const success = await pingHealthLive();
     expect(success).toBe(false);
+  });
+});
+
+describe('getOutboxDeadLetters', () => {
+  it('requests the real dead-letter endpoint with a bounded page size', async () => {
+    const fetchSpy = respond(200, { items: [] });
+    await expect(getOutboxDeadLetters('token')).resolves.toEqual({ items: [] });
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toMatch(/\/admin\/outbox\/dead-letters\?limit=50$/);
+    expect(init).toMatchObject({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) });
   });
 });

@@ -39,6 +39,7 @@ export const paths = {
   home: '/',
   login: '/login',
   signup: '/signup',
+  accountSecurity: '/account/security',
   claimAccount: '/claim-account',
   invite: '/invite',
   accountDeleted: '/account-deleted',
@@ -71,6 +72,8 @@ export const paths = {
     waitlist: patient(patientSections.waitlist),
     health: patient(patientSections.health),
     facilities: patient(patientSections.facilities),
+    results: patient('results'),
+    result: (resultId: string) => patient(`results/${resultId}`),
     messages: (threadId: string) => patient(`messages/${threadId}`),
     settings: patient(patientSections.settings),
     care: patient('care'),
@@ -108,6 +111,8 @@ export const paths = {
   // Admin.
   admin: {
     root: '/admin',
+    users: '/admin/users',
+    paymentsConsole: '/admin/payments/console',
     audit: '/admin/audit',
     referrals: '/admin/referrals',
     verifications: '/admin/verifications',

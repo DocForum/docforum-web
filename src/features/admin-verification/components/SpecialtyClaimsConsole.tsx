@@ -4,10 +4,12 @@ import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useSpecialtyCatalog, useSpecialtyClaims } from '../hooks/useSpecialtyClaims';
 import { describeClaimsQueueError } from '../errors';
 import {
   CLAIM_AGES,
+  claimAgeLabel,
   groupClaimsByDoctor,
   parseQueueSearch,
   sortClaims,
@@ -41,6 +43,7 @@ interface Notice {
  * URL so a filtered view is shareable.
  */
 export function SpecialtyClaimsConsole() {
+  const t = useOptionalT().t;
   const titleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseQueueSearch(searchParams), [searchParams]);
@@ -72,14 +75,16 @@ export function SpecialtyClaimsConsole() {
     setNotice({ tone: 'warning', message });
   }, []);
 
+  const filtered = Boolean(filters.specialtyId || filters.olderThan);
+
   let body;
   if (queue.isLoading) {
-    body = <Skeleton lines={5} height="2.5rem" label="Loading specialty claims" />;
+    body = <Skeleton lines={5} height="2.5rem" label={t('adminVerification.claims.loading', 'Loading specialty claims')} />;
   } else if (queue.error) {
     body = (
       <InlineError
-        title="Specialty claims couldn't be loaded"
-        message={describeClaimsQueueError(queue.error)}
+        title={t('adminVerification.claims.loadErrorTitle', "Specialty claims couldn't be loaded")}
+        message={describeClaimsQueueError(queue.error, t)}
         onRetry={() => void queue.refetch()}
       />
     );
@@ -88,20 +93,32 @@ export function SpecialtyClaimsConsole() {
       <EmptyState
         title={
           loaded.length === 0
-            ? filters.specialtyId || filters.olderThan
-              ? 'No pending claims match these filters.'
-              : 'No specialty claims are waiting for review. Every attached specialty has been decided.'
-            : 'No claims match these filters.'
+            ? filtered
+              ? t('adminVerification.claims.emptyFiltered', 'No pending claims match these filters.')
+              : t(
+                  'adminVerification.claims.emptyTitle',
+                  'No specialty claims are waiting for review. Every attached specialty has been decided.',
+                )
+            : t('adminVerification.claims.emptyFiltered', 'No pending claims match these filters.')
         }
         description={
-          loaded.length === 0 && !(filters.specialtyId || filters.olderThan)
-            ? 'When a doctor claims a specialty, it will appear here for review.'
-            : 'Try adjusting or clearing the filters above.'
+          loaded.length === 0 && !filtered
+            ? t(
+                'adminVerification.claims.emptyDescription',
+                'When a doctor claims a specialty, it will appear here for review.',
+              )
+            : t('adminVerification.claims.adjustFilters', 'Try adjusting or clearing the filters above.')
         }
         action={
-          filters.specialtyId || filters.olderThan
-            ? { label: 'Reset filters', onClick: () => updateFilters({ specialtyId: '', olderThan: null }) }
-            : { label: 'Refresh queue', onClick: () => void queue.refetch() }
+          filtered
+            ? {
+                label: t('adminVerification.claims.resetFilters', 'Reset filters'),
+                onClick: () => updateFilters({ specialtyId: '', olderThan: null }),
+              }
+            : {
+                label: t('adminVerification.claims.refresh', 'Refresh queue'),
+                onClick: () => void queue.refetch(),
+              }
         }
       />
     );
@@ -125,25 +142,25 @@ export function SpecialtyClaimsConsole() {
     <section className={styles.console} aria-labelledby={titleId}>
       <header>
         <h1 id={titleId} className={styles.title}>
-          Specialty claims
+          {t('adminVerification.claims.title', 'Specialty claims')}
         </h1>
         <p className={styles.subtitle}>
-          Each claim below is one doctor asking to be listed and referred into one specialty (PRD §8.1.5). Approving
-          lets patients find and be routed to the doctor for that specialty only; rejecting tells the doctor what to
-          fix or resubmit. Every decision is recorded in the audit trail — there are no bulk actions, each claim
-          deserves a look.
+          {t(
+            'adminVerification.claims.subtitle',
+            'Each claim below is one doctor asking to be listed and referred into one specialty (PRD §8.1.5). Approving lets patients find and be routed to the doctor for that specialty only; rejecting tells the doctor what to fix or resubmit. Every decision is recorded in the audit trail — there are no bulk actions, each claim deserves a look.',
+          )}
         </p>
       </header>
 
       <div className={styles.toolbar}>
         <label className={styles.selectField}>
-          <span className={styles.fieldLabel}>Specialty</span>
+          <span className={styles.fieldLabel}>{t('adminVerification.claims.specialtyLabel', 'Specialty')}</span>
           <select
             className={styles.select}
             value={filters.specialtyId}
             onChange={(event) => updateFilters({ specialtyId: event.target.value })}
           >
-            <option value="">All specialties</option>
+            <option value="">{t('adminVerification.claims.allSpecialties', 'All specialties')}</option>
             {options.map((specialty) => (
               <option key={specialty.id} value={specialty.id}>
                 {specialty.name}
@@ -153,16 +170,16 @@ export function SpecialtyClaimsConsole() {
         </label>
 
         <label className={styles.selectField}>
-          <span className={styles.fieldLabel}>Claimed at least</span>
+          <span className={styles.fieldLabel}>{t('adminVerification.claims.claimedAtLeast', 'Claimed at least')}</span>
           <select
             className={styles.select}
             value={filters.olderThan ?? ''}
             onChange={(event) => updateFilters({ olderThan: (event.target.value || null) as ClaimAge | null })}
           >
-            <option value="">Any age</option>
+            <option value="">{t('adminVerification.claims.anyAge', 'Any age')}</option>
             {CLAIM_AGES.map((age) => (
               <option key={age.value} value={age.value}>
-                {age.label}
+                {claimAgeLabel(age.value, t)}
               </option>
             ))}
           </select>
@@ -177,12 +194,17 @@ export function SpecialtyClaimsConsole() {
               <>
                 {' '}
                 <Link to={`/admin/audit?entityType=DoctorSpecialty&entityId=${encodeURIComponent(notice.claimId)}`}>
-                  View in audit trail
+                  {t('adminVerification.claims.viewInAudit', 'View in audit trail')}
                 </Link>
               </>
             )}
           </p>
-          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={() => setNotice(null)}
+            aria-label={t('adminVerification.claims.dismiss', 'Dismiss')}
+          >
             ×
           </button>
         </div>
@@ -190,9 +212,14 @@ export function SpecialtyClaimsConsole() {
 
       {!queue.isLoading && !queue.error && loaded.length > 0 && (
         <p className={styles.summary} aria-live="polite">
-          {groups.length} {groups.length === 1 ? 'doctor' : 'doctors'} · {loaded.length}{' '}
-          {loaded.length === 1 ? 'claim' : 'claims'} loaded
-          {queue.isFetching && !queue.isFetchingNextPage && ' · updating…'}
+          {t('adminVerification.claims.summaryDoctors', '{count, plural, one {# doctor} other {# doctors}}', {
+            count: groups.length,
+          })}{' '}
+          ·{' '}
+          {t('adminVerification.claims.summaryClaims', '{count, plural, one {# claim} other {# claims}} loaded', {
+            count: loaded.length,
+          })}
+          {queue.isFetching && !queue.isFetchingNextPage && ` · ${t('adminVerification.claims.updating', 'updating…')}`}
         </p>
       )}
 
@@ -206,7 +233,9 @@ export function SpecialtyClaimsConsole() {
             loading={queue.isFetchingNextPage}
             disabled={queue.isFetching}
           >
-            {queue.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {queue.isFetchingNextPage
+              ? t('adminVerification.queue.loadingMore', 'Loading…')
+              : t('adminVerification.queue.loadMore', 'Load more')}
           </Button>
         </div>
       )}
@@ -223,8 +252,16 @@ export function SpecialtyClaimsConsole() {
               tone: 'success',
               message:
                 decision === 'approve'
-                  ? `${claim.specialty.name} approved for ${claim.doctor.fullName} — they can now appear in ${claim.specialty.name} search and referrals.`
-                  : `${claim.specialty.name} rejected for ${claim.doctor.fullName}. docforum-core tells the doctor what to resubmit.`,
+                  ? t(
+                      'adminVerification.claims.noticeApproved',
+                      '{specialty} approved for {doctor} — they can now appear in {specialty} search and referrals.',
+                      { specialty: claim.specialty.name, doctor: claim.doctor.fullName },
+                    )
+                  : t(
+                      'adminVerification.claims.noticeRejected',
+                      '{specialty} rejected for {doctor}. docforum-core tells the doctor what to resubmit.',
+                      { specialty: claim.specialty.name, doctor: claim.doctor.fullName },
+                    ),
               claimId: claim.id,
             });
           }}

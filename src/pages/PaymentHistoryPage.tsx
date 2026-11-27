@@ -190,7 +190,7 @@ export function PaymentHistoryPage() {
               onClick={handleExport}
               disabled={isExporting || historyQuery.isError}
               loading={isExporting}
-              aria-label="Export filtered payments as CSV"
+              aria-label="Export CSV for filtered payments"
             >
               {isExporting ? `Exporting… (${exportProgress})` : 'Export CSV'}
             </Button>

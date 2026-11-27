@@ -124,6 +124,24 @@ describe('EventStreamManager', () => {
     expect(manager.getState()).toBe('idle');
   });
 
+  it('publishes connection state transitions to state subscribers', async () => {
+    const transport = vi.fn(async () =>
+      events({ id: '1', event: 'queue.updated', data: '{}' }),
+    );
+    const { manager, scheduled } = makeManager(transport);
+    const states: string[] = [];
+    const unsubscribeState = manager.subscribeState((state) => states.push(state));
+
+    const unsubscribe = manager.subscribe('queue.updated', vi.fn());
+    await vi.waitFor(() => expect(scheduled.length).toBeGreaterThan(0));
+    scheduled[0].callback();
+    await vi.waitFor(() => expect(states.filter((state) => state === 'open')).toHaveLength(2));
+
+    expect(states.slice(0, 4)).toEqual(['connecting', 'open', 'reconnecting', 'open']);
+    unsubscribe();
+    expect(unsubscribeState()).toBeUndefined();
+  });
+
   it('reconnects with Last-Event-ID after the stream ends', async () => {
     const requests: StreamRequest[] = [];
     const transport = vi.fn(async (request: StreamRequest) => {

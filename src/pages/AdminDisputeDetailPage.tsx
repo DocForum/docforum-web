@@ -16,6 +16,7 @@ export function AdminDisputeDetailPage() {
           <Link to="/admin/disputes" className={styles.backLink}>
             {t('adminDisputes.detail.back', '← All disputes')}
           </Link>
+          <h1 className={styles.detailTitle}>{t('adminDisputes.detail.title', 'Dispute')}</h1>
           <p className={styles.empty}>
             {t('adminDisputes.detail.noSelection', 'No dispute was selected. Return to the queue.')}
           </p>

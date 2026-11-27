@@ -15,6 +15,16 @@
 
 import type { HealthSectionKey } from './types/models';
 
+/** Query freshness policy (#309). A stale query may refetch on mount; an
+ * invalidated query refetches regardless of these times. Sign-out clears the
+ * client, so session-scoped data never survives an account switch. */
+export const STALE_TIME = {
+  reference: 60 * 60 * 1_000,
+  profile: 2 * 60 * 1_000,
+  short: 10 * 1_000,
+  live: 0,
+} as const;
+
 export const orderKeys = {
   all: ['orders'] as const,
   mine: () => ['orders', 'mine'] as const,
@@ -40,6 +50,30 @@ export const appointmentKeys = {
   detail: (appointmentId: string) => ['appointments', 'detail', appointmentId] as const,
   /** The check-in queue view shown on an appointment page (assumed core#129). */
   queue: (appointmentId: string) => ['appointments', appointmentId, 'queue'] as const,
+  /** The cancellation policy the dialog's copy is derived from (issue #15). */
+  cancellationPolicy: (appointmentId: string) =>
+    ['appointments', appointmentId, 'cancellation-policy'] as const,
+};
+
+/** A patient's lab results (issue #24). The list is session-scoped; the detail
+ * nests under the same root so a re-read of the list never drops the detail. */
+export const labResultKeys = {
+  all: ['lab-results'] as const,
+  list: () => ['lab-results', 'list'] as const,
+  detail: (resultId: string) => ['lab-results', 'detail', resultId] as const,
+};
+
+/** Admin user management (issue #70). */
+export const adminUserKeys = {
+  all: ['admin', 'users'] as const,
+  page: (query: unknown) => ['admin', 'users', 'page', query] as const,
+  detail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
+  invites: () => ['admin', 'users', 'invites'] as const,
+};
+
+/** Admin operations overview (issue #68) — one aggregated board. */
+export const overviewKeys = {
+  all: ['admin', 'overview'] as const,
 };
 
 export const followUpKeys = {
@@ -101,6 +135,11 @@ export const healthKeys = {
  */
 export const dependentKeys = {
   all: ['dependents'] as const,
+};
+
+export const profileKeys = {
+  all: ['patient-profiles'] as const,
+  me: () => ['patient-profiles', 'me'] as const,
 };
 
 /** Per-facility admin resources (members, invites, fulfillment queue). */
