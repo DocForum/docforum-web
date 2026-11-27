@@ -7,8 +7,28 @@
 
 .header {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.exportGroup {
+  display: flex;
   gap: var(--space-2);
+  align-items: center;
+}
+
+.exportStatus {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.exportError {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-danger, #b91c1c);
 }
 
 .title {
@@ -224,7 +244,45 @@
 
 .statusRefunded {
   background: #f1f5f9;
-  color: #64748b;
+  color: #475569;
+}
+
+.statusFailed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.orderTitle {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.orderMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.orderMeta code {
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+.amount {
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.escrowCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.mutedCell {
+  color: var(--color-text-muted);
 }
 
 .warningAlertBox {
@@ -275,4 +333,10 @@
   justify-content: space-between;
   align-items: center;
   padding-top: var(--space-4);
+}
+
+.staleNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }

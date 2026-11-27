@@ -67,7 +67,7 @@ of `docforum-core`'s original (pre-split) Phase 7:
 ```
 src/
   pages/            Route-level components (Home, Login, Signup, role dashboards, 404)
-  components/       Shared, reusable UI (Button, TextField, FormError, Layout, RequireAuth route guard)
+  components/       Shared, reusable UI (Button, TextField, DatePicker, TimePicker, Toast, FormError, Layout)
   features/
     auth/           Phase W1 — LoginForm/SignupForm/RoleSelect, useLogin/useSignup/useLogout, validation
   hooks/            Shared React hooks (useSlowRequestHint — cold-start-aware loading UX)
@@ -92,8 +92,9 @@ npm run dev        # → http://localhost:5173
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
-| `npm test` | Runs the vitest suite (21 tests today) |
+| `npm test` | Runs the vitest suite |
 | `npm run typecheck` | `tsc -b --noEmit` only |
+| `npm run test:e2e` | Playwright smoke test against a real `docforum-core` — see [`e2e/README.md`](e2e/README.md) |
 
 All four are real and verified working — the app shell, routing, and
 Phase W1 auth screens render and build cleanly.

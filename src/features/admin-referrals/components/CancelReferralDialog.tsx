@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useCancelReferral } from '../hooks/useStuckReferrals';
 import { describeActionError } from '../errors';
 import { normaliseReason, validateReason } from '../reason';
@@ -17,13 +18,14 @@ interface CancelReferralDialogProps {
 }
 
 export function CancelReferralDialog({ referral, onClose, onCancelled, onConflict }: CancelReferralDialogProps) {
+  const t = useOptionalT().t;
   const cancel = useCancelReferral();
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    const nextReasonError = validateReason(reason);
+    const nextReasonError = validateReason(reason, t);
     setReasonError(nextReasonError);
     setFailure(null);
     if (nextReasonError) return;
@@ -35,7 +37,7 @@ export function CancelReferralDialog({ referral, onClose, onCancelled, onConflic
       });
       onCancelled();
     } catch (error) {
-      const outcome = describeActionError(error, 'cancel');
+      const outcome = describeActionError(error, 'cancel', t);
       if (outcome.kind === 'conflict') onConflict(outcome.message);
       else setFailure(outcome.message);
     }
@@ -43,14 +45,25 @@ export function CancelReferralDialog({ referral, onClose, onCancelled, onConflic
 
   return (
     <ActionDialog
-      title="Cancel referral"
+      title={t('adminReferrals.cancelDialog.title', 'Cancel referral')}
       description={
         <>
           <p>
-            This closes the {referral.targetSpecialty.name} referral from {referral.referringDoctor.fullName}. It
-            can't be undone — a new referral would have to come from a consultation.
+            {t(
+              'adminReferrals.cancelDialog.description',
+              "This closes the {specialty} referral from {doctor}. It can't be undone — a new referral would have to come from a consultation.",
+              {
+                specialty: referral.targetSpecialty.name,
+                doctor: referral.referringDoctor.fullName,
+              },
+            )}
           </p>
-          <p className={styles.patientNotice}>docforum-core notifies the patient that their referral was cancelled.</p>
+          <p className={styles.patientNotice}>
+            {t(
+              'adminReferrals.cancelDialog.patientNotice',
+              'docforum-core notifies the patient that their referral was cancelled.',
+            )}
+          </p>
         </>
       }
       busy={cancel.isPending}
@@ -59,16 +72,18 @@ export function CancelReferralDialog({ referral, onClose, onCancelled, onConflic
       actions={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={cancel.isPending}>
-            Keep referral
+            {t('adminReferrals.cancelDialog.keep', 'Keep referral')}
           </Button>
           <Button type="submit" variant="danger" loading={cancel.isPending}>
-            {cancel.isPending ? 'Cancelling…' : 'Cancel referral'}
+            {cancel.isPending
+              ? t('adminReferrals.cancelDialog.cancelling', 'Cancelling…')
+              : t('adminReferrals.cancelDialog.submit', 'Cancel referral')}
           </Button>
         </>
       }
     >
       <ReasonField
-        label="Reason for cancelling"
+        label={t('adminReferrals.cancelDialog.reasonLabel', 'Reason for cancelling')}
         value={reason}
         onChange={(value) => {
           setReason(value);

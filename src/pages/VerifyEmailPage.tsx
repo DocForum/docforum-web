@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../services/api-client';
 import { verifyEmail } from '../services/auth-service';
+import { paths } from '../routes/paths';
 import { useAuthStore } from '../store/auth-store';
 import { ResendVerificationButton } from '../features/auth/components/ResendVerificationButton';
 
@@ -13,11 +14,7 @@ type VerificationState =
   | { status: 'error' };
 
 function apiErrorCode(error: unknown): string | undefined {
-  if (!(error instanceof ApiError) || typeof error.body !== 'object' || error.body === null) {
-    return undefined;
-  }
-  const code = Reflect.get(error.body, 'code');
-  return typeof code === 'string' ? code : undefined;
+  return error instanceof ApiError ? (error.code ?? undefined) : undefined;
 }
 
 export function VerifyEmailPage() {
@@ -94,7 +91,7 @@ export function VerifyEmailPage() {
                 onAlreadyVerified={() => setState({ status: 'success' })}
               />
             ) : (
-              <p><Link to="/login">Sign in to request a new verification email.</Link></p>
+              <p><Link to={paths.login}>Sign in to request a new verification email.</Link></p>
             )}
           </>
         )}
@@ -107,7 +104,7 @@ export function VerifyEmailPage() {
                 onAlreadyVerified={() => setState({ status: 'success' })}
               />
             ) : (
-              <p><Link to="/login">Sign in to request a new verification email.</Link></p>
+              <p><Link to={paths.login}>Sign in to request a new verification email.</Link></p>
             )}
           </>
         )}

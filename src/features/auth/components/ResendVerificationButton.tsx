@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
 import { resendVerificationEmail } from '../../../services/auth-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { Button } from '../../../components/Button';
 
 function apiErrorCode(error: unknown): string | undefined {
-  if (!(error instanceof ApiError) || typeof error.body !== 'object' || error.body === null) {
-    return undefined;
-  }
-  const code = Reflect.get(error.body, 'code');
-  return typeof code === 'string' ? code : undefined;
+  return error instanceof ApiError ? (error.code ?? undefined) : undefined;
 }
 
 interface ResendVerificationButtonProps {
@@ -48,9 +44,9 @@ export function ResendVerificationButton({
         markEmailVerified(new Date().toISOString());
         setMessage('Your email is already verified.');
         onAlreadyVerified?.();
-      } else if (reason instanceof ApiError && reason.status === 429) {
-        setRemaining(reason.retryAfterSeconds ?? 60);
-        setError(`Please wait ${reason.retryAfterSeconds ?? 60} seconds before trying again.`);
+      } else if (reason instanceof RateLimitError) {
+        setRemaining(reason.retryAfterSeconds);
+        setError(`Please wait ${reason.retryAfterSeconds} seconds before trying again.`);
       } else {
         setError('We could not send the verification email. Please try again.');
       }

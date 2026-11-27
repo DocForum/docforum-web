@@ -5,8 +5,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { VerifyEmailPage } from './VerifyEmailPage';
 import * as authService from '../services/auth-service';
 import { ApiError } from '../services/api-client';
-import { PATIENT_USER } from '../mocks/fixtures';
+import { PATIENT_USER as VERIFIED_PATIENT } from '../mocks/fixtures';
+import type { User } from '../types/models';
 import { useAuthStore } from '../store/auth-store';
+
+// The seeded persona is verified; these tests need an unverified account.
+const PATIENT_USER: User = { ...VERIFIED_PATIENT, emailVerifiedAt: null };
 
 function SearchValue() {
   const location = useLocation();
@@ -58,7 +62,7 @@ describe('VerifyEmailPage', () => {
 
   it('shows the signed-out expired-link state without exposing the token', async () => {
     vi.spyOn(authService, 'verifyEmail').mockRejectedValue(
-      new ApiError('expired', 400, { code: 'VERIFICATION_TOKEN_EXPIRED' }),
+      new ApiError('expired', 400, { code: 'VERIFICATION_TOKEN_EXPIRED' }, { code: 'VERIFICATION_TOKEN_EXPIRED' }),
     );
 
     renderPage('/verify-email?token=expired-token');
@@ -71,7 +75,7 @@ describe('VerifyEmailPage', () => {
   it('offers resend for an invalid link to a signed-in unverified user', async () => {
     useAuthStore.setState({ user: PATIENT_USER, accessToken: 'access-token' });
     vi.spyOn(authService, 'verifyEmail').mockRejectedValue(
-      new ApiError('invalid', 400, { code: 'INVALID_VERIFICATION_TOKEN' }),
+      new ApiError('invalid', 400, { code: 'INVALID_VERIFICATION_TOKEN' }, { code: 'INVALID_VERIFICATION_TOKEN' }),
     );
 
     renderPage('/verify-email?token=invalid-token');
@@ -86,7 +90,7 @@ describe('VerifyEmailPage', () => {
       accessToken: 'access-token',
     });
     vi.spyOn(authService, 'verifyEmail').mockRejectedValue(
-      new ApiError('used', 400, { code: 'INVALID_VERIFICATION_TOKEN' }),
+      new ApiError('used', 400, { code: 'INVALID_VERIFICATION_TOKEN' }, { code: 'INVALID_VERIFICATION_TOKEN' }),
     );
 
     renderPage('/verify-email?token=used-token');

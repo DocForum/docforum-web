@@ -1,10 +1,21 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/Button';
-import { Spinner } from '../../../components/Spinner';
+import { EmptyState } from '../../../components/states/EmptyState';
+import { InlineError } from '../../../components/states/InlineError';
+import { Skeleton } from '../../../components/states/Skeleton';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { useStuckReferrals } from '../hooks/useStuckReferrals';
 import { describeQueueError } from '../errors';
-import { REASONS, STUCK_AGES, parseQueueSearch, sortByAge, toQueueSearch } from '../queue';
+import {
+  REASON_KEYS,
+  STUCK_AGES,
+  parseQueueSearch,
+  reasonLabel,
+  sortByAge,
+  stuckAgeLabel,
+  toQueueSearch,
+} from '../queue';
 import { CancelReferralDialog } from './CancelReferralDialog';
 import { ReassignDialog } from './ReassignDialog';
 import { StuckReferralCard } from './StuckReferralCard';
@@ -22,8 +33,6 @@ interface Notice {
   referralId?: string;
 }
 
-const REASON_KEYS = Object.keys(REASONS) as StuckReferralReason[];
-
 function shortId(id: string): string {
   return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
@@ -36,6 +45,7 @@ function shortId(id: string): string {
  * what's loaded, since docforum-core#68 doesn't define one.
  */
 export function StuckReferralsConsole() {
+  const t = useOptionalT().t;
   const titleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseQueueSearch(searchParams), [searchParams]);
@@ -67,28 +77,53 @@ export function StuckReferralsConsole() {
   let body;
   if (queue.isLoading) {
     body = (
-      <div className={styles.status} role="status">
-        <Spinner size={20} />
-        <span>Loading stuck referrals…</span>
-      </div>
+      <Skeleton
+        lines={5}
+        height="2rem"
+        label={t('adminReferrals.loading', 'Loading stuck referrals')}
+      />
     );
   } else if (queue.error) {
     body = (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeQueueError(queue.error)}</p>
-        <Button variant="secondary" onClick={() => void queue.refetch()}>
-          Try again
-        </Button>
-      </div>
+      <InlineError
+        title={t('adminReferrals.loadErrorTitle', "The referral queue couldn't be loaded")}
+        message={describeQueueError(queue.error, t)}
+        onRetry={() => void queue.refetch()}
+      />
     );
   } else if (visible.length === 0) {
-    const threshold = STUCK_AGES.find((age) => age.value === filters.olderThan)?.label;
+    const threshold = STUCK_AGES.find((age) => age.value === filters.olderThan)
+      ? stuckAgeLabel(filters.olderThan, t)
+      : null;
     body = (
-      <p className={styles.empty}>
-        {loaded.length === 0
-          ? `No referrals have been pending for more than ${threshold}. Nobody is stuck.`
-          : `None of the loaded referrals are flagged “${REASONS[filters.reason as StuckReferralReason].label}”.`}
-      </p>
+      <EmptyState
+        title={
+          loaded.length === 0
+            ? t(
+                'adminReferrals.empty.nonePending',
+                'No referrals have been pending for more than {threshold}. Nobody is stuck.',
+                { threshold: threshold ?? '' },
+              )
+            : t(
+                'adminReferrals.empty.noneFlagged',
+                'None of the loaded referrals are flagged “{reason}”.',
+                {
+                  reason:
+                    filters.reason === 'all'
+                      ? ''
+                      : reasonLabel(filters.reason as StuckReferralReason, t),
+                },
+              )
+        }
+        description={t(
+          'adminReferrals.empty.description',
+          'Widen the age threshold or clear the reason filter to see more of the queue.',
+        )}
+        action={{
+          label: t('adminReferrals.empty.reload', 'Reload the queue'),
+          onClick: () => void queue.refetch(),
+        }}
+      />
     );
   } else {
     body = (
@@ -107,21 +142,26 @@ export function StuckReferralsConsole() {
     );
   }
 
+  const flaggedReason =
+    filters.reason === 'all' ? null : reasonLabel(filters.reason as StuckReferralReason, t);
+
   return (
     <section className={styles.console} aria-labelledby={titleId}>
       <header>
         <h1 id={titleId} className={styles.title}>
-          Stuck referrals
+          {t('adminReferrals.title', 'Stuck referrals')}
         </h1>
         <p className={styles.subtitle}>
-          Referrals still pending after the threshold below, oldest first. Each one is a patient waiting between
-          doctors. Reassigning or cancelling is recorded in the audit trail with your reason.
+          {t(
+            'adminReferrals.subtitle',
+            'Referrals still pending after the threshold below, oldest first. Each one is a patient waiting between doctors. Reassigning or cancelling is recorded in the audit trail with your reason.',
+          )}
         </p>
       </header>
 
       <div className={styles.toolbar}>
         <label className={styles.selectField}>
-          <span className={styles.fieldLabel}>Pending for at least</span>
+          <span className={styles.fieldLabel}>{t('adminReferrals.pendingFor', 'Pending for at least')}</span>
           <select
             className={styles.select}
             value={filters.olderThan}
@@ -129,13 +169,13 @@ export function StuckReferralsConsole() {
           >
             {STUCK_AGES.map((age) => (
               <option key={age.value} value={age.value}>
-                {age.label}
+                {stuckAgeLabel(age.value, t)}
               </option>
             ))}
           </select>
         </label>
 
-        <div className={styles.reasonFilter} role="group" aria-label="Filter by reason">
+        <div className={styles.reasonFilter} role="group" aria-label={t('adminReferrals.filterByReason', 'Filter by reason')}>
           {(['all', ...REASON_KEYS] as ReasonFilter[]).map((key) => (
             <button
               key={key}
@@ -144,7 +184,7 @@ export function StuckReferralsConsole() {
               aria-pressed={filters.reason === key}
               onClick={() => updateFilters({ reason: key })}
             >
-              {key === 'all' ? 'All' : REASONS[key].label}
+              {key === 'all' ? t('adminReferrals.all', 'All') : reasonLabel(key, t)}
               <span className={styles.chipCount}>{key === 'all' ? loaded.length : counts[key]}</span>
             </button>
           ))}
@@ -159,12 +199,17 @@ export function StuckReferralsConsole() {
               <>
                 {' '}
                 <Link to={`/admin/audit?entityType=Referral&entityId=${encodeURIComponent(notice.referralId)}`}>
-                  View in audit trail
+                  {t('adminReferrals.viewInAudit', 'View in audit trail')}
                 </Link>
               </>
             )}
           </p>
-          <button type="button" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={() => setNotice(null)}
+            aria-label={t('adminReferrals.dismiss', 'Dismiss')}
+          >
             ×
           </button>
         </div>
@@ -172,10 +217,18 @@ export function StuckReferralsConsole() {
 
       {!queue.isLoading && !queue.error && loaded.length > 0 && (
         <p className={styles.summary} aria-live="polite">
-          {filters.reason === 'all'
-            ? `${loaded.length} stuck ${loaded.length === 1 ? 'referral' : 'referrals'} loaded`
-            : `${visible.length} of ${loaded.length} loaded referrals flagged “${REASONS[filters.reason].label}”`}
-          {queue.isFetching && !queue.isFetchingNextPage && ' · updating…'}
+          {flaggedReason
+            ? t('adminReferrals.summary.filtered', '{visible} of {loaded} loaded referrals flagged “{reason}”', {
+                visible: visible.length,
+                loaded: loaded.length,
+                reason: flaggedReason,
+              })
+            : t(
+                'adminReferrals.summary.loaded',
+                '{count, plural, one {# stuck referral loaded} other {# stuck referrals loaded}}',
+                { count: loaded.length },
+              )}
+          {queue.isFetching && !queue.isFetchingNextPage && ` · ${t('adminReferrals.updating', 'updating…')}`}
         </p>
       )}
 
@@ -189,7 +242,7 @@ export function StuckReferralsConsole() {
             loading={queue.isFetchingNextPage}
             disabled={queue.isFetching}
           >
-            {queue.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {queue.isFetchingNextPage ? t('adminReferrals.loadingMore', 'Loading…') : t('adminReferrals.loadMore', 'Load more')}
           </Button>
         </div>
       )}
@@ -203,7 +256,11 @@ export function StuckReferralsConsole() {
             setOpenAction(null);
             setNotice({
               tone: 'success',
-              message: `Referral ${shortId(openAction.referral.id)} reassigned to ${doctor.fullName}.`,
+              message: t(
+                'adminReferrals.notice.reassigned',
+                'Referral {referralId} reassigned to {doctorName}.',
+                { referralId: shortId(openAction.referral.id), doctorName: doctor.fullName },
+              ),
               referralId: openAction.referral.id,
             });
           }}
@@ -218,7 +275,11 @@ export function StuckReferralsConsole() {
             setOpenAction(null);
             setNotice({
               tone: 'success',
-              message: `Referral ${shortId(openAction.referral.id)} cancelled. docforum-core will notify the patient.`,
+              message: t(
+                'adminReferrals.notice.cancelled',
+                'Referral {referralId} cancelled. docforum-core will notify the patient.',
+                { referralId: shortId(openAction.referral.id) },
+              ),
               referralId: openAction.referral.id,
             });
           }}

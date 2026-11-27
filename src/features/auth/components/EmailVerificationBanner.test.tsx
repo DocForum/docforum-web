@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '../../../test/render';
-import { PATIENT_USER, DOCTOR_USER } from '../../../mocks/fixtures';
+import { PATIENT_USER as VERIFIED_PATIENT, DOCTOR_USER } from '../../../mocks/fixtures';
+import type { User } from '../../../types/models';
+
 import { useAuthStore } from '../../../store/auth-store';
 import * as authService from '../../../services/auth-service';
-import { ApiError } from '../../../services/api-client';
+import { ApiError, RateLimitError } from '../../../services/api-client';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
+
+// The seeded persona is verified; these tests need an unverified account.
+const PATIENT_USER: User = { ...VERIFIED_PATIENT, emailVerifiedAt: null };
 
 describe('EmailVerificationBanner', () => {
   beforeEach(() => {
@@ -42,7 +47,7 @@ describe('EmailVerificationBanner', () => {
   it('marks the in-memory user verified after EMAIL_ALREADY_VERIFIED', async () => {
     useAuthStore.setState({ user: PATIENT_USER, accessToken: 'access-token' });
     vi.spyOn(authService, 'resendVerificationEmail').mockRejectedValue(
-      new ApiError('verified', 409, { code: 'EMAIL_ALREADY_VERIFIED' }),
+      new ApiError('verified', 409, { code: 'EMAIL_ALREADY_VERIFIED' }, { code: 'EMAIL_ALREADY_VERIFIED' }),
     );
     render(<EmailVerificationBanner />);
 
@@ -56,7 +61,7 @@ describe('EmailVerificationBanner', () => {
   it('uses the server retry delay when resend is rate-limited', async () => {
     useAuthStore.setState({ user: PATIENT_USER, accessToken: 'access-token' });
     vi.spyOn(authService, 'resendVerificationEmail').mockRejectedValue(
-      new ApiError('limited', 429, { code: 'EMAIL_VERIFICATION_RATE_LIMITED' }, 15),
+      new RateLimitError('limited', 15, { code: 'EMAIL_VERIFICATION_RATE_LIMITED' }),
     );
     render(<EmailVerificationBanner />);
 

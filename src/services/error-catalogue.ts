@@ -1,0 +1,562 @@
+// Single mapping from docforum-core error codes to user-facing copy and a
+// recovery action. The backend catalogue is docforum-core#115; this module is
+// the only place the UI decides what a code means (issue #84).
+//
+// Rules:
+// - Never render the server's `message` — it can leak internal detail.
+// - Unknown codes fall back to a generic message plus a support reference
+//   (the request id when the backend supplied one).
+// - Messages are ICU message ids + English defaults so the catalogue can be
+//   translated (see src/i18n/messages/en.json).
+import { ApiError, NETWORK_ERROR_CODE } from './api-client';
+
+export type ErrorAction =
+  | 'retry'
+  | 'reauthenticate'
+  | 'edit_time'
+  | 'fix_input'
+  | 'wait'
+  | 'contact_support'
+  | 'resend_verification'
+  | 'reload'
+  | 'none';
+
+export interface ErrorDescriptor {
+  /** Canonical backend code, or `UNKNOWN_ERROR` for unmapped failures. */
+  code: string;
+  messageId: string;
+  defaultMessage: string;
+  action: ErrorAction;
+  actionMessageId?: string;
+  defaultActionMessage?: string;
+}
+
+export const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR';
+
+// Dependents (issue #261) — core's strict create body and its field-targeted
+// error codes. Kept here so the form and the acting-for screens agree.
+export const DEPENDENT_NOT_A_MINOR = 'DEPENDENT_NOT_A_MINOR';
+export const GUARDIANSHIP_INACTIVE = 'GUARDIANSHIP_INACTIVE';
+
+export type FormField = 'fullName' | 'dateOfBirth';
+
+export interface FormErrorInfo {
+  message: string;
+  /** When set, the message belongs under this field instead of the form. */
+  field?: FormField;
+}
+
+export const DEPENDENT_NOT_A_MINOR_MESSAGE =
+  'This date of birth is not eligible for a dependent profile. Dependents must be under the age of majority; anyone older needs their own account.';
+
+/** Reads the code from the body, falling back to a code sent as the message. */
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+
+  if (error.body && typeof error.body === 'object') {
+    const body = error.body as Record<string, unknown>;
+    for (const key of ['code', 'error'] as const) {
+      const value = body[key];
+      if (typeof value === 'string' && value) return value;
+    }
+  }
+
+  const message = error.message.trim();
+  return /^[A-Z][A-Z0-9_]+$/.test(message) ? message : undefined;
+}
+
+/** Maps a failed dependent create/edit to form copy, field-targeted when the
+ * server points at a specific input. */
+export function describeDependentError(error: unknown, fallback: string): FormErrorInfo | null {
+  if (!error) return null;
+  if (error instanceof ApiError) {
+    if (getApiErrorCode(error) === DEPENDENT_NOT_A_MINOR) {
+      return { message: DEPENDENT_NOT_A_MINOR_MESSAGE, field: 'dateOfBirth' };
+    }
+    return { message: error.message || fallback };
+  }
+  return { message: fallback };
+}
+
+type Entry = Omit<ErrorDescriptor, 'code'>;
+
+const FALLBACK: Entry = {
+  messageId: 'errors.unknown',
+  defaultMessage: 'Something went wrong. Please try again, or contact support if it keeps happening.',
+  action: 'contact_support',
+  actionMessageId: 'errors.actions.contactSupport',
+  defaultActionMessage: 'Contact support',
+};
+
+const CATALOGUE: Record<string, Entry> = {
+  // Input / credentials
+  VALIDATION_FAILED: {
+    messageId: 'errors.validationFailed',
+    defaultMessage: 'Some details need fixing. Check the highlighted fields and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+  INVALID_CREDENTIALS: {
+    messageId: 'errors.invalidCredentials',
+    defaultMessage: 'That email and password combination is not right. Try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  WRONG_PASSWORD: {
+    messageId: 'errors.wrongPassword',
+    defaultMessage: 'That password is not right. Try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  EMAIL_TAKEN: {
+    messageId: 'errors.emailTaken',
+    defaultMessage: 'An account with that email already exists. Sign in instead.',
+    action: 'none',
+  },
+  PASSWORD_TOO_WEAK: {
+    messageId: 'errors.passwordTooWeak',
+    defaultMessage: 'Choose a longer password — at least 8 characters.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+  PASSWORD_CONFIRMATION_FAILED: {
+    messageId: 'errors.passwordConfirmationFailed',
+    defaultMessage: 'The confirmation password is incorrect. Check your password and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  INVALID_TOTP_CODE: {
+    messageId: 'errors.invalidTotpCode',
+    defaultMessage: 'That authenticator or recovery code is incorrect or has already been used.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  INVALID_MFA_TOKEN: {
+    messageId: 'errors.invalidMfaToken',
+    defaultMessage: 'Your two-factor sign-in step expired. Sign in again to request a new code.',
+    action: 'reauthenticate',
+    actionMessageId: 'errors.actions.signIn',
+    defaultActionMessage: 'Sign in',
+  },
+  TWO_FACTOR_ALREADY_ENABLED: {
+    messageId: 'errors.twoFactorAlreadyEnabled',
+    defaultMessage: 'Two-factor authentication is already enabled.',
+    action: 'none',
+  },
+
+  // Email verification (Phase 8, issue #34)
+  EMAIL_NOT_VERIFIED: {
+    messageId: 'errors.emailNotVerified',
+    defaultMessage: 'Please verify your email address before continuing.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.resendVerification',
+    defaultActionMessage: 'Resend verification',
+  },
+  INVALID_VERIFICATION_TOKEN: {
+    messageId: 'errors.invalidVerificationToken',
+    defaultMessage: 'That verification link is invalid or has already been used. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  VERIFICATION_TOKEN_EXPIRED: {
+    messageId: 'errors.verificationTokenExpired',
+    defaultMessage: 'That verification link has expired. Request a new one.',
+    action: 'resend_verification',
+    actionMessageId: 'errors.actions.requestNewLink',
+    defaultActionMessage: 'Request new link',
+  },
+  EMAIL_ALREADY_VERIFIED: {
+    messageId: 'errors.emailAlreadyVerified',
+    defaultMessage: 'This email address is already verified.',
+    action: 'none',
+  },
+  EMAIL_VERIFICATION_RATE_LIMITED: {
+    messageId: 'errors.emailVerificationRateLimited',
+    defaultMessage: 'A verification email was recently sent. Wait a moment before requesting another.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Session / authorisation
+  UNAUTHENTICATED: {
+    messageId: 'errors.unauthenticated',
+    defaultMessage: 'Your session has ended. Sign in again to continue.',
+    action: 'reauthenticate',
+    actionMessageId: 'errors.actions.signIn',
+    defaultActionMessage: 'Sign in',
+  },
+  TOKEN_EXPIRED: {
+    messageId: 'errors.tokenExpired',
+    defaultMessage: 'Your session has expired. Sign in again to continue.',
+    action: 'reauthenticate',
+    actionMessageId: 'errors.actions.signIn',
+    defaultActionMessage: 'Sign in',
+  },
+  FORBIDDEN: {
+    messageId: 'errors.forbidden',
+    defaultMessage: 'You do not have permission to do that.',
+    action: 'none',
+  },
+  NOT_FOUND: {
+    messageId: 'errors.notFound',
+    defaultMessage: 'We could not find that. It may have been removed or you may not have access.',
+    action: 'none',
+  },
+  CONFLICT: {
+    messageId: 'errors.conflict',
+    defaultMessage: 'That conflicts with the current state. Refresh, then try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+
+  // Booking
+  SLOT_TAKEN: {
+    messageId: 'errors.slotTaken',
+    defaultMessage: 'That time was just booked by someone else. Pick another time.',
+    action: 'edit_time',
+    actionMessageId: 'errors.actions.pickAnotherTime',
+    defaultActionMessage: 'Pick another time',
+  },
+  BOOKING_IN_PAST: {
+    messageId: 'errors.bookingInPast',
+    defaultMessage: 'That time has already passed. Pick a future time.',
+    action: 'edit_time',
+    actionMessageId: 'errors.actions.pickAnotherTime',
+    defaultActionMessage: 'Pick another time',
+  },
+
+  // Availability / limits
+  RATE_LIMITED: {
+    messageId: 'errors.rateLimited',
+    defaultMessage: 'Too many attempts. Wait a moment, then try again.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  SERVICE_UNAVAILABLE: {
+    messageId: 'errors.serviceUnavailable',
+    defaultMessage: 'DocForum is temporarily unavailable. Try again in a moment.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  NETWORK_ERROR: {
+    messageId: 'errors.network',
+    defaultMessage: 'We could not reach DocForum. Check your connection and try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  INTERNAL_ERROR: {
+    messageId: 'errors.internal',
+    defaultMessage: 'Something went wrong on our side. We have logged it — try again in a moment.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Dependents / handover
+  HANDOVER_NOT_ELIGIBLE: {
+    messageId: 'errors.handoverNotEligible',
+    defaultMessage: 'Account handover only opens when the dependent reaches the age of majority.',
+    action: 'none',
+  },
+  INVITE_EXPIRED: {
+    messageId: 'errors.inviteExpired',
+    defaultMessage: 'That invitation has expired. Ask for a new one.',
+    action: 'none',
+  },
+  GUARDIANSHIP_INACTIVE: {
+    messageId: 'errors.guardianshipInactive',
+    defaultMessage:
+      'You can no longer act for this person: their account has been handed over, so they now manage their own bookings and health records. Ask them to sign in and make the change from their own account.',
+    action: 'none',
+  },
+  DEPENDENT_NOT_A_MINOR: {
+    messageId: 'errors.dependentNotAMinor',
+    defaultMessage: 'Dependents must be minors under the age of majority.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Data export (Phase 8, issue #40)
+  EXPORT_NOT_READY: {
+    messageId: 'errors.exportNotReady',
+    defaultMessage: 'Your data export is still being generated. Please wait and try again.',
+    action: 'wait',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  EXPORT_EXPIRED: {
+    messageId: 'errors.exportExpired',
+    defaultMessage: 'This data export has expired. Request a new export to download your records.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.requestNewExport',
+    defaultActionMessage: 'Request new export',
+  },
+  SECTION_FAILED: {
+    messageId: 'errors.sectionFailed',
+    defaultMessage: 'A section of the export could not be compiled. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_FAILED: {
+    messageId: 'errors.generationFailed',
+    defaultMessage: 'Export generation failed. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  GENERATION_TIMEOUT: {
+    messageId: 'errors.generationTimeout',
+    defaultMessage: 'Export generation timed out. Request a new export to retry.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Health records
+  HEALTH_ENTRY_CONFLICT: {
+    messageId: 'errors.healthEntryConflict',
+    defaultMessage: 'This entry changed since you opened it. Refresh, then try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+
+  // Facility team
+  LAST_OWNER: {
+    messageId: 'errors.lastOwner',
+    defaultMessage: 'A facility needs at least one owner. Promote another member before removing this one.',
+    action: 'none',
+  },
+
+  // Account lifecycle
+  ACCOUNT_DELETE_BLOCKED: {
+    messageId: 'errors.accountDeleteBlocked',
+    defaultMessage: 'Your account cannot be deleted while orders or funded payments are still active.',
+    action: 'none',
+  },
+
+  // Consultation & Referrals
+  CONSULTATION_NOTE_SIGNED: {
+    messageId: 'errors.consultationNoteSigned',
+    defaultMessage: 'This note is signed and can no longer be edited. Add an addendum instead.',
+    action: 'none',
+  },
+  REFERRAL_NO_ELIGIBLE_TARGET: {
+    messageId: 'errors.referralNoEligibleTarget',
+    defaultMessage: 'No eligible doctor could be found for this specialty. Choose a specific doctor or try again later.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.reviewFields',
+    defaultActionMessage: 'Review fields',
+  },
+
+  // Lab results & object storage (Phase 5, issue #16)
+  LAB_RESULT_UNSUPPORTED_TYPE: {
+    messageId: 'errors.labResultUnsupportedType',
+    defaultMessage: 'Unsupported file type. Please upload a PDF, PNG, or JPEG file.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_CONTENT_MISMATCH: {
+    messageId: 'errors.labResultContentMismatch',
+    defaultMessage: 'The file contents do not match the selected format. Check the file and try again.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_TOO_LARGE: {
+    messageId: 'errors.labResultTooLarge',
+    defaultMessage: 'The file is too large. Lab results must be under 10 MB.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.chooseAnotherFile',
+    defaultActionMessage: 'Choose another file',
+  },
+  LAB_RESULT_ALREADY_ATTACHED: {
+    messageId: 'errors.labResultAlreadyAttached',
+    defaultMessage: 'A result has already been attached to this lab order.',
+    action: 'none',
+  },
+  LAB_RESULT_NOT_FOUND: {
+    messageId: 'errors.labResultNotFound',
+    defaultMessage: 'No result has been uploaded for this lab order yet.',
+    action: 'none',
+  },
+  LAB_ORDER_SUPERSEDED: {
+    messageId: 'errors.labOrderSuperseded',
+    defaultMessage: 'This lab order has been superseded by a correction. Attach results to the new order.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+  OBJECT_STORAGE_NOT_CONFIGURED: {
+    messageId: 'errors.objectStorageNotConfigured',
+    defaultMessage: 'File storage is not currently configured. Try again later or contact support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+
+  // Feature flags
+  FEATURE_DISABLED: {
+    messageId: 'errors.featureDisabled',
+    defaultMessage: 'This feature is currently unavailable.',
+    action: 'none',
+  },
+
+  // Payments
+  PAYMENT_FAILED: {
+    messageId: 'errors.paymentFailed',
+    defaultMessage: 'The payment did not go through. Try again.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  ESCROW_STATE_INVALID: {
+    messageId: 'errors.escrowStateInvalid',
+    defaultMessage: 'This payment has already moved on. Refresh to see its current state.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.refresh',
+    defaultActionMessage: 'Refresh',
+  },
+  WALLET_ALREADY_LINKED: {
+    messageId: 'errors.walletAlreadyLinked',
+    defaultMessage: 'A wallet is already linked to this facility.',
+    action: 'none',
+  },
+  WALLET_NOT_LINKED: {
+    messageId: 'errors.walletNotLinked',
+    defaultMessage: 'You must link a wallet before you can fund payments.',
+    action: 'fix_input',
+    actionMessageId: 'errors.actions.linkWallet',
+    defaultActionMessage: 'Link wallet',
+  },
+  FACILITY_WALLET_NOT_LINKED: {
+    messageId: 'errors.facilityWalletNotLinked',
+    defaultMessage: 'The facility has not linked a payment wallet yet. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PAYEE_TRUSTLINE_MISSING: {
+    messageId: 'errors.payeeTrustlineMissing',
+    defaultMessage: 'The recipient wallet does not accept this payment asset. Contact the facility or support.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  PRICE_ON_REQUEST: {
+    messageId: 'errors.priceOnRequest',
+    defaultMessage: 'This service requires price on request. Contact the facility before creating an order.',
+    action: 'contact_support',
+    actionMessageId: 'errors.actions.contactSupport',
+    defaultActionMessage: 'Contact support',
+  },
+  ESCROW_SDK_PREPARE_UNSUPPORTED: {
+    messageId: 'errors.escrowSdkPrepareUnsupported',
+    defaultMessage: 'Escrow payment preparation is temporarily unavailable. Try again later.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+
+  // Pagination / Keyset cursors
+  INVALID_CURSOR: {
+    messageId: 'errors.invalidCursor',
+    defaultMessage: 'The pagination position is invalid. Reload the list to start from the beginning.',
+    action: 'reload',
+    actionMessageId: 'errors.actions.reloadList',
+    defaultActionMessage: 'Reload list',
+  },
+};
+
+/** docforum-core refuses to create or settle a facility's payments while no
+ * payout wallet is linked (issue #279). */
+export const FACILITY_WALLET_NOT_LINKED = 'FACILITY_WALLET_NOT_LINKED';
+
+/** docforum-core refuses to settle because the linked payout wallet has no
+ * trustline for the payout asset (issue #279). */
+export const PAYEE_TRUSTLINE_MISSING = 'PAYEE_TRUSTLINE_MISSING';
+
+/** docforum-core codes that mean this facility's payout setup is incomplete
+ * (issue #279). */
+export const PAYOUT_BLOCK_CODES = [FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING] as const;
+export type PayoutBlockCode = (typeof PAYOUT_BLOCK_CODES)[number];
+
+export function isPayoutBlockCode(value: string | null | undefined): value is PayoutBlockCode {
+  return Boolean(value && (PAYOUT_BLOCK_CODES as readonly string[]).includes(value));
+}
+
+/**
+ * The payout-block code carried by `error`, or `null` for anything else.
+ *
+ * Branches only on the backend's machine-readable code (the transport exposes
+ * it as `ApiError.code`, with the raw body as a fallback) — never on the
+ * message text, and never by asking Stellar from the browser (hard rule 1).
+ */
+export function getPayoutBlockCode(error: unknown): PayoutBlockCode | null {
+  if (!(error instanceof ApiError)) return null;
+  const bodyCode = (error.body as { code?: unknown } | undefined)?.code;
+  const code = error.code ?? (typeof bodyCode === 'string' ? bodyCode : null);
+  return isPayoutBlockCode(code) ? code : null;
+}
+
+/** HTTP-status fallback when the backend did not send a code. */
+const STATUS_CODES: Record<number, string> = {
+  0: NETWORK_ERROR_CODE,
+  400: 'VALIDATION_FAILED',
+  401: 'UNAUTHENTICATED',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  409: 'CONFLICT',
+  429: 'RATE_LIMITED',
+  500: 'INTERNAL_ERROR',
+  502: 'SERVICE_UNAVAILABLE',
+  503: 'SERVICE_UNAVAILABLE',
+  504: 'SERVICE_UNAVAILABLE',
+};
+
+export function isKnownErrorCode(code: string | null | undefined): code is string {
+  return Boolean(code && CATALOGUE[code]);
+}
+
+/**
+ * Turn any thrown value into a descriptor safe to render.
+ *
+ * Unknown codes intentionally lose their server message: they get the generic
+ * fallback plus a support reference (`describeError(...).code` stays
+ * `UNKNOWN_ERROR`; use `supportReference()` for the id to quote).
+ */
+export function describeError(error: unknown): ErrorDescriptor {
+  if (error instanceof ApiError) {
+    const direct = error.code ?? STATUS_CODES[error.status] ?? null;
+    const entry = direct ? CATALOGUE[direct] : undefined;
+    if (entry && direct) return { code: direct, ...entry };
+    return { code: UNKNOWN_ERROR_CODE, ...FALLBACK };
+  }
+  return { code: UNKNOWN_ERROR_CODE, ...FALLBACK };
+}
+
+/** Support reference to show with unknown errors — the backend request id. */
+export function supportReference(error: unknown): string | null {
+  if (error instanceof ApiError && error.requestId) return error.requestId;
+  return null;
+}
+
+/** Codes the UI knows how to explain — used by tests and docs. */
+export function knownErrorCodes(): string[] {
+  return Object.keys(CATALOGUE).sort();
+}

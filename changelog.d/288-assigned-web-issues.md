@@ -1,0 +1,1 @@
+Phase W3 and W7: range availability now supports weekdays, future-day filtering, progress and cancellation (#288). The accessibility route list and its drift guard cover concrete screens (#289); shared query families receive deliberate freshness windows (#309); status badges, focus states and insight charts remain visible under forced colors (#310).
