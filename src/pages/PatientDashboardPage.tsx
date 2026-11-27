@@ -75,7 +75,6 @@ function PatientHome() {
       <WaitlistOfferBanner />
 
       <div className="card">
-        <span className="statusPill">{t('patient.phasePill', 'Phase W2 · in progress')}</span>
         <h1 className={styles.title}>What needs your attention</h1>
 
         {anyLoading && <Skeleton lines={3} label="Loading your care summary" />}

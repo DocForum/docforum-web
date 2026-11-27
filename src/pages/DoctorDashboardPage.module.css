@@ -55,12 +55,6 @@
   text-decoration: underline;
 }
 
-.consultationPlaceholder {
-  margin-top: var(--space-6);
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 @media (min-width: 768px) {
   .dashboardGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -6,7 +6,10 @@ import { messageKeys } from '../../../query-keys';
 import type { ListThreadsInput } from '../../../services/messaging-service';
 import type { DoctorMessageThread } from '../../../types/models';
 
-export function useMessageThreads(input: ListThreadsInput) {
+export function useMessageThreads(
+  input: ListThreadsInput,
+  options: { enabled?: boolean } = {},
+) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
   const queryKey = messageKeys.threads(input.filter, input.cursor, input.limit);
@@ -14,7 +17,7 @@ export function useMessageThreads(input: ListThreadsInput) {
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => messagingService.listThreads(input, accessToken!, signal),
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken) && (options.enabled ?? true),
     placeholderData: (previous) => previous,
   });
 
@@ -64,6 +67,20 @@ export function useMessageThreads(input: ListThreadsInput) {
 }
 
 export type ListThreadsResult = { threads: DoctorMessageThread[]; nextCursor: string | null };
+
+/**
+ * Unread message count for the Messages nav badge (issue #235). It reads the
+ * same query `DoctorInbox` uses, so `useRealtimeCacheSync`'s `message.created`
+ * invalidation refreshes the badge without a reload, and there is exactly one
+ * source of truth for the count.
+ */
+export function useUnreadMessageCount(enabled: boolean): number {
+  const { totalUnread } = useMessageThreads(
+    { filter: 'all', cursor: null, limit: 10 },
+    { enabled },
+  );
+  return totalUnread;
+}
 
 /** Patient profile id → thread id for the given patients. One lookup for a
  * whole inbox, so a screen can decide per row whether a message action is

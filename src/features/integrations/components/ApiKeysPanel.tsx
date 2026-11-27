@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { Dialog } from '../../../components/Dialog';
 import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
@@ -48,6 +49,10 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   const t = useT();
   const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [pendingRevoke, setPendingRevoke] = useState<FacilityApiKey | null>(null);
+  // Blocks a second mutate from a double-click before React re-renders the
+  // confirm button into its pending state (issue #241).
+  const revokeInFlightRef = useRef(false);
   const { data: keysData, isLoading, isError, error, refetch } = useApiKeys(facilityId);
   const revokeMutation = useRevokeApiKey(facilityId);
   const errorText = useErrorMessage();
@@ -66,26 +71,26 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     { containerRef: listRef, fallbackRef: headingRef },
   );
 
-  // A revoked key leaves the active list, taking its Revoke button with it:
-  // move focus to the next key (or the heading) and announce the result
-  // (issue #245).
-  const handleRevoke = (keyId: string, keyName: string) => {
-    if (
-      !window.confirm(
-        t('integrations.apiKeys.revokeConfirm', 'Revoke "{name}"? Integrations using this key will immediately lose access. This cannot be undone.', {
-          name: keyName,
-        }),
-      )
-    ) {
-      return;
-    }
+  // Revoking is confirmed in the shared Dialog (issue #241), which returns
+  // focus to the Revoke button when it closes. Once the revoked key leaves
+  // the active list, focus moves to the next key (or the heading) and the
+  // result is announced (issue #245).
+  const confirmRevoke = () => {
+    if (!pendingRevoke || revokeInFlightRef.current) return;
+    revokeInFlightRef.current = true;
+    const { id: keyId, name: keyName } = pendingRevoke;
     rememberRemovedRow(keyId);
     revokeMutation.mutate(keyId, {
-      onSuccess: () =>
+      onSuccess: () => {
+        setPendingRevoke(null);
         announce(
           t('integrations.apiKeys.revokedAnnounce', 'API key {name} was revoked.', { name: keyName }),
-        ),
+        );
+      },
       onError: () => forgetRemovedRow(),
+      onSettled: () => {
+        revokeInFlightRef.current = false;
+      },
     });
   };
 
@@ -177,7 +182,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                   <td className={styles.actionCell}>
                     <Button
                       variant="danger"
-                      onClick={() => handleRevoke(key.id, key.name)}
+                      onClick={() => setPendingRevoke(key)}
                       loading={revokeMutation.isPending && revokeMutation.variables === key.id}
                     >
                       {t('integrations.apiKeys.revoke', 'Revoke')}
@@ -227,6 +232,36 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
       {createDialogOpen && (
         <CreateApiKeyDialog facilityId={facilityId} onClose={() => setCreateDialogOpen(false)} />
       )}
+
+      <Dialog
+        open={Boolean(pendingRevoke)}
+        onClose={() => setPendingRevoke(null)}
+        labelledBy="revoke-key-title"
+        describedBy="revoke-key-description"
+        overlayClassName={styles.modalOverlay}
+        panelClassName={styles.modalContent}
+      >
+        <h3 id="revoke-key-title">{t('integrations.revokeKey.title', 'Revoke API key?')}</h3>
+        <p id="revoke-key-description" className={styles.modalDescription}>
+          {t(
+            'integrations.revokeKey.description',
+            'Revoking {name} ({prefix}…) immediately cuts off every integration that uses it. This cannot be undone.',
+            { name: pendingRevoke?.name ?? '', prefix: pendingRevoke?.prefix ?? '' },
+          )}
+        </p>
+        <div className={styles.modalActions}>
+          <Button
+            variant="secondary"
+            onClick={() => setPendingRevoke(null)}
+            disabled={revokeMutation.isPending}
+          >
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button variant="danger" onClick={confirmRevoke} loading={revokeMutation.isPending}>
+            {t('integrations.revokeKey.confirm', 'Revoke key')}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
