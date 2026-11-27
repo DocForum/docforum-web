@@ -63,7 +63,7 @@ function LocationProbe() {
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: 'admin-token',
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 

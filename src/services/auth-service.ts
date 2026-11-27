@@ -6,6 +6,8 @@ import { api, apiFetch } from './api-client';
 import type {
   AccountInvite,
   ActiveSession,
+  EmailVerificationResendResult,
+  EmailVerificationResult,
   EnrollmentRequiredResponse,
   MfaRequiredResponse,
   PasswordResetMessage,
@@ -196,5 +198,21 @@ export function confirmPasswordReset(token: string, newPassword: string): Promis
   return apiFetch<PasswordResetMessage>('/auth/password-reset/confirm', {
     method: 'POST',
     body: { token, newPassword },
+  });
+}
+
+// Email verification (issue #388). Contract source: docforum-core
+// backend/src/modules/auth/routes/index.ts and controllers/index.ts.
+export function verifyEmail(token: string): Promise<EmailVerificationResult> {
+  return apiFetch<EmailVerificationResult>('/auth/verify-email', {
+    method: 'POST',
+    body: { token },
+  });
+}
+
+export function resendVerificationEmail(accessToken: string): Promise<EmailVerificationResendResult> {
+  return apiFetch<EmailVerificationResendResult>('/auth/verify-email/resend', {
+    method: 'POST',
+    accessToken,
   });
 }

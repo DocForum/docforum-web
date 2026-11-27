@@ -41,6 +41,7 @@ export const paths = {
   signup: '/signup',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
+  verifyEmail: '/verify-email',
   accountSecurity: '/account/security',
   claimAccount: '/claim-account',
   invite: '/invite',

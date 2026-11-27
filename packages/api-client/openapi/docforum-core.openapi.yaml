@@ -1097,6 +1097,8 @@ components:
         # Best match from Accept-Language at signup (issue #256), returned by
         # login, signup and refresh. Not every account has one yet.
         locale: { type: string, nullable: true }
+        # Null until the user follows the verification link (issue #388).
+        emailVerifiedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

@@ -25,6 +25,10 @@ export interface User {
    * `Accept-Language`) and returns on login/refresh — issue #256. Null or
    * missing for accounts created before core recorded it. */
   locale?: string | null;
+  /** When the account's email was verified (issue #388). `null` means core
+   * reported it unverified; missing means core didn't say, which is treated
+   * as verified so no one is nagged on an older core. */
+  emailVerifiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

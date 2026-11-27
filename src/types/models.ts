@@ -36,6 +36,7 @@ export type * from './models/doctor-practice-insights';
 export type * from './models/doctor-search';
 export type * from './models/doctor-verification';
 export type * from './models/doctor-verification-queue';
+export type * from './models/email-verification';
 export type * from './models/evaluated-feature-flags';
 export type * from './models/feature-flags-console';
 export type * from './models/facility-finder';

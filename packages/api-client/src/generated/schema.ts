@@ -26,6 +26,7 @@ export interface components {
     "email": string;
     "role": components["schemas"]["Role"];
     "locale"?: (string) | null;
+    "emailVerifiedAt"?: (string) | null;
     "createdAt": string;
     "updatedAt": string;
   };

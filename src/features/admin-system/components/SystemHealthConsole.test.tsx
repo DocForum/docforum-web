@@ -131,7 +131,7 @@ const deadLetter = (id: string, lastError: string | null = 'DELIVERY_FAILED') =>
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: `${role}-token`,
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 

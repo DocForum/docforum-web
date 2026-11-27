@@ -43,6 +43,8 @@ interface AuthState {
    * `?reason=` query param. Cleared by `setSession`. In-memory only. */
   signOutReason: 'idle-timeout' | 'session-expired' | null;
   setSession: (user: User, accessToken: string, csrfToken?: string) => void;
+  /** Patch the signed-in user's `emailVerifiedAt` after verification (#388). */
+  markEmailVerified: (emailVerifiedAt: string) => void;
   clearSession: () => void;
   beginAuthCheck: () => void;
   endAuthCheck: () => void;
@@ -70,6 +72,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       signOutReason: null,
     });
   },
+  markEmailVerified: (emailVerifiedAt) =>
+    set((state) => ({ user: state.user ? { ...state.user, emailVerifiedAt } : null })),
   clearSession: () => {
     clearCsrfToken();
     clearPhiDrafts();

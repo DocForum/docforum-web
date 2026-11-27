@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 // only resets the in-memory database between cases.
 import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
-import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
+import { DOCTOR_USER, MOCK_ACCESS_TOKEN, PATIENT_USER } from './fixtures';
 import { ApiError, apiFetch } from '../services/api-client';
 /** A date of birth exactly `years` ago today: minors vs. the age of majority. */
 function dateYearsAgo(years: number): string {
@@ -59,6 +59,51 @@ import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 beforeEach(() => {
   resetDb();
   useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
+});
+
+describe('email verification', () => {
+  it('verifies an email with a single-use token', async () => {
+    db.emailVerification.verifiedAt.set(PATIENT_USER.email, null);
+    const result = await authService.verifyEmail('valid-verification-token');
+    expect(result.emailVerifiedAt).toEqual(expect.any(String));
+    await expect(authService.verifyEmail('valid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'INVALID_VERIFICATION_TOKEN',
+    });
+    const session = await authService.login({ email: PATIENT_USER.email, password: 'anything' });
+    expect('user' in session && session.user.emailVerifiedAt).toBe(result.emailVerifiedAt);
+    await expect(authService.verifyEmail('invalid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'INVALID_VERIFICATION_TOKEN',
+    });
+    await expect(authService.verifyEmail('expired-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'VERIFICATION_TOKEN_EXPIRED',
+    });
+  });
+
+  it('resends verification for unverified users and handles already verified users', async () => {
+    db.emailVerification.verifiedAt.set(PATIENT_USER.email, null);
+    await expect(authService.resendVerificationEmail(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      resendAfterSeconds: 60,
+    });
+
+    useMockStore.setState({ activeRole: 'doctor' });
+    await expect(authService.resendVerificationEmail(MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 409,
+      code: 'EMAIL_ALREADY_VERIFIED',
+    });
+  });
+
+  it('starts a newly signed-up account unverified', async () => {
+    const session = await authService.signup({
+      role: 'patient',
+      email: 'fresh@example.test',
+      password: 'x',
+      fullName: 'Fresh Person (fake)',
+    });
+    expect(session.user.emailVerifiedAt).toBeNull();
+  });
 });
 
 describe('auth', () => {

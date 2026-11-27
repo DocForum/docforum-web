@@ -22,6 +22,7 @@ import { RateLimitNotice } from './RateLimitNotice';
 import { RecordSearch } from '../features/search-records/components/RecordSearch';
 import { NotificationBell } from '../features/notifications/components/NotificationBell';
 import { PageHeader } from './PageHeader';
+import { EmailVerificationBanner } from '../features/auth/components/EmailVerificationBanner';
 import { pageTitleForPath } from '../navigation/breadcrumbs';
 import { PUBLIC_PAGES } from '../pages/public-routes';
 import { Flag } from './Flag';
@@ -232,6 +233,8 @@ export function Layout() {
           )}
         </div>
       </header>
+
+      {isSignedIn && <EmailVerificationBanner />}
 
       <main
         ref={mainRef}

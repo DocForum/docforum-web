@@ -24,6 +24,7 @@ export const routes: ReadonlyArray<{
   { path: '/signup', role: 'patient', heading: 'Sign up' },
   { path: '/forgot-password', role: 'patient', heading: 'Forgot password' },
   { path: '/reset-password', role: 'patient', heading: 'Reset your password' },
+  { path: '/verify-email', role: 'patient', heading: 'Verify your email' },
   { path: '/account/security', role: 'patient', heading: 'Account security' },
   { path: '/claim-account', role: 'patient', heading: 'Claim' },
   { path: '/invite', role: 'patient', heading: 'Invite' },

@@ -85,6 +85,7 @@ export const PATIENT_USER: User = {
   id: 'usr-patient-demo',
   email: 'pat.placeholder@example.test',
   role: 'patient',
+  emailVerifiedAt: '2026-01-05T09:00:00.000Z',
   createdAt: '2026-01-05T09:00:00.000Z',
   updatedAt: '2026-01-05T09:00:00.000Z',
 };
@@ -93,6 +94,7 @@ export const DOCTOR_USER: User = {
   id: 'usr-doctor-demo',
   email: 'demo.doctor@example.test',
   role: 'doctor',
+  emailVerifiedAt: '2026-01-06T09:00:00.000Z',
   createdAt: '2026-01-06T09:00:00.000Z',
   updatedAt: '2026-01-06T09:00:00.000Z',
 };
@@ -101,6 +103,7 @@ export const FACILITY_USER: User = {
   id: 'usr-facility-demo',
   email: 'frank.facility@example.test',
   role: 'facility',
+  emailVerifiedAt: '2026-01-07T09:00:00.000Z',
   createdAt: '2026-01-07T09:00:00.000Z',
   updatedAt: '2026-01-07T09:00:00.000Z',
 };
@@ -109,6 +112,7 @@ export const ADMIN_USER: User = {
   id: 'usr-admin-demo',
   email: 'al.admin@example.test',
   role: 'admin',
+  emailVerifiedAt: '2026-01-08T09:00:00.000Z',
   createdAt: '2026-01-08T09:00:00.000Z',
   updatedAt: '2026-01-08T09:00:00.000Z',
 };
@@ -207,6 +211,9 @@ export interface MockDb {
     doctor: DoctorOnboardingStatus;
   };
   paymentIntents: PaymentIntent[];
+  /** Mock email-verification state (issue #388): consumed tokens, and
+   * per-email overrides of the persona's `emailVerifiedAt`. */
+  emailVerification: { usedTokens: Set<string>; verifiedAt: Map<string, string | null> };
   /** Login throttle buckets the admin can clear (issue #275). */
   loginAttempts: MockLoginAttempt[];
   disputes: FulfillmentDispute[];
@@ -2749,6 +2756,7 @@ export function createSeedDb(): MockDb {
       },
     },
     paymentIntents,
+    emailVerification: { usedTokens: new Set(), verifiedAt: new Map() },
     loginAttempts,
     disputes,
     consultationAddenda,

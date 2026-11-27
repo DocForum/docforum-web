@@ -75,7 +75,7 @@ describe('LoginForm', () => {
 
   it('logs in with valid credentials', async () => {
     vi.mocked(authService.login).mockResolvedValue({
-      user: { id: 'u-1', email: 'a@b.com', role: 'patient', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+      user: { id: 'u-1', email: 'a@b.com', role: 'patient', emailVerifiedAt: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
       accessToken: 'token-1',
     });
     const user = userEvent.setup();
