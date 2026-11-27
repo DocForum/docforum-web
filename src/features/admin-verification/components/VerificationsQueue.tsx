@@ -11,12 +11,13 @@ import { ageTone, hoursSince, oldestAgeLabel, sortBySubmitted } from '../queue';
 import { describeQueueError } from '../errors';
 import type { VerificationQueueItem } from '../../../types/models';
 import styles from './Verifications.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 function submittedLabel(item: VerificationQueueItem, now: number, locale: string, t: Translator): string {
   const date = new Date(item.submittedAt);
   const formatted = Number.isNaN(date.getTime())
     ? item.submittedAt
-    : date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+    : formatInstant(date, { day: 'numeric', month: 'short', year: 'numeric' }, locale);
   const hours = hoursSince(item.submittedAt, now);
   if (hours === null) {
     return t('adminVerification.queue.submitted', 'Submitted {date}', { date: formatted });

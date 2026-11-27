@@ -14,6 +14,7 @@ import {
 } from '../hooks/useSessions';
 import styles from './SessionsSection.module.css';
 import { paths } from '../../../routes/paths';
+import { formatInstant } from '../../../i18n/format';
 
 type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' };
 
@@ -25,7 +26,7 @@ function formatLastActive(iso: string): string {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours} h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return formatInstant(iso, { dateStyle: 'medium' });
 }
 
 /**

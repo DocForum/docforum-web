@@ -8,6 +8,7 @@ import { formatAge, formatBytes, hoursSince } from '../claims';
 import type { DoctorClaims } from '../claims';
 import type { ClaimDecision, SpecialtyClaim } from '../../../types/models';
 import styles from './SpecialtyClaims.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface DoctorClaimsCardProps {
   group: DoctorClaims;
@@ -114,9 +115,9 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                   <span className={styles.credentialMeta}>
                     {claim.credential.mimeType} · {formatBytes(claim.credential.sizeBytes, t)} ·{' '}
                     {t('adminVerification.claims.uploaded', 'uploaded {date}', {
-                      date: new Date(claim.credential.uploadedAt).toLocaleDateString(locale, {
+                      date: formatInstant(claim.credential.uploadedAt, {
                         dateStyle: 'medium',
-                      }),
+                      }, locale),
                     })}
                   </span>
                   <Button

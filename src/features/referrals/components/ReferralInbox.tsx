@@ -12,6 +12,7 @@ import type { ReferralInboxView } from '../hooks/useReferralInbox';
 import { ReferralStatusPill } from './ReferralStatusPill';
 import type { ReferralSummary } from '../../../types/models';
 import styles from './ReferralInbox.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 const TABS: readonly ReferralInboxView[] = ['all', 'pending', 'accepted', 'upcoming'];
 
@@ -35,7 +36,7 @@ function emptyTitle(view: ReferralInboxView): string {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstant(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function hasScheduledAppointment(referral: ReferralSummary) {

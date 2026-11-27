@@ -1,4 +1,5 @@
 import type { useT } from '../../i18n/useT';
+import { formatInstant } from '../../i18n/format';
 
 type T = ReturnType<typeof useT>;
 
@@ -39,7 +40,7 @@ export function formatNotificationTime(iso: string, now: Date = new Date(), t: T
     });
   }
 
-  return new Date(then).toLocaleDateString(undefined, {
+  return formatInstant(then, {
     day: 'numeric',
     month: 'short',
     year: new Date(then).getFullYear() === now.getFullYear() ? undefined : 'numeric',
@@ -50,7 +51,7 @@ export function formatNotificationTime(iso: string, now: Date = new Date(), t: T
 export function formatNotificationTimestamp(iso: string): string {
   const parsed = Date.parse(iso);
   if (Number.isNaN(parsed)) return iso;
-  return new Date(parsed).toLocaleString(undefined, {
+  return formatInstant(parsed, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });

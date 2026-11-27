@@ -8,6 +8,7 @@ import { TimeAgo } from './TimeAgo';
 import type { useJobs, useOutboxDeadLetters, useReadiness } from '../hooks/useSystemHealth';
 import type { Tone } from '../status';
 import styles from './SystemHealth.module.css';
+import { formatLocaleNumber } from '../../../i18n/format';
 
 interface SystemOverviewProps {
   readiness: ReturnType<typeof useReadiness>;
@@ -100,7 +101,7 @@ export function SystemOverview({ readiness, jobs, outbox, now }: SystemOverviewP
       tone: outboxTone(deadLetters),
       // The list is capped at the requested page size (50), so a full page
       // means "at least this many".
-      value: <span className={styles.tileCount}>{count === 50 ? '50+' : count.toLocaleString('en-GB')}</span>,
+      value: <span className={styles.tileCount}>{count === 50 ? '50+' : formatLocaleNumber(count, 'en-GB')}</span>,
       detail: (
         <>
           {count === 0

@@ -15,6 +15,7 @@ import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
 import { useT } from '../../../i18n/useT';
 import type { FacilityApiKey } from '../../../types/models';
 import styles from './Integrations.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 // Fallback data for preview/development when backend endpoint is not yet connected
 export const DEFAULT_MOCK_API_KEYS: FacilityApiKey[] = [
@@ -172,10 +173,10 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                       ))
                     )}
                   </td>
-                  <td>{new Date(key.createdAt).toLocaleDateString(locale)}</td>
+                  <td>{formatInstant(key.createdAt, { year: 'numeric', month: 'short', day: 'numeric' }, locale)}</td>
                   <td>
                     {key.lastUsedAt
-                      ? new Date(key.lastUsedAt).toLocaleDateString(locale)
+                      ? formatInstant(key.lastUsedAt, { year: 'numeric', month: 'short', day: 'numeric' }, locale)
                       : t('integrations.common.never', 'Never')}
                   </td>
                   <td className={styles.actionCell}>

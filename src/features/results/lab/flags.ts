@@ -7,6 +7,7 @@ import type {
   LabResultFlag,
   LabResultStatus,
 } from '../../../types/models';
+import { formatInstant } from '../../../i18n/format';
 
 export const FLAG_LABEL: Record<LabResultFlag, string> = {
   normal: 'In the usual range',
@@ -58,7 +59,7 @@ export function acknowledgementCopy(
       body:
         nextStep ??
         (acknowledgement.acknowledgedAt
-          ? `Reviewed on ${new Date(acknowledgement.acknowledgedAt).toLocaleDateString()}. If anything has changed, contact the clinic.`
+          ? `Reviewed on ${formatInstant(acknowledgement.acknowledgedAt, { year: 'numeric', month: 'short', day: 'numeric' })}. If anything has changed, contact the clinic.`
           : 'If anything has changed, contact the clinic.'),
     };
   }

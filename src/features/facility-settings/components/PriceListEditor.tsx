@@ -21,6 +21,8 @@ import {
   toLocalDateTimeInput,
 } from '../validation';
 import styles from './FacilitySettings.module.css';
+import { formatInstant } from '../../../i18n/format';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 
 interface PriceListEditorProps {
   facilityId: string;
@@ -61,6 +63,9 @@ function priceStatus(
 export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorProps) {
   const t = useT();
   const { locale } = useIntl();
+  // Effective-from is an instant; show it in the user's configured zone and
+  // name the zone so it is never ambiguous (issue #255).
+  const { timeZone } = useTimeZone();
   const { data: prices = [], isLoading, error } = useFacilityPrices(facilityId);
   const searchMutation = useSearchCatalogItems();
   const createMutation = useCreateFacilityPrice(facilityId);
@@ -409,7 +414,7 @@ export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorPr
                         <td className={styles.amountCell}>
                           {formatAmountFromStroops(price.amountStroops, price.asset)} {price.asset}
                         </td>
-                        <td>{new Date(price.effectiveFrom).toLocaleString(locale)}</td>
+                        <td>{formatInstant(price.effectiveFrom, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }, locale, timeZone)}</td>
                         <td>
                           <span
                             className={`${styles.statusPill} ${

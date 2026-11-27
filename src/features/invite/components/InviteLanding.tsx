@@ -20,6 +20,7 @@ import { homePathForRole } from '../../../navigation/role-home';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
 import type { AccountInvite, InviteRole } from '../../../types/models';
 import styles from './InviteLanding.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 export interface InviteLandingProps {
   token: string;
@@ -34,7 +35,7 @@ function formatDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    : formatInstant(date, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function inviterDescription(invite: AccountInvite): string {

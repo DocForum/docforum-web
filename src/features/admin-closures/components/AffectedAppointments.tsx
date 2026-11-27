@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax -- Existing violation tracked by #299 (raw fetch / localStorage in admin-closures); queued for removal with the shared-client migration. */
 import { useEffect } from 'react';
 import type { AffectedAppointment } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface AffectedAppointmentsProps {
   closureId: string;
@@ -36,7 +37,7 @@ export function AffectedAppointments({ closureId, data }: AffectedAppointmentsPr
             <br />
             {appointment.startsAt && appointment.endsAt && (
               <span>
-                {new Date(appointment.startsAt).toLocaleString()} -{' '}{new Date(appointment.endsAt).toLocaleString()}
+                <ZonedTime value={appointment.startsAt} /> - <ZonedTime value={appointment.endsAt} />
               </span>
             )}
             <br />

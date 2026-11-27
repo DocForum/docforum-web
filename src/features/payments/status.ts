@@ -2,6 +2,7 @@ import { ApiError } from '../../services/api-client';
 import type { Translator } from '../../i18n/useT';
 import type { OrderTypeForPayment, PaymentIntentStatus } from '../../types/models';
 import { englishTranslator } from '../../i18n/englishTranslator';
+import { formatInstant } from '../../i18n/format';
 
 export const STATUS_LABEL: Record<PaymentIntentStatus, string> = {
   created: 'Not funded',
@@ -44,7 +45,7 @@ export function orderTypeLabel(orderType: OrderTypeForPayment, t: Translator = e
 export function formatDay(iso: string, formatDate?: (value: string) => string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return formatDate ? formatDate(iso) : date.toLocaleDateString();
+  return formatDate ? formatDate(iso) : formatInstant(date, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /** An empty payment list and a list that could not be fetched are different
@@ -86,7 +87,7 @@ export function refundDeadlineCopy(
   if (!deadline) return null;
   const date = new Date(deadline);
   if (Number.isNaN(date.getTime())) return null;
-  const day = formatDate ? formatDate(deadline) : date.toLocaleDateString();
+  const day = formatDate ? formatDate(deadline) : formatInstant(date, { year: 'numeric', month: 'short', day: 'numeric' });
   return date.getTime() < now.getTime()
     ? t('payments.refund.closed', 'The refund window closed on {date}.', { date: day })
     : t('payments.refund.open', 'This payment can still be refunded until {date}.', { date: day });

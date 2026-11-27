@@ -289,3 +289,41 @@ export function createFormatters(locale: string = DEFAULT_LOCALE, defaultTimeZon
 }
 
 export type Formatters = ReturnType<typeof createFormatters>;
+
+/**
+ * Locale-parameter date formatting for call sites that used
+ * `Date#toLocale*String` directly (issues #254, #255). Pass the locale and,
+ * when the caller knows it, the IANA zone (the user's preference from
+ * `useTimeZone`, or a facility/doctor zone). Date-only values (`YYYY-MM-DD`)
+ * are calendar dates, so they are always formatted in UTC from noon and can
+ * never shift to the previous day. Invalid input returns `fallback`.
+ */
+export function formatInstant(
+  value: string | number | Date | null | undefined,
+  options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' },
+  locale?: string,
+  timeZone?: string,
+  fallback = '—',
+): string {
+  if (value === null || value === undefined || value === '') return fallback;
+  const dateOnly = typeof value === 'string' && DATE_ONLY.test(value);
+  const date = typeof value === 'number' ? new Date(value) : parseIso(value);
+  if (!isValidDate(date)) return fallback;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: dateOnly ? 'UTC' : timeZone,
+    }).format(date);
+  } catch {
+    return fallback;
+  }
+}
+
+/** Locale-parameter number formatting, replacing `Number#toLocaleString`. */
+export function formatLocaleNumber(
+  value: number | bigint,
+  locale?: string,
+  options: Intl.NumberFormatOptions = {},
+): string {
+  return new Intl.NumberFormat(locale, options).format(value);
+}

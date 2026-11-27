@@ -5,6 +5,7 @@ import { ApiError } from '../../../services/api-client';
 import { useAppointmentStatusAction } from '../../queue/hooks/useQueue';
 import type { Appointment } from '../../../types/models';
 import styles from './AppointmentStatusActions.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 type PendingAction = 'no_show' | 'cancelled';
 
@@ -16,7 +17,7 @@ const COPY: Record<PendingAction, { verb: string; confirm: string; failed: strin
 export function formatVisitTime(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatInstant(date, { hour: '2-digit', minute: '2-digit' });
 }
 
 /**

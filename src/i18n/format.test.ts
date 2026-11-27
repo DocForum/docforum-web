@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   createFormatters,
+  formatInstant,
+  formatLocaleNumber,
   directionFor,
   isRtlLocale,
   parseIso,
@@ -93,5 +95,28 @@ describe('direction (#88)', () => {
     expect(isRtlLocale('en-US')).toBe(false);
     expect(directionFor('ar-EG')).toBe('rtl');
     expect(directionFor('de-DE')).toBe('ltr');
+  });
+});
+
+describe('formatInstant / formatLocaleNumber (issues #254, #255)', () => {
+  it('formats an instant with an explicit locale and zone', () => {
+    expect(
+      formatInstant('2026-03-04T23:30:00Z', { year: 'numeric', month: 'short', day: 'numeric' }, 'en-US', 'Asia/Tokyo'),
+    ).toBe('Mar 5, 2026');
+  });
+
+  it('keeps a date-only value on its calendar day in any zone', () => {
+    expect(
+      formatInstant('2026-03-04', { year: 'numeric', month: 'short', day: 'numeric' }, 'en-US', 'America/Los_Angeles'),
+    ).toBe('Mar 4, 2026');
+  });
+
+  it('returns the fallback for missing or invalid input', () => {
+    expect(formatInstant(null)).toBe('—');
+    expect(formatInstant('not a date', undefined, 'en-US', 'UTC', 'n/a')).toBe('n/a');
+  });
+
+  it('formats numbers for the given locale', () => {
+    expect(formatLocaleNumber(1234567, 'de-DE')).toBe('1.234.567');
   });
 });

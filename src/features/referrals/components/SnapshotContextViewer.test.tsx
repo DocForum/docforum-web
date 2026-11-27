@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '../../../test/render';
 import { SnapshotContextViewer } from './SnapshotContextViewer';
 import type { ReferralDetail, ReferralStatus } from '../../../types/models';
+import { createFormatters } from '../../../i18n/format';
 
 const SNAPSHOT_TAKEN_AT = '2026-09-30T08:15:00.000Z';
 const INTAKE_SUBMITTED_AT = '2026-09-28T17:40:00.000Z';
@@ -9,7 +10,7 @@ const SNAPSHOT_NOTES = 'Referred for palpitations \u2014 \u201curgent\u201d. ECG
 const FREE_TEXT_NOTES = 'Feels worse at night, still can\u2019t sleep.';
 
 function humanDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return createFormatters().formatDate(iso);
 }
 
 function makeDetail(status: ReferralStatus): ReferralDetail {

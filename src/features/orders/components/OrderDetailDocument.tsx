@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { PrintLayout, usePrint } from '../../../components/PrintLayout';
 import { Button } from '../../../components/Button';
 import type { Order } from '../../../types/models';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface Props {
   order: Order;
@@ -65,12 +66,12 @@ export function OrderDetailDocument({ order, patientName, doctorName }: Props) {
             ) : null}
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Issued</dt>
-              <dd style={{ margin: 0 }}>{new Date(order.issuedAt).toLocaleDateString()}</dd>
+              <dd style={{ margin: 0 }}><ZonedTime value={order.issuedAt} mode="date" /></dd>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Expires</dt>
               <dd style={{ margin: 0 }}>
-                {order.expiresAt ? new Date(order.expiresAt).toLocaleDateString() : 'No expiry'}
+                {order.expiresAt ? <ZonedTime value={order.expiresAt} mode="date" /> : 'No expiry'}
               </dd>
             </div>
           </dl>

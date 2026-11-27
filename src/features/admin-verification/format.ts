@@ -2,6 +2,7 @@
  * feature so features never reach into each other for helpers. */
 import { englishTranslator } from '../../i18n/englishTranslator';
 import type { Translator } from '../../i18n/useT';
+import { formatInstant } from '../../i18n/format';
 
 export function formatBytes(sizeBytes: number, t: Translator = englishTranslator): string {
   if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
@@ -17,19 +18,19 @@ export function formatBytes(sizeBytes: number, t: Translator = englishTranslator
 export function formatDateTime(iso: string, locale?: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(locale, {
+  return formatInstant(date, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }, locale);
 }
 
 export function formatDate(iso: string, locale?: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatInstant(date, { day: 'numeric', month: 'short', year: 'numeric' }, locale);
 }
 
 /** How long a signed URL has left, in plain words. */

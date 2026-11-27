@@ -1,4 +1,5 @@
 import type { MedicationPrescription } from '../../types/models';
+import { formatInstant } from '../../i18n/format';
 
 // Pure, dependency-free schedule derivation. Everything time-based takes an
 // explicit `now` so callers (and tests) fully control the clock — nothing here
@@ -338,7 +339,7 @@ export function buildMedicationSchedule(
       drugName: c.drugName,
       dosage: c.dosage,
       frequencyText: c.frequencyText,
-      endedOn: c.end ? c.end.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      endedOn: c.end ? formatInstant(c.end, { month: 'short', day: 'numeric', year: 'numeric' }, locale) : '',
     }));
 
   const overlaps: OverlapWarning[] = [];

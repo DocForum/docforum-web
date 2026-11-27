@@ -4,6 +4,7 @@ import { formatDay, orderTypeLabel, refundDeadlineCopy, statusCopy, statusLabel 
 import type { PaymentHistoryEntry } from '../../../types/models';
 import { useT } from '../../../i18n/useT';
 import styles from './PaymentReceipt.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface Props {
   entry: PaymentHistoryEntry;
@@ -12,7 +13,7 @@ interface Props {
 }
 
 const defaultFormatDate = (value: string) =>
-  new Date(value).toLocaleDateString(undefined, {
+  formatInstant(value, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

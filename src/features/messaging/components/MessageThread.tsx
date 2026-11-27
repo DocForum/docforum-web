@@ -13,6 +13,7 @@ import { useMessages, useSendMessage, useThread } from '../hooks/useMessageThrea
 import { AttachmentPreview } from './AttachmentPreview';
 import { MessageComposer } from './MessageComposer';
 import styles from './MessageThread.module.css';
+import { ZonedTime } from '../../../i18n/components/ZonedTime';
 
 interface Props {
   threadId: string;
@@ -24,15 +25,6 @@ interface OutboxMessage {
   attachmentIds?: string[];
   createdAt: string;
   status: 'sending' | 'failed';
-}
-
-function formatTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /** Plain text plus safe links — never `dangerouslySetInnerHTML`. */
@@ -69,9 +61,7 @@ function MessageItem({ threadId, message }: { threadId: string; message: Message
           ))}
         </div>
       )}
-      <time className={styles.time} dateTime={message.createdAt}>
-        {formatTime(message.createdAt)}
-      </time>
+      <ZonedTime value={message.createdAt} className={styles.time} />
     </li>
   );
 }

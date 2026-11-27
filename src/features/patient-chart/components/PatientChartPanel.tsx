@@ -4,10 +4,11 @@ import { Skeleton } from '../../../components/states/Skeleton';
 import { useT } from '../../../i18n/useT';
 import { usePatientChart } from '../hooks/usePatientChart';
 import styles from './PatientChartPanel.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
+  return formatInstant(iso, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

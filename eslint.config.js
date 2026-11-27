@@ -67,6 +67,13 @@ const MOCK_FIXTURE = {
     '`MOCK_*`/`DEFAULT_MOCK_*` fixtures belong in `src/mocks/` or tests, never in shipped components or services.',
 };
 
+const DIRECT_TO_LOCALE = {
+  selector:
+    "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toLocaleString|toLocaleDateString|toLocaleTimeString)$/]",
+  message:
+    'Use the shared i18n formatters (useFormat/ZonedTime or src/i18n helpers) instead of direct toLocale*String calls (issues #254, #255).',
+};
+
 const GUARDED = ['src/**/*.{ts,tsx}', 'packages/api-client/src/**/*.ts'];
 const NOT_SHIPPED = [
   '**/*.test.{ts,tsx}',
@@ -124,7 +131,17 @@ export default tseslint.config(
         BROWSER_STORAGE,
         WINDOW_STORAGE,
         MOCK_FIXTURE,
+        DIRECT_TO_LOCALE,
       ],
+    },
+  },
+  {
+    // `src/i18n/` owns the formatters, so it may call `toLocale*` itself; every
+    // other guard still applies there.
+    files: ['src/i18n/**/*.{ts,tsx}'],
+    ignores: NOT_SHIPPED,
+    rules: {
+      'no-restricted-syntax': ['error', RAW_FETCH, BROWSER_STORAGE, WINDOW_STORAGE, MOCK_FIXTURE],
     },
   },
   {
@@ -137,7 +154,7 @@ export default tseslint.config(
       'packages/api-client/src/client.ts',
     ],
     rules: {
-      'no-restricted-syntax': ['error', BROWSER_STORAGE, WINDOW_STORAGE, MOCK_FIXTURE],
+      'no-restricted-syntax': ['error', BROWSER_STORAGE, WINDOW_STORAGE, MOCK_FIXTURE, DIRECT_TO_LOCALE],
     },
   },
   {

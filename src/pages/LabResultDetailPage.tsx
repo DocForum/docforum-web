@@ -12,12 +12,13 @@ import {
 import { useLabResult } from '../features/results/lab/hooks/useLabResults';
 import { ApiError } from '../services/api-client';
 import styles from '../features/results/lab/components/LabResults.module.css';
+import { formatInstant } from '../i18n/format';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return 'Date unavailable';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'Date unavailable';
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  return formatInstant(date, { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /** Lab result detail (issue #24): summary, doctor-notified reassurance for

@@ -7,9 +7,10 @@ import { Skeleton } from '../components/states/Skeleton';
 import { IntakeForm } from '../features/booking/components/IntakeForm';
 import { useAppointmentDetail } from '../features/appointments/hooks/useAppointments';
 import type { SubmittedIntake } from '../types/models';
+import { formatInstant } from '../i18n/format';
 
 function formatSlot(start: string): string {
-  return new Date(start).toLocaleString(undefined, {
+  return formatInstant(start, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

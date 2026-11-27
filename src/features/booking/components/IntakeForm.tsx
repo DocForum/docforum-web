@@ -11,6 +11,7 @@ import { useIntakeDraft } from '../hooks/useIntakeDraft';
 import { useSubmitIntake } from '../hooks/useSubmitIntake';
 import { isDraftDirty, toSubmitInput, validateIntake } from '../intake-draft';
 import styles from './IntakeForm.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface Props {
   slotId: string;
@@ -66,7 +67,7 @@ export function IntakeForm({ slotId, appointmentId, onSubmitted }: Props) {
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <div className={styles.autosave} role="status" aria-live="polite">
         {isDraftDirty(draft.fields) && savedAt
-          ? `Draft saved in this tab at ${new Date(savedAt).toLocaleTimeString(undefined, {
+          ? `Draft saved in this tab at ${formatInstant(savedAt, {
               hour: '2-digit',
               minute: '2-digit',
             })}. It is not stored on your device or sent until you submit.`

@@ -6,6 +6,7 @@ import type { AdminUser } from '../../../types/models';
 import { useDeactivateAdminUser, useReactivateAdminUser } from '../hooks/useAdminUsers';
 import { isLastAdminError, validateDeactivationReason } from '../query';
 import styles from './AdminUsers.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface AdminUserDialogProps {
   user: AdminUser;
@@ -15,7 +16,7 @@ interface AdminUserDialogProps {
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? '—' : formatInstant(date, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /**

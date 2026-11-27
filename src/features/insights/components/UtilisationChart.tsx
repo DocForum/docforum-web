@@ -4,6 +4,7 @@ import type { UtilisationWeek } from '../../../types/models';
 import { useFormat } from '../../../i18n/useFormat';
 import { useT } from '../../../i18n/useT';
 import styles from './PracticeInsights.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface UtilisationChartProps {
   weeks: UtilisationWeek[];
@@ -17,11 +18,11 @@ interface UtilisationChartProps {
 function formatWeekLabel(week: UtilisationWeek, locale?: string): string {
   const date = new Date(`${week.startDate}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return week.weekLabel;
-  return date.toLocaleDateString(locale, {
+  return formatInstant(date, {
     month: 'short',
     day: '2-digit',
     timeZone: 'UTC',
-  });
+  }, locale);
 }
 
 export function UtilisationChart({

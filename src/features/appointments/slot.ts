@@ -38,21 +38,37 @@ export function isUpcoming(appointment: PatientAppointment, now: Date): boolean 
   return appointment.status === 'scheduled' && (start >= now.getTime() || isSameLocalDay(start, now.getTime()));
 }
 
-function pad(value: number): string {
-  return value.toString().padStart(2, '0');
-}
 
-export function formatSlotTime(iso: string): string {
+export function formatSlotTime(
+  iso: string,
+  locale?: string,
+  timeZone?: string,
+): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(date);
 }
 
-export function formatSlotDate(iso: string, now: Date = new Date()): string {
+export function formatSlotDate(
+  iso: string,
+  now: Date = new Date(),
+  locale?: string,
+  timeZone?: string,
+): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   if (isSameLocalDay(date.getTime(), now.getTime())) return 'today';
   const tomorrow = new Date(now.getTime() + DAY_MS);
   if (isSameLocalDay(date.getTime(), tomorrow.getTime())) return 'tomorrow';
-  return date.toLocaleDateString();
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone,
+  }).format(date);
 }

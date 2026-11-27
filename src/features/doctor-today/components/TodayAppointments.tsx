@@ -8,9 +8,10 @@ import { ApiError } from '../../../services/api-client';
 import type { Appointment, IntakeForm } from '../../../types/models';
 import { useAppointmentIntake, useTodayAppointments } from '../hooks/useDoctorToday';
 import styles from './TodayAppointments.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, {
+  return formatInstant(iso, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -41,7 +42,7 @@ function IntakeSummary({ intake }: { intake: IntakeForm }) {
     <div className={styles.intake}>
       <p className={styles.intakeMeta}>
         {t('doctorToday.intake.submitted', 'Submitted {date}', {
-          date: new Date(intake.submittedAt).toLocaleString(),
+          date: formatInstant(intake.submittedAt, { dateStyle: 'medium', timeStyle: 'short' }),
         })}
       </p>
       <dl className={styles.fields}>

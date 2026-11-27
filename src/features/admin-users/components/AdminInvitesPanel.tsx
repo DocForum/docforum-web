@@ -5,6 +5,7 @@ import { Skeleton } from '../../../components/states/Skeleton';
 import { ApiError } from '../../../services/api-client';
 import { useAdminInvites, useRevokeAdminInvite, useSendAdminInvite } from '../hooks/useAdminUsers';
 import styles from './AdminUsers.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -105,8 +106,8 @@ export function AdminInvitesPanel() {
             {invites.data.map((invite) => (
               <tr key={invite.id}>
                 <td>{invite.email}</td>
-                <td>{new Date(invite.invitedAt).toLocaleDateString()}</td>
-                <td>{new Date(invite.expiresAt).toLocaleDateString()}</td>
+                <td>{formatInstant(invite.invitedAt, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                <td>{formatInstant(invite.expiresAt, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                 <td>
                   {confirmRevokeId === invite.id ? (
                     <span className={styles.inlineConfirm}>

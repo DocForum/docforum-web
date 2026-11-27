@@ -1,4 +1,5 @@
 import type { AccessActorRole, AccessReason, AccessRecordType } from '../../types/models';
+import { createFormatters } from '../../i18n/format';
 
 export const ROLE_LABEL: Record<AccessActorRole, string> = {
   doctor: 'Clinician',
@@ -48,7 +49,7 @@ export function reasonCopy(reason: AccessReason): string {
 
 export function formatWhen(occurredAt: string): string {
   const date = new Date(occurredAt);
-  return Number.isNaN(date.getTime()) ? occurredAt : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? occurredAt : createFormatters().formatDateTime(date);
 }
 
 /** No support mailbox is configured anywhere in this repo yet, so the

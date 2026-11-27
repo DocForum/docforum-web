@@ -6,6 +6,7 @@ import { OverviewBoard } from '../features/admin-overview/components/OverviewBoa
 import { useOperationsOverview } from '../features/admin-overview/hooks/useOperationsOverview';
 import { ApiError } from '../services/api-client';
 import styles from '../features/admin-overview/components/AdminOverview.module.css';
+import { formatInstant } from '../i18n/format';
 
 /** The admin landing page: "what needs attention" across every queue
  * (issue #68). The payments console moved to `/admin/payments/console`.
@@ -62,7 +63,7 @@ export function AdminDashboardPage() {
 
       {overview.data && (
         <p className={styles.muted}>
-          Last updated {new Date(overview.data.generatedAt).toLocaleTimeString()}.
+          Last updated {formatInstant(overview.data.generatedAt, { hour: '2-digit', minute: '2-digit' })}.
         </p>
       )}
 

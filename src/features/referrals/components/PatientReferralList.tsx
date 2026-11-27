@@ -16,6 +16,7 @@ import {
   usePatientReferrals,
 } from '../hooks/usePatientReferrals';
 import styles from './PatientReferralList.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 const STATUS_LABEL: Record<ReferralStatus, string> = {
   pending: 'Waiting for your answer',
@@ -27,7 +28,7 @@ const STATUS_LABEL: Record<ReferralStatus, string> = {
 };
 
 function formatAppointment(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
+  return formatInstant(value, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

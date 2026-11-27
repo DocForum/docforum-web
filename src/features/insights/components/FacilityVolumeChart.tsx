@@ -3,6 +3,7 @@ import type { FacilityVolumeDay } from '../../../types/models';
 import { useLocaleStore } from '../../../store/locale-store';
 import { useT } from '../../../i18n/useT';
 import styles from './FacilityInsights.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface FacilityVolumeChartProps {
   days: FacilityVolumeDay[];
@@ -18,7 +19,7 @@ const BAR_COLORS = {
 function formatDayLabel(iso: string, locale?: string): string {
   const date = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  return formatInstant(date, { month: 'short', day: 'numeric' }, locale);
 }
 
 export function FacilityVolumeChart({ days }: FacilityVolumeChartProps) {

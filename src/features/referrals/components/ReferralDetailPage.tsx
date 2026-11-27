@@ -10,6 +10,7 @@ import { ReferralAccessDenied } from './ReferralAccessDenied';
 import { ReferralStatusPill } from './ReferralStatusPill';
 import { SnapshotContextViewer } from './SnapshotContextViewer';
 import styles from './ReferralDetailPage.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 /** Referrals use their own vocabulary: a `no_show` here reads "Did not
  * attend", unlike the doctor's queue ("No show") or the availability screen
@@ -32,7 +33,7 @@ function referralAppointmentLabel(status: AppointmentStatus, t: Translate): stri
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstant(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function ReferralDetailPage({ referralId }: { referralId: string }) {

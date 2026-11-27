@@ -1,9 +1,10 @@
 import { useT } from '../../../i18n/useT';
 import type { ReferralDetail } from '../../../types/models';
 import styles from './SnapshotContextViewer.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstant(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /** The core of issue #41: everything rendered here comes from fields frozen

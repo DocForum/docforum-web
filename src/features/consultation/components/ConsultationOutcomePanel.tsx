@@ -25,6 +25,7 @@ import {
 import { formatStroops } from '../../../services/payments-service';
 import { LabOrderForm, PrescriptionForm } from './OrderForms';
 import styles from './ConsultationOutcomePanel.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 const OUTCOME_LABELS: Record<ConsultationOutcome, string> = {
   resolved: 'Resolved',
@@ -33,7 +34,7 @@ const OUTCOME_LABELS: Record<ConsultationOutcome, string> = {
 };
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatInstant(iso, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

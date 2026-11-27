@@ -17,6 +17,7 @@ import {
 } from '../requirements';
 import type { ClaimItemStatus, DoctorCredential } from '../../../types/models';
 import styles from './CredentialList.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface Props {
   credentials: readonly DoctorCredential[];
@@ -26,7 +27,7 @@ interface Props {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstant(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function rejectionMessage(error: Error | null, fallback: string): string | null {

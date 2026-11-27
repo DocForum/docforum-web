@@ -6,11 +6,12 @@ import type { LabResultSummary } from '../../../../types/models';
 import { STATUS_LABEL, canViewFile } from '../flags';
 import { ResultFlagBadge } from './ResultFlagBadge';
 import styles from './LabResults.module.css';
+import { formatInstant } from '../../../../i18n/format';
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'Date unavailable';
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatInstant(date, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /** A held/pending result has no file yet; say so instead of linking to an

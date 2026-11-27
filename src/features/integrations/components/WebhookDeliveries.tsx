@@ -7,6 +7,7 @@ import { useT } from '../../../i18n/useT';
 import { webhookEventDescription } from '../webhook-events';
 import type { WebhookDelivery, WebhookDeliveryStatus } from '../../../types/models';
 import styles from './Integrations.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 // Fallback data for preview/development
 export const DEFAULT_MOCK_DELIVERIES: WebhookDelivery[] = [
@@ -125,7 +126,7 @@ export function WebhookDeliveries({ facilityId, endpointId }: WebhookDeliveriesP
                 <td>{delivery.attemptCount}</td>
                 <td>
                   {delivery.deliveredAt
-                    ? new Date(delivery.deliveredAt).toLocaleTimeString(locale)
+                    ? formatInstant(delivery.deliveredAt, { hour: '2-digit', minute: '2-digit' }, locale)
                     : '—'}
                 </td>
                 <td className={styles.actionCell}>

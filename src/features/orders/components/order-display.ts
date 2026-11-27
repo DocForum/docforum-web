@@ -1,10 +1,11 @@
 import type { PatientOrder } from '../../../types/models';
 import { englishTranslator } from '../../../i18n/englishTranslator';
 import type { Translator } from '../../../i18n/useT';
+import { formatInstant } from '../../../i18n/format';
 
 export function formatOrderDate(value: string | null | undefined): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
+  return formatInstant(value, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

@@ -12,6 +12,7 @@ import {
   useItemStatusLabel,
 } from '../status';
 import styles from './Fulfillment.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface FacilityFulfillmentQueueProps {
   items: FulfillmentQueueItem[];
@@ -155,7 +156,7 @@ function DispenseItemRow({
           {t('fulfillment.dispense.lastAction', 'Last action: {action} by {name} on {date}', {
             action: item.attribution.action.replace('_', ' '),
             name: item.attribution.performedByName,
-            date: new Date(item.attribution.timestamp).toLocaleString(locale),
+            date: formatInstant(item.attribution.timestamp, { dateStyle: 'medium', timeStyle: 'short' }, locale),
           })}
           {item.attribution.notes ? ' — ' + t('fulfillment.dispense.notes', '“{notes}”', { notes: item.attribution.notes }) : ''}
         </p>
@@ -264,7 +265,7 @@ export function FacilityFulfillmentQueue({
                     <p className={styles.orderMeta}>
                       {t('fulfillment.queue.orderReceived', 'Order {orderId} · received {date}', {
                         orderId: group.orderId,
-                        date: new Date(group.receivedAt).toLocaleDateString(locale),
+                        date: formatInstant(group.receivedAt, { year: 'numeric', month: 'short', day: 'numeric' }, locale),
                       })}
                     </p>
                   </div>
