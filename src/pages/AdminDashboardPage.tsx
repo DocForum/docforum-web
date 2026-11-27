@@ -1,93 +1,87 @@
-import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useAuthStore } from '../store/auth-store';
-import { CreatePaymentIntentForm } from '../features/payments/components/CreatePaymentIntentForm';
-import { PaymentIntentPanel } from '../features/payments/components/PaymentIntentPanel';
-import { TextField } from '../components/TextField';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import { useT } from '../i18n/useT';
+import { InlineError } from '../components/states/InlineError';
+import { Skeleton } from '../components/states/Skeleton';
+import { OverviewBoard } from '../features/admin-overview/components/OverviewBoard';
+import { useOperationsOverview } from '../features/admin-overview/hooks/useOperationsOverview';
+import { ApiError } from '../services/api-client';
+import styles from '../features/admin-overview/components/AdminOverview.module.css';
+import { formatInstant } from '../i18n/format';
 
-// v1: admin accounts are invited/seeded directly, not self-serve — there's
-// no admin signup flow anywhere in this repo or docforum-core, by design
-// (PRD OQ-2). This page is real once an admin session exists.
+/** The admin landing page: "what needs attention" across every queue
+ * (issue #68). The payments console moved to `/admin/payments/console`.
+ *
+ * A 404/501 means docforum-core does not serve the overview yet (it is an
+ * assumed contract, core#123). That renders a muted explanation plus links to
+ * the individual consoles, never an error page — the admin can still work. */
 export function AdminDashboardPage() {
-  const user = useAuthStore((state) => state.user);
-  const [searchParams] = useSearchParams();
-  const linkedIntentId = searchParams.get('intent')?.trim() || null;
-  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(linkedIntentId);
-  const [lookupId, setLookupId] = useState(linkedIntentId ?? '');
-  const t = useT();
+  const overview = useOperationsOverview();
+  const notServed =
+    overview.isError &&
+    overview.error instanceof ApiError &&
+    (overview.error.status === 404 || overview.error.status === 501);
 
   return (
-    <div className="container">
-      <div className="card">
-        <h1>{t('admin.welcome', 'Welcome, {email}', { email: user?.email ?? '' })}</h1>
-        <p>
-          {t('admin.consoleIntro', 'Payments console (Phase W5) — creates and drives real')}{' '}
-          <a href="https://github.com/DocForum/docforum-core/blob/main/docs/adr/0004-custodial-payments-v1.md">
-            {t('admin.custodialEscrow', 'custodial escrow payments')}
-          </a>{' '}
-          {t('admin.consoleOutro', "on Stellar testnet, entirely through docforum-core's API.")}
-        </p>
-        <p>
-          <Link to="/admin/verifications">Review doctor verifications</Link> to approve or reject doctors waiting
-          for credential review — unverified doctors never appear in search.
-        </p>
-        <p>
-          <Link to="/admin/verification">Review specialty claims</Link> to approve or reject each doctor's claimed
-          specialties one at a time, with the supporting credential beside each claim.
-        </p>
-        <p>
-          <Link to="/admin/referrals">Review stuck referrals</Link> to reassign or cancel referrals that have sat
-          pending too long.
-        </p>
-        <p>
-          <Link to="/admin/disputes">Resolve fulfilment disputes</Link> to release or refund escrow that is blocked
-          while a patient disputes a fulfilled order.
-        </p>
-        <p>
-          <Link to="/admin/audit">Open the audit trail</Link> to see who changed or viewed any record.
-        </p>
-        <p>
-          <Link to="/admin/flags">Manage feature flags</Link> to stage rollouts like wallet payments or 2FA enforcement.
-        </p>
-        <p><Link to="/admin/catalogs">Manage catalogs</Link> to curate specialties, symptom routing, medications and lab tests.</p>
-        <p>
-          <Link to="/admin/system">Check system health</Link> for readiness, background jobs and outbox dead letters.
-        </p>
-      </div>
+    <div className={`container ${styles.page}`}>
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.title}>Operations overview</h1>
+          <p className={styles.muted}>
+            What needs attention across the platform. Updates every minute while this tab is open.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => overview.refetch()} loading={overview.isFetching}>
+          Refresh now
+        </Button>
+      </header>
 
-      <ErrorBoundary level="section">
-        <CreatePaymentIntentForm onCreated={setSelectedIntentId} />
-      </ErrorBoundary>
-
-      <section className="card" aria-labelledby="lookup-heading">
-        <h2 id="lookup-heading">{t('admin.lookupTitle', 'Look up an existing payment intent')}</h2>
-        <form
-          aria-label={t('admin.lookupTitle', 'Look up an existing payment intent')}
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (lookupId.trim()) setSelectedIntentId(lookupId.trim());
-          }}
-        >
-          <TextField
-            label={t('admin.paymentIntentId', 'Payment intent id')}
-            value={lookupId}
-            onChange={(e) => setLookupId(e.target.value)}
-            hint={t('admin.paymentIntentIdHint', 'Paste the id returned when the intent was created.')}
-          />
-          <Button type="submit" variant="secondary">
-            {t('admin.lookup', 'Look up')}
-          </Button>
-        </form>
-      </section>
-
-      {selectedIntentId && (
-        <ErrorBoundary level="section">
-          <PaymentIntentPanel intentId={selectedIntentId} />
-        </ErrorBoundary>
+      {overview.isPending && (
+        <div className="card" aria-busy="true">
+          <Skeleton lines={4} label="Loading the operations overview" />
+        </div>
       )}
+
+      {overview.isError && !notServed && (
+        <InlineError
+          title="Couldn't load the operations overview"
+          message="The board may be stale. Individual consoles below still work."
+          onRetry={() => overview.refetch()}
+        />
+      )}
+
+      {notServed && (
+        <div className={`card ${styles.unavailable}`} role="status">
+          <h2 className={styles.cardTitle}>The overview isn&apos;t available on this deployment yet.</h2>
+          <p>
+            docforum-core doesn&apos;t serve the aggregated operations endpoint yet, so there are no counts or ages
+            to show. Each queue can still be opened directly from the links below.
+          </p>
+        </div>
+      )}
+
+      {overview.data && <OverviewBoard overview={overview.data} now={new Date()} />}
+
+      {overview.data && (
+        <p className={styles.muted}>
+          Last updated {formatInstant(overview.data.generatedAt, { hour: '2-digit', minute: '2-digit' })}.
+        </p>
+      )}
+
+      <section className="card" aria-labelledby="admin-consoles-heading">
+        <h2 id="admin-consoles-heading">Go to a console</h2>
+        <ul className={styles.footerLinks}>
+          <li><Link to="/admin/users">Users</Link></li>
+          <li><Link to="/admin/payments/console">Payments console</Link></li>
+          <li><Link to="/admin/verifications">Doctor verifications</Link></li>
+          <li><Link to="/admin/verification">Specialty claims</Link></li>
+          <li><Link to="/admin/referrals">Referrals</Link></li>
+          <li><Link to="/admin/disputes">Disputes</Link></li>
+          <li><Link to="/admin/audit">Audit trail</Link></li>
+          <li><Link to="/admin/flags">Feature flags</Link></li>
+          <li><Link to="/admin/catalogs">Catalogs</Link></li>
+          <li><Link to="/admin/system">System health</Link></li>
+        </ul>
+      </section>
     </div>
   );
 }

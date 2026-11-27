@@ -82,18 +82,13 @@ export const facilitySettingsHandlers = [
   ),
 
   http.get(
-    '*/facilities/:facilityId/prices',
-    respond('list', ({ params }) =>
-      db.facilityPrices.filter(
-        (price) => price.facilityId === paramId(params, 'facilityId'),
-      ),
-    ),
+    '*/facilities/me/prices',
+    respond('list', () => db.facilityPrices),
   ),
 
   http.post(
-    '*/facilities/:facilityId/prices',
-    respond('json', async ({ params, request }) => {
-      const facilityId = paramId(params, 'facilityId');
+    '*/facilities/me/prices',
+    respond('json', async ({ request }) => {
       const body = (await request.json().catch(() => ({}))) as Partial<FacilityPrice>;
       const catalogItem = db.catalogItems.find((item) => item.code === body.catalogItemCode);
       if (!catalogItem) return badRequest('catalogItemCode is not in the catalog');
@@ -112,7 +107,7 @@ export const facilitySettingsHandlers = [
 
       const created: FacilityPrice = {
         id: `prc-mock-${Date.now()}`,
-        facilityId,
+        facilityId: 'fac-main',
         catalogItemCode: catalogItem.code,
         catalogItemName: catalogItem.name,
         asset: body.asset,

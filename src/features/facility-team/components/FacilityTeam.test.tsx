@@ -70,7 +70,7 @@ const DEFAULT_MOCK_QUEUE: FulfillmentQueueItem[] = [
 beforeEach(() => {
   useAuthStore.setState({
     accessToken: 'test-token',
-    user: { id: 'user-owner-1', email: 'evelyn.reed@centralpharmacy.org', role: 'facility', createdAt: '', updatedAt: '' },
+    user: { id: 'user-owner-1', email: 'evelyn.reed@centralpharmacy.org', role: 'facility', emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 
   vi.mocked(teamService.listFacilityMembers).mockResolvedValue(DEFAULT_MOCK_MEMBERS);

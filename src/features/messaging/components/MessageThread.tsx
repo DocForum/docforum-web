@@ -27,15 +27,6 @@ interface OutboxMessage {
   status: 'sending' | 'failed';
 }
 
-function formatTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 /** Plain text plus safe links — never `dangerouslySetInnerHTML`. */
 function MessageBody({ body }: { body: string }) {
   return (
@@ -70,9 +61,7 @@ function MessageItem({ threadId, message }: { threadId: string; message: Message
           ))}
         </div>
       )}
-      <time className={styles.time} dateTime={message.createdAt}>
-        <ZonedTime value={message.createdAt} />
-      </time>
+      <ZonedTime value={message.createdAt} className={styles.time} />
     </li>
   );
 }

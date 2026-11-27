@@ -32,3 +32,18 @@
   background: var(--color-surface-alt);
   color: var(--color-text-faint);
 }
+
+.pill[data-status='cancelled'] {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+@media (forced-colors: active) {
+  .pill { color: CanvasText; background: Canvas; border: 2px solid CanvasText; }
+  .pill[data-status='pending'] { border-style: dashed; }
+  .pill[data-status='accepted'] { border-color: Highlight; }
+  .pill[data-status='declined'] { border-style: double; border-width: 3px; }
+  .pill[data-status='completed'] { border-style: solid; border-width: 3px; }
+  .pill[data-status='expired'] { border-style: dotted; }
+  .pill[data-status='cancelled'] { border-style: dashed; border-width: 3px; }
+}

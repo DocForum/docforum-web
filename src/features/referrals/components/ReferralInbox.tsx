@@ -6,26 +6,37 @@ import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useT, type Translate } from '../../../i18n/useT';
 import { useReferralInbox } from '../hooks/useReferralInbox';
 import type { ReferralInboxView } from '../hooks/useReferralInbox';
 import { ReferralStatusPill } from './ReferralStatusPill';
 import type { ReferralSummary } from '../../../types/models';
-import { useFormat } from '../../../i18n/useFormat';
 import styles from './ReferralInbox.module.css';
+import { formatInstant } from '../../../i18n/format';
 
-const TABS: ReadonlyArray<{ key: ReferralInboxView; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'accepted', label: 'Accepted' },
-  { key: 'upcoming', label: 'With upcoming appointment' },
-];
+const TABS: readonly ReferralInboxView[] = ['all', 'pending', 'accepted', 'upcoming'];
+
+function tabLabel(key: ReferralInboxView, t: Translate): string {
+  switch (key) {
+    case 'all':
+      return t('referrals.inbox.tab.all', 'All');
+    case 'pending':
+      return t('referrals.inbox.tab.pending', 'Pending');
+    case 'accepted':
+      return t('referrals.inbox.tab.accepted', 'Accepted');
+    case 'upcoming':
+      return t('referrals.inbox.tab.upcoming', 'With upcoming appointment');
+    default:
+      return key;
+  }
+}
 
 function emptyTitle(view: ReferralInboxView): string {
   return view === 'all' ? 'No referrals yet' : `No ${view} referrals`;
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstant(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function hasScheduledAppointment(referral: ReferralSummary) {
@@ -33,12 +44,15 @@ function hasScheduledAppointment(referral: ReferralSummary) {
 }
 
 function ReferralListItem({ referral }: { referral: ReferralSummary }) {
-  const format = useFormat();
+  const t = useT();
   // Accepting a referral is the patient-side action (issue #4) — there is no
   // accept/decline endpoint for the specialist, so the copy here stays
   // honest: every item links to the detail reader, pending items framed as
   // "respond" rather than a fake accept button.
-  const actionLabel = referral.status === 'pending' ? 'Respond to referral' : 'Open referral';
+  const actionLabel =
+    referral.status === 'pending'
+      ? t('referrals.inbox.respond', 'Respond to referral')
+      : t('referrals.inbox.open', 'Open referral');
 
   return (
     <li className={styles.item}>
@@ -48,12 +62,13 @@ function ReferralListItem({ referral }: { referral: ReferralSummary }) {
       </div>
       {referral.targetSpecialty ? <span className={styles.specialty}>{referral.targetSpecialty.name}</span> : null}
       <p className={styles.snapshotMeta}>
-        Snapshot taken <time dateTime={referral.snapshotTakenAt}>{format.formatDate(referral.snapshotTakenAt)}</time>
+        {t('referrals.snapshot.taken', 'Snapshot taken')}{' '}
+        <time dateTime={referral.snapshotTakenAt}>{formatDate(referral.snapshotTakenAt)}</time>
       </p>
       <p className={styles.notes}>{referral.snapshotNotes}</p>
       {hasScheduledAppointment(referral) ? (
         <Link className={styles.appointmentLink} to={`/doctor/appointments/${referral.resultingAppointmentId}`}>
-          Upcoming appointment
+          {t('referrals.inbox.upcomingAppointment', 'Upcoming appointment')}
         </Link>
       ) : null}
       <Link className={styles.actionLink} to={`/doctor/referrals/${referral.id}`}>
@@ -64,6 +79,7 @@ function ReferralListItem({ referral }: { referral: ReferralSummary }) {
 }
 
 export function ReferralInbox() {
+  const t = useT();
   const [view, setView] = useState<ReferralInboxView>('all');
   const query = useReferralInbox(view);
   const errorText = useErrorMessage();
@@ -81,41 +97,41 @@ export function ReferralInbox() {
   function handleTabListKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    const current = TABS.findIndex((tab) => tab.key === view);
+    const current = TABS.indexOf(view);
     const delta = event.key === 'ArrowRight' ? 1 : -1;
     const next = (current + delta + TABS.length) % TABS.length;
-    setView(TABS[next].key);
+    setView(TABS[next]);
     tabRefs.current[next]?.focus();
   }
 
   return (
     <section className={styles.root} aria-labelledby="inbox-heading">
       <h1 id="inbox-heading" className={styles.heading}>
-        Referrals
+        {t('referrals.inbox.title', 'Referrals')}
       </h1>
 
       <div
         className={styles.tabList}
         role="tablist"
-        aria-label="Referral status"
+        aria-label={t('referrals.inbox.statusAria', 'Referral status')}
         onKeyDown={handleTabListKeyDown}
       >
         {TABS.map((tab, index) => (
           <button
-            key={tab.key}
+            key={tab}
             type="button"
             role="tab"
-            id={`referral-tab-${tab.key}`}
+            id={`referral-tab-${tab}`}
             aria-controls="referral-panel"
-            aria-selected={view === tab.key}
-            tabIndex={view === tab.key ? 0 : -1}
+            aria-selected={view === tab}
+            tabIndex={view === tab ? 0 : -1}
             className={styles.tab}
             ref={(element) => {
               tabRefs.current[index] = element;
             }}
-            onClick={() => setView(tab.key)}
+            onClick={() => setView(tab)}
           >
-            {tab.label}
+            {tabLabel(tab, t)}
           </button>
         ))}
       </div>
@@ -127,12 +143,14 @@ export function ReferralInbox() {
         tabIndex={0}
         className={styles.panel}
       >
-        {query.isPending ? <Skeleton lines={4} label="Loading referrals" /> : null}
+        {query.isPending ? (
+          <Skeleton lines={4} label={t('referrals.inbox.loading', 'Loading referrals…')} />
+        ) : null}
 
         {firstPageFailed ? (
           <InlineError
             title="Referrals couldn't be loaded"
-            message={errorText(query.error) ?? 'Referrals could not be loaded. Try again.'}
+            message={errorText(query.error) ?? t('referrals.inbox.loadFailed', 'Failed to load referrals. Please try again.')}
             onRetry={() => void query.refetch()}
           />
         ) : null}
@@ -140,14 +158,23 @@ export function ReferralInbox() {
         {laterPageFailed ? (
           <InlineError
             title="More referrals couldn't be loaded"
-            message={`${errorText(query.error) ?? 'Could not load more referrals.'} The referrals above are still loaded.`}
+            message={
+              errorText(query.error)
+                ? t('referrals.inbox.laterPageFailed', '{message} — the referrals above are still loaded.', {
+                    message: errorText(query.error) as string,
+                  })
+                : t(
+                    'referrals.inbox.laterPageFailedGeneric',
+                    'Could not load more referrals. The referrals above are still loaded.',
+                  )
+            }
             onRetry={() => void query.fetchNextPage()}
           />
         ) : null}
 
         {items && items.length === 0 ? (
           <EmptyState
-            title={emptyTitle(view)}
+            title={view === 'all' ? t('referrals.inbox.empty', 'No referrals yet.') : emptyTitle(view)}
             description="Referrals from other doctors appear here as soon as they are sent."
             action={
               view === 'all'
@@ -170,7 +197,9 @@ export function ReferralInbox() {
                 onClick={() => query.fetchNextPage()}
                 loading={query.isFetchingNextPage}
               >
-                {query.isFetchingNextPage ? 'Loading more…' : 'Load more referrals'}
+                {query.isFetchingNextPage
+                  ? t('referrals.inbox.loadingMore', 'Loading more…')
+                  : t('referrals.inbox.loadMore', 'Load more referrals')}
               </Button>
             ) : null}
           </>

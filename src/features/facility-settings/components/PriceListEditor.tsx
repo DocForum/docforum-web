@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { Spinner } from '../../../components/Spinner';
+import { DatePicker } from '../../../components/DatePicker';
 import { TextField } from '../../../components/TextField';
+import { TimePicker } from '../../../components/TimePicker';
 import {
   useCreateFacilityPrice,
   useFacilityPrices,
   useSearchCatalogItems,
 } from '../hooks/useFacilitySettings';
+import { useT } from '../../../i18n/useT';
 import type { CatalogItem, FacilityPrice, PayoutAsset } from '../../../types/models';
 import {
   ASSET_DECIMALS,
@@ -17,15 +21,15 @@ import {
   toLocalDateTimeInput,
 } from '../validation';
 import styles from './FacilitySettings.module.css';
-import { ZonedTime } from '../../../i18n/components/ZonedTime';
+import { formatInstant } from '../../../i18n/format';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
-import { isValidTimeZone } from '../../../i18n/time-zone';
 
 interface PriceListEditorProps {
   facilityId: string;
   onDirtyChange: (dirty: boolean) => void;
-  facilityTimeZone?: string | null;
 }
+
+type PriceStatus = 'current' | 'scheduled' | 'superseded';
 
 function currentPriceFor(
   prices: FacilityPrice[],
@@ -50,17 +54,18 @@ function priceStatus(
   price: FacilityPrice,
   prices: FacilityPrice[],
   now = Date.now(),
-): 'Current' | 'Scheduled' | 'Superseded' {
-  if (new Date(price.effectiveFrom).getTime() > now) return 'Scheduled';
+): PriceStatus {
+  if (new Date(price.effectiveFrom).getTime() > now) return 'scheduled';
   const current = currentPriceFor(prices, price.catalogItemCode, price.asset, now);
-  return current?.id === price.id ? 'Current' : 'Superseded';
+  return current?.id === price.id ? 'current' : 'superseded';
 }
 
-export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }: PriceListEditorProps) {
-  const { timeZone: userTimeZone } = useTimeZone();
-  const effectiveTimeZone = facilityTimeZone && isValidTimeZone(facilityTimeZone)
-    ? facilityTimeZone
-    : userTimeZone;
+export function PriceListEditor({ facilityId, onDirtyChange }: PriceListEditorProps) {
+  const t = useT();
+  const { locale } = useIntl();
+  // Effective-from is an instant; show it in the user's configured zone and
+  // name the zone so it is never ambiguous (issue #255).
+  const { timeZone } = useTimeZone();
   const { data: prices = [], isLoading, error } = useFacilityPrices(facilityId);
   const searchMutation = useSearchCatalogItems();
   const createMutation = useCreateFacilityPrice(facilityId);
@@ -82,6 +87,11 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
   useEffect(() => {
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  const itemTypeLabel = (item: CatalogItem) =>
+    item.type === 'pharmacy'
+      ? t('facilitySettings.price.itemTypeMedication', 'Medication')
+      : t('facilitySettings.price.itemTypeLabTest', 'Lab test');
 
   const chooseItem = (item: CatalogItem, nextAsset: PayoutAsset = asset) => {
     const current = currentPriceFor(prices, item.code, nextAsset);
@@ -125,8 +135,8 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
     if (!selected) return;
     setSaved(false);
 
-    const parsedAmount = parseAssetAmount(amount, asset);
-    const parsedEffective = parseEffectiveFrom(effectiveFrom);
+    const parsedAmount = parseAssetAmount(amount, asset, t);
+    const parsedEffective = parseEffectiveFrom(effectiveFrom, t);
     setAmountError(parsedAmount.error);
     setEffectiveError(parsedEffective.error);
     if (!parsedAmount.amountStroops || !parsedEffective.iso) return;
@@ -153,54 +163,63 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
     }
   };
 
+  const statusLabel = (status: PriceStatus) =>
+    status === 'current'
+      ? t('facilitySettings.price.statusCurrent', 'Current')
+      : status === 'scheduled'
+        ? t('facilitySettings.price.statusScheduled', 'Scheduled')
+        : t('facilitySettings.price.statusSuperseded', 'Superseded');
+
   return (
     <section className={styles.card} aria-labelledby="facility-prices-heading">
       <div className={styles.cardHeader}>
         <div>
-          <h2 id="facility-prices-heading">Price list</h2>
+          <h2 id="facility-prices-heading">{t('facilitySettings.price.title', 'Price list')}</h2>
           <p className={styles.cardSubtitle}>
-            Search the catalog, set the price patients pay at this facility, and keep an
-            effective-from history for every change.
+            {t('facilitySettings.price.subtitle', 'Search the catalog, set the price patients pay at this facility, and keep an effective-from history for every change.')}
           </p>
         </div>
-        {isDirty && <span className={styles.unsavedBadge}>Unsaved price</span>}
+        {isDirty && <span className={styles.unsavedBadge}>{t('facilitySettings.price.unsaved', 'Unsaved price')}</span>}
       </div>
 
       <div className={styles.priceRuleNotice} role="note">
-        <strong>How price changes work:</strong> saving creates a new version for future orders.
-        Payment intents that already exist keep the amount snapshotted when they were created, so
-        changing a price here never alters an existing payment.
+        <strong>{t('facilitySettings.price.ruleLabel', 'How price changes work:')}</strong>{' '}
+        {t('facilitySettings.price.ruleText', 'saving creates a new version for future orders. Payment intents that already exist keep the amount snapshotted when they were created, so changing a price here never alters an existing payment.')}
       </div>
 
       <form className={styles.searchForm} onSubmit={handleSearch} role="search">
         <TextField
-          label="Search catalog items"
+          label={t('facilitySettings.price.searchLabel', 'Search catalog items')}
           type="search"
-          placeholder="Try a medication or test name or code"
+          placeholder={t('facilitySettings.price.searchPlaceholder', 'Try a medication or test name or code')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
         <Button type="submit" variant="secondary" loading={searchMutation.isPending}>
-          Search catalog
+          {t('facilitySettings.price.searchButton', 'Search catalog')}
         </Button>
       </form>
 
       {searchMutation.error && (
         <div className={styles.errorBox} role="alert">
-          Catalog search failed: {searchMutation.error.message}
+          {t('facilitySettings.price.searchError', 'Catalog search failed: {message}', {
+            message: searchMutation.error.message,
+          })}
         </div>
       )}
 
       {searchMutation.isPending && (
         <div className={styles.loadingRow} role="status">
-          <Spinner size={16} /> Searching catalog…
+          <Spinner size={16} /> {t('facilitySettings.price.searching', 'Searching catalog…')}
         </div>
       )}
 
       {results && !searchMutation.isPending && (
-        <div className={styles.searchResults} aria-label="Catalog search results">
+        <div className={styles.searchResults} aria-label={t('facilitySettings.price.resultsLabel', 'Catalog search results')}>
           {results.length === 0 ? (
-            <p className={styles.emptyText}>No catalog items matched “{query}”.</p>
+            <p className={styles.emptyText}>
+              {t('facilitySettings.price.noMatches', 'No catalog items matched “{query}”.', { query })}
+            </p>
           ) : (
             <ul className={styles.resultList}>
               {results.map((item) => (
@@ -208,12 +227,12 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
                   <div>
                     <div className={styles.resultName}>{item.name}</div>
                     <div className={styles.resultMeta}>
-                      <code>{item.code}</code> · {item.type === 'pharmacy' ? 'Medication' : 'Lab test'}
+                      <code>{item.code}</code> · {itemTypeLabel(item)}
                       {item.description ? ` · ${item.description}` : ''}
                     </div>
                   </div>
                   <Button type="button" variant="secondary" onClick={() => chooseItem(item)}>
-                    Set price
+                    {t('facilitySettings.price.setPrice', 'Set price')}
                   </Button>
                 </li>
               ))}
@@ -228,7 +247,7 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
             <div>
               <h3>{selected.name}</h3>
               <p className={styles.resultMeta}>
-                <code>{selected.code}</code> · {selected.type === 'pharmacy' ? 'Medication' : 'Lab test'}
+                <code>{selected.code}</code> · {itemTypeLabel(selected)}
               </p>
             </div>
             <Button
@@ -241,28 +260,31 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
                 onDirtyChange(false);
               }}
             >
-              Clear
+              {t('facilitySettings.price.clear', 'Clear')}
             </Button>
           </div>
 
           <div className={styles.priceFields}>
             <div className={styles.selectField}>
-              <label htmlFor="price-asset">Payment asset</label>
+              <label htmlFor="price-asset">{t('facilitySettings.price.assetLabel', 'Payment asset')}</label>
               <select
                 id="price-asset"
                 value={asset}
                 onChange={(event) => chooseAsset(event.target.value as PayoutAsset)}
               >
-                <option value="XLM">XLM (Stellar Lumens)</option>
-                <option value="USDC">USDC (USD Coin)</option>
+                <option value="XLM">{t('facilitySettings.price.assetXlm', 'XLM (Stellar Lumens)')}</option>
+                <option value="USDC">{t('facilitySettings.price.assetUsdc', 'USDC (USD Coin)')}</option>
               </select>
               <span className={styles.helperText}>
-                {asset} supports up to {ASSET_DECIMALS[asset]} decimal places.
+                {t('facilitySettings.price.decimalsHint', '{asset} supports up to {decimals} decimal places.', {
+                  asset,
+                  decimals: ASSET_DECIMALS[asset],
+                })}
               </span>
             </div>
 
             <TextField
-              label={`Price per unit (${asset})`}
+              label={t('facilitySettings.price.perUnit', 'Price per unit ({asset})', { asset })}
               inputMode="decimal"
               value={amount}
               onChange={(event) => {
@@ -273,38 +295,51 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
               required
             />
 
-            <TextField
-              label="Effective from"
-              type="datetime-local"
-              value={effectiveFrom}
-              onChange={(event) => {
+            {/* `effectiveFrom` stays a `YYYY-MM-DDTHH:mm` local string (what
+                the old datetime-local input produced), split across an
+                accessible date and time picker (issue #114). */}
+            <DatePicker
+              label={t('facilitySettings.price.effectiveFromDate', 'Effective from (date)')}
+              value={effectiveFrom.slice(0, 10)}
+              onChange={(date) => {
                 setSaved(false);
-                setEffectiveFrom(event.target.value);
+                setEffectiveFrom(date ? `${date}T${effectiveFrom.slice(11, 16) || '00:00'}` : '');
               }}
               error={effectiveError ?? undefined}
+              required
+            />
+            <TimePicker
+              label={t('facilitySettings.price.effectiveFromTime', 'Effective from (time)')}
+              value={effectiveFrom.slice(11, 16)}
+              onChange={(time) => {
+                setSaved(false);
+                const date = effectiveFrom.slice(0, 10);
+                setEffectiveFrom(date && time ? `${date}T${time}` : date ? `${date}T` : '');
+              }}
               required
             />
           </div>
 
           <p className={styles.helperText}>
-            Amounts are entered as decimals and sent as BigInt-safe stroops. Existing payment
-            intents are never repriced.
+            {t('facilitySettings.price.amountsHint', 'Amounts are entered as decimals and sent as BigInt-safe stroops. Existing payment intents are never repriced.')}
           </p>
 
           {createMutation.error && (
             <div className={styles.errorBox} role="alert">
-              Could not save price: {createMutation.error.message}
+              {t('facilitySettings.price.saveError', 'Could not save price: {message}', {
+                message: createMutation.error.message,
+              })}
             </div>
           )}
           {saved && (
             <div className={styles.successBox} role="status">
-              New price version saved. Future payment intents will use it from the effective time.
+              {t('facilitySettings.price.saved', 'New price version saved. Future payment intents will use it from the effective time.')}
             </div>
           )}
 
           <div className={styles.actions}>
             <Button type="submit" loading={createMutation.isPending}>
-              Add price version
+              {t('facilitySettings.price.addVersion', 'Add price version')}
             </Button>
             <Button
               type="button"
@@ -312,7 +347,7 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
               onClick={handleDiscard}
               disabled={createMutation.isPending || !isDirty}
             >
-              Discard changes
+              {t('facilitySettings.common.discard', 'Discard changes')}
             </Button>
           </div>
         </form>
@@ -320,9 +355,9 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
 
       <div className={styles.historyHeader}>
         <div>
-          <h3>Effective-from history</h3>
+          <h3>{t('facilitySettings.price.historyTitle', 'Effective-from history')}</h3>
           <p className={styles.helperText}>
-            Newest first. “Current” is the price in force now; scheduled versions apply later.
+            {t('facilitySettings.price.historyHint', 'Newest first. “Current” is the price in force now; scheduled versions apply later.')}
           </p>
         </div>
         {isLoading && <Spinner size={16} />}
@@ -330,7 +365,9 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
 
       {error && (
         <div className={styles.errorBox} role="alert">
-          Could not load the price list: {error.message}
+          {t('facilitySettings.price.loadError', 'Could not load the price list: {message}', {
+            message: error.message,
+          })}
         </div>
       )}
 
@@ -338,22 +375,24 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <caption className={styles.tableCaption}>
-              Facility price versions ({prices.length} {prices.length === 1 ? 'version' : 'versions'}) — times shown in {effectiveTimeZone}
+              {t('facilitySettings.price.versionsCaption', 'Facility price versions ({count, plural, one {# version} other {# versions}})', {
+                count: prices.length,
+              })}
             </caption>
             <thead>
               <tr>
-                <th scope="col">Catalog item</th>
-                <th scope="col">Asset</th>
-                <th scope="col">Price</th>
-                <th scope="col">Effective from</th>
-                <th scope="col">Status</th>
+                <th scope="col">{t('facilitySettings.price.colItem', 'Catalog item')}</th>
+                <th scope="col">{t('facilitySettings.price.colAsset', 'Asset')}</th>
+                <th scope="col">{t('facilitySettings.price.colPrice', 'Price')}</th>
+                <th scope="col">{t('facilitySettings.price.colEffectiveFrom', 'Effective from')}</th>
+                <th scope="col">{t('facilitySettings.price.colStatus', 'Status')}</th>
               </tr>
             </thead>
             <tbody>
               {prices.length === 0 ? (
                 <tr>
                   <td colSpan={5} className={styles.emptyCell}>
-                    No prices yet. Search the catalog to add the first one.
+                    {t('facilitySettings.price.noPrices', 'No prices yet. Search the catalog to add the first one.')}
                   </td>
                 </tr>
               ) : (
@@ -375,18 +414,18 @@ export function PriceListEditor({ facilityId, onDirtyChange, facilityTimeZone }:
                         <td className={styles.amountCell}>
                           {formatAmountFromStroops(price.amountStroops, price.asset)} {price.asset}
                         </td>
-                        <td><ZonedTime value={price.effectiveFrom} timeZone={effectiveTimeZone} /></td>
+                        <td>{formatInstant(price.effectiveFrom, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }, locale, timeZone)}</td>
                         <td>
                           <span
                             className={`${styles.statusPill} ${
-                              status === 'Current'
+                              status === 'current'
                                 ? styles.statusCurrent
-                                : status === 'Scheduled'
+                                : status === 'scheduled'
                                   ? styles.statusScheduled
                                   : styles.statusSuperseded
                             }`}
                           >
-                            {status}
+                            {statusLabel(status)}
                           </span>
                         </td>
                       </tr>

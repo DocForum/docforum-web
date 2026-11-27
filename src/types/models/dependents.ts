@@ -20,5 +20,7 @@ export interface Dependent {
 export interface DependentInput {
   fullName: string;
   dateOfBirth: string;
-  relationship: Relationship;
+  /** Edit-only: `POST /patients/me/dependents` rejects any field besides
+   *  fullName/dateOfBirth, so creation never sends it (issue #261). */
+  relationship?: Relationship;
 }

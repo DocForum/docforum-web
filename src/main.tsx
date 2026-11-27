@@ -2,23 +2,25 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { init } from '@sentry/react';
 import { phiScrubber, phiBeforeBreadcrumb } from './utils/phi-scrubber';
-// Router selection: BrowserRouter by default; HashRouter only when
-// VITE_USE_HASH_ROUTER=true (set by the GitHub Pages build — see
-// docs/adr/0001-routing-strategy.md and deploy-pages.yml).
-import { BrowserRouter, HashRouter } from 'react-router-dom';
+// Data router (issue #112): browser history by default, hash history when
+// VITE_USE_HASH_ROUTER=true (the GitHub Pages build) — see src/router.ts.
+import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { TimeZoneProvider } from './i18n/TimeZoneProvider';
-import { useAuthStore } from './store/auth-store';
 import { restorePublicPathIntoHash } from './pages/public-routes';
 import { useSessionSync } from './hooks/useSessionSync';
 import { bootstrapSession } from './services/session';
 import { pingHealthLive } from './services/system-health-service';
-import App from './App';
+import { createAppRouter } from './router';
+import { applyStoredTheme } from './utils/theme';
+import { demoModeEnabled } from './demo/enabled';
 import './styles/global.css';
 
-const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
-const Router = useHashRouter ? HashRouter : BrowserRouter;
+// Apply the saved light/dark/high-contrast choice before the first paint, so a
+// reload never flashes the default theme (issue #98 / #296). It was added by
+// #359 but lost in a merge from main, which left e2e/visual.spec.ts failing.
+applyStoredTheme();
 
 // Mock API for local development (issue #95) — only runs under
 // `npm run dev:mock` (a DEV build with VITE_ENABLE_MOCKS=true). In
@@ -50,28 +52,18 @@ function SessionSyncBridge() {
 }
 
 async function boot(): Promise<void> {
-  if (mocksEnabled) {
+  // `?demo=1` is honoured only in a build made with VITE_DEMO_MODE=true;
+  // in every other build `demoModeEnabled` is statically false, so the demo
+  // import below is dropped and no demo or mock code ships (issue #127).
+  const demoRequested =
+    demoModeEnabled &&
+    ['1', 'true'].includes(new URLSearchParams(window.location.search).get('demo') ?? '');
+  if (demoRequested) {
+    const { startDemoMode } = await import('./demo/bootstrap');
+    await startDemoMode();
+  } else if (mocksEnabled) {
     const { startMockApi } = await import('./mocks/setup');
     await startMockApi();
-  }
-
-  // Enable preview session when previewRole query param is set (useful for screenshots & review)
-  const urlParams = new URLSearchParams(window.location.search);
-  const previewRole = urlParams.get('previewRole');
-  if (
-    previewRole &&
-    (previewRole === 'doctor' || previewRole === 'facility' || previewRole === 'patient' || previewRole === 'admin')
-  ) {
-    useAuthStore.getState().setSession(
-      {
-        id: `preview-${previewRole}-user`,
-        email: `${previewRole}@docforum.org`,
-        role: previewRole,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      'preview-token',
-    );
   }
 
   // Error monitoring: disabled unless a DSN is configured (VITE_SENTRY_DSN).
@@ -90,8 +82,9 @@ async function boot(): Promise<void> {
   }
 
   // Silent re-auth on reload (issue #9). Deliberately NOT awaited before
-  // render: a cold-started Render instance can take ~40s, and RequireAuth
-  // shows a "Restoring your session…" state while this is in flight. If a
+  // render: a cold-started Render instance can take ~40s, and the route
+  // guards (src/routes/guards.ts) wait for it while the guarded route shows
+  // a "Restoring your session…" fallback inside the normal layout. If a
   // session already exists (mock mode / ?previewRole=), this resolves
   // immediately without a network call.
   void bootstrapSession();
@@ -99,7 +92,7 @@ async function boot(): Promise<void> {
   // Wake the cold-started backend early on boot (non-blocking) before the user
   // submits login or hits scattered per-section errors. Mock and preview builds
   // must not ping the real host.
-  if (!mocksEnabled) {
+  if (!mocksEnabled && !demoRequested) {
     void pingHealthLive();
   }
 
@@ -116,15 +109,18 @@ async function boot(): Promise<void> {
     import.meta.env.BASE_URL,
   );
 
+  // Created after the hash restore above so the router reads the final URL.
+  // Awaits only the first route's code chunk (not its data) — see
+  // resolveInitialLazyRoutes; the loading shell stays up meanwhile.
+  const router = await createAppRouter(queryClient);
+
   createRoot(rootElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <SessionSyncBridge />
-        <Router>
-          <TimeZoneProvider>
-            <App />
-          </TimeZoneProvider>
-        </Router>
+        <TimeZoneProvider>
+          <RouterProvider router={router} />
+        </TimeZoneProvider>
       </QueryClientProvider>
     </StrictMode>,
   );

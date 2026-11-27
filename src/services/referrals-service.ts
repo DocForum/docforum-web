@@ -12,7 +12,13 @@
 //   GET /doctors/me/referrals?status=&cursor=&limit=20 -> CursorPage<ReferralSummary>
 //   GET /referrals/:id -> ReferralDetail (403/404 when reassigned to another specialist)
 import { apiFetch } from './api-client';
-import type { CursorPage, ReferralDetail, ReferralStatus, ReferralSummary } from '../types/models';
+import type {
+  CursorPage,
+  ReferralDetail,
+  ReferralStatus,
+  ReferralSummary,
+  SentReferral,
+} from '../types/models';
 
 /** Inbox filter values accepted by `GET /doctors/me/referrals`. `'upcoming'`
  * is assumed as a server-side view filter (referrals whose resulting
@@ -40,4 +46,12 @@ export function listReferrals(
 
 export function getReferralDetail(referralId: string, accessToken: string): Promise<ReferralDetail> {
   return apiFetch<ReferralDetail>(`/referrals/${referralId}`, { accessToken });
+}
+
+/** REAL: `GET /referrals/created` (doctor only). Returns every referral the
+ * caller created, newest first, including expired and loop-flagged ones.
+ * Deliberately not paginated by core — the endpoint has no cursor — so the
+ * view sorts and renders the whole array (a few hundred rows at most). */
+export function listCreatedReferrals(accessToken: string, signal?: AbortSignal): Promise<SentReferral[]> {
+  return apiFetch<SentReferral[]>('/referrals/created', { accessToken, signal });
 }

@@ -18,8 +18,8 @@ describe('AccessibilityStatementPage (#89)', () => {
     expect(screen.getByText(/partially conformant/i)).toBeInTheDocument();
     expect(screen.getByText(/manual NVDA and VoiceOver pass/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open an accessibility issue/i })).toBeInTheDocument();
-    const reviewed = screen.getByText('2026-10-18');
+    const reviewed = screen.getByText('2026-11-20');
     expect(reviewed.tagName).toBe('TIME');
-    expect(reviewed).toHaveAttribute('datetime', '2026-10-18');
+    expect(reviewed).toHaveAttribute('datetime', '2026-11-20');
   });
 });

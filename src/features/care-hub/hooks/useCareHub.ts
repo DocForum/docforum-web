@@ -3,11 +3,12 @@ import { useHealthEntries } from '../../health-profile/hooks/useHealthEntries';
 import { useMyAppointments } from '../../appointments/hooks/useAppointments';
 import { useMyOrders } from '../../orders/hooks/useOrders';
 import { formatSlotDate, formatSlotTime, isOnSlotDay, isUpcoming } from '../../appointments/slot';
+import { useFormat } from '../../../i18n/useFormat';
+import { useT } from '../../../i18n/useT';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
+import type { HealthSectionKey } from '../../../types/models';
 import { PRIORITY, type CareCard } from '../ranking';
-import { useLocaleStore } from '../../../i18n/locale-store';
-import { createFormatters } from '../../../i18n/format';
 
 const RECENT_WINDOW_DAYS = 30;
 
@@ -30,10 +31,21 @@ function inviteExpired(expiresAt?: string): boolean {
   return Boolean(expiresAt && new Date(expiresAt) < new Date());
 }
 
+/** Health section ids come from the API — one static label call per id. */
+function sectionLabel(section: HealthSectionKey, t: ReturnType<typeof useT>): string {
+  switch (section) {
+    case 'allergies':
+      return t('health.section.allergies', 'Allergies');
+    case 'conditions':
+      return t('health.section.conditions', 'Conditions');
+    case 'medications':
+      return t('health.section.medications', 'Current medications');
+  }
+}
+
 export function useCareHub(now: Date = new Date()): CareHub {
-  const locale = useLocaleStore((state) => state.locale);
-  const timeZone = useLocaleStore((state) => state.timeZone);
-  const format = createFormatters(locale, timeZone);
+  const t = useT();
+  const { formatDate } = useFormat();
   const accessToken = useAuthStore((state) => state.accessToken);
   const profileId = useProfileStore((state) => state.selectedProfileId);
   const dependents = useDependents();
@@ -61,18 +73,28 @@ export function useCareHub(now: Date = new Date()): CareHub {
         id: `handover-expired-${dependent.id}`,
         section: 'action',
         priority: PRIORITY.blockedNow,
-        title: `Resend ${dependent.fullName}'s invite`,
-        detail: 'Their handover invite expired before they claimed it, so they still cannot manage their own record.',
+        title: t('care.hub.handover.expired.title', "Resend {name}'s invite", {
+          name: dependent.fullName,
+        }),
+        detail: t(
+          'care.hub.handover.expired.detail',
+          'Their handover invite expired before they claimed it, so they still cannot manage their own record.',
+        ),
         to: '/patient/dependents',
-        badge: 'Invite expired',
+        badge: t('care.hub.handover.expired.badge', 'Invite expired'),
       });
     } else if (dependent.handoverStatus === 'eligible') {
       cards.push({
         id: `handover-eligible-${dependent.id}`,
         section: 'action',
         priority: PRIORITY.needsYou,
-        title: `Start ${dependent.fullName}'s handover`,
-        detail: 'They are approaching the age where they can manage their own health record.',
+        title: t('care.hub.handover.eligible.title', "Start {name}'s handover", {
+          name: dependent.fullName,
+        }),
+        detail: t(
+          'care.hub.handover.eligible.detail',
+          'They are approaching the age where they can manage their own health record.',
+        ),
         to: '/patient/dependents',
       });
     }
@@ -88,12 +110,21 @@ export function useCareHub(now: Date = new Date()): CareHub {
       id: `appointment-${appointment.id}`,
       section: today ? 'action' : 'upcoming',
       priority: today ? PRIORITY.needsYou : PRIORITY.goodToKnow,
-      title: today ? 'Check in for your visit today' : `Visit ${formatSlotDate(startsAt, now, locale, timeZone)} at ${formatSlotTime(startsAt, locale, timeZone)}`,
+      title: today
+        ? t('care.hub.appointment.today.title', 'Check in for your visit today')
+        : t('care.hub.appointment.later.title', 'Visit {date} at {time}', {
+            date: formatSlotDate(startsAt, now),
+            time: formatSlotTime(startsAt),
+          }),
       detail: today
-        ? `Your appointment is at ${formatSlotTime(startsAt, locale, timeZone)}. Open it to check in and see your place in the queue.`
-        : 'Check-in opens on the day of your visit.',
+        ? t(
+            'care.hub.appointment.today.detail',
+            'Your appointment is at {time}. Open it to check in and see your place in the queue.',
+            { time: formatSlotTime(startsAt) },
+          )
+        : t('care.hub.appointment.later.detail', 'Check-in opens on the day of your visit.'),
       to: `/patient/appointments/${appointment.id}`,
-      badge: today ? 'Today' : undefined,
+      badge: today ? t('care.hub.appointment.badge', 'Today') : undefined,
     });
   }
 
@@ -107,10 +138,13 @@ export function useCareHub(now: Date = new Date()): CareHub {
       id: `confirm-order-${order.id}`,
       section: 'action',
       priority: PRIORITY.needsYou,
-      title: `Confirm receipt of ${itemLabel}`,
-      detail: `Your order was fulfilled. Please confirm you received it or report a problem.`,
+      title: t('care.hub.order.title', 'Confirm receipt of {item}', { item: itemLabel }),
+      detail: t(
+        'care.hub.order.detail',
+        'Your order was fulfilled. Please confirm you received it or report a problem.',
+      ),
       to: `/patient/orders/${order.id}`,
-      badge: 'Action needed',
+      badge: t('care.hub.order.badge', 'Action needed'),
     });
   }
 
@@ -122,8 +156,8 @@ export function useCareHub(now: Date = new Date()): CareHub {
       id: 'health-profile-empty',
       section: 'action',
       priority: PRIORITY.goodToKnow,
-      title: 'Add your allergies, conditions and medications',
-      detail: 'Doctors see these at every consult. Yours are all still empty.',
+      title: t('care.hub.healthEmpty.title', 'Add your allergies, conditions and medications'),
+      detail: t('care.hub.healthEmpty.detail', 'Doctors see these at every consult. Yours are all still empty.'),
       to: '/patient/health',
     });
   }
@@ -136,8 +170,11 @@ export function useCareHub(now: Date = new Date()): CareHub {
         id: `health-updated-${entry.id}`,
         section: 'recent',
         priority: PRIORITY.recent,
-        title: `${entry.name} updated`,
-        detail: `Your ${entry.section} list changed on ${format.formatDate(entry.updatedAt)}.`,
+        title: t('care.hub.healthUpdated.title', '{name} updated', { name: entry.name }),
+        detail: t('care.hub.healthUpdated.detail', 'Your {section} list changed on {date}.', {
+          section: sectionLabel(entry.section, t),
+          date: formatDate(entry.updatedAt),
+        }),
         to: '/patient/health',
       });
     }

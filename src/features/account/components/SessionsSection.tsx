@@ -13,9 +13,21 @@ import {
   useSessions,
 } from '../hooks/useSessions';
 import styles from './SessionsSection.module.css';
-import { useFormat } from '../../../i18n/useFormat';
+import { paths } from '../../../routes/paths';
+import { formatInstant } from '../../../i18n/format';
 
 type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' };
+
+function formatLastActive(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'unknown';
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return formatInstant(iso, { dateStyle: 'medium' });
+}
 
 /**
  * Active sessions and devices (issue #79). Lists the user's sessions with
@@ -23,7 +35,6 @@ type PendingAction = { kind: 'one'; session: ActiveSession } | { kind: 'others' 
  * other one, and treats revoking the current session as a real sign-out.
  */
 export function SessionsSection() {
-  const format = useFormat();
   const { data: sessions, isLoading, isError, refetch, isFetching } = useSessions();
   const revokeSessionMutation = useRevokeSession();
   const revokeOthersMutation = useRevokeOtherSessions();
@@ -48,7 +59,7 @@ export function SessionsSection() {
           // state through the shared helper, not just the token.
           await signOut('logout', { queryClient });
           setPending(null);
-          navigate('/login', { replace: true });
+          navigate(paths.login, { replace: true });
           return;
         }
         setNotice(`Signed out ${pending.session.device}.`);
@@ -126,7 +137,7 @@ export function SessionsSection() {
                   </p>
                   <p className={styles.meta}>
                     {session.approximateLocation ?? 'Location unavailable'} · Last active{' '}
-                    {format.formatRelativeTime(session.lastActiveAt)}
+                    {formatLastActive(session.lastActiveAt)}
                   </p>
                 </div>
                 <Button

@@ -3,49 +3,80 @@ import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { queryErrorMessage } from '../../../components/states/QueryState';
 import { Skeleton } from '../../../components/states/Skeleton';
+import { useT, type Translate } from '../../../i18n/useT';
 import { ApiError } from '../../../services/api-client';
 import type { Appointment, IntakeForm } from '../../../types/models';
-import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import { useAppointmentIntake, useTodayAppointments } from '../hooks/useDoctorToday';
 import styles from './TodayAppointments.module.css';
+import { formatInstant } from '../../../i18n/format';
 
-function statusLabel(status: Appointment['status']) {
-  return {
-    scheduled: 'Scheduled',
-    checked_in: 'Checked in',
-    in_progress: 'In progress',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    no_show: 'No show',
-  }[status];
+function formatTime(iso: string) {
+  return formatInstant(iso, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** The queue has its own no-show wording ("No show"), deliberately different
+ * from referrals ("Did not attend") and availability ("marked as a no-show"). */
+function statusLabel(status: Appointment['status'], t: Translate): string {
+  switch (status) {
+    case 'scheduled':
+      return t('doctorToday.status.scheduled', 'Scheduled');
+    case 'checked_in':
+      return t('doctorToday.status.checked_in', 'Checked in');
+    case 'in_progress':
+      return t('doctorToday.status.in_progress', 'In progress');
+    case 'completed':
+      return t('doctorToday.status.completed', 'Completed');
+    case 'cancelled':
+      return t('doctorToday.status.cancelled', 'Cancelled');
+    case 'no_show':
+      return t('doctorToday.status.no_show', 'No show');
+  }
 }
 
 function IntakeSummary({ intake }: { intake: IntakeForm }) {
+  const t = useT();
   return (
     <div className={styles.intake}>
       <p className={styles.intakeMeta}>
-        Submitted <ZonedTime value={intake.submittedAt} />
+        {t('doctorToday.intake.submitted', 'Submitted {date}', {
+          date: formatInstant(intake.submittedAt, { dateStyle: 'medium', timeStyle: 'short' }),
+        })}
       </p>
       <dl className={styles.fields}>
         <div>
-          <dt>Chief complaint</dt>
+          <dt>{t('doctorToday.intake.chiefComplaint', 'Chief complaint')}</dt>
           <dd>{intake.chiefComplaint}</dd>
         </div>
         <div>
-          <dt>Duration</dt>
-          <dd>{intake.symptomDuration || 'Not recorded'}</dd>
+          <dt>{t('doctorToday.intake.duration', 'Duration')}</dt>
+          <dd>{intake.symptomDuration || t('doctorToday.intake.notRecorded', 'Not recorded')}</dd>
         </div>
         <div>
-          <dt>Severity</dt>
-          <dd>{intake.severity == null ? 'Not recorded' : `${intake.severity} / 10`}</dd>
+          <dt>{t('doctorToday.intake.severity', 'Severity')}</dt>
+          <dd>
+            {intake.severity == null
+              ? t('doctorToday.intake.notRecorded', 'Not recorded')
+              : t('doctorToday.intake.severityValue', '{severity} / 10', { severity: intake.severity })}
+          </dd>
         </div>
         <div>
-          <dt>Current medications</dt>
-          <dd>{intake.currentMedications.length > 0 ? intake.currentMedications.join(', ') : 'None recorded'}</dd>
+          <dt>{t('doctorToday.intake.medications', 'Current medications')}</dt>
+          <dd>
+            {intake.currentMedications.length > 0
+              ? intake.currentMedications.join(', ')
+              : t('doctorToday.intake.noneRecorded', 'None recorded')}
+          </dd>
         </div>
         <div>
-          <dt>Allergies</dt>
-          <dd>{intake.allergies.length > 0 ? intake.allergies.join(', ') : 'None recorded'}</dd>
+          <dt>{t('doctorToday.intake.allergies', 'Allergies')}</dt>
+          <dd>
+            {intake.allergies.length > 0
+              ? intake.allergies.join(', ')
+              : t('doctorToday.intake.noneRecorded', 'None recorded')}
+          </dd>
         </div>
       </dl>
       {intake.notes ? <p className={styles.intakeNotes}>{intake.notes}</p> : null}
@@ -54,26 +85,32 @@ function IntakeSummary({ intake }: { intake: IntakeForm }) {
 }
 
 function IntakeSection({ appointmentId }: { appointmentId: string }) {
+  const t = useT();
   const intake = useAppointmentIntake(appointmentId, true);
 
-  if (intake.isLoading) return <Skeleton lines={2} label="Loading intake" />;
+  if (intake.isLoading) {
+    return <Skeleton lines={2} label={t('doctorToday.intake.loading', 'Loading intake')} />;
+  }
   if (intake.isError) {
     if (intake.error instanceof ApiError && intake.error.status === 404) {
-      return <p className={styles.muted}>No intake was submitted for this appointment.</p>;
+      return <p className={styles.muted}>{t('doctorToday.intake.none', 'No intake was submitted for this appointment.')}</p>;
     }
     return (
       <InlineError
-        title="Could not load this intake"
+        title={t('doctorToday.intake.loadFailed', 'Could not load this intake')}
         message={queryErrorMessage(intake.error)}
         onRetry={() => void intake.refetch()}
       />
     );
   }
-  if (!intake.data) return <p className={styles.muted}>No intake was submitted for this appointment.</p>;
+  if (!intake.data) {
+    return <p className={styles.muted}>{t('doctorToday.intake.none', 'No intake was submitted for this appointment.')}</p>;
+  }
   return <IntakeSummary intake={intake.data} />;
 }
 
 function AppointmentRow({ appointment }: { appointment: Appointment }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const intakeId = `intake-${appointment.id}`;
 
@@ -86,15 +123,15 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
         aria-controls={intakeId}
         onClick={() => setExpanded((current) => !current)}
       >
-        <span className={styles.time}>
-          <ZonedTime value={appointment.startsAt} mode="time" />
-        </span>
+        <span className={styles.time}>{formatTime(appointment.startsAt)}</span>
         <span className={styles.patient}>
           <strong>{appointment.patientName}</strong>
-          <span className={styles.reason}>{appointment.reason || 'No reason recorded'}</span>
+          <span className={styles.reason}>
+            {appointment.reason || t('doctorToday.row.noReason', 'No reason recorded')}
+          </span>
         </span>
         <span className={styles.status} data-status={appointment.status}>
-          {statusLabel(appointment.status)}
+          {statusLabel(appointment.status, t)}
         </span>
         <span className={styles.chevron} aria-hidden="true">
           {expanded ? '−' : '+'}
@@ -102,7 +139,7 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
       </button>
       {expanded ? (
         <div id={intakeId} className={styles.expanded}>
-          <h3 className={styles.intakeHeading}>Intake</h3>
+          <h3 className={styles.intakeHeading}>{t('doctorToday.row.intake', 'Intake')}</h3>
           <IntakeSection appointmentId={appointment.id} />
         </div>
       ) : null}
@@ -111,6 +148,7 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
 }
 
 export function TodayAppointments() {
+  const t = useT();
   const appointments = useTodayAppointments();
   const sorted = [...(appointments.data ?? [])].sort((a, b) =>
     a.startsAt.localeCompare(b.startsAt),
@@ -119,23 +157,32 @@ export function TodayAppointments() {
   return (
     <section className={styles.panel} aria-labelledby="today-appointments-heading">
       <header className={styles.panelHeader}>
-        <h2 id="today-appointments-heading">Today's appointments</h2>
-        <span className={styles.count}>{sorted.length} scheduled</span>
+        <h2 id="today-appointments-heading">{t('doctorToday.title', "Today's appointments")}</h2>
+        <span className={styles.count}>
+          {t('doctorToday.count', '{count, plural, one {# scheduled} other {# scheduled}}', {
+            count: sorted.length,
+          })}
+        </span>
       </header>
 
-      {appointments.isLoading ? <Skeleton lines={4} label="Loading today's appointments" /> : null}
+      {appointments.isLoading ? (
+        <Skeleton lines={4} label={t('doctorToday.loading', "Loading today's appointments")} />
+      ) : null}
       {appointments.isError ? (
         <InlineError
-          title="Today's appointments couldn't be loaded"
+          title={t('doctorToday.loadFailed', "Today's appointments couldn't be loaded")}
           message={queryErrorMessage(appointments.error)}
           onRetry={() => void appointments.refetch()}
         />
       ) : null}
       {!appointments.isLoading && !appointments.isError && sorted.length === 0 ? (
         <EmptyState
-          title="No appointments are scheduled for today"
-          description="Booked visits appear here on the day, with the patient's intake form attached."
-          action={{ label: 'Review your messages', to: '/doctor/messages' }}
+          title={t('doctorToday.empty', 'No appointments are scheduled for today')}
+          description={t(
+            'doctorToday.emptyDescription',
+            "Booked visits appear here on the day, with the patient's intake form attached.",
+          )}
+          action={{ label: t('doctorToday.reviewMessages', 'Review your messages'), to: '/doctor/messages' }}
         />
       ) : null}
 
@@ -148,8 +195,10 @@ export function TodayAppointments() {
       ) : null}
 
       <p className={styles.privacy}>
-        Intake is only ever fetched for appointments assigned to you, and is not shown to other
-        doctors.
+        {t(
+          'doctorToday.privacy',
+          'Intake is only ever fetched for appointments assigned to you, and is not shown to other doctors.',
+        )}
       </p>
     </section>
   );

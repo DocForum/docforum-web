@@ -41,8 +41,8 @@ export function isUpcoming(appointment: PatientAppointment, now: Date): boolean 
 
 export function formatSlotTime(
   iso: string,
-  locale = 'en-US',
-  timeZone = 'UTC',
+  locale?: string,
+  timeZone?: string,
 ): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -57,8 +57,8 @@ export function formatSlotTime(
 export function formatSlotDate(
   iso: string,
   now: Date = new Date(),
-  locale = 'en-US',
-  timeZone = 'UTC',
+  locale?: string,
+  timeZone?: string,
 ): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

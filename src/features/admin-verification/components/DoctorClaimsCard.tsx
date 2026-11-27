@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
+import { useOptionalT } from '../../../i18n/useOptionalT';
+import type { Translator } from '../../../i18n/useT';
 import * as verificationService from '../../../services/admin-verification-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { formatAge, formatBytes, hoursSince } from '../claims';
 import type { DoctorClaims } from '../claims';
 import type { ClaimDecision, SpecialtyClaim } from '../../../types/models';
 import styles from './SpecialtyClaims.module.css';
-import { useFormat } from '../../../i18n/useFormat';
+import { formatInstant } from '../../../i18n/format';
 
 interface DoctorClaimsCardProps {
   group: DoctorClaims;
@@ -30,7 +32,7 @@ const TONE_CLASS: Record<AgeTone, string> = {
 
 /** Fetches the claim's supporting document and opens it in a new tab via an
  * object URL — the bearer token never lands in a link href. */
-function useCredentialOpener() {
+function useCredentialOpener(t: Translator) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +44,23 @@ function useCredentialOpener() {
       const blob = await verificationService.fetchClaimCredential(claim.id, accessToken!);
       const url = URL.createObjectURL(blob);
       const opened = window.open(url, '_blank', 'noopener');
-      if (!opened) setError('Your browser blocked the new tab — allow pop-ups for this site to view the document.');
+      if (!opened) {
+        setError(
+          t(
+            'adminVerification.claims.popupBlocked',
+            'Your browser blocked the new tab — allow pop-ups for this site to view the document.',
+          ),
+        );
+      }
       // Give the new tab time to start loading before the URL dies.
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      setError("Couldn't fetch the document — the preview backend may be waking up. Try again in a minute.");
+      setError(
+        t(
+          'adminVerification.claims.documentFailed',
+          "Couldn't fetch the document — the preview backend may be waking up. Try again in a minute.",
+        ),
+      );
     } finally {
       setLoadingId(null);
     }
@@ -58,8 +72,8 @@ function useCredentialOpener() {
 /** One doctor, their pending specialty claims, and each claim's supporting
  * document beside the approve/reject actions. */
 export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps) {
-  const format = useFormat();
-  const { openCredential, loadingId, error } = useCredentialOpener();
+  const { locale, t } = useOptionalT();
+  const { openCredential, loadingId, error } = useCredentialOpener(t);
   const headingId = `doctor-${group.doctorId}`;
 
   return (
@@ -69,7 +83,9 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
           {group.doctorName}
         </h2>
         <span className={styles.claimCount}>
-          {group.claims.length} pending {group.claims.length === 1 ? 'claim' : 'claims'}
+          {t('adminVerification.claims.pendingCount', '{count, plural, one {# pending claim} other {# pending claims}}', {
+            count: group.claims.length,
+          })}
         </span>
       </div>
 
@@ -85,10 +101,10 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                 </h3>
                 {hours !== null && (
                   <span className={`${styles.age} ${TONE_CLASS[ageTone(hours)]}`}>
-                    Claimed {formatAge(hours)} ago
+                    {t('adminVerification.claims.claimed', 'Claimed {age} ago', { age: formatAge(hours, t) })}
                   </span>
                 )}
-                <code className={styles.claimId} title="Claim id">
+                <code className={styles.claimId} title={t('adminVerification.claims.claimIdTitle', 'Claim id')}>
                   {claim.id}
                 </code>
               </div>
@@ -97,8 +113,12 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                 <div className={styles.credential}>
                   <span className={styles.credentialName}>{claim.credential.fileName}</span>
                   <span className={styles.credentialMeta}>
-                    {claim.credential.mimeType} · {formatBytes(claim.credential.sizeBytes)} · uploaded{' '}
-                    {format.formatDate(claim.credential.uploadedAt)}
+                    {claim.credential.mimeType} · {formatBytes(claim.credential.sizeBytes, t)} ·{' '}
+                    {t('adminVerification.claims.uploaded', 'uploaded {date}', {
+                      date: formatInstant(claim.credential.uploadedAt, {
+                        dateStyle: 'medium',
+                      }, locale),
+                    })}
                   </span>
                   <Button
                     type="button"
@@ -107,23 +127,21 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                     loading={loadingId === claim.id}
                     aria-describedby={claimId}
                   >
-                    View document
+                    {t('adminVerification.claims.viewDocument', 'View document')}
                   </Button>
                 </div>
               ) : (
                 <p className={`${styles.credential} ${styles.credentialMissing}`}>
-                  No supporting document was attached — approving this claim is a judgement call. Ask for credentials
-                  before approving, or reject with what to upload.
+                  {t(
+                    'adminVerification.claims.noDocument',
+                    'No supporting document was attached — approving this claim is a judgement call. Ask for credentials before approving, or reject with what to upload.',
+                  )}
                 </p>
               )}
 
               <div className={styles.claimActions}>
-                <Button
-                  type="button"
-                  onClick={() => onReview(claim, 'approve')}
-                  aria-describedby={claimId}
-                >
-                  Approve
+                <Button type="button" onClick={() => onReview(claim, 'approve')} aria-describedby={claimId}>
+                  {t('adminVerification.decision.approve', 'Approve')}
                 </Button>
                 <Button
                   type="button"
@@ -131,7 +149,7 @@ export function DoctorClaimsCard({ group, now, onReview }: DoctorClaimsCardProps
                   onClick={() => onReview(claim, 'reject')}
                   aria-describedby={claimId}
                 >
-                  Reject
+                  {t('adminVerification.decision.reject', 'Reject')}
                 </Button>
               </div>
             </li>

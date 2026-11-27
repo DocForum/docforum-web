@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { FulfillmentStatusBadge } from '../../../components/FulfillmentStatusBadge';
 import { TextField } from '../../../components/TextField';
 import type { FulfillmentQueueItem } from '../../../types/models';
-import { ZonedTime } from '../../../i18n/components/ZonedTime';
+import { useT } from '../../../i18n/useT';
 import {
-  ITEM_STATUS_LABELS,
   deriveOrderFulfillmentStatus,
   itemFulfillmentStatus,
+  useItemStatusLabel,
 } from '../status';
 import styles from './Fulfillment.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface FacilityFulfillmentQueueProps {
   items: FulfillmentQueueItem[];
@@ -70,8 +72,11 @@ function DispenseItemRow({
   onDispense: (itemId: string, quantity: number) => Promise<unknown>;
   onReject?: (itemId: string) => Promise<unknown>;
 }) {
+  const t = useT();
+  const { locale } = useIntl();
   const { prescribed, dispensed, outstanding } = quantities(item);
   const status = itemFulfillmentStatus(item);
+  const statusLabel = useItemStatusLabel(status);
   const [quantity, setQuantity] = useState(outstanding);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -79,11 +84,16 @@ function DispenseItemRow({
 
   const handleDispense = async () => {
     if (!Number.isInteger(quantity) || quantity < 1) {
-      setLocalError('Enter a whole number of at least 1.');
+      setLocalError(t('fulfillment.dispense.wholeNumber', 'Enter a whole number of at least 1.'));
       return;
     }
     if (quantity > outstanding) {
-      setLocalError(`You can dispense at most ${outstanding} ${item.unit ?? 'unit(s)'}.`);
+      setLocalError(
+        t('fulfillment.dispense.maxQuantity', 'You can dispense at most {count} {unit}.', {
+          count: outstanding,
+          unit: item.unit ?? t('fulfillment.dispense.unitFallback', 'unit(s)'),
+        }),
+      );
       return;
     }
     setLocalError(null);
@@ -102,38 +112,38 @@ function DispenseItemRow({
           {item.instructions && <p className={styles.itemInstructions}>{item.instructions}</p>}
         </div>
         <span className={styles.itemStatus} data-status={status}>
-          {ITEM_STATUS_LABELS[status]}
+          {statusLabel}
         </span>
       </div>
 
-      <dl className={styles.quantityList} aria-label={`Quantities for ${item.itemName}`}>
+      <dl className={styles.quantityList} aria-label={t('fulfillment.dispense.quantitiesLabel', 'Quantities for {item}', { item: item.itemName })}>
         <div>
-          <dt>Prescribed</dt>
+          <dt>{t('fulfillment.dispense.prescribed', 'Prescribed')}</dt>
           <dd>
-            {prescribed} {item.unit ?? 'unit(s)'}
+            {prescribed} {item.unit ?? t('fulfillment.dispense.unitFallback', 'unit(s)')}
           </dd>
         </div>
         <div>
-          <dt>Dispensed</dt>
+          <dt>{t('fulfillment.dispense.dispensed', 'Dispensed')}</dt>
           <dd>
-            {dispensed} {item.unit ?? 'unit(s)'}
+            {dispensed} {item.unit ?? t('fulfillment.dispense.unitFallback', 'unit(s)')}
           </dd>
         </div>
         <div>
-          <dt>Outstanding</dt>
+          <dt>{t('fulfillment.dispense.outstanding', 'Outstanding')}</dt>
           <dd>
-            {outstanding} {item.unit ?? 'unit(s)'}
+            {outstanding} {item.unit ?? t('fulfillment.dispense.unitFallback', 'unit(s)')}
           </dd>
         </div>
       </dl>
 
       {status === 'dispensed_elsewhere' ? (
         <p className={styles.warning} role="note">
-          <strong>Already dispensed elsewhere.</strong>{' '}
+          <strong>{t('fulfillment.dispense.alreadyElsewhere', 'Already dispensed elsewhere.')}</strong>{' '}
           {item.dispensedByFacilityName
-            ? `Dispensed by ${item.dispensedByFacilityName}.`
-            : 'Another facility dispensed this item.'}{' '}
-          You cannot dispense it again.
+            ? t('fulfillment.dispense.dispensedBy', 'Dispensed by {facility}.', { facility: item.dispensedByFacilityName })
+            : t('fulfillment.dispense.anotherFacility', 'Another facility dispensed this item.')}{' '}
+          {t('fulfillment.dispense.cannotRepeat', 'You cannot dispense it again.')}
         </p>
       ) : item.blockedReason ? (
         <p className={styles.warning} role="note">
@@ -143,10 +153,12 @@ function DispenseItemRow({
 
       {item.attribution && (
         <p className={styles.attribution}>
-          Last action: {item.attribution.action.replace('_', ' ')} by{' '}
-          <strong>{item.attribution.performedByName}</strong> on{' '}
-          <ZonedTime value={item.attribution.timestamp} />
-          {item.attribution.notes ? ` — “${item.attribution.notes}”` : ''}
+          {t('fulfillment.dispense.lastAction', 'Last action: {action} by {name} on {date}', {
+            action: item.attribution.action.replace('_', ' '),
+            name: item.attribution.performedByName,
+            date: formatInstant(item.attribution.timestamp, { dateStyle: 'medium', timeStyle: 'short' }, locale),
+          })}
+          {item.attribution.notes ? ' — ' + t('fulfillment.dispense.notes', '“{notes}”', { notes: item.attribution.notes }) : ''}
         </p>
       )}
 
@@ -154,7 +166,7 @@ function DispenseItemRow({
         <div className={styles.dispenseControls}>
           <div className={styles.quantityInput}>
             <TextField
-              label={`Quantity of ${item.itemName} to dispense`}
+              label={t('fulfillment.dispense.quantityFor', 'Quantity of {item} to dispense', { item: item.itemName })}
               type="number"
               min={1}
               max={outstanding}
@@ -163,7 +175,9 @@ function DispenseItemRow({
               onChange={(event) => setQuantity(Number(event.target.value))}
               disabled={isDispensing}
             />
-            <span className={styles.unitHint}>of {outstanding} outstanding</span>
+            <span className={styles.unitHint}>
+              {t('fulfillment.dispense.ofOutstanding', 'of {count} outstanding', { count: outstanding })}
+            </span>
           </div>
           <div className={styles.rowActions}>
             {onReject && (
@@ -173,10 +187,10 @@ function DispenseItemRow({
                 loading={isRejecting}
                 disabled={isDispensing || isRejecting}
                 onClick={() => onReject(item.id)}
-                aria-label={`Reject ${item.itemName}`}
+                aria-label={t('fulfillment.dispense.rejectItemName', 'Reject {item}', { item: item.itemName })}
                 className={styles.rejectButton}
               >
-                Reject item
+                {t('fulfillment.dispense.rejectItem', 'Reject item')}
               </Button>
             )}
             <Button
@@ -184,14 +198,14 @@ function DispenseItemRow({
               loading={isDispensing}
               disabled={isDispensing || isRejecting}
               onClick={handleDispense}
-              aria-label={`Dispense ${item.itemName}`}
+              aria-label={t('fulfillment.dispense.dispenseItemName', 'Dispense {item}', { item: item.itemName })}
             >
-              Dispense item
+              {t('fulfillment.dispense.dispenseItem', 'Dispense item')}
             </Button>
           </div>
         </div>
       ) : outstanding === 0 && status !== 'rejected' ? (
-        <p className={styles.doneNote}>No quantity outstanding for this item.</p>
+        <p className={styles.doneNote}>{t('fulfillment.dispense.nothingOutstanding', 'No quantity outstanding for this item.')}</p>
       ) : null}
 
       {localError && <FormError message={localError} />}
@@ -207,30 +221,30 @@ export function FacilityFulfillmentQueue({
   onDispense,
   onReject,
 }: FacilityFulfillmentQueueProps) {
+  const t = useT();
+  const { locale } = useIntl();
   const groups = useMemo(() => groupByOrder(items), [items]);
 
   return (
     <section className={styles.card} aria-labelledby="fulfillment-heading">
       <div className={styles.header}>
         <div>
-          <h2 id="fulfillment-heading">Fulfillment queue</h2>
+          <h2 id="fulfillment-heading">{t('fulfillment.queue.title', 'Fulfillment queue')}</h2>
           <p className={styles.subtitle}>
-            Dispense items individually and record exactly what you supplied. The patient can
-            route anything left to another facility.
+            {t('fulfillment.queue.subtitle', 'Dispense items individually and record exactly what you supplied. The patient can route anything left to another facility.')}
           </p>
         </div>
       </div>
 
       <div className={styles.paymentCallout} role="note">
-        <strong>Partial fulfilment &amp; payment:</strong> dispensing part of an order does not
-        release the full escrow amount. Payment stays held until the backend&apos;s release rule
-        for the order is met; each facility is paid only for the items it dispenses.
+        <strong>{t('fulfillment.queue.paymentLabel', 'Partial fulfilment & payment:')}</strong>{' '}
+        {t('fulfillment.queue.paymentText', 'dispensing part of an order does not release the full escrow amount. Payment stays held until the backend\'s release rule for the order is met; each facility is paid only for the items it dispenses.')}
       </div>
 
       <FormError message={errorMessage} />
 
       {groups.length === 0 ? (
-        <p className={styles.emptyState}>No items in the fulfillment queue.</p>
+        <p className={styles.emptyState}>{t('fulfillment.queue.empty', 'No items in the fulfillment queue.')}</p>
       ) : (
         <div className={styles.orderList}>
           {groups.map((group) => {
@@ -241,14 +255,18 @@ export function FacilityFulfillmentQueue({
                   <div>
                     <div className={styles.orderTitleRow}>
                       <h3 className={styles.orderTitle}>
-                        {group.orderType === 'prescription' ? 'Prescription' : 'Lab order'} for{' '}
-                        {group.patientName}
+                        {group.orderType === 'prescription'
+                          ? t('fulfillment.queue.prescription', 'Prescription')
+                          : t('fulfillment.queue.labOrder', 'Lab order')}{' '}
+                        {t('fulfillment.queue.forPatient', 'for {patient}', { patient: group.patientName })}
                       </h3>
                       <FulfillmentStatusBadge status={status} />
                     </div>
                     <p className={styles.orderMeta}>
-                      Order {group.orderId} · received{' '}
-                      <ZonedTime value={group.receivedAt} mode="date" />
+                      {t('fulfillment.queue.orderReceived', 'Order {orderId} · received {date}', {
+                        orderId: group.orderId,
+                        date: formatInstant(group.receivedAt, { year: 'numeric', month: 'short', day: 'numeric' }, locale),
+                      })}
                     </p>
                   </div>
                 </header>

@@ -7,15 +7,23 @@ import { Skeleton } from '../components/states/Skeleton';
 import { IntakeForm } from '../features/booking/components/IntakeForm';
 import { useAppointmentDetail } from '../features/appointments/hooks/useAppointments';
 import type { SubmittedIntake } from '../types/models';
+import { formatInstant } from '../i18n/format';
 
 function formatSlot(start: string): string {
-  return new Date(start).toLocaleString(undefined, {
+  return formatInstant(start, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+const TITLE_STYLE = { fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', margin: 0 } as const;
+
+/** The page's single <h1>, shown in every state (issue #238). */
+function IntakeTitle() {
+  return <h1 style={TITLE_STYLE}>Your intake</h1>;
 }
 
 /** `/patient/appointments/:appointmentId/intake` (issue #36). */
@@ -27,6 +35,7 @@ export function IntakePage() {
   if (detail.isPending) {
     return (
       <div className="container">
+        <IntakeTitle />
         <Skeleton lines={5} label="Loading your appointment" />
       </div>
     );
@@ -35,6 +44,7 @@ export function IntakePage() {
   if (detail.isError) {
     return (
       <div className="container">
+        <IntakeTitle />
         <InlineError
           title="Your appointment couldn’t be loaded"
           message={queryErrorMessage(detail.error)}
@@ -48,6 +58,7 @@ export function IntakePage() {
   if (!appointment) {
     return (
       <div className="container">
+        <IntakeTitle />
         <EmptyState
           title="We couldn’t find that appointment"
           description="It may have been cancelled, or the link points at an appointment that isn’t yours."
@@ -70,9 +81,7 @@ export function IntakePage() {
       </p>
 
       <div className="card">
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', margin: 0 }}>
-          Your intake
-        </h1>
+        <IntakeTitle />
         <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
           {formatSlot(slot.startTime)}. This saves your clinician time and means you won’t be asked
           the same questions at the visit.

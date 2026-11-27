@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FacilityPayoutLedger } from '../features/payments/components/FacilityPayoutLedger';
+import { PayoutBlockedBanner } from '../features/payments/components/PayoutBlockedBanner';
 import styles from '../features/facility-team/components/FacilityTeam.module.css';
 
 export function FacilityPaymentsPage() {
@@ -29,7 +30,15 @@ export function FacilityPaymentsPage() {
         </Link>
       </nav>
 
-      <div style={{ marginTop: 'var(--space-6)' }}>
+      <div
+        style={{
+          marginTop: 'var(--space-6)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-6)',
+        }}
+      >
+        <PayoutBlockedBanner />
         <FacilityPayoutLedger />
       </div>
     </div>

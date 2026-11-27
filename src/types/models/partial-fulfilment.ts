@@ -59,4 +59,17 @@ export interface RouteRemainingItemsInput {
   itemIds: string[];
 }
 
-export type FulfillmentStatusUpdate = 'in_progress' | 'fulfilled' | 'rejected';
+/** Record-level statuses only: `fulfilled` is derived from dispensed items
+ * by docforum-core and cannot be set from this client. */
+export type FulfillmentStatusUpdate = 'in_progress' | 'rejected';
+
+/** Compact progress for one order version (#262), from
+ * `GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=`.
+ * Core derives it from the order's item rows; the UI never recomputes it. */
+export type OrderFulfillmentProgressStatus = 'issued' | 'partially_fulfilled' | 'fulfilled';
+
+export interface OrderFulfillmentProgress {
+  totalItems: number;
+  dispensedItems: number;
+  status: OrderFulfillmentProgressStatus;
+}

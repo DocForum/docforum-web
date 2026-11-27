@@ -13,12 +13,13 @@ import { TextField } from '../../../components/TextField';
 import { ApiError } from '../../../services/api-client';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { useAuthStore } from '../../../store/auth-store';
-import { useFormat } from '../../../i18n/useFormat';
 import { validateFullName, validatePassword } from '../../auth/validation';
 import { useLogout } from '../../auth/hooks/useLogout';
+import { homePathForRole } from '../../../navigation/role-home';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
 import type { AccountInvite, InviteRole } from '../../../types/models';
 import styles from './InviteLanding.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 export interface InviteLandingProps {
   token: string;
@@ -29,20 +30,18 @@ const ROLE_LABELS: Record<InviteRole, string> = {
   admin: 'Administrator',
 };
 
-/** Where each invited role lands after accepting — mirrors RequireAuth's
- * role-gated home for that role. */
-const DASHBOARDS: Record<InviteRole, string> = {
-  facility: '/facility',
-  admin: '/admin',
-};
-
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : formatInstant(date, { year: 'numeric', month: 'long', day: 'numeric' });
+}
 
 function inviterDescription(invite: AccountInvite): string {
   return invite.invitedBy ?? 'your DocForum contact';
 }
 
 export function InviteLanding({ token }: InviteLandingProps) {
-  const format = useFormat();
   const inviteQuery = useInvite(token);
   const acceptMutation = useAcceptInvite();
   const logout = useLogout();
@@ -113,7 +112,7 @@ export function InviteLanding({ token }: InviteLandingProps) {
     };
     const messages: Record<AccountInvite['status'], string> = {
       pending: '',
-      expired: `This invitation expired on ${format.formatDate(invite.expiresAt)} and can no longer be used. Ask ${inviterDescription(invite)} to send you a new one.`,
+      expired: `This invitation expired on ${formatDate(invite.expiresAt)} and can no longer be used. Ask ${inviterDescription(invite)} to send you a new one.`,
       revoked: `This invitation was revoked and can no longer be used. If you still need access, contact ${inviterDescription(invite)}.`,
       accepted:
         'This invitation has already been used. If that was you, just log in — otherwise ask for a fresh invite.',
@@ -146,7 +145,7 @@ export function InviteLanding({ token }: InviteLandingProps) {
     : null;
 
   function goToDashboard() {
-    navigate(DASHBOARDS[invite.role], { replace: true });
+    navigate(homePathForRole(invite.role), { replace: true });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

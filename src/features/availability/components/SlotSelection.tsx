@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, RefObject } from 'react';
+import { useT } from '../../../i18n/useT';
 import { formatClockRange, slotStatusLabel } from '../calendar';
 import type { SlotCell } from '../calendar';
 import type { SlotStatus } from '../../../types/models';
@@ -81,6 +82,7 @@ export function SlotSelection({
   ariaLabel,
   busySlotIds = [],
 }: SlotSelectionProps) {
+  const t = useT();
   const [focused, setFocused] = useState<CellPosition | null>(null);
   const [anchor, setAnchor] = useState<CellPosition | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -244,6 +246,7 @@ export function SlotSelection({
                 style={{ gridRow: `${cell.rowStart + 1} / span ${cell.rowSpan}` }}
                 data-day={dayIndex}
                 data-cell={cellIndex}
+                data-slot-id={cell.slotId}
                 tabIndex={tabbable ? 0 : -1}
                 onFocus={() => {
                   setFocused({ day: dayIndex, cell: cellIndex });
@@ -263,7 +266,7 @@ export function SlotSelection({
                   <span className={styles.cellPattern} aria-hidden="true">
                     {STATUS_PATTERN[cell.status]}
                   </span>
-                  {slotStatusLabel(cell.status)}
+                  {slotStatusLabel(cell.status, t)}
                 </span>
               </div>
             );

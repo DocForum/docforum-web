@@ -1,9 +1,14 @@
-import { useState } from 'react';
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
+import { useRef, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateWebhookDialog } from './CreateWebhookDialog';
 import { WebhookDeliveries } from './WebhookDeliveries';
 import {
@@ -11,9 +16,11 @@ import {
   useDeleteWebhookEndpoint,
   useSendTestDelivery,
 } from '../hooks/useIntegrations';
+import { useT } from '../../../i18n/useT';
+import { webhookEventDescription } from '../webhook-events';
 import type { WebhookEndpoint } from '../../../types/models';
-import { ZonedTime } from '../../../i18n/components/ZonedTime';
 import styles from './Integrations.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 // Fallback data for preview/development when backend endpoint is not yet connected
 export const DEFAULT_MOCK_WEBHOOKS: WebhookEndpoint[] = [
@@ -35,6 +42,8 @@ interface WebhooksPanelProps {
 }
 
 export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
+  const t = useT();
+  const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
   const { data: endpointsData, isLoading, isError, error, refetch } = useWebhookEndpoints(facilityId);
@@ -47,17 +56,38 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
     ? errorText(error) ?? 'Webhook endpoints could not be loaded.'
     : null;
 
+  const listRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    endpoints.map((endpoint) => endpoint.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
+
+  // Deleting an endpoint removes the card that held the focused Delete button:
+  // move focus to the neighbouring endpoint (or the heading) and announce the
+  // deletion (issue #245).
   const handleDelete = (endpointId: string, url: string) => {
     if (
-      window.confirm(
-        `Delete webhook endpoint ${url}? Pending deliveries will be dropped. This cannot be undone.`,
+      !window.confirm(
+        t('integrations.webhooks.deleteConfirm', 'Delete webhook endpoint {url}? Pending deliveries will be dropped. This cannot be undone.', {
+          url,
+        }),
       )
     ) {
-      deleteMutation.mutate(endpointId);
-      if (expandedEndpointId === endpointId) {
-        setExpandedEndpointId(null);
-      }
+      return;
     }
+    rememberRemovedRow(endpointId);
+    if (expandedEndpointId === endpointId) {
+      setExpandedEndpointId(null);
+    }
+    deleteMutation.mutate(endpointId, {
+      onSuccess: () =>
+        announce(
+          t('integrations.webhooks.deletedAnnounce', 'Webhook endpoint {url} was deleted.', { url }),
+        ),
+      onError: () => forgetRemovedRow(),
+    });
   };
 
   const handleTest = (endpointId: string) => {
@@ -75,7 +105,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   if (isLoading) {
     return (
       <div className={styles.card}>
-        <Skeleton lines={3} label="Loading webhook endpoints" />
+        <Skeleton lines={3} label={t('integrations.webhooks.loading', 'Loading webhook endpoints…')} />
       </div>
     );
   }
@@ -84,7 +114,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
     return (
       <div className={styles.card}>
         <div className={styles.cardHeader}>
-          <h2>Webhooks</h2>
+          <h2>{t('integrations.webhooks.title', 'Webhooks')}</h2>
         </div>
         <InlineError
           title="Webhook endpoints couldn't be loaded"
@@ -97,13 +127,15 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
-        <h2>Webhooks</h2>
-        <Button onClick={() => setCreateDialogOpen(true)}>Add endpoint</Button>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {t('integrations.webhooks.title', 'Webhooks')}
+        </h2>
+        <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.webhooks.addEndpoint', 'Add endpoint')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
-        Webhooks notify your systems when orders or payments change.
-        Each delivery is signed with an HMAC secret so you can verify authenticity.
+        {t('integrations.webhooks.subtitle', 'Webhooks notify your systems when orders or payments change. Each delivery is signed with an HMAC secret so you can verify authenticity.')}
       </p>
 
       {errorMessage && (
@@ -116,25 +148,31 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
 
       {endpoints.length === 0 ? (
         <EmptyState
-          title="No webhook endpoints configured"
+          title={t('integrations.webhooks.empty', 'No webhook endpoints configured. Add one to receive real-time event notifications.')}
           description="Add one to receive real-time event notifications in your systems."
           action={{ label: 'Add your first endpoint', onClick: () => setCreateDialogOpen(true) }}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <div
+          ref={listRef}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+        >
           {endpoints.map((endpoint) => (
-            <div key={endpoint.id} className={styles.webhookCard}>
+            <div key={endpoint.id} className={styles.webhookCard} data-row-id={endpoint.id}>
               <div className={styles.webhookCardHeader}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
                   <span className={styles.webhookUrl}>{endpoint.url}</span>
                   <div className={styles.webhookMeta}>
-                    <span className={styles.activeBadge}>Active</span>
-                    <span>Secret: {endpoint.secretPrefix}…</span>
+                    <span className={styles.activeBadge}>{t('integrations.webhooks.active', 'Active')}</span>
                     <span>
-                      Last delivery:{' '}
-                      {endpoint.lastDeliveryAt
-                        ? <ZonedTime value={endpoint.lastDeliveryAt} />
-                        : 'Never'}
+                      {t('integrations.webhooks.secret', 'Secret: {prefix}…', { prefix: endpoint.secretPrefix })}
+                    </span>
+                    <span>
+                      {t('integrations.webhooks.lastDelivery', 'Last delivery: {date}', {
+                        date: endpoint.lastDeliveryAt
+                          ? formatInstant(endpoint.lastDeliveryAt, { dateStyle: 'medium', timeStyle: 'short' }, locale)
+                          : t('integrations.common.never', 'Never'),
+                      })}
                     </span>
                   </div>
                 </div>
@@ -144,23 +182,25 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                     onClick={() => handleTest(endpoint.id)}
                     loading={testMutation.isPending && testMutation.variables === endpoint.id}
                   >
-                    Send test
+                    {t('integrations.webhooks.sendTest', 'Send test')}
                   </Button>
                   <Button variant="secondary" onClick={() => toggleDeliveries(endpoint.id)}>
-                    {expandedEndpointId === endpoint.id ? 'Hide deliveries' : 'Recent deliveries'}
+                    {expandedEndpointId === endpoint.id
+                      ? t('integrations.webhooks.hideDeliveries', 'Hide deliveries')
+                      : t('integrations.delivery.recent', 'Recent deliveries')}
                   </Button>
                   <Button
                     variant="danger"
                     onClick={() => handleDelete(endpoint.id, endpoint.url)}
                     loading={deleteMutation.isPending && deleteMutation.variables === endpoint.id}
                   >
-                    Delete
+                    {t('integrations.webhooks.delete', 'Delete')}
                   </Button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 {endpoint.events.map((event) => (
-                  <span key={event} className={styles.eventTag}>
+                  <span key={event} className={styles.eventTag} title={webhookEventDescription(t, event)}>
                     {event}
                   </span>
                 ))}

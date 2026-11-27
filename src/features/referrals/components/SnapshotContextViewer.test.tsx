@@ -34,7 +34,7 @@ function makeDetail(status: ReferralStatus): ReferralDetail {
 
 describe('SnapshotContextViewer', () => {
   it('labels the snapshot with a human-readable date for every referral status', () => {
-    const statuses: ReferralStatus[] = ['pending', 'accepted', 'declined', 'completed', 'expired'];
+    const statuses: ReferralStatus[] = ['pending', 'accepted', 'declined', 'completed', 'expired', 'cancelled'];
     const { container } = render(
       <div>
         {statuses.map((status) => (

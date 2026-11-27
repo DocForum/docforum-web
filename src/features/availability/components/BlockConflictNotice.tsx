@@ -1,4 +1,5 @@
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import styles from './BlockConflictNotice.module.css';
 
 export interface ConflictEntry {
@@ -26,6 +27,7 @@ interface Props {
  * wording says out loud that they are left alone.
  */
 export function BlockConflictNotice({ entries, rangeLabel, stage, onConfirm, onCancel, confirming }: Props) {
+  const t = useT();
   if (entries.length === 0) return null;
 
   return (
@@ -33,18 +35,36 @@ export function BlockConflictNotice({ entries, rangeLabel, stage, onConfirm, onC
       className={styles.notice}
       role={stage === 'server' ? 'status' : 'group'}
       aria-live={stage === 'server' ? 'polite' : undefined}
-      aria-label={stage === 'preview' ? `Booked appointments inside ${rangeLabel}` : undefined}
+      aria-label={
+        stage === 'preview'
+          ? t('availability.conflict.ariaLabel', 'Booked appointments inside {range}', { range: rangeLabel })
+          : undefined
+      }
       data-stage={stage}
     >
       <h4 className={styles.title}>
         {stage === 'preview'
-          ? `${entries.length} booked ${entries.length === 1 ? 'appointment is' : 'appointments are'} inside ${rangeLabel}`
-          : `Left untouched: ${entries.length} booked ${entries.length === 1 ? 'appointment' : 'appointments'}`}
+          ? t(
+              'availability.conflict.previewTitle',
+              '{count, plural, one {# booked appointment is} other {# booked appointments are}} inside {range}',
+              { count: entries.length, range: rangeLabel },
+            )
+          : t(
+              'availability.conflict.serverTitle',
+              'Left untouched: {count, plural, one {# booked appointment} other {# booked appointments}}',
+              { count: entries.length },
+            )}
       </h4>
       <p className={styles.explanation}>
         {stage === 'preview'
-          ? 'Blocking makes the open slots in this range unbookable. It does not cancel the appointments below — each patient keeps their appointment and it stays on your calendar. Confirm only if that is what you intend.'
-          : 'Your block was applied to the open slots in this range. The backend reported these booked appointments and cancelled none of them.'}
+          ? t(
+              'availability.conflict.previewExplanation',
+              'Blocking makes the open slots in this range unbookable. It does not cancel the appointments below — each patient keeps their appointment and it stays on your calendar. Confirm only if that is what you intend.',
+            )
+          : t(
+              'availability.conflict.serverExplanation',
+              'Your block was applied to the open slots in this range. The backend reported these booked appointments and cancelled none of them.',
+            )}
       </p>
       <ul className={styles.list}>
         {entries.map((entry) => (
@@ -58,11 +78,11 @@ export function BlockConflictNotice({ entries, rangeLabel, stage, onConfirm, onC
       {stage === 'preview' && onConfirm && (
         <div className={styles.actions}>
           <Button onClick={onConfirm} loading={confirming}>
-            Block the range, keep these appointments
+            {t('availability.conflict.confirm', 'Block the range, keep these appointments')}
           </Button>
           {onCancel && (
             <Button variant="secondary" onClick={onCancel}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
           )}
         </div>

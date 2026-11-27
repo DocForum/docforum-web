@@ -5,6 +5,7 @@
 import { http } from 'msw';
 import { db } from '../db';
 import { notFound, respond } from '../helpers';
+import { useMockStore } from '../mock-store';
 import type { DoctorSearchResult, SymptomSpecialtyMapping, SymptomSuggestion } from '../../types/models';
 
 const WEEK_MS = 7 * 24 * 3_600_000;
@@ -49,13 +50,66 @@ export const searchHandlers = [
     }),
   ),
 
+  // The seeded specialty catalog (real `GET /specialties`, issue #1).
+  http.get(
+    '*/specialties',
+    respond('list', () => db.specialties),
+  ),
+
+  // The real public availability read (issue #13). The fixture catalog stores
+  // one next-open instant per doctor rather than a slot table, so the mock
+  // derives a single open 30-minute slot from it.
+  http.get(
+    '*/availability/doctors/:doctorProfileId/slots',
+    respond('list', ({ params }) => {
+      const doctor = db.doctors.find((entry) => entry.id === String(params.doctorProfileId));
+      if (!doctor?.nextAvailableAt) return [];
+      const start = new Date(doctor.nextAvailableAt);
+      const end = new Date(start.getTime() + 30 * 60_000);
+      return [
+        {
+          id: `slot-${doctor.id}`,
+          doctorProfileId: doctor.id,
+          status: 'open',
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    }),
+  ),
+
   // Doctors by mapped specialties + availability. `specialtyIds` is a
   // comma-separated list matched with OR (a symptom can map to several
   // specialties); only verified doctors are ever visible to patients.
   http.get(
     '*/doctors',
-    respond('list', ({ request }) => {
+    respond('json', ({ request }) => {
       const url = new URL(request.url);
+
+      // The real `GET /doctors` shape (issues #1/#13) is paginated and filters
+      // by specialty *slug*. The older symptom search sends `specialtyIds` and
+      // no `limit`, so the two contracts stay distinguishable.
+      const realShape = url.searchParams.has('specialty') || url.searchParams.has('limit') || url.searchParams.has('cursor');
+      if (realShape) {
+        if (useMockStore.getState().scenario === 'empty') return { items: [], nextCursor: null };
+        const specialtySlug = url.searchParams.get('specialty');
+        const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '20') || 20, 1), 50);
+        const items = db.doctors
+          .filter((doctor) => doctor.verificationStatus === 'verified')
+          .filter((doctor) => !specialtySlug || doctor.specialties.some((specialty) => specialty.slug === specialtySlug))
+          .sort((a, b) => a.fullName.localeCompare(b.fullName))
+          .slice(0, limit)
+          .map((doctor) => ({
+            id: doctor.id,
+            fullName: doctor.fullName,
+            specialties: doctor.specialties.map((specialty) => ({ ...specialty })),
+          }));
+        return { items, nextCursor: null };
+      }
+
+      if (useMockStore.getState().scenario === 'empty') return [];
       const specialtyIds = (url.searchParams.get('specialtyIds') ?? '')
         .split(',')
         .map((id) => id.trim())

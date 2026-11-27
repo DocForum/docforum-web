@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
+import { useT, type Translate } from '../i18n/useT';
 import { AvailabilityCalendar } from '../features/availability/components/AvailabilityCalendar';
 import { BlockConflictNotice } from '../features/availability/components/BlockConflictNotice';
 import { GenerateSlotsForm } from '../features/availability/components/GenerateSlotsForm';
@@ -25,6 +27,8 @@ import type { IsoDate, SlotTimeRange } from '../features/availability/calendar';
 import { InlineError } from '../components/states/InlineError';
 import { Skeleton } from '../components/states/Skeleton';
 import { useErrorMessage } from '../hooks/useErrorText';
+import { useAnnouncer } from '../hooks/useAnnouncer';
+import { LiveRegion } from '../components/LiveRegion';
 import { Button } from '../components/Button';
 import type { AvailabilitySlot, SlotAppointment } from '../types/models';
 
@@ -47,24 +51,26 @@ const ROW_STYLE = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap
 const GROUP_STYLE = { display: 'flex', gap: 'var(--space-2)' } as const;
 
 /** A blocked slot's booked neighbour, described in terms the doctor can act on. */
-function bookedSlotEntry(slot: AvailabilitySlot, timeZone: string): ConflictEntry {
+function bookedSlotEntry(slot: AvailabilitySlot, timeZone: string, t: Translate): ConflictEntry {
   return {
     key: slot.id,
-    label: slot.appointment?.patientFullName ?? 'Booked appointment',
-    detail: appointmentStatusLabel(slot.appointment?.status ?? 'scheduled'),
+    label: slot.appointment?.patientFullName ?? t('availability.conflict.bookedAppointment', 'Booked appointment'),
+    detail: appointmentStatusLabel(slot.appointment?.status ?? 'scheduled', t),
     time: formatClockRange(slot.startTime, slot.endTime, timeZone),
   };
 }
 
-function conflictEntry(appointment: SlotAppointment): ConflictEntry {
+function conflictEntry(appointment: SlotAppointment, t: Translate): ConflictEntry {
   return {
     key: appointment.id,
-    label: appointment.patientFullName ?? 'Booked appointment',
-    detail: appointmentStatusLabel(appointment.status),
+    label: appointment.patientFullName ?? t('availability.conflict.bookedAppointment', 'Booked appointment'),
+    detail: appointmentStatusLabel(appointment.status, t),
   };
 }
 
 export function DoctorAvailabilityPage() {
+  const t = useT();
+  const locale = useIntl().locale;
   const [timeZone] = useState(systemTimeZone);
   const [anchorDate, setAnchorDate] = useState<IsoDate>(() => todayInZone(new Date(), timeZone));
   const [view, setView] = useState<'week' | 'day'>('week');
@@ -77,6 +83,7 @@ export function DoctorAvailabilityPage() {
   const profileQuery = useMyDoctorProfile();
   const doctorProfileId = profileQuery.data?.id ?? null;
   const errorText = useErrorMessage();
+  const { message: announcement, announce } = useAnnouncer();
 
   const dates = useMemo(
     () => (view === 'week' ? buildWeekDates(anchorDate) : [anchorDate]),
@@ -86,7 +93,7 @@ export function DoctorAvailabilityPage() {
   const slots = useMemo(() => slotsQuery.data ?? [], [slotsQuery.data]);
 
   const blockRange = useBlockSlotRange(doctorProfileId);
-  const removeSlots = useRemoveSlots(doctorProfileId);
+  const removeSlots = useRemoveSlots(doctorProfileId, t);
   const unblockSlot = useUnblockSlot(doctorProfileId);
 
   // A selection is a statement about the window it was made in.
@@ -96,7 +103,7 @@ export function DoctorAvailabilityPage() {
   }, [anchorDate, view]);
 
   const rangeLabel = (range: SlotTimeRange) =>
-    `${formatDayHeading(todayInZone(new Date(range.startTime), timeZone))}, ${formatClockRange(range.startTime, range.endTime, timeZone)}`;
+    `${formatDayHeading(todayInZone(new Date(range.startTime), timeZone), 'short', locale)}, ${formatClockRange(range.startTime, range.endTime, timeZone)}`;
 
   function commitBlock(range: SlotTimeRange) {
     setPendingBlock(null);
@@ -110,12 +117,12 @@ export function DoctorAvailabilityPage() {
           setBlockedRange(range);
           setSelectedIds([]);
         },
-        onError: (error) => setRollbackNotice(rollbackMessage(error)),
+        onError: (error) => setRollbackNotice(rollbackMessage(error, t)),
       },
     );
   }
 
-  function handleAction(action: AvailabilityAction, slotIds: string[], range: SlotTimeRange | null) {
+  async function handleAction(action: AvailabilityAction, slotIds: string[], range: SlotTimeRange | null) {
     setRollbackNotice(null);
     setServerConflicts([]);
     if (!range) return;
@@ -125,7 +132,7 @@ export function DoctorAvailabilityPage() {
       // span and require a deliberate confirmation.
       const booked = slotsInTimeRange(slots.filter((slot) => slot.status === 'booked'), range);
       if (booked.length > 0) {
-        setPendingBlock({ range, entries: booked.map((slot) => bookedSlotEntry(slot, timeZone)) });
+        setPendingBlock({ range, entries: booked.map((slot) => bookedSlotEntry(slot, timeZone, t)) });
         return;
       }
       commitBlock(range);
@@ -134,16 +141,37 @@ export function DoctorAvailabilityPage() {
 
     if (action === 'remove') {
       removeSlots.mutate(slotIds, {
-        onSuccess: () => setSelectedIds([]),
-        onError: (error) => setRollbackNotice(rollbackMessage(error)),
+        onSuccess: () => {
+          setSelectedIds([]);
+          announce(
+            t(
+              'availability.announce.removed',
+              '{count, plural, one {# slot removed.} other {# slots removed.}}',
+              { count: slotIds.length },
+            ),
+          );
+        },
+        onError: (error) => setRollbackNotice(rollbackMessage(error, t)),
       });
       return;
     }
 
-    for (const slotId of slotIds) {
-      unblockSlot.mutate(slotId, { onError: (error) => setRollbackNotice(rollbackMessage(error)) });
-    }
+    // Unblocking runs one request per slot, so wait for the whole batch before
+    // announcing how many actually changed (failures still surface inline).
     setSelectedIds([]);
+    const results = await Promise.allSettled(slotIds.map((slotId) => unblockSlot.mutateAsync(slotId)));
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed?.status === 'rejected') setRollbackNotice(rollbackMessage(failed.reason, t));
+    const unblocked = results.filter((result) => result.status === 'fulfilled').length;
+    if (unblocked > 0) {
+      announce(
+        t(
+          'availability.announce.unblocked',
+          '{count, plural, one {# slot unblocked.} other {# slots unblocked.}}',
+          { count: unblocked },
+        ),
+      );
+    }
   }
 
   const profileError = profileQuery.isError
@@ -157,6 +185,7 @@ export function DoctorAvailabilityPage() {
 
   return (
     <div style={PAGE_STYLE}>
+      <LiveRegion message={announcement} />
       <header>
         <h1>Doctor availability</h1>
         <p>
@@ -203,7 +232,7 @@ export function DoctorAvailabilityPage() {
         )}
 
         {serverConflicts.length > 0 && blockedRange && (
-          <BlockConflictNotice stage="server" entries={serverConflicts.map(conflictEntry)} rangeLabel={rangeLabel(blockedRange)} />
+          <BlockConflictNotice stage="server" entries={serverConflicts.map((entry) => conflictEntry(entry, t))} rangeLabel={rangeLabel(blockedRange)} />
         )}
 
         {pendingBlock && (

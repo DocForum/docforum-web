@@ -25,6 +25,8 @@ export interface components {
     "id": string;
     "email": string;
     "role": components["schemas"]["Role"];
+    "locale"?: (string) | null;
+    "emailVerifiedAt"?: (string) | null;
     "createdAt": string;
     "updatedAt": string;
   };
@@ -32,6 +34,41 @@ export interface components {
   "AuthSession": {
     "user": components["schemas"]["User"];
     "accessToken": string;
+  };
+
+  "LoginResult": { [key: string]: unknown };
+
+  "MfaRequiredResponse": {
+    "mfaRequired": true;
+    "mfaToken": string;
+  };
+
+  "EnrollmentRequiredResponse": {
+    "enrollmentRequired": true;
+    "enrollmentToken": string;
+  };
+
+  "TwoFactorVerifyInput": {
+    "mfaToken": string;
+    "code": string;
+  };
+
+  "TwoFactorCodeInput": {
+    "code": string;
+  };
+
+  "TwoFactorSetup": {
+    "secret": string;
+    "otpauthUri": string;
+  };
+
+  "TwoFactorEnableResult": {
+    "recoveryCodes": Array<string>;
+  };
+
+  "TwoFactorStatus": {
+    "enabled": boolean;
+    "unusedRecoveryCodes": number;
   };
 
   "SignupInput": {
@@ -460,7 +497,50 @@ export interface paths {
     post: {
       requestBody: { content: { "application/json": components["schemas"]["LoginInput"] } };
       responses: {
+          200: { content: { "application/json": components["schemas"]["LoginResult"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/verify": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorVerifyInput"] } };
+      responses: {
           200: { content: { "application/json": components["schemas"]["AuthSession"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/setup": {
+    post: {
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorSetup"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/enable": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorCodeInput"] } };
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorEnableResult"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/status": {
+    get: {
+      responses: {
+          200: { content: { "application/json": components["schemas"]["TwoFactorStatus"] } };
+      };
+    };
+  };
+
+  "/auth/2fa/disable": {
+    post: {
+      requestBody: { content: { "application/json": components["schemas"]["TwoFactorCodeInput"] } };
+      responses: {
+
       };
     };
   };
@@ -675,7 +755,7 @@ export interface paths {
     };
   };
 
-  "/doctor/appointments/today": {
+  "/appointments/doctor/today": {
     get: {
       responses: {
           200: { content: { "application/json": Array<components["schemas"]["Appointment"]> } };
@@ -692,7 +772,7 @@ export interface paths {
   };
 
   "/appointments/{appointmentId}/start": {
-    post: {
+    patch: {
       responses: {
           200: { content: { "application/json": components["schemas"]["Appointment"] } };
       };
@@ -700,7 +780,7 @@ export interface paths {
   };
 
   "/appointments/{appointmentId}/complete": {
-    post: {
+    patch: {
       responses: {
           200: { content: { "application/json": components["schemas"]["Appointment"] } };
       };
@@ -780,6 +860,43 @@ export interface paths {
       requestBody: { content: { "application/json": components["schemas"]["LinkWalletInput"] } };
       responses: {
           200: { content: { "application/json": components["schemas"]["WalletLink"] } };
+      };
+    };
+  };
+
+  "/pharmacy-orders/fulfillments": {
+    post: {
+      requestBody: { content: { "application/json": {
+        "orderType": "prescription";
+        "orderId": string;
+        "facilityId": string;
+        "orderItemIds"?: Array<string>;
+      } } };
+      responses: {
+          200: { content: { "application/json": { [key: string]: unknown } } };
+      };
+    };
+  };
+
+  "/consultations/{consultationId}/referrals": {
+    post: {
+      requestBody: { content: { "application/json": {
+        "targets": Array<{
+          "targetDoctorId"?: string;
+          "targetSpecialtyId"?: string;
+          "snapshotNotes"?: string;
+        }>;
+      } } };
+      responses: {
+          201: { content: { "application/json": Array<{ [key: string]: unknown }> } };
+      };
+    };
+  };
+
+  "/orders/lab-orders/{id}/result": {
+    post: {
+      responses: {
+          200: { content: { "application/json": { [key: string]: unknown } } };
       };
     };
   };

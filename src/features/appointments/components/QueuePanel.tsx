@@ -11,7 +11,8 @@ import { canCheckIn } from '../queue';
 import { formatSlotTime, shouldPollQueue } from '../slot';
 import type { PatientAppointment, AppointmentQueue } from '../../../types/models';
 import styles from './QueuePanel.module.css';
-import { useLocaleStore } from '../../../i18n/locale-store';
+import { useLocaleStore } from '../../../store/locale-store';
+import { useTimeZone } from '../../../i18n/TimeZoneProvider';
 
 interface Props {
   appointment: PatientAppointment;
@@ -68,8 +69,8 @@ function notOpenDetail(queue: AppointmentQueue, now: Date, locale: string, timeZ
 }
 
 export function QueuePanel({ appointment, now }: Props) {
-  const locale = useLocaleStore((state) => state.locale);
-  const timeZone = useLocaleStore((state) => state.timeZone);
+  const locale = useLocaleStore((state) => state.formattingLocale);
+  const { timeZone } = useTimeZone();
   const queueQuery = useAppointmentQueue(appointment.id, shouldPollQueue(appointment, now));
   const checkInMutation = useCheckIn(appointment.id);
   const [alertsWanted, setAlertsWanted] = useState(false);

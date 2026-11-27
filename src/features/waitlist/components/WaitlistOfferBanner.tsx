@@ -8,15 +8,16 @@ import type { WaitlistEntry } from '../../../types/models';
 import { useOfferCountdown } from '../hooks/useOfferCountdown';
 import { useAcceptWaitlistOffer, useDeclineWaitlistOffer, useWaitlist } from '../hooks/useWaitlist';
 import styles from './Waitlist.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 function formatSlot(start: string, end: string): string {
-  const day = new Date(start).toLocaleDateString(undefined, {
+  const day = formatInstant(start, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
-  const time = new Date(start).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const endTime = new Date(end).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const time = formatInstant(start, { hour: '2-digit', minute: '2-digit' });
+  const endTime = formatInstant(end, { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${time}–${endTime}`;
 }
 

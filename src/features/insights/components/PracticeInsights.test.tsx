@@ -1,19 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../test/render';
-import { PracticeInsightsView, DEFAULT_MOCK_INSIGHTS } from './PracticeInsightsView';
+import { PracticeInsightsView } from './PracticeInsightsView';
 import { UtilisationChart } from './UtilisationChart';
 import { NoShowMetricsCard } from './NoShowMetricsCard';
 import { TurnaroundMetricsCard } from './TurnaroundMetricsCard';
 import { DateRangeSelector } from './DateRangeSelector';
 import { useAuthStore } from '../../../store/auth-store';
 import * as insightsService from '../../../services/insights-service';
+import { EMPTY_INSIGHTS, MOCK_INSIGHTS } from '../../../test/insights-fixtures';
 import type { DoctorPracticeInsights } from '../../../types/models';
 
 vi.mock('../../../services/insights-service');
 
 const MOCK_LOW_SAMPLE_INSIGHTS: DoctorPracticeInsights = {
-  ...DEFAULT_MOCK_INSIGHTS,
+  ...MOCK_INSIGHTS,
   utilisation: {
     weeks: [
       {
@@ -66,9 +67,9 @@ const MOCK_LOW_SAMPLE_INSIGHTS: DoctorPracticeInsights = {
 beforeEach(() => {
   useAuthStore.setState({
     accessToken: 'test-token',
-    user: { id: 'doc-1', email: 'doctor@docforum.org', role: 'doctor', createdAt: '', updatedAt: '' },
+    user: { id: 'doc-1', email: 'doctor@docforum.org', role: 'doctor', emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
-  vi.mocked(insightsService.getDoctorPracticeInsights).mockResolvedValue(DEFAULT_MOCK_INSIGHTS);
+  vi.mocked(insightsService.getDoctorPracticeInsights).mockResolvedValue(MOCK_INSIGHTS);
 });
 
 describe('Doctor Practice Insights (#50)', () => {
@@ -81,11 +82,48 @@ describe('Doctor Practice Insights (#50)', () => {
     ).toBeInTheDocument();
   });
 
+  describe('Query states', () => {
+    it('shows a retryable error and no metrics when the API fails', async () => {
+      vi.mocked(insightsService.getDoctorPracticeInsights).mockRejectedValueOnce(
+        new Error('Insights unavailable'),
+      );
+
+      render(<PracticeInsightsView />);
+
+      expect(await screen.findByText(/Practice insights couldn't be loaded/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+      expect(screen.queryByText('86.4%')).not.toBeInTheDocument();
+      expect(screen.queryByText('4.6%')).not.toBeInTheDocument();
+    });
+
+    it('shows an empty state, not an error, for a range with no appointments', async () => {
+      vi.mocked(insightsService.getDoctorPracticeInsights).mockResolvedValueOnce(EMPTY_INSIGHTS);
+
+      render(<PracticeInsightsView />);
+
+      expect(await screen.findByText(/No appointments in this range/i)).toBeInTheDocument();
+      expect(screen.queryByText('86.4%')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument();
+    });
+
+    it('shows skeleton placeholders without figures while loading', () => {
+      vi.mocked(insightsService.getDoctorPracticeInsights).mockReturnValueOnce(
+        new Promise<DoctorPracticeInsights>(() => {}),
+      );
+
+      render(<PracticeInsightsView />);
+
+      expect(screen.getAllByText(/Loading practice insights/i)).toHaveLength(3);
+      expect(screen.queryByText('86.4%')).not.toBeInTheDocument();
+      expect(screen.queryByText('4.6%')).not.toBeInTheDocument();
+    });
+  });
+
   describe('UtilisationChart', () => {
     it('renders weekly utilisation with both chart view and accessible table alternative', async () => {
       render(
         <UtilisationChart
-          weeks={DEFAULT_MOCK_INSIGHTS.utilisation.weeks}
+          weeks={MOCK_INSIGHTS.utilisation.weeks}
           overallOfferedSlots={125}
           overallBookedSlots={108}
           overallUtilisationRate={86.4}
@@ -132,7 +170,7 @@ describe('Doctor Practice Insights (#50)', () => {
 
   describe('NoShowMetricsCard', () => {
     it('renders no-show rates and accessible table alternative', async () => {
-      render(<NoShowMetricsCard metrics={DEFAULT_MOCK_INSIGHTS.noShows} />);
+      render(<NoShowMetricsCard metrics={MOCK_INSIGHTS.noShows} />);
 
       expect(screen.getAllByText('4.6%').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText('2.8%').length).toBeGreaterThanOrEqual(1);
@@ -159,8 +197,8 @@ describe('Doctor Practice Insights (#50)', () => {
     it('renders referral and message turnaround with accessible table alternatives', async () => {
       render(
         <TurnaroundMetricsCard
-          referrals={DEFAULT_MOCK_INSIGHTS.referrals}
-          messages={DEFAULT_MOCK_INSIGHTS.messages}
+          referrals={MOCK_INSIGHTS.referrals}
+          messages={MOCK_INSIGHTS.messages}
         />,
       );
 

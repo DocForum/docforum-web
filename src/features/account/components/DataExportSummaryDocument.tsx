@@ -48,12 +48,12 @@ export function DataExportSummaryDocument({ exportData }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Requested</dt>
-              <dd style={{ margin: 0 }}>{formatDate(exportData.createdAt)}</dd>
+              <dd style={{ margin: 0 }}><ZonedTime value={exportData.createdAt} /></dd>
             </div>
             {exportData.generatedAt ? (
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <dt style={{ fontWeight: 600, minWidth: '8rem' }}>Ready</dt>
-                <dd style={{ margin: 0 }}>{formatDate(exportData.generatedAt)}</dd>
+                <dd style={{ margin: 0 }}><ZonedTime value={exportData.generatedAt} /></dd>
               </div>
             ) : null}
             {exportData.expiresAt ? (

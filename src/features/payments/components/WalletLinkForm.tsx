@@ -9,14 +9,32 @@ import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useLinkWallet, useOwnWalletLink } from '../hooks/useWalletLink';
 import { z } from 'zod';
 import { ApiError } from '../../../services/api-client';
+import { isValidStellarPublicKey } from '../strkey';
 
 const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
 
 const walletSchema = z.object({
-  publicKey: z
-    .string()
-    .trim()
-    .regex(STELLAR_PUBLIC_KEY_PATTERN, 'Enter a valid Stellar public key (starts with G, 56 characters).'),
+  publicKey: z.string().trim().superRefine((value, ctx) => {
+    // A lowercase key that is otherwise the right shape gets a specific hint
+    // instead of being silently uppercased or rejected as malformed.
+    if (/[a-z]/.test(value) && STELLAR_PUBLIC_KEY_PATTERN.test(value.toUpperCase())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Stellar addresses are uppercase — enter the key exactly as copied, without lowercasing.',
+      });
+      return;
+    }
+    if (!STELLAR_PUBLIC_KEY_PATTERN.test(value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a valid Stellar public key (starts with G, 56 characters).',
+      });
+      return;
+    }
+    if (!isValidStellarPublicKey(value)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'This address has a typo.' });
+    }
+  }),
 });
 
 type WalletFormData = z.infer<typeof walletSchema>;

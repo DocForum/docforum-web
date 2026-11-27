@@ -1,3 +1,4 @@
+import type { useT } from '../../i18n/useT';
 import { getBrowserTimeZone } from '../../i18n/time-zone';
 import type {
   NotificationChannel,
@@ -8,84 +9,133 @@ import type {
   UpdateNotificationPreferencesInput,
 } from '../../types/models';
 
+type T = ReturnType<typeof useT>;
+
 export const NOTIFICATION_CHANNELS: NotificationChannel[] = ['email', 'sms', 'in_app'];
 
-export const CHANNEL_LABELS: Record<NotificationChannel, string> = {
-  email: 'Email',
-  sms: 'SMS',
-  in_app: 'In-app',
-};
+/** Channel names are catalogue copy, never built from the raw API id. */
+export function channelLabel(channel: NotificationChannel, t: T): string {
+  switch (channel) {
+    case 'email':
+      return t('notifications.channel.email', 'Email');
+    case 'sms':
+      return t('notifications.channel.sms', 'SMS');
+    case 'in_app':
+      return t('notifications.channel.inApp', 'In-app');
+  }
+}
 
 export interface NotificationTypeMeta {
   type: NotificationType;
-  label: string;
-  description: string;
   /** Safety-critical notifications are always delivered and can't be
    * disabled by the user (issue #108). */
   locked: boolean;
-  lockedReason?: string;
 }
 
 export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
-  {
-    type: 'appointment_reminders',
-    label: 'Appointment reminders',
-    description: 'A reminder before an upcoming appointment.',
-    locked: false,
-  },
-  {
-    type: 'appointment_changes',
-    label: 'Appointment changes',
-    description: 'Reschedules, cancellations and check-in updates.',
-    locked: false,
-  },
-  {
-    type: 'new_message',
-    label: 'New messages',
-    description: 'A care-team or facility message thread has a new reply.',
-    locked: false,
-  },
-  {
-    type: 'referral_updates',
-    label: 'Referral updates',
-    description: 'A specialist referral is accepted, declined or completed.',
-    locked: false,
-  },
-  {
-    type: 'order_updates',
-    label: 'Order updates',
-    description: 'Prescriptions and lab orders are ready or ready for collection.',
-    locked: false,
-  },
-  {
-    type: 'payment_receipts',
-    label: 'Payment receipts',
-    description: 'Escrow funding, release and refund receipts.',
-    locked: false,
-  },
-  {
-    type: 'marketing',
-    label: 'Product news',
-    description: 'Optional DocForum product updates. Off unless you opt in.',
-    locked: false,
-  },
-  {
-    type: 'critical_lab_result',
-    label: 'Critical lab results',
-    description: 'A result that needs urgent attention.',
-    locked: true,
-    lockedReason:
-      'Critical lab results are always delivered on every channel — a missed urgent result is a safety risk. You can change how other notifications reach you, but not these.',
-  },
-  {
-    type: 'security_alert',
-    label: 'Security alerts',
-    description: 'Sign-ins, password and account-security events.',
-    locked: true,
-    lockedReason:
-      'Security alerts are always delivered so you can react to unauthorised access. They cannot be disabled.',
-  },
+  { type: 'appointment_reminders', locked: false },
+  { type: 'appointment_changes', locked: false },
+  { type: 'new_message', locked: false },
+  { type: 'referral_updates', locked: false },
+  { type: 'order_updates', locked: false },
+  { type: 'payment_receipts', locked: false },
+  { type: 'marketing', locked: false },
+  { type: 'critical_lab_result', locked: true },
+  { type: 'security_alert', locked: true },
 ];
+
+export interface NotificationTypeCopy {
+  label: string;
+  description: string;
+  lockedReason?: string;
+}
+
+/** All type-level copy lives in the catalogue. Each API type id maps to its
+ * own static `t()` call so no message id is ever assembled at runtime. */
+export function notificationTypeCopy(type: NotificationType, t: T): NotificationTypeCopy {
+  switch (type) {
+    case 'appointment_reminders':
+      return {
+        label: t('notifications.type.appointmentReminders.label', 'Appointment reminders'),
+        description: t(
+          'notifications.type.appointmentReminders.description',
+          'A reminder before an upcoming appointment.',
+        ),
+      };
+    case 'appointment_changes':
+      return {
+        label: t('notifications.type.appointmentChanges.label', 'Appointment changes'),
+        description: t(
+          'notifications.type.appointmentChanges.description',
+          'Reschedules, cancellations and check-in updates.',
+        ),
+      };
+    case 'new_message':
+      return {
+        label: t('notifications.type.newMessage.label', 'New messages'),
+        description: t(
+          'notifications.type.newMessage.description',
+          'A care-team or facility message thread has a new reply.',
+        ),
+      };
+    case 'referral_updates':
+      return {
+        label: t('notifications.type.referralUpdates.label', 'Referral updates'),
+        description: t(
+          'notifications.type.referralUpdates.description',
+          'A specialist referral is accepted, declined or completed.',
+        ),
+      };
+    case 'order_updates':
+      return {
+        label: t('notifications.type.orderUpdates.label', 'Order updates'),
+        description: t(
+          'notifications.type.orderUpdates.description',
+          'Prescriptions and lab orders are ready or ready for collection.',
+        ),
+      };
+    case 'payment_receipts':
+      return {
+        label: t('notifications.type.paymentReceipts.label', 'Payment receipts'),
+        description: t(
+          'notifications.type.paymentReceipts.description',
+          'Escrow funding, release and refund receipts.',
+        ),
+      };
+    case 'marketing':
+      return {
+        label: t('notifications.type.marketing.label', 'Product news'),
+        description: t(
+          'notifications.type.marketing.description',
+          'Optional DocForum product updates. Off unless you opt in.',
+        ),
+      };
+    case 'critical_lab_result':
+      return {
+        label: t('notifications.type.criticalLab.label', 'Critical lab results'),
+        description: t(
+          'notifications.type.criticalLab.description',
+          'A result that needs urgent attention.',
+        ),
+        lockedReason: t(
+          'notifications.type.criticalLab.lockedReason',
+          'Critical lab results are always delivered on every channel — a missed urgent result is a safety risk. You can change how other notifications reach you, but not these.',
+        ),
+      };
+    case 'security_alert':
+      return {
+        label: t('notifications.type.security.label', 'Security alerts'),
+        description: t(
+          'notifications.type.security.description',
+          'Sign-ins, password and account-security events.',
+        ),
+        lockedReason: t(
+          'notifications.type.security.lockedReason',
+          'Security alerts are always delivered so you can react to unauthorised access. They cannot be disabled.',
+        ),
+      };
+  }
+}
 
 const TYPE_META = new Map(NOTIFICATION_TYPES.map((meta) => [meta.type, meta]));
 
@@ -139,7 +189,7 @@ const ADMIN_DEFAULTS: RoleDefaults = {
   appointment_changes: { email: true, sms: false, in_app: false },
   new_message: { email: false, sms: false, in_app: true },
   referral_updates: { email: false, sms: false, in_app: true },
-  order_updates: { email: false, sms: false, in_app: true },
+  order_updates: { email: true, sms: false, in_app: true },
   payment_receipts: { email: true, sms: false, in_app: false },
   marketing: ALL_OFF,
   critical_lab_result: ALL_ON,
@@ -170,7 +220,9 @@ export function defaultPreferencesForRole(role: Role): NotificationPreferences {
         channel,
         enabled: ROLE_DEFAULTS[role][meta.type][channel],
         locked: meta.locked,
-        lockedReason: meta.lockedReason ?? null,
+        // The stored reason is an opaque marker: the human-readable copy is
+        // rendered from the catalogue by `notificationTypeCopy`.
+        lockedReason: meta.locked ? meta.type : null,
       })),
     ),
     quietHours: defaultQuietHours(),
@@ -198,7 +250,7 @@ export function completePreferences(
         ...pref,
         enabled,
         locked: meta.locked,
-        lockedReason: meta.lockedReason ?? null,
+        lockedReason: meta.locked ? pref.type : null,
       };
     }),
     quietHours: stored?.quietHours ?? defaults.quietHours,
@@ -233,12 +285,15 @@ export function isValidClockTime(value: string): boolean {
   return TIME_PATTERN.test(value);
 }
 
-export function validateQuietHours(quietHours: QuietHours): string | null {
+/** Validation returns an identifier, not copy — the form translates it. */
+export type QuietHoursError = 'invalidTime' | 'sameTime';
+
+export function validateQuietHours(quietHours: QuietHours): QuietHoursError | null {
   if (!isValidClockTime(quietHours.start) || !isValidClockTime(quietHours.end)) {
-    return 'Quiet hours must use a valid 24-hour time.';
+    return 'invalidTime';
   }
   if (quietHours.start === quietHours.end) {
-    return 'Quiet hours must start and end at different times.';
+    return 'sameTime';
   }
   return null;
 }

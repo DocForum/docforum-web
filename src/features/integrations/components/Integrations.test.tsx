@@ -190,6 +190,35 @@ describe('Integrations — API keys', () => {
     });
   });
 
+  it('moves focus to the next key and announces it when a revoked key leaves the list', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    let keys = DEFAULT_MOCK_API_KEYS;
+    vi.mocked(integrationsService.listApiKeys).mockImplementation(async () => keys);
+    vi.mocked(integrationsService.revokeApiKey).mockImplementation(async (_facilityId, keyId) => {
+      keys = keys.map((key) =>
+        key.id === keyId ? { ...key, revokedAt: '2026-10-20T10:00:00.000Z' } : key,
+      );
+      return { success: true, keyId };
+    });
+
+    render(<ApiKeysPanel facilityId="fac-main" />);
+    await screen.findByRole('heading', { name: /^api keys$/i });
+
+    const firstRow = document.querySelector<HTMLElement>('[data-row-id="key-1"]')!;
+    await userEvent.click(within(firstRow).getByRole('button', { name: /^revoke$/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-row-id="key-1"]')).toBeNull();
+    });
+    // Never <body>: focus lands on the row that took the revoked key's place.
+    expect(
+      (document.activeElement as HTMLElement | null)?.closest('[data-row-id]')?.getAttribute('data-row-id'),
+    ).toBe('key-2');
+    expect(
+      await screen.findByText('API key Lab Information System was revoked.', {}, { timeout: 2000 }),
+    ).toBeInTheDocument();
+  });
+
   it('does not revoke when the confirmation is cancelled', async () => {
     vi.stubGlobal('confirm', vi.fn(() => false));
 
@@ -410,6 +439,35 @@ describe('Integrations — Webhooks', () => {
         'test-token',
       );
     });
+  });
+
+  it('returns focus to the heading, and announces it, when the last endpoint is deleted', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    let endpoints = DEFAULT_MOCK_WEBHOOKS;
+    vi.mocked(integrationsService.listWebhookEndpoints).mockImplementation(async () => endpoints);
+    vi.mocked(integrationsService.deleteWebhookEndpoint).mockImplementation(
+      async (_facilityId, endpointId) => {
+        endpoints = endpoints.filter((endpoint) => endpoint.id !== endpointId);
+        return { success: true, endpointId };
+      },
+    );
+
+    render(<WebhooksPanel facilityId="fac-main" />);
+    const heading = await screen.findByRole('heading', { name: /^webhooks$/i });
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-row-id]')).toBeNull();
+    });
+    // The list is empty: focus goes to its heading rather than <body>.
+    expect(document.activeElement).toBe(heading);
+    expect(
+      await screen.findByText(
+        'Webhook endpoint https://lab.example.test/webhooks/docforum was deleted.',
+        {},
+        { timeout: 2000 },
+      ),
+    ).toBeInTheDocument();
   });
 });
 

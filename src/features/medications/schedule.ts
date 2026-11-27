@@ -1,15 +1,5 @@
 import type { MedicationPrescription } from '../../types/models';
-import { createFormatters } from '../../i18n/format';
-
-export interface ScheduleFormatContext {
-  locale: string;
-  timeZone: string;
-}
-
-export const DEFAULT_SCHEDULE_FORMAT_CONTEXT: ScheduleFormatContext = {
-  locale: 'en-US',
-  timeZone: 'UTC',
-};
+import { formatInstant } from '../../i18n/format';
 
 // Pure, dependency-free schedule derivation. Everything time-based takes an
 // explicit `now` so callers (and tests) fully control the clock — nothing here
@@ -291,19 +281,21 @@ function doseTimesOnDay(course: Course, dayStart: Date): Date[] {
   return [];
 }
 
-function dayLabel(dayStart: Date, offset: number, context: ScheduleFormatContext): string {
-  if (offset === 0) return 'Today';
-  const format = createFormatters(context.locale, context.timeZone);
-  const weekday = new Intl.DateTimeFormat(context.locale, { weekday: 'short', timeZone: context.timeZone }).format(dayStart);
-  const day = format.formatDate(dayStart);
-  return `${weekday} ${day}`;
+function dayLabel(dayStart: Date, _offset: number, locale: string): string {
+  // The "Today" heading is copy from the catalogue in the component; this
+  // helper only produces a locale-formatted calendar label for each day.
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(dayStart);
 }
 
 export function buildMedicationSchedule(
   prescriptions: MedicationPrescription[],
   now: Date,
   horizonDays = 7,
-  context: ScheduleFormatContext = DEFAULT_SCHEDULE_FORMAT_CONTEXT,
+  locale = 'en-US',
 ): MedicationSchedule {
   const courses = buildCourses(prescriptions, now);
   const todayStart = startOfDay(now);
@@ -326,7 +318,7 @@ export function buildMedicationSchedule(
       }
     }
     entries.sort((a, b) => a.time.localeCompare(b.time));
-    days.push({ dateKey: dateKey(dayStart), label: dayLabel(dayStart, i, context), date: dayStart, entries });
+    days.push({ dateKey: dateKey(dayStart), label: dayLabel(dayStart, i, locale), date: dayStart, entries });
   }
 
   const unscheduled: UnscheduledItem[] = courses
@@ -347,7 +339,7 @@ export function buildMedicationSchedule(
       drugName: c.drugName,
       dosage: c.dosage,
       frequencyText: c.frequencyText,
-      endedOn: c.end ? createFormatters(context.locale, context.timeZone).formatDate(c.end) : '',
+      endedOn: c.end ? formatInstant(c.end, { month: 'short', day: 'numeric', year: 'numeric' }, locale) : '',
     }));
 
   const overlaps: OverlapWarning[] = [];

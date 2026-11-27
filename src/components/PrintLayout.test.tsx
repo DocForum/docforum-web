@@ -110,6 +110,7 @@ describe('usePrint', () => {
 // ─── PaymentReceiptDocument integration ────────────────────────────────────
 
 import { PaymentReceiptDocument } from '../features/payments/components/PaymentReceiptDocument';
+import { renderWithProviders } from '../test/render';
 import type { PaymentHistoryEntry } from '../types/models';
 
 const fakeEntry: PaymentHistoryEntry = {
@@ -130,8 +131,8 @@ const fakeEntry: PaymentHistoryEntry = {
 
 describe('PaymentReceiptDocument (integration)', () => {
   it('renders the receipt details and a QR placeholder when there is a tx hash', () => {
-    render(<PaymentReceiptDocument entry={fakeEntry} now={new Date('2026-09-14T12:00:00Z')} />);
-    expect(screen.getAllByText('Receipt').length).toBeGreaterThan(0);
+    renderWithProviders(<PaymentReceiptDocument entry={fakeEntry} now={new Date('2026-09-14T12:00:00Z')} />);
+    expect(screen.getAllByText('Payment receipt').length).toBeGreaterThan(0);
     expect(screen.getByText('City Pharmacy')).toBeInTheDocument();
     // The tx hash appears in at least one place (dd or QR section)
     const txElements = screen.getAllByText(/abc123txhash/);

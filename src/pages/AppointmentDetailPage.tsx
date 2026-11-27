@@ -4,6 +4,7 @@ import { Button } from '../components/Button';
 import { EmptyState } from '../components/states/EmptyState';
 import { PageError } from '../components/states/PageError';
 import { Skeleton } from '../components/states/Skeleton';
+import { CancelAppointmentDialog } from '../features/appointments/components/CancelAppointmentDialog';
 import { QueuePanel } from '../features/appointments/components/QueuePanel';
 import { RescheduleDialog } from '../features/appointments/components/RescheduleDialog';
 import { rescheduleWindow } from '../features/appointments/cutoff';
@@ -14,7 +15,6 @@ import { useSlowRequestHint } from '../hooks/useSlowRequestHint';
 import { ApiError } from '../services/api-client';
 import type { AppointmentStatus, PatientAppointment } from '../types/models';
 import styles from './AppointmentDetailPage.module.css';
-import { useLocaleStore } from '../i18n/locale-store';
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
@@ -68,8 +68,7 @@ export function AppointmentDetailPage() {
   const appointment = detail.data ?? null;
   const clinician = useClinician(appointment?.doctorProfileId);
   const [showReschedule, setShowReschedule] = useState(false);
-  const locale = useLocaleStore((state) => state.locale);
-  const timeZone = useLocaleStore((state) => state.timeZone);
+  const [showCancel, setShowCancel] = useState(false);
   const showColdStartHint = useSlowRequestHint(detail.isPending);
   const now = new Date();
 
@@ -78,12 +77,14 @@ export function AppointmentDetailPage() {
   // appointment B — it would carry A's picked slot into B's reschedule.
   useEffect(() => {
     setShowReschedule(false);
+    setShowCancel(false);
   }, [key]);
 
   if (detail.isPending) {
     return (
       <div className="container">
         <div className="card" aria-busy="true">
+          <h1 className={styles.title}>Your appointment</h1>
           <Skeleton lines={5} height="1.75rem" label="Loading your appointment" />
           {showColdStartHint && (
             <p className="slowHint">The server may be waking up — this can take up to a minute.</p>
@@ -96,6 +97,7 @@ export function AppointmentDetailPage() {
   if (detail.isError) {
     return (
       <div className="container">
+        <h1 className={styles.title}>Your appointment</h1>
         <PageError
           title="We couldn't load your appointment."
           message={`${detail.error instanceof ApiError ? `${detail.error.message} ` : ''}Nothing about your appointment has changed — please try again.`}
@@ -110,6 +112,7 @@ export function AppointmentDetailPage() {
     return (
       <div className="container">
         <div className="card">
+          <h1 className={styles.title}>Your appointment</h1>
           <EmptyState
             title="We couldn't find that appointment on your account."
             description="It may have been cancelled, or this link points at an appointment that isn't yours. Your appointment list is unchanged."
@@ -123,7 +126,7 @@ export function AppointmentDetailPage() {
 
   const slot = appointment.availabilitySlot;
   const window = rescheduleWindow(appointment, now);
-  const timeZoneLabel = timeZone;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className={`container ${styles.page}`}>
@@ -152,12 +155,12 @@ export function AppointmentDetailPage() {
               {formatSlotDateTime(slot)}
               <p className={styles.when}>
                 <strong>
-                  {formatSlotDate(slot.startTime, now, locale, timeZone)} at {formatSlotTime(slot.startTime, locale, timeZone)}
+                  {formatSlotDate(slot.startTime, now)} at {formatSlotTime(slot.startTime)}
                 </strong>
                 <br />
-                <span className={styles.until}>Scheduled until {formatSlotTime(slot.endTime, locale, timeZone)}.</span>
+                <span className={styles.until}>Scheduled until {formatSlotTime(slot.endTime)}.</span>
               </p>
-              <small className={styles.gapNote}>Times are shown in your local zone ({timeZoneLabel}).</small>
+              <small className={styles.gapNote}>Times are shown in your local zone ({timeZone}).</small>
             </dd>
           </div>
           <div>
@@ -197,6 +200,9 @@ export function AppointmentDetailPage() {
         {window.allowed ? (
           <div className={styles.actions}>
             <Button onClick={() => setShowReschedule(true)}>Reschedule</Button>
+            <Button variant="secondary" onClick={() => setShowCancel(true)}>
+              Cancel appointment
+            </Button>
           </div>
         ) : (
           <div className={styles.actions}>
@@ -206,11 +212,22 @@ export function AppointmentDetailPage() {
             <p id="reschedule-reason" role="status" className={styles.reason}>
               {window.blockedReason}
             </p>
+            {/* Cancelling has its own policy (issue #15) and stays available
+                even when rescheduling has closed — the dialog explains whether
+                it counts as a late cancellation. */}
+            {appointment.status === 'scheduled' && (
+              <Button variant="secondary" onClick={() => setShowCancel(true)}>
+                Cancel appointment
+              </Button>
+            )}
           </div>
         )}
       </div>
 
       {showReschedule && <RescheduleDialog appointment={appointment} onClose={() => setShowReschedule(false)} />}
+      {showCancel && (
+        <CancelAppointmentDialog appointment={appointment} onClose={() => setShowCancel(false)} />
+      )}
 
       <p className={styles.back}>
         <Link to="/patient">Back to your care summary</Link>

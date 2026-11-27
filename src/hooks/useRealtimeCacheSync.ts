@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useServerEvent } from './useServerEvents';
+import { useRealtimeLive } from './useRealtimeLive';
 import { useFlag } from '../features/feature-flags/hooks/useFlags';
 import { useAuthStore } from '../store/auth-store';
 import { eventStreamManager } from '../services/event-stream-service';
+import { appointmentKeys, queueKeys, resultKeys } from '../query-keys';
 
 /**
  * Bridges typed SSE events into React Query (issue #109): a notification
@@ -17,6 +19,8 @@ export function useRealtimeCacheSync(): void {
   const accessToken = useAuthStore((state) => state.accessToken);
   const userId = useAuthStore((state) => state.user?.id);
   const enabled = useFlag('realtime_updates') && Boolean(accessToken);
+  const realtimeLive = useRealtimeLive();
+  const wasLive = useRef(false);
 
   // A different account must not inherit the previous account's
   // Last-Event-ID cursor.
@@ -24,6 +28,16 @@ export function useRealtimeCacheSync(): void {
     eventStreamManager.clearReplay();
     return () => eventStreamManager.clearReplay();
   }, [userId]);
+
+  useEffect(() => {
+    if (realtimeLive && !wasLive.current) {
+      void queryClient.invalidateQueries({ queryKey: queueKeys.today() });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.runningDelay() });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.today() });
+      void queryClient.invalidateQueries({ queryKey: resultKeys.pendingAbnormal() });
+    }
+    wasLive.current = realtimeLive;
+  }, [realtimeLive, queryClient]);
 
   useServerEvent(
     'notification.created',
@@ -37,8 +51,9 @@ export function useRealtimeCacheSync(): void {
   useServerEvent(
     'queue.updated',
     () => {
-      void queryClient.invalidateQueries({ queryKey: ['doctor', 'queue'] });
-      void queryClient.invalidateQueries({ queryKey: ['doctor', 'appointments'] });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.today() });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.runningDelay() });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.today() });
     },
     { enabled },
   );

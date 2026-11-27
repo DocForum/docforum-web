@@ -5,13 +5,13 @@ import { FormError } from '../../../components/FormError';
 import { TextField } from '../../../components/TextField';
 import { useErrorMessage } from '../../../hooks/useErrorText';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
-import { useUnsavedChangesWarning } from '../../../hooks/useUnsavedChangesWarning';
 import { ApiError } from '../../../services/api-client';
 import type { SubmittedIntake } from '../../../types/models';
 import { useIntakeDraft } from '../hooks/useIntakeDraft';
 import { useSubmitIntake } from '../hooks/useSubmitIntake';
 import { isDraftDirty, toSubmitInput, validateIntake } from '../intake-draft';
 import styles from './IntakeForm.module.css';
+import { formatInstant } from '../../../i18n/format';
 
 interface Props {
   slotId: string;
@@ -34,7 +34,9 @@ export function IntakeForm({ slotId, appointmentId, onSubmitted }: Props) {
 
   // The idle-timeout warning mentions this form, and leaving by link or
   // closing the tab warns while there is typed-but-unsent content.
-  useUnsavedChangesWarning(draft.dirty);
+  // The shared guard both tracks the form for the idle-timeout warning and
+  // blocks navigation when there are unsaved changes and the submit has not
+  // yet succeeded.
   useUnsavedChangesGuard(draft.dirty && !submitMutation.isSuccess);
 
   const validation = attempted ? validateIntake(draft.fields) : { ok: true, errors: {} };
@@ -65,7 +67,7 @@ export function IntakeForm({ slotId, appointmentId, onSubmitted }: Props) {
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <div className={styles.autosave} role="status" aria-live="polite">
         {isDraftDirty(draft.fields) && savedAt
-          ? `Draft saved in this tab at ${new Date(savedAt).toLocaleTimeString(undefined, {
+          ? `Draft saved in this tab at ${formatInstant(savedAt, {
               hour: '2-digit',
               minute: '2-digit',
             })}. It is not stored on your device or sent until you submit.`
