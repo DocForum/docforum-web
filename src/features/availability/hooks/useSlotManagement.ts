@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import * as availabilityService from '../../../services/availability-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
-import { isoDatesBetween, slotsInTimeRange, sortByStartTime } from '../calendar';
+import { plainTranslate, type Translate } from '../../../i18n/useT';
+import { generationDates, isoDatesBetween, slotsInTimeRange, sortByStartTime } from '../calendar';
 import { doctorSlotsKey } from './useAvailabilitySlots';
 import type { IsoDate } from '../calendar';
 import type { AvailabilitySlot, BlockRangeResult, SlotGenerationResult } from '../../../types/models';
@@ -69,13 +71,21 @@ function mergeGeneratedSlots(
 /** Explains a rolled-back edit without blaming the doctor: the common `409`
  * here is a patient booking the slot mid-decision, not a mistake at the
  * keyboard. */
-export function rollbackMessage(error: unknown): string {
+export function rollbackMessage(error: unknown, t: Translate = plainTranslate): string {
   if (error instanceof ApiError && error.status === 409) {
-    const server = error.message.trim() || 'That slot could not be changed.';
-    return `${server} Someone else changed the slot while you were working — the calendar has been restored and nothing was cancelled.`;
+    const server = error.message.trim() || t('availability.rollback.serverFallback', 'That slot could not be changed.');
+    return t(
+      'availability.rollback.conflict',
+      '{server} Someone else changed the slot while you were working — the calendar has been restored and nothing was cancelled.',
+      { server },
+    );
   }
-  if (error instanceof ApiError && error.message.trim()) return `${error.message} The calendar has been restored.`;
-  return 'The change could not be saved. The calendar has been restored.';
+  if (error instanceof ApiError && error.message.trim()) {
+    return t('availability.rollback.apiError', '{server} The calendar has been restored.', {
+      server: error.message,
+    });
+  }
+  return t('availability.rollback.generic', 'The change could not be saved. The calendar has been restored.');
 }
 
 export interface BlockRangeVariables {
@@ -130,7 +140,7 @@ export interface RemoveSlotsResult {
   removedCount: number;
 }
 
-export function useRemoveSlots(doctorProfileId: string | null) {
+export function useRemoveSlots(doctorProfileId: string | null, t: Translate = plainTranslate) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
@@ -151,8 +161,14 @@ export function useRemoveSlots(doctorProfileId: string | null) {
         }
       }
       if (conflicts.length > 0) {
+        const server =
+          conflicts[0] || t('availability.rollback.slotNoLongerOpen', 'One of the selected slots is no longer open.');
         throw new ApiError(
-          `${conflicts[0] || 'One of the selected slots is no longer open.'} (${removed} of ${slotIds.length} selected slots were removed.)`,
+          t(
+            'availability.rollback.partialRemoval',
+            '{server} ({removed} of {total} selected slots were removed.)',
+            { server, removed, total: slotIds.length },
+          ),
           409,
         );
       }
@@ -204,6 +220,8 @@ export interface GenerateSlotsVariables {
   endHour: number;
   slotLengthMinutes: number;
   timeZone: string;
+  weekdays?: readonly number[];
+  today?: IsoDate;
 }
 
 export interface GenerateSlotsOutcome {
@@ -211,20 +229,33 @@ export interface GenerateSlotsOutcome {
   skipped: number;
   requestedDays: number;
   failedDays: { date: IsoDate; message: string }[];
+  cancelled: boolean;
 }
 
 /** The real generate endpoint is single-day (core has no recurrence engine), so
  * a range is one request per day, fired sequentially and aggregated here. */
-export function useGenerateSlots(doctorProfileId: string | null) {
+export function useGenerateSlots(doctorProfileId: string | null, t: Translate = plainTranslate) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
-  return useMutation<GenerateSlotsOutcome, Error, GenerateSlotsVariables>({
+  const controller = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  useEffect(() => () => controller.current?.abort(), []);
+
+  const mutation = useMutation<GenerateSlotsOutcome, Error, GenerateSlotsVariables>({
     mutationFn: async (input) => {
-      const dates = isoDatesBetween(input.fromDate, input.toDate);
+      const dates = input.today
+        ? generationDates(input.fromDate, input.toDate, input.weekdays ?? [0, 1, 2, 3, 4, 5, 6], input.today)
+        : isoDatesBetween(input.fromDate, input.toDate).filter((date) =>
+            (input.weekdays ?? [0, 1, 2, 3, 4, 5, 6]).includes(new Date(`${date}T12:00:00Z`).getUTCDay()),
+          );
+      const active = new AbortController();
+      controller.current = active;
+      setProgress({ completed: 0, total: dates.length });
       const failures: { date: IsoDate; message: string }[] = [];
       const aggregate: Omit<SlotGenerationResult, 'slots'> = { created: 0, skipped: 0 };
       for (const date of dates) {
+        if (active.signal.aborted) break;
         try {
           const result = await availabilityService.generateSlots(
             doctorProfileId!,
@@ -235,18 +266,26 @@ export function useGenerateSlots(doctorProfileId: string | null) {
               slotLengthMinutes: input.slotLengthMinutes,
             },
             accessToken!,
+            active.signal,
           );
           aggregate.created += result.created;
           aggregate.skipped += result.skipped;
           mergeGeneratedSlots(queryClient, doctorProfileId!, result.slots);
         } catch (error) {
-          failures.push({ date, message: error instanceof Error ? error.message : 'The request failed.' });
+          if (active.signal.aborted) break;
+          failures.push({
+            date,
+            message: error instanceof Error ? error.message : t('availability.generate.requestFailed', 'The request failed.'),
+          });
         }
+        setProgress((current) => ({ ...current, completed: current.completed + 1 }));
       }
-      return { ...aggregate, requestedDays: dates.length, failedDays: failures };
+      controller.current = null;
+      return { ...aggregate, requestedDays: dates.length, failedDays: failures, cancelled: active.signal.aborted };
     },
     onSettled: () => {
       if (doctorProfileId) queryClient.invalidateQueries({ queryKey: doctorSlotsKey(doctorProfileId) });
     },
   });
+  return { ...mutation, progress, cancel: () => controller.current?.abort() };
 }

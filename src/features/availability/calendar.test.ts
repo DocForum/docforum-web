@@ -10,6 +10,7 @@ import {
   formatClock,
   formatClockRange,
   formatDayHeading,
+  generationDates,
   gridStepMinutes,
   instantInZone,
   isoDatesBetween,
@@ -60,6 +61,12 @@ describe('calendar dates', () => {
 
   it('returns an empty list when the range ends before it starts', () => {
     expect(isoDatesBetween('2026-10-20', '2026-10-19')).toEqual([]);
+  });
+
+  it('selects future weekdays by calendar date across a DST transition', () => {
+    expect(generationDates('2026-03-06', '2026-03-12', [1, 2, 3, 4, 5], '2026-03-07')).toEqual([
+      '2026-03-09', '2026-03-10', '2026-03-11', '2026-03-12',
+    ]);
   });
 
   it('starts the week on Monday and always yields seven days', () => {

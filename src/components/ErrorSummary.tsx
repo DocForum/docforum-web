@@ -1,114 +1,90 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { useT } from '../i18n/useT';
+import styles from './ErrorSummary.module.css';
 
-/**
- * ErrorSummary - Accessible error summary for long forms.
- *
- * Provides a clearly titled, accessible error summary at the top of long forms.
- * Reads errors from react-hook-form, renders links to invalid fields, and manages
- * focus for keyboard and screen-reader users.
- *
- * WCAG 3.3.1: Error identification - helps users identify errors quickly.
- * WCAG 3.3.3: Error suggestions - provides links to the error fields.
- * WCAG 3.3.8: Accessible authentication - focus management for error recovery.
- */
+export interface ErrorSummaryItem {
+  /** The DOM id of the invalid control the link moves focus to. */
+  fieldId: string;
+  /** The user-facing error message (never an internal field name). */
+  message: string;
+}
+
 export interface ErrorSummaryProps {
-  /** react-hook-form formState.errors object */
-  errors: Record<string, { message: string }>;
-  /** Optional callback called when focus is moved to the summary */
-  onFocusSummary?: () => void;
-  /** Optional prefix for field IDs (for nested form structures) */
-  idPrefix?: string;
+  items: ErrorSummaryItem[];
+  /**
+   * Increments on every submit attempt. Focus moves to the summary when it
+   * changes and there are errors; edits that fix errors only update the list,
+   * so focus is never pulled away from the field being corrected.
+   */
+  submitCount: number;
 }
 
 /**
- * Generates a stable ID from a field name, suitable for use as a link target.
- * Ensures uniqueness by appending a counter if needed.
+ * Builds summary items from a `{ field: message }` map (client validation or
+ * `mapServerErrors` output) and a `{ field: domId }` map. Fields without an id
+ * or a message are skipped, and the order follows `fieldIds` (form order).
  */
-function generateFieldId(fieldName: string, prefix?: string): string {
-  const clean = prefix ? `${prefix}-${fieldName}` : fieldName;
-  // Convert camelCase or PascalCase to kebab-case for stable IDs
-  return clean
-    .replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
-    .replace(/^-/, '');
+export function errorSummaryItems(
+  errors: object,
+  fieldIds: Record<string, string>,
+): ErrorSummaryItem[] {
+  return Object.entries(fieldIds).flatMap(([field, fieldId]) => {
+    const message = (errors as Record<string, unknown>)[field];
+    return typeof message === 'string' && message ? [{ fieldId, message }] : [];
+  });
 }
 
 /**
- * ErrorSummary - Accessible error summary for long forms.
+ * A focusable error summary for long forms (issue #242, WCAG 3.3.1/3.3.3).
  *
- * Provides a clearly titled, accessible error summary at the top of long forms.
- * Reads errors from react-hook-form, renders links to invalid fields, and manages
- * focus for keyboard and screen-reader users.
- *
- * WCAG 3.3.1: Error identification - helps users identify errors quickly.
- * WCAG 3.3.3: Error suggestions - provides links to the error fields.
- * WCAG 3.3.8: Accessible authentication - focus management for error recovery.
+ * After a failed submit, focus moves to the summary so screen-reader and
+ * magnifier users learn how many problems there are; each entry links to the
+ * invalid control and moves focus there. Short forms (login, signup) keep the
+ * focus-first-invalid-field behaviour instead.
  */
-export function ErrorSummary({
-  errors,
-  onFocusSummary,
-  idPrefix = 'form',
-}: ErrorSummaryProps) {
-  // Generate unique field IDs and valid link targets from the errors
-  const errorEntries = Object.entries(errors);
-  const fieldLinks = errorEntries.map(([fieldName, { message }], index) => {
-    const fieldId = generateFieldId(fieldName, idPrefix);
-    return { fieldName, message, fieldId, index };
-  });
-
-  // Track which field IDs have been used to avoid duplicates
-  const usedIds = new Set<string>();
-  const uniqueLinks = fieldLinks.filter((link) => {
-    if (usedIds.has(link.fieldId)) {
-      // If duplicate, keep the first occurrence and skip subsequent ones
-      return false;
-    }
-    usedIds.add(link.fieldId);
-    return true;
-  });
-
-  const [focused, setFocused] = useState(false);
+export function ErrorSummary({ items, submitCount }: ErrorSummaryProps) {
+  const t = useT();
+  const headingId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  const lastFocusedSubmit = useRef(submitCount);
+  const hasItems = items.length > 0;
 
   useEffect(() => {
-    // Move focus to the error summary after a failed submission
-    // Only if the summary is mounted and there are errors
-    const summaryEl = document.getElementById('error-summary');
-    if (summaryEl && !focused && uniqueLinks.length > 0) {
-      summaryEl.focus();
-      setFocused(true);
-      onFocusSummary?.();
-    }
-  }, [focused, uniqueLinks.length, onFocusSummary]);
+    if (submitCount === lastFocusedSubmit.current || !hasItems) return;
+    lastFocusedSubmit.current = submitCount;
+    ref.current?.focus();
+  }, [submitCount, hasItems]);
+
+  if (!hasItems) return null;
 
   return (
-    <div
-      id="error-summary"
-      className="error-summary"
-      role="alert"
-      aria-live="polite"
-      tabIndex={0}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-    >
-      <h2 id="error-summary-title" className="error-summary-title">
-        {uniqueLinks.length} {uniqueLinks.length === 1 ? 'error' : 'errors'} found
+    <div ref={ref} className={styles.summary} tabIndex={-1} aria-labelledby={headingId}>
+      <h2 id={headingId} className={styles.title}>
+        {t(
+          'errorSummary.title',
+          '{count, plural, one {There is # problem with this form} other {There are # problems with this form}}',
+          { count: items.length },
+        )}
       </h2>
-      <ul className="error-summary-list">
-        {uniqueLinks.map(({ fieldName, message, fieldId, index }) => (
-          <li key={index} className="error-summary-item">
+      <ul className={styles.list}>
+        {items.map((item) => (
+          <li key={item.fieldId}>
             <a
-              href={`#${fieldId}`}
-              className="error-summary-link"
-              aria-describedby={`error-message-${fieldId}`}
-              onClick={(e) => e.preventDefault()}
+              className={styles.link}
+              href={`#${item.fieldId}`}
+              onClick={(event) => {
+                const target = document.getElementById(item.fieldId);
+                if (!target) return;
+                event.preventDefault();
+                target.scrollIntoView?.({ block: 'center' });
+                target.focus();
+              }}
             >
-              {fieldName}: {message}
+              {item.message}
             </a>
           </li>
         ))}
       </ul>
-      {!uniqueLinks.length && (
-        <p className="error-summary-no-errors">No errors</p>
-      )}
     </div>
   );
 }

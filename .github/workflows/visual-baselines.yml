@@ -1,0 +1,66 @@
+name: Visual baselines
+
+# Screenshot diffs on PRs only report (see ci.yml). After a merge, this
+# regenerates e2e/__screenshots__ from main and, when anything changed,
+# pushes the result to the `chore/refresh-visual-baselines` branch. A
+# maintainer opens a PR from that branch and reviews the image diffs there,
+# so a visual regression still needs a human to accept it.
+#
+# Runs only main's own (merged, reviewed) code. The token can push branches
+# but not main, which branch protection guards.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-baselines
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: Refresh visual baselines
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    env:
+      BRANCH: chore/refresh-visual-baselines
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Regenerate screenshots
+        run: npx playwright test --project='visual-*' --update-snapshots
+      - name: Push changed baselines for review
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if [ -z "$(git status --porcelain -- e2e/__screenshots__)" ]; then
+            echo "Baselines match main; nothing to refresh." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Only PNG baselines go in the commit.
+          git add -- 'e2e/__screenshots__/**/*.png'
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "test(visual): refresh screenshot baselines for $(printf %.8s "$GITHUB_SHA")"
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1"
+          echo "::notice title=Visual baselines changed::Review and open a PR: $url"
+          {
+            echo "### Visual baselines changed"
+            echo
+            git show --stat --format= HEAD | sed 's/^/    /'
+            echo
+            echo "Review the image diffs and open a PR: $url"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -9,13 +9,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/Button';
 import { FormError } from '../../../components/FormError';
 import { Spinner } from '../../../components/Spinner';
-import { PasswordField } from '../../../components/PasswordField';
+import { PasswordInput } from '../../../components/PasswordField';
 import { TextField } from '../../../components/TextField';
 import { ApiError } from '../../../services/api-client';
 import { useSlowRequestHint } from '../../../hooks/useSlowRequestHint';
 import { useAuthStore } from '../../../store/auth-store';
 import { validateFullName, validatePassword } from '../../auth/validation';
 import { useLogout } from '../../auth/hooks/useLogout';
+import { homePathForRole } from '../../../navigation/role-home';
 import { useAcceptInvite, useInvite } from '../hooks/useInvite';
 import type { AccountInvite, InviteRole } from '../../../types/models';
 import styles from './InviteLanding.module.css';
@@ -27,13 +28,6 @@ export interface InviteLandingProps {
 const ROLE_LABELS: Record<InviteRole, string> = {
   facility: 'Facility staff',
   admin: 'Administrator',
-};
-
-/** Where each invited role lands after accepting — mirrors RequireAuth's
- * role-gated home for that role. */
-const DASHBOARDS: Record<InviteRole, string> = {
-  facility: '/facility',
-  admin: '/admin',
 };
 
 function formatDate(iso: string): string {
@@ -151,7 +145,7 @@ export function InviteLanding({ token }: InviteLandingProps) {
     : null;
 
   function goToDashboard() {
-    navigate(DASHBOARDS[invite.role], { replace: true });
+    navigate(homePathForRole(invite.role), { replace: true });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -263,7 +257,7 @@ export function InviteLanding({ token }: InviteLandingProps) {
               aria-readonly
               aria-describedby="invite-email-note"
             />
-            <PasswordField
+            <PasswordInput
               name="password"
               label="Password"
               autoComplete="new-password"

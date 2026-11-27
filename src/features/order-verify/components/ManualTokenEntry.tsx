@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '../../../components/Button';
+import { useT } from '../../../i18n/useT';
 import styles from './OrderVerify.module.css';
 
 interface ManualTokenEntryProps {
@@ -8,6 +9,7 @@ interface ManualTokenEntryProps {
 }
 
 export function ManualTokenEntry({ onSubmitToken, isLoading = false }: ManualTokenEntryProps) {
+  const t = useT();
   const [tokenInput, setTokenInput] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -15,7 +17,7 @@ export function ManualTokenEntry({ onSubmitToken, isLoading = false }: ManualTok
     e.preventDefault();
     const trimmed = tokenInput.trim();
     if (!trimmed) {
-      setValidationError('Please enter an order token or alphanumeric verification code.');
+      setValidationError(t('orderVerify.manual.tokenRequired', 'Please enter an order token or alphanumeric verification code.'));
       return;
     }
     setValidationError(null);
@@ -25,7 +27,7 @@ export function ManualTokenEntry({ onSubmitToken, isLoading = false }: ManualTok
   return (
     <form className={styles.manualForm} onSubmit={handleSubmit} noValidate>
       <div className={styles.inputGroup}>
-        <label htmlFor="order-token-input">Order Verification Token</label>
+        <label htmlFor="order-token-input">{t('orderVerify.manual.tokenLabel', 'Order Verification Token')}</label>
         <input
           id="order-token-input"
           type="text"
@@ -42,7 +44,7 @@ export function ManualTokenEntry({ onSubmitToken, isLoading = false }: ManualTok
           aria-describedby="order-token-help"
         />
         <span id="order-token-help" className={styles.helperText}>
-          Enter the alphanumeric token from the patient's paper or digital order document.
+          {t('orderVerify.manual.tokenHelp', "Enter the alphanumeric token from the patient's paper or digital order document.")}
         </span>
       </div>
 
@@ -54,7 +56,7 @@ export function ManualTokenEntry({ onSubmitToken, isLoading = false }: ManualTok
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button type="submit" variant="primary" loading={isLoading}>
-          {isLoading ? 'Verifying token…' : 'Verify order'}
+          {isLoading ? t('orderVerify.manual.verifying', 'Verifying token…') : t('orderVerify.manual.verify', 'Verify order')}
         </Button>
       </div>
     </form>

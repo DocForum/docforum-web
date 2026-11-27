@@ -14,9 +14,15 @@
     <link
       rel="stylesheet"
       href="/fonts/fonts.css"
-      integrity="sha256-kN0VAlFkIqKbljQY9Fi1hLjy4D8LL2mpkM+aIHTzIJg="
+      integrity="sha256-OYtA3B2r2u0ooGm1Tr90Dccm294TL/7TbYvJvno5ZM0="
       crossorigin
     />
+    <!-- Preload the two faces used above the fold (issue #99): body text
+         (IBM Plex Sans 400) and headings (Fraunces 600). The rest load on
+         demand via fonts.css; font-display: swap keeps text visible. The
+         TTFs were replaced by subsetted WOFF2 files (issue #308). -->
+    <link rel="preload" href="/fonts/ibmplexsans-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/fraunces-600.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Pre-hydration loading shell, styled by an external same-origin sheet -->
     <link rel="stylesheet" href="/loading-shell.css" />
     <!-- Connect to the API origin early in production. -->
@@ -27,7 +33,8 @@
       `vite` dev (HMR needs inline scripts) and a strict policy for production
       builds (script-src 'self', no inline scripts). GitHub Pages cannot set
       HTTP response headers, so the meta tag is the enforcement point here.
-      See ARCHITECTURE_ESSENTIALS.md "Known assumptions — Content Security Policy".
+      The policy lives in vite.config.ts; `npm run check:csp` scans the built
+      output for anything it would block (issue #225).
     -->
   </head>
   <body>
@@ -52,19 +59,12 @@
         <span id="app-loading-label">Loading DocForum…</span>
       </div>
     </div>
-    <script>
-      // Pre-hydration shell: match the browser language before the app bundle
-      // (and its locale chunks) has loaded, so the very first paint isn't
-      // hard-coded English. React replaces this node on mount.
-      (function () {
-        var language = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-        if (language.toLowerCase().indexOf('es') === 0) {
-          var label = document.getElementById('app-loading-label');
-          if (label) label.textContent = 'Cargando DocForum…';
-          document.documentElement.lang = 'es';
-        }
-      })();
-    </script>
+    <!-- Pre-hydration shell: match the browser language before the app bundle
+         (and its locale chunks) has loaded, so the very first paint isn't
+         hard-coded English. Same-origin classic script so the strict
+         production CSP (`script-src 'self'`) allows it. React replaces this
+         node on mount. -->
+    <script src="%BASE_URL%prehydrate-locale.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

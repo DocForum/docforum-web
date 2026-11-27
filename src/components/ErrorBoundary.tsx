@@ -72,7 +72,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 }
 
-function ErrorFallback({
+/** The shared failure UI. Also used as the router's `errorElement` (see
+ * `RouteErrorElement`), so loader/lazy-route failures read the same. */
+export function ErrorFallback({
   level,
   title,
   error,
@@ -89,8 +91,12 @@ function ErrorFallback({
   const intl = useContext(IntlContext);
   const descriptor = describeError(error);
   const reference = supportReference(error);
+  // Without a provider (the router's app-level errorElement renders outside
+  // I18nProvider) fall back to the English default, so the fallback is
+  // never blank.
   const format = (id: string, defaultMessage: string, values?: Record<string, string>) =>
-    intl?.formatMessage({ id, defaultMessage }, values);
+    intl?.formatMessage({ id, defaultMessage }, values) ??
+    defaultMessage.replace(/\{(\w+)\}/g, (match, key: string) => values?.[key] ?? match);
 
   const defaultTitle =
     level === 'section'
@@ -100,6 +106,7 @@ function ErrorFallback({
         : format('errors.boundary.appTitle', 'DocForum could not load');
 
   const message = format(descriptor.messageId, descriptor.defaultMessage);
+  const Heading = level === 'section' ? 'h2' : 'h1';
   const retryLabel = format('errors.actions.tryAgain', 'Try again');
 
   return (
@@ -109,7 +116,9 @@ function ErrorFallback({
       aria-live="assertive"
       data-testid="error-boundary-fallback"
     >
-      <h2 className={styles.title}>{title ?? defaultTitle}</h2>
+      {/* A route- or app-level fallback replaces the page, so it is the page's
+          only <h1> (issue #238); a section fallback sits under the page's. */}
+      <Heading className={styles.title}>{title ?? defaultTitle}</Heading>
       <p className={styles.message}>{message}</p>
       {reference && (
         <p className={styles.reference}>

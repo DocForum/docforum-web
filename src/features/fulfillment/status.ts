@@ -4,6 +4,8 @@ import type {
   OrderItemFulfillmentStatus,
   PartialFulfillmentStatus,
 } from '../../types/models';
+import { useT } from '../../i18n/useT';
+import enMessages from '../../i18n/messages/en.json';
 
 type FulfillmentQuantity = Pick<
   FulfillmentQueueItem,
@@ -55,10 +57,33 @@ export function deriveOrderFulfillmentStatus(
   return started ? 'partially_fulfilled' : 'unfulfilled';
 }
 
+/**
+ * Kept for the (out-of-scope) patient order detail screen, which imports this
+ * record directly. The labels now come from the catalogue rather than being
+ * duplicated as literals here; components in this feature use the translated
+ * hook below so API status identifiers never leak into the UI as raw labels.
+ */
 export const ITEM_STATUS_LABELS: Record<OrderItemFulfillmentStatus, string> = {
-  pending: 'Pending',
-  partially_dispensed: 'Partially dispensed',
-  dispensed: 'Dispensed',
-  dispensed_elsewhere: 'Dispensed elsewhere',
-  rejected: 'Rejected',
+  pending: enMessages['fulfillment.status.pending'],
+  partially_dispensed: enMessages['fulfillment.status.partiallyDispensed'],
+  dispensed: enMessages['fulfillment.status.dispensed'],
+  dispensed_elsewhere: enMessages['fulfillment.status.dispensedElsewhere'],
+  rejected: enMessages['fulfillment.status.rejected'],
 };
+
+/** Resolve each API status identifier to its own catalogue message. */
+export function useItemStatusLabel(status: OrderItemFulfillmentStatus): string {
+  const t = useT();
+  switch (status) {
+    case 'pending':
+      return t('fulfillment.status.pending', 'Pending');
+    case 'partially_dispensed':
+      return t('fulfillment.status.partiallyDispensed', 'Partially dispensed');
+    case 'dispensed':
+      return t('fulfillment.status.dispensed', 'Dispensed');
+    case 'dispensed_elsewhere':
+      return t('fulfillment.status.dispensedElsewhere', 'Dispensed elsewhere');
+    case 'rejected':
+      return t('fulfillment.status.rejected', 'Rejected');
+  }
+}

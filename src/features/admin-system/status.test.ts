@@ -77,8 +77,8 @@ describe('readiness display', () => {
   it('prefers an error over the last good report, so a failed poll never reads as Ready', () => {
     const report: ReadinessReport = { status: 'ready', checkedAt: at(-MINUTE), checks: [] };
     expect(readinessVerdict(report, undefined).label).toBe('Ready');
-    expect(readinessVerdict(report, new TypeError('Failed to fetch'))).toBe(UNREACHABLE);
-    expect(readinessVerdict(undefined, new ApiError('Bad Gateway', 502))).toBe(UNREACHABLE);
+    expect(readinessVerdict(report, new TypeError('Failed to fetch'))).toEqual(UNREACHABLE);
+    expect(readinessVerdict(undefined, new ApiError('Bad Gateway', 502))).toEqual(UNREACHABLE);
   });
 
   it('separates "not served yet" and "no access" from unreachable', () => {
@@ -180,8 +180,19 @@ describe('recent failures', () => {
 
 describe('outbox', () => {
   it('turns red for any dead letter', () => {
-    expect(outboxTone({ pendingCount: 40, deadLetterCount: 0, oldestPendingAt: null })).toBe('ok');
-    expect(outboxTone({ pendingCount: 0, deadLetterCount: 1, oldestPendingAt: null })).toBe('danger');
+    expect(outboxTone({ items: [] })).toBe('ok');
+    expect(
+      outboxTone({
+        items: [{
+          id: '1',
+          type: 'booking.confirmation',
+          attempts: 5,
+          lastError: null,
+          createdAt: at(-MINUTE),
+          deadLetteredAt: at(-MINUTE),
+        }],
+      }),
+    ).toBe('danger');
   });
 });
 

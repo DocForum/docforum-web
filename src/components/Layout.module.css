@@ -23,6 +23,12 @@
   overflow-x: hidden;
 }
 
+/* Wraps everything except the drawer so the page behind an open drawer can be
+   marked `inert` (issue #239) without changing the shell's flex layout. */
+.page {
+  display: contents;
+}
+
 .skipLink {
   position: absolute;
   top: -10000px;
@@ -246,12 +252,18 @@
   color: var(--color-text);
 }
 .drawerClose {
-  padding: var(--space-1);
+  /* Icon-only control: at least 24×24 CSS px (WCAG 2.5.8); 36px matches the
+     menu toggle and the notification bell. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--text-lg);
-  line-height: 1;
   cursor: pointer;
   border-radius: var(--radius-sm);
 }
@@ -331,6 +343,14 @@
   }
 }
 
+/* Footer analytics link: muted, smaller than the nav links. A class, not an
+   inline style — prerendered HTML is served under `style-src 'self'`, which
+   blocks style attributes (issue #225). */
+.footerMutedLink {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* Narrow desktop: compact spacing keeps every nav entry on one line at
    1280px and prevents clipping at 1024px (issue #231). */
 @media (min-width: 640px) and (max-width: 1400px) {
@@ -374,6 +394,7 @@
 
 /* High contrast */
 @media (forced-colors: active) {
+  .badge { background: Highlight; color: HighlightText; border: 1px solid CanvasText; }
   .menuToggle,
   .navLink,
   .drawerLink {

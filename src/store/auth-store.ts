@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import type { User } from '../types/models';
 import { clearCsrfToken, writeCsrfToken } from '../services/csrf-storage';
 import { useIntakeDraftStore } from './intake-draft-store';
+import { useLocaleStore } from './locale-store';
 import { useMessageDraftStore } from './message-draft-store';
 
 /**
@@ -38,14 +39,17 @@ interface AuthState {
   status: AuthStatus;
   /** Why the last sign-out happened, while signed out. Set by the idle
    * timeout (issue #82) so the login page can explain it even when a
-   * route guard's redirect wins the navigation race and drops the
+   * route guard's redirect wins the race and drops the
    * `?reason=` query param. Cleared by `setSession`. In-memory only. */
-  signOutReason: 'idle-timeout' | null;
+  signOutReason: 'idle-timeout' | 'session-expired' | null;
   setSession: (user: User, accessToken: string, csrfToken?: string) => void;
+  /** Patch the signed-in user's `emailVerifiedAt` after verification (#388). */
+  markEmailVerified: (emailVerifiedAt: string) => void;
   clearSession: () => void;
   beginAuthCheck: () => void;
   endAuthCheck: () => void;
   signOutDueToIdle: () => void;
+  setSignOutReason: (reason: 'idle-timeout' | 'session-expired') => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -56,6 +60,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOutReason: null,
   setSession: (user, accessToken, csrfToken) => {
     if (csrfToken) writeCsrfToken(csrfToken);
+    // docforum-core stores the user's locale at signup and returns it on
+    // login and refresh (issue #256). It wins over the browser language, but
+    // never over a locale the person picked in this session.
+    useLocaleStore.getState().applyUserLocale(user.locale);
     set({
       user,
       accessToken,
@@ -64,6 +72,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       signOutReason: null,
     });
   },
+  markEmailVerified: (emailVerifiedAt) =>
+    set((state) => ({ user: state.user ? { ...state.user, emailVerifiedAt } : null })),
   clearSession: () => {
     clearCsrfToken();
     clearPhiDrafts();
@@ -86,4 +96,5 @@ export const useAuthStore = create<AuthState>((set) => ({
       signOutReason: 'idle-timeout',
     });
   },
+  setSignOutReason: (reason: 'idle-timeout' | 'session-expired') => set({ signOutReason: reason }),
 }));

@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { MemoryRouter } from 'react-router-dom';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { SystemHealthConsole } from './SystemHealthConsole';
 import { ApiError } from '../../../services/api-client';
 import * as systemService from '../../../services/system-health-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { REFRESH_INTERVAL_MS } from '../status';
-import type { BackgroundJob, JobRun, OutboxSummary, ReadinessReport, Role } from '../../../types/models';
+import type { BackgroundJob, JobRun, OutboxDeadLetters, ReadinessReport, Role } from '../../../types/models';
 
 vi.mock('../../../services/system-health-service');
 vi.mock('../../../services/my-flags-service', () => ({
@@ -118,17 +118,20 @@ const NEVER_RUN: BackgroundJob = {
 
 const ALL_JOBS = [HEALTHY, FAILING, OVERDUE, RUNNING, NEVER_RUN];
 
-const OUTBOX: OutboxSummary = { pendingCount: 120, deadLetterCount: 0, oldestPendingAt: ago(3 * MINUTE) };
-
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-testid="location">{location.pathname}</output>;
-}
+const OUTBOX: OutboxDeadLetters = { items: [] };
+const deadLetter = (id: string, lastError: string | null = 'DELIVERY_FAILED') => ({
+  id,
+  type: 'booking.confirmation',
+  attempts: 5,
+  lastError,
+  createdAt: ago(20 * MINUTE),
+  deadLetteredAt: ago(3 * MINUTE),
+});
 
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: `${role}-token`,
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 
@@ -157,7 +160,7 @@ beforeEach(() => {
   signIn('admin');
   vi.mocked(systemService.getReadiness).mockReset().mockResolvedValue(READY);
   vi.mocked(systemService.listJobs).mockReset().mockResolvedValue(ALL_JOBS);
-  vi.mocked(systemService.getOutboxSummary).mockReset().mockResolvedValue(OUTBOX);
+  vi.mocked(systemService.getOutboxDeadLetters).mockReset().mockResolvedValue(OUTBOX);
   vi.mocked(systemService.runJob).mockReset();
 });
 
@@ -342,13 +345,18 @@ describe('SystemHealthConsole — recent failures', () => {
 });
 
 describe('SystemHealthConsole — outbox', () => {
-  it('shows the dead-letter count with the pending backlog', async () => {
-    vi.mocked(systemService.getOutboxSummary).mockResolvedValue({ ...OUTBOX, deadLetterCount: 7 });
+  it('shows the dead-letter count and up to five recent entries', async () => {
+    vi.mocked(systemService.getOutboxDeadLetters).mockResolvedValue({
+      items: Array.from({ length: 7 }, (_, index) => deadLetter(`event-${index}`, index === 0 ? null : 'DELIVERY_FAILED')),
+    });
     renderConsole();
 
     const outbox = tile('Outbox dead letters');
     expect(await within(outbox).findByText('7')).toBeInTheDocument();
-    expect(outbox).toHaveTextContent('120 pending · oldest queued 3 minutes ago');
+    expect(outbox).toHaveTextContent('Most recent dead letters');
+    expect(within(outbox).getByText('—')).toBeInTheDocument();
+    expect(within(outbox).getAllByText('booking.confirmation')).toHaveLength(5);
+    expect(within(outbox).getAllByText('3 minutes ago')).toHaveLength(5);
     expect(outbox).toHaveAttribute('data-tone', 'danger');
   });
 
@@ -356,15 +364,25 @@ describe('SystemHealthConsole — outbox', () => {
     renderConsole();
 
     expect(await within(tile('Outbox dead letters')).findByText('0')).toBeInTheDocument();
+    expect(tile('Outbox dead letters')).toHaveTextContent('None');
     expect(tile('Outbox dead letters')).toHaveAttribute('data-tone', 'ok');
   });
 
+  it('shows a plus when the requested page is full', async () => {
+    vi.mocked(systemService.getOutboxDeadLetters).mockResolvedValue({
+      items: Array.from({ length: 50 }, (_, index) => deadLetter(`event-${index}`)),
+    });
+    renderConsole();
+
+    expect(await within(tile('Outbox dead letters')).findByText('50+')).toBeInTheDocument();
+  });
+
   it("says the outbox isn't exposed when docforum-core doesn't serve it", async () => {
-    vi.mocked(systemService.getOutboxSummary).mockRejectedValue(new ApiError('Not Found', 404));
+    vi.mocked(systemService.getOutboxDeadLetters).mockRejectedValue(new ApiError('Not Found', 404));
     renderConsole();
 
     expect(await within(tile('Outbox dead letters')).findByText('Not exposed')).toBeInTheDocument();
-    expect(tile('Outbox dead letters')).toHaveTextContent('docforum-core#94');
+    expect(tile('Outbox dead letters')).toHaveTextContent("doesn't expose dead-letter details");
     expect(await screen.findByRole('article', { name: 'referral-expiry' })).toBeInTheDocument();
   });
 });
@@ -500,7 +518,7 @@ describe('SystemHealthConsole — auto-refresh', () => {
   const callCounts = () => [
     vi.mocked(systemService.getReadiness).mock.calls.length,
     vi.mocked(systemService.listJobs).mock.calls.length,
-    vi.mocked(systemService.getOutboxSummary).mock.calls.length,
+    vi.mocked(systemService.getOutboxDeadLetters).mock.calls.length,
   ];
 
   beforeEach(() => {
@@ -543,17 +561,13 @@ describe('SystemHealthConsole — auto-refresh', () => {
 });
 
 describe('/admin/system route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/system']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/system');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins and linked from the admin nav', async () => {
     renderApp();
@@ -565,10 +579,11 @@ describe('/admin/system route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'System health' })).not.toBeInTheDocument();
     expect(systemService.getReadiness).not.toHaveBeenCalled();
     expect(systemService.listJobs).not.toHaveBeenCalled();
-    expect(systemService.getOutboxSummary).not.toHaveBeenCalled();
+    expect(systemService.getOutboxDeadLetters).not.toHaveBeenCalled();
   });
 });

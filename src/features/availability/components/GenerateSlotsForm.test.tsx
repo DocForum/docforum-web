@@ -30,14 +30,15 @@ describe('GenerateSlotsForm', () => {
 
   it('defaults the range to this week in the doctor\'s own zone', () => {
     renderForm();
-    expect(screen.getByLabelText('From')).toHaveValue('2026-10-12');
-    expect(screen.getByLabelText('To')).toHaveValue('2026-10-16');
+    // DatePicker (issue #114) shows the locale's format; the value is ISO.
+    expect(screen.getByLabelText('From')).toHaveValue('10/12/2026');
+    expect(screen.getByLabelText('To')).toHaveValue('10/16/2026');
     expect(screen.getByText(/Times are in Africa\/Lagos/i)).toBeInTheDocument();
   });
 
   it('says how many requests a range will cost before sending it', () => {
     renderForm();
-    expect(screen.getByText('Sends 5 requests — one per day. Overlapping times are skipped, not duplicated.')).toBeInTheDocument();
+    expect(screen.getByText('Sends 5 requests — one per selected future day. Overlapping times are skipped, not duplicated.')).toBeInTheDocument();
   });
 
   it('sends one single-day request per day in the range', async () => {
@@ -56,6 +57,18 @@ describe('GenerateSlotsForm', () => {
       { date: '2026-10-15', startHour: 9, endHour: 13, slotLengthMinutes: 30 },
       { date: '2026-10-16', startHour: 9, endHour: 13, slotLengthMinutes: 30 },
     ]);
+  });
+
+  it('only sends selected weekdays and skips days before today', async () => {
+    const generateSlots = vi.mocked(availabilityService.generateSlots);
+    generateSlots.mockResolvedValue(result());
+    const user = userEvent.setup();
+    renderForm({ now: new Date('2026-10-14T08:00:00.000Z') });
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-12' } });
+    await user.click(screen.getByLabelText('Wed'));
+    await user.click(screen.getByRole('button', { name: /generate slots/i }));
+    await waitFor(() => expect(generateSlots).toHaveBeenCalledTimes(2));
+    expect(generateSlots.mock.calls.map((call) => call[1].date)).toEqual(['2026-10-15', '2026-10-16']);
   });
 
   it('summarises created and skipped slots across the range', async () => {
@@ -99,7 +112,7 @@ describe('GenerateSlotsForm', () => {
     await user.selectOptions(screen.getByLabelText('Daily window ends'), '9');
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/must be later than its start/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /must be later than its start/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -110,7 +123,7 @@ describe('GenerateSlotsForm', () => {
     await user.selectOptions(screen.getByLabelText('Slot length'), '45');
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/does not divide evenly into a 4-hour window/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /does not divide evenly into a 4-hour window/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -121,7 +134,7 @@ describe('GenerateSlotsForm', () => {
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-12-30' } });
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/keep the range to 14 days or fewer/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /keep the range to 60 days or fewer/i })).toBeInTheDocument();
     expect(availabilityService.generateSlots).not.toHaveBeenCalled();
   });
 
@@ -132,7 +145,7 @@ describe('GenerateSlotsForm', () => {
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-01' } });
     await user.click(screen.getByRole('button', { name: /generate slots/i }));
 
-    expect(await screen.findByText(/cannot be before the first date/i)).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /cannot be before the first date/i })).toBeInTheDocument();
   });
 
   it('announces validation errors for assistive technology', async () => {

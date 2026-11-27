@@ -1,11 +1,17 @@
-import { useState } from 'react';
+/* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
+import { useRef, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateApiKeyDialog } from './CreateApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
+import { useT } from '../../../i18n/useT';
 import type { FacilityApiKey } from '../../../types/models';
 import styles from './Integrations.module.css';
 
@@ -38,6 +44,8 @@ interface ApiKeysPanelProps {
 }
 
 export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
+  const t = useT();
+  const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { data: keysData, isLoading, isError, error, refetch } = useApiKeys(facilityId);
   const revokeMutation = useRevokeApiKey(facilityId);
@@ -49,20 +57,41 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     ? errorText(error) ?? 'API keys could not be loaded.'
     : null;
 
+  const listRef = useRef<HTMLTableSectionElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    activeKeys.map((key) => key.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
+
+  // A revoked key leaves the active list, taking its Revoke button with it:
+  // move focus to the next key (or the heading) and announce the result
+  // (issue #245).
   const handleRevoke = (keyId: string, keyName: string) => {
     if (
-      window.confirm(
-        `Revoke "${keyName}"? Integrations using this key will immediately lose access. This cannot be undone.`,
+      !window.confirm(
+        t('integrations.apiKeys.revokeConfirm', 'Revoke "{name}"? Integrations using this key will immediately lose access. This cannot be undone.', {
+          name: keyName,
+        }),
       )
     ) {
-      revokeMutation.mutate(keyId);
+      return;
     }
+    rememberRemovedRow(keyId);
+    revokeMutation.mutate(keyId, {
+      onSuccess: () =>
+        announce(
+          t('integrations.apiKeys.revokedAnnounce', 'API key {name} was revoked.', { name: keyName }),
+        ),
+      onError: () => forgetRemovedRow(),
+    });
   };
 
   if (isLoading) {
     return (
       <div className={styles.card}>
-        <Skeleton lines={3} label="Loading API keys" />
+        <Skeleton lines={3} label={t('integrations.apiKeys.loading', 'Loading API keys…')} />
       </div>
     );
   }
@@ -71,7 +100,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     return (
       <div className={styles.card}>
         <div className={styles.cardHeader}>
-          <h2>API Keys</h2>
+          <h2>{t('integrations.apiKeys.title', 'API Keys')}</h2>
         </div>
         <InlineError
           title="API keys couldn't be loaded"
@@ -84,13 +113,15 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
-        <h2>API Keys</h2>
-        <Button onClick={() => setCreateDialogOpen(true)}>Create key</Button>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {t('integrations.apiKeys.title', 'API Keys')}
+        </h2>
+        <Button onClick={() => setCreateDialogOpen(true)}>{t('integrations.apiKeys.create', 'Create key')}</Button>
       </div>
       <p className={styles.headerSubtitle}>
-        Keys authenticate your lab or pharmacy software when it calls the DocForum API.
-        Each key is scoped and can be revoked at any time.
+        {t('integrations.apiKeys.subtitle', 'Keys authenticate your lab or pharmacy software when it calls the DocForum API. Each key is scoped and can be revoked at any time.')}
       </p>
 
       {errorMessage && (
@@ -99,7 +130,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
 
       {activeKeys.length === 0 ? (
         <EmptyState
-          title="No active API keys"
+          title={t('integrations.apiKeys.empty', 'No active API keys. Create one to let your systems integrate with DocForum.')}
           description="Create one to let your lab or pharmacy systems integrate with DocForum."
           action={{ label: 'Create your first key', onClick: () => setCreateDialogOpen(true) }}
         />
@@ -108,17 +139,17 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
           <table className={styles.dataTable}>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Prefix</th>
-                <th>Scopes</th>
-                <th>Created</th>
-                <th>Last used</th>
-                <th aria-label="Actions" />
+                <th>{t('integrations.apiKeys.colName', 'Name')}</th>
+                <th>{t('integrations.apiKeys.colPrefix', 'Prefix')}</th>
+                <th>{t('integrations.apiKeys.colScopes', 'Scopes')}</th>
+                <th>{t('integrations.apiKeys.colCreated', 'Created')}</th>
+                <th>{t('integrations.apiKeys.colLastUsed', 'Last used')}</th>
+                <th>{t('integrations.common.actions', 'Actions')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={listRef}>
               {activeKeys.map((key) => (
-                <tr key={key.id}>
+                <tr key={key.id} data-row-id={key.id}>
                   <td>{key.name}</td>
                   <td>
                     <span className={styles.prefixCell}>{key.prefix}…</span>
@@ -126,7 +157,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                   <td>
                     {key.scopes.length === 0 ? (
                       <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)' }}>
-                        All scopes
+                        {t('integrations.apiKeys.allScopes', 'All scopes')}
                       </span>
                     ) : (
                       key.scopes.map((s) => (
@@ -136,11 +167,11 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                       ))
                     )}
                   </td>
-                  <td>{new Date(key.createdAt).toLocaleDateString()}</td>
+                  <td>{new Date(key.createdAt).toLocaleDateString(locale)}</td>
                   <td>
                     {key.lastUsedAt
-                      ? new Date(key.lastUsedAt).toLocaleDateString()
-                      : 'Never'}
+                      ? new Date(key.lastUsedAt).toLocaleDateString(locale)
+                      : t('integrations.common.never', 'Never')}
                   </td>
                   <td className={styles.actionCell}>
                     <Button
@@ -148,7 +179,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                       onClick={() => handleRevoke(key.id, key.name)}
                       loading={revokeMutation.isPending && revokeMutation.variables === key.id}
                     >
-                      Revoke
+                      {t('integrations.apiKeys.revoke', 'Revoke')}
                     </Button>
                   </td>
                 </tr>
@@ -161,15 +192,15 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
       {keys.some((k) => k.revokedAt) && (
         <div style={{ marginTop: 'var(--space-4)' }}>
           <h3 style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: '0 0 var(--space-2)' }}>
-            Revoked keys
+            {t('integrations.apiKeys.revokedKeys', 'Revoked keys')}
           </h3>
           <div className={styles.tableWrapper}>
             <table className={styles.dataTable}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Prefix</th>
-                  <th>Revoked</th>
+                  <th>{t('integrations.apiKeys.colName', 'Name')}</th>
+                  <th>{t('integrations.apiKeys.colPrefix', 'Prefix')}</th>
+                  <th>{t('integrations.apiKeys.colRevoked', 'Revoked')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,7 +213,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                         <span className={styles.prefixCell}>{key.prefix}…</span>
                       </td>
                       <td>
-                        <span className={styles.revokedBadge}>Revoked</span>
+                        <span className={styles.revokedBadge}>{t('integrations.apiKeys.revoked', 'Revoked')}</span>
                       </td>
                     </tr>
                   ))}

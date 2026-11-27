@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { StuckReferralsConsole } from './StuckReferralsConsole';
 import { ApiError } from '../../../services/api-client';
 import * as referralsService from '../../../services/admin-referrals-service';
@@ -118,7 +118,7 @@ function LocationProbe() {
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: 'admin-token',
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 
@@ -487,17 +487,13 @@ describe('StuckReferralsConsole — cancel', () => {
 });
 
 describe('/admin/referrals route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/referrals']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/referrals');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins', async () => {
     renderApp();
@@ -508,7 +504,8 @@ describe('/admin/referrals route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Stuck referrals' })).not.toBeInTheDocument();
     expect(referralsService.listStuckReferrals).not.toHaveBeenCalled();
   });

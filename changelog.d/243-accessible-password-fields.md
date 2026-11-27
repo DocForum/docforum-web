@@ -1,22 +1,5 @@
-### #243: accessible password fields
-
-- Created shared `PasswordField` component at `src/components/PasswordField.tsx`
-- Provides show/hide toggle with:
-  - `aria-pressed` correctly reflecting visibility state
-  - Accessible button label ("Show password"/"Hide password")
-  - Keyboard-operable toggle with 24px minimum target
-  - Returns field to masked state on form submission
-  - Preserves autocomplete values (`current-password`, `new-password`)
-- Provides caps lock hint with:
-  - Detection via `event.getModifierState('CapsLock')`
-  - Polite hint announced via `aria-describedby`
-  - Hidden/cleared when Caps Lock inactive or focus leaves
-- Adopted in all password inputs:
-  - `LoginForm` (`autoComplete="current-password"`)
-  - `SignupForm` (`autoComplete="new-password"`)
-  - `DeleteAccountSection` (with `required` and `autoFocus`)
-  - `DataExportSection` (with `required` and `autoComplete="current-password"`)
-  - `InviteLanding` (with `autoComplete="new-password"`)
-- Preserves existing password validation and authentication behavior
-- Password managers continue to work correctly
-- Axe accessibility checks included in tests
+Phase W1: show-password toggle and Caps Lock hint on every password field
+([issue #243](https://github.com/DocForum/docforum-web/issues/243)).
+`PasswordField`/`PasswordInput` add an `aria-pressed` toggle and a polite Caps
+Lock hint to login, signup, password reset, invite acceptance, dependent
+account claim and account deletion, and re-mask the field on submit.

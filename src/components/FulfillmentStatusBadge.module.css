@@ -33,3 +33,10 @@
   border-color: color-mix(in srgb, #b3261e 35%, transparent);
   color: #b3261e;
 }
+
+@media (forced-colors: active) {
+  .badge { color: CanvasText; background: Canvas; border: 2px solid CanvasText; }
+  .partially_fulfilled { border-style: dashed; }
+  .fulfilled { border-color: Highlight; }
+  .rejected { border-style: double; border-width: 3px; }
+}

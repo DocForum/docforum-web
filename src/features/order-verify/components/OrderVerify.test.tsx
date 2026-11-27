@@ -23,6 +23,7 @@ describe('OrderVerifyView & Camera QR Scanner', () => {
         id: 'usr-1',
         email: 'facility@docforum.org',
         role: 'facility',
+        emailVerifiedAt: null,
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },

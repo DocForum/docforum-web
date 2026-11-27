@@ -71,10 +71,84 @@ paths:
             schema: { $ref: '#/components/schemas/LoginInput' }
       responses:
         '200':
-          description: Session created
+          description: Session created or a second-factor challenge
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/verify:
+    post:
+      tags: [auth]
+      operationId: verifyTwoFactor
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorVerifyInput' }
+      responses:
+        '200':
+          description: Authenticated session and rotated refresh cookie
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/setup:
+    post:
+      tags: [auth]
+      operationId: setupTwoFactor
+      responses:
+        '200':
+          description: One-time authenticator setup secret
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorSetup' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/2fa/enable:
+    post:
+      tags: [auth]
+      operationId: enableTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorCodeInput' }
+      responses:
+        '200':
+          description: Recovery codes shown once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorEnableResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/status:
+    get:
+      tags: [auth]
+      operationId: getTwoFactorStatus
+      responses:
+        '200':
+          description: Current two-factor status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TwoFactorStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/disable:
+    post:
+      tags: [auth]
+      operationId: disableTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TwoFactorCodeInput' }
+      responses:
+        '204': { description: Two-factor authentication disabled }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /auth/logout:
@@ -492,7 +566,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FulfillmentQueueItem' }
 
-  /doctor/appointments/today:
+  /appointments/doctor/today:
     get:
       tags: [queue]
       operationId: listTodayAppointments
@@ -519,28 +593,28 @@ paths:
                 items: { $ref: '#/components/schemas/QueueEntry' }
 
   /appointments/{appointmentId}/start:
-    post:
+    patch:
       tags: [queue]
       operationId: startVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit started (idempotent)
+          description: Visit started
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   /appointments/{appointmentId}/complete:
-    post:
+    patch:
       tags: [queue]
       operationId: completeVisit
       parameters:
         - $ref: '#/components/parameters/AppointmentId'
       responses:
         '200':
-          description: Visit completed (idempotent)
+          description: Visit completed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Appointment' }
@@ -693,6 +767,98 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WalletLink' }
+
+  /pharmacy-orders/fulfillments:
+    post:
+      tags: [orders]
+      operationId: fulfillPharmacyOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderType, orderId, facilityId]
+              properties:
+                orderType: { type: string, enum: [prescription] }
+                orderId: { type: string }
+                facilityId: { type: string }
+                orderItemIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Fulfillment routed
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /consultations/{consultationId}/referrals:
+    post:
+      tags: [consultations]
+      operationId: createConsultationReferrals
+      parameters:
+        - name: consultationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetDoctorId: { type: string }
+                      targetSpecialtyId: { type: string }
+                      snapshotNotes: { type: string }
+      responses:
+        '201':
+          description: Referrals created atomically
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /orders/lab-orders/{id}/result:
+    post:
+      tags: [fulfillment]
+      operationId: uploadLabResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: Lab result attached
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /payments/intents:
     post:
@@ -871,6 +1037,26 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    UnprocessableEntity:
+      description: The request is valid but conflicts with referral routing rules
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    PayloadTooLarge:
+      description: Uploaded file exceeds the size limit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    UnsupportedMediaType:
+      description: Uploaded file type or content mismatch
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ServiceUnavailable:
+      description: Required storage or downstream service is unavailable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 
   schemas:
     ErrorEnvelope:
@@ -908,6 +1094,11 @@ components:
         id: { type: string }
         email: { type: string }
         role: { $ref: '#/components/schemas/Role' }
+        # Best match from Accept-Language at signup (issue #256), returned by
+        # login, signup and refresh. Not every account has one yet.
+        locale: { type: string, nullable: true }
+        # Null until the user follows the verification link (issue #388).
+        emailVerifiedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -917,6 +1108,61 @@ components:
       properties:
         user: { $ref: '#/components/schemas/User' }
         accessToken: { type: string }
+
+    LoginResult:
+      oneOf:
+        - $ref: '#/components/schemas/AuthSession'
+        - $ref: '#/components/schemas/MfaRequiredResponse'
+        - $ref: '#/components/schemas/EnrollmentRequiredResponse'
+
+    MfaRequiredResponse:
+      type: object
+      required: [mfaRequired, mfaToken]
+      properties:
+        mfaRequired: { type: boolean, enum: [true] }
+        mfaToken: { type: string }
+
+    EnrollmentRequiredResponse:
+      type: object
+      required: [enrollmentRequired, enrollmentToken]
+      properties:
+        enrollmentRequired: { type: boolean, enum: [true] }
+        enrollmentToken: { type: string }
+
+    TwoFactorVerifyInput:
+      type: object
+      required: [mfaToken, code]
+      properties:
+        mfaToken: { type: string }
+        code: { type: string }
+
+    TwoFactorCodeInput:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+
+    TwoFactorSetup:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret: { type: string }
+        otpauthUri: { type: string }
+
+    TwoFactorEnableResult:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          items: { type: string }
+
+    TwoFactorStatus:
+      type: object
+      required: [enabled, unusedRecoveryCodes]
+      properties:
+        enabled: { type: boolean }
+        unusedRecoveryCodes: { type: integer, minimum: 0 }
 
     SignupInput:
       type: object

@@ -254,7 +254,9 @@ export class EventStreamManager {
 
   subscribeState(handler: StateHandler): () => void {
     this.stateListeners.add(handler);
-    return () => this.stateListeners.delete(handler);
+    return () => {
+      this.stateListeners.delete(handler);
+    };
   }
 
   getState(): EventStreamState {

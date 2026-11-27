@@ -337,10 +337,28 @@
 }
 
 /* Reduced Motion */
+@media (forced-colors: active) {
+  .presetButtonActive,
+  .toggleButtonActive { color: HighlightText; background: Highlight; border: 2px solid CanvasText; }
+  .presetButton:focus-visible,
+  .toggleButton:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  .distributionSegment { background: Highlight; border: 1px solid CanvasText; box-sizing: border-box; }
+  .legendColor { background: Highlight; border: 1px solid CanvasText; }
+  .svgChart rect { fill: Highlight !important; stroke: CanvasText !important; stroke-width: 1px; }
+  .svgChart line,
+  .svgChart path { stroke: CanvasText !important; stroke-width: 2px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .presetButton,
   .toggleButton,
   .distributionSegment {
     transition: none !important;
   }
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }

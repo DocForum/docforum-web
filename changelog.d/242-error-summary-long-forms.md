@@ -1,16 +1,6 @@
-### #242: accessible error summaries for long forms
-
-- Created shared `ErrorSummary` component at `src/components/ErrorSummary.tsx`
-- Provides accessible error summary at the top of long forms with:
-  - Clearly titled, focusable summary region (`role="alert"`, `tabIndex={0}`)
-  - Links to invalid field IDs for screen-reader navigation
-  - Focus moves to summary after failed submission
-  - Summary updates as validation errors are corrected
-  - Handles server-side errors from `mapServerErrors`
-  - Deduplicates field IDs
-- Adopted in three long forms:
-  - `FacilitySettingsView` (`idPrefix="facility"`)
-  - `GenerateSlotsForm` (`idPrefix="generate-slots"`)
-  - `ConsultationOutcomePanel` (`idPrefix="consultation-outcome"`)
-- Short forms (Login, Signup) retain existing focus-first-invalid-field behavior
-- Axe accessibility checks included in tests
+Phase W7: error summary for long forms
+([issue #242](https://github.com/DocForum/docforum-web/issues/242)).
+A shared `ErrorSummary` lists every problem at the top of facility location
+and contact settings, slot generation and the consultation outcome panel;
+focus moves to it on a failed submit, each entry links to its field, and the
+list updates as errors are fixed.

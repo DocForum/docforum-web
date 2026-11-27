@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/Button';
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import {
   useCredentialDocumentUrl,
   useVerification,
@@ -20,6 +21,7 @@ import styles from './Verifications.module.css';
  * never cached or stored on the document row.
  */
 function DocumentRow({ doctorProfileId, document }: { doctorProfileId: string; document: CredentialDocument }) {
+  const t = useOptionalT().t;
   const requestUrl = useCredentialDocumentUrl(doctorProfileId);
   const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ function DocumentRow({ doctorProfileId, document }: { doctorProfileId: string; d
     try {
       setLink(await requestUrl.mutateAsync(document.id));
     } catch (cause) {
-      setError(describeDocumentError(cause));
+      setError(describeDocumentError(cause, t));
     }
   }
 
@@ -41,14 +43,17 @@ function DocumentRow({ doctorProfileId, document }: { doctorProfileId: string; d
       <div className={styles.documentMain}>
         <span className={styles.documentName}>{document.fileName}</span>
         <span className={styles.documentMeta}>
-          {formatBytes(document.sizeBytes)} · uploaded {formatDateTime(document.uploadedAt)}
+          {formatBytes(document.sizeBytes, t)} ·{' '}
+          {t('adminVerification.detail.uploaded', 'uploaded {date}', {
+            date: formatDateTime(document.uploadedAt),
+          })}
         </span>
         {link ? (
           <p className={styles.signedLink}>
             <a href={link.url} target="_blank" rel="noopener noreferrer">
-              Open {document.fileName}
+              {t('adminVerification.detail.openDocument', 'Open {fileName}', { fileName: document.fileName })}
             </a>{' '}
-            <span className={styles.documentMeta}>({expiryLabel(link.expiresAt)})</span>
+            <span className={styles.documentMeta}>({expiryLabel(link.expiresAt, t)})</span>
           </p>
         ) : null}
         {error ? (
@@ -58,28 +63,38 @@ function DocumentRow({ doctorProfileId, document }: { doctorProfileId: string; d
         ) : null}
       </div>
       <Button variant="secondary" size="small" loading={pending} disabled={pending} onClick={() => void mint()}>
-        {link ? 'Get a new secure link' : 'Get secure link'}
+        {link
+          ? t('adminVerification.detail.newLink', 'Get a new secure link')
+          : t('adminVerification.detail.getLink', 'Get secure link')}
       </Button>
     </li>
   );
 }
 
 function HistorySection({ doctorProfileId }: { doctorProfileId: string }) {
+  const t = useOptionalT().t;
   const history = useVerificationHistory(doctorProfileId);
 
   return (
     <section className={styles.section} aria-labelledby="decision-history-heading">
       <h2 className={styles.sectionTitle} id="decision-history-heading">
-        Decision history
+        {t('adminVerification.detail.historyTitle', 'Decision history')}
       </h2>
-      {history.isLoading ? <p className={styles.muted}>Loading decision history…</p> : null}
+      {history.isLoading ? (
+        <p className={styles.muted}>{t('adminVerification.detail.historyLoading', 'Loading decision history…')}</p>
+      ) : null}
       {history.isError ? (
         <p className={styles.noticeWarning} role="status">
-          {describeHistoryError(history.error)}
+          {describeHistoryError(history.error, t)}
         </p>
       ) : null}
       {history.data && history.data.length === 0 ? (
-        <p className={styles.muted}>No verification decisions have been recorded for this doctor yet.</p>
+        <p className={styles.muted}>
+          {t(
+            'adminVerification.detail.historyEmpty',
+            'No verification decisions have been recorded for this doctor yet.',
+          )}
+        </p>
       ) : null}
       {history.data && history.data.length > 0 ? (
         <ul className={styles.history}>
@@ -87,11 +102,11 @@ function HistorySection({ doctorProfileId }: { doctorProfileId: string }) {
             <li key={decision.id} className={styles.historyRow}>
               <span>
                 {decision.from
-                  ? `${statusLabel(decision.from)} → ${statusLabel(decision.to)}`
-                  : `Set to ${statusLabel(decision.to)}`}
+                  ? `${statusLabel(decision.from, t)} → ${statusLabel(decision.to, t)}`
+                  : t('adminVerification.detail.setTo', 'Set to {status}', { status: statusLabel(decision.to, t) })}
               </span>
               <span className={styles.historyMeta}>
-                {formatDateTime(decision.at)} · {shortActor(decision.actorUserId)}
+                {formatDateTime(decision.at)} · {shortActor(decision.actorUserId, t)}
               </span>
             </li>
           ))}
@@ -102,23 +117,40 @@ function HistorySection({ doctorProfileId }: { doctorProfileId: string }) {
 }
 
 export function VerificationDetail({ doctorProfileId }: { doctorProfileId: string }) {
+  const t = useOptionalT().t;
   const detail = useVerification(doctorProfileId);
   const [dialogStatus, setDialogStatus] = useState<DecisionStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  if (detail.isLoading) return <p className={styles.status}>Loading application…</p>;
+  // The app shell no longer adds a route <h1> (#238), so every state names
+  // the page; the loaded state uses the doctor's name instead.
+  const pendingTitle = (
+    <h1 className={styles.title}>{t('adminVerification.detail.title', 'Verification application')}</h1>
+  );
+
+  if (detail.isLoading) {
+    return (
+      <>
+        {pendingTitle}
+        <p className={styles.status}>{t('adminVerification.detail.loading', 'Loading application…')}</p>
+      </>
+    );
+  }
 
   if (detail.isError) {
     return (
-      <div className={styles.errorBox} role="alert">
-        <p>{describeDetailError(detail.error)}</p>
-        <Link to="/admin/verifications">← Back to the queue</Link>
-      </div>
+      <>
+        {pendingTitle}
+        <div className={styles.errorBox} role="alert">
+          <p>{describeDetailError(detail.error, t)}</p>
+          <Link to="/admin/verifications">{t('adminVerification.detail.backToQueue', '← Back to the queue')}</Link>
+        </div>
+      </>
     );
   }
 
   const data = detail.data;
-  if (!data) return null;
+  if (!data) return pendingTitle;
 
   const decided = data.profile.verificationStatus !== 'pending';
   const documents = data.documents;
@@ -126,19 +158,27 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
   return (
     <section className={styles.detail} aria-labelledby="verification-detail-heading">
       <header>
-        <p className={styles.queueMeta}>Applied {formatDateTime(data.profile.submittedAt)}</p>
+        <p className={styles.queueMeta}>
+          {t('adminVerification.detail.applied', 'Applied {date}', { date: formatDateTime(data.profile.submittedAt) })}
+        </p>
         <div className={styles.profileHeader}>
           <h1 className={styles.title} id="verification-detail-heading">
             {data.profile.fullName}
           </h1>
           <span className={styles.statusPill} data-status={data.profile.verificationStatus}>
-            {statusLabel(data.profile.verificationStatus)}
+            {statusLabel(data.profile.verificationStatus, t)}
           </span>
         </div>
         <p className={styles.subtitle}>
           {decided
-            ? 'This application already has a decision. Reviewing again records a new one.'
-            : 'Review the credentials below, then approve or reject with a reason.'}
+            ? t(
+                'adminVerification.detail.alreadyDecided',
+                'This application already has a decision. Reviewing again records a new one.',
+              )
+            : t(
+                'adminVerification.detail.reviewPrompt',
+                'Review the credentials below, then approve or reject with a reason.',
+              )}
         </p>
       </header>
 
@@ -150,12 +190,20 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
 
       <div className={styles.profileCard}>
         <dl className={styles.profileFacts}>
-          <dt>Specialties</dt>
-          <dd>{data.profile.specialties.length > 0 ? data.profile.specialties.join(', ') : 'None listed'}</dd>
-          <dt>Email</dt>
-          <dd>{data.profile.email ?? 'Not shown by docforum-core'}</dd>
-          <dt>Documents</dt>
-          <dd>{documents.length === 0 ? 'None submitted' : `${documents.length} submitted`}</dd>
+          <dt>{t('adminVerification.detail.specialties', 'Specialties')}</dt>
+          <dd>
+            {data.profile.specialties.length > 0
+              ? data.profile.specialties.join(', ')
+              : t('adminVerification.detail.noneListed', 'None listed')}
+          </dd>
+          <dt>{t('adminVerification.detail.email', 'Email')}</dt>
+          <dd>{data.profile.email ?? t('adminVerification.detail.emailNotShown', 'Not shown by docforum-core')}</dd>
+          <dt>{t('adminVerification.detail.documents', 'Documents')}</dt>
+          <dd>
+            {documents.length === 0
+              ? t('adminVerification.detail.noneSubmitted', 'None submitted')
+              : t('adminVerification.detail.documentsSubmitted', '{count} submitted', { count: documents.length })}
+          </dd>
         </dl>
 
         <div className={styles.decisionRow}>
@@ -167,7 +215,7 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
               setDialogStatus('verified');
             }}
           >
-            Approve
+            {t('adminVerification.decision.approve', 'Approve')}
           </Button>
           <Button
             variant="danger"
@@ -177,20 +225,28 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
               setDialogStatus('rejected');
             }}
           >
-            Reject
+            {t('adminVerification.decision.reject', 'Reject')}
           </Button>
         </div>
       </div>
 
       <section className={styles.section} aria-labelledby="documents-heading">
         <h2 className={styles.sectionTitle} id="documents-heading">
-          Credential documents
+          {t('adminVerification.detail.documentsTitle', 'Credential documents')}
         </h2>
         <p className={styles.fieldHint}>
-          Documents open through links that are signed on demand and expire quickly. Request a fresh one each time.
+          {t(
+            'adminVerification.detail.documentsHint',
+            'Documents open through links that are signed on demand and expire quickly. Request a fresh one each time.',
+          )}
         </p>
         {documents.length === 0 ? (
-          <p className={styles.muted}>No credential documents were submitted with this application.</p>
+          <p className={styles.muted}>
+            {t(
+              'adminVerification.detail.documentsEmpty',
+              'No credential documents were submitted with this application.',
+            )}
+          </p>
         ) : (
           <ul className={styles.documents}>
             {documents.map((document) => (
@@ -203,7 +259,7 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
       <HistorySection doctorProfileId={doctorProfileId} />
 
       <p>
-        <Link to="/admin/verifications">← Back to the queue</Link>
+        <Link to="/admin/verifications">{t('adminVerification.detail.backToQueue', '← Back to the queue')}</Link>
       </p>
 
       {dialogStatus ? (
@@ -215,8 +271,15 @@ export function VerificationDetail({ doctorProfileId }: { doctorProfileId: strin
             setDialogStatus(null);
             setNotice(
               outcome.message ??
-                `${outcome.status === 'verified' ? 'Approved' : 'Rejected'} — the decision was recorded and the ` +
-                  'queue has been refreshed.',
+                (outcome.status === 'verified'
+                  ? t(
+                      'adminVerification.detail.approvedNotice',
+                      'Approved — the decision was recorded and the queue has been refreshed.',
+                    )
+                  : t(
+                      'adminVerification.detail.rejectedNotice',
+                      'Rejected — the decision was recorded and the queue has been refreshed.',
+                    )),
             );
           }}
         />

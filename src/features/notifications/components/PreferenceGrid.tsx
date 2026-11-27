@@ -1,7 +1,9 @@
+import { useT } from '../../../i18n/useT';
 import {
-  CHANNEL_LABELS,
+  channelLabel,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_TYPES,
+  notificationTypeCopy,
 } from '../preferences';
 import type {
   NotificationChannel,
@@ -32,17 +34,19 @@ function enabledFor(
  * untoggleable from the keyboard (issue #108 review criterion).
  */
 export function PreferenceGrid({ preferences, saving, onChange }: PreferenceGridProps) {
+  const t = useT();
+
   return (
     <div className={styles.tableWrapper}>
-      <table className={styles.grid} aria-label="Notification preferences by type and channel">
+      <table className={styles.grid} aria-label={t('notifications.grid.aria', 'Notification preferences by type and channel')}>
         <thead>
           <tr>
             <th scope="col" className={styles.typeColumn}>
-              Notification
+              {t('notifications.grid.column', 'Notification')}
             </th>
             {NOTIFICATION_CHANNELS.map((channel) => (
               <th key={channel} scope="col" className={styles.channelColumn}>
-                {CHANNEL_LABELS[channel]}
+                {channelLabel(channel, t)}
               </th>
             ))}
           </tr>
@@ -50,17 +54,18 @@ export function PreferenceGrid({ preferences, saving, onChange }: PreferenceGrid
         <tbody>
           {NOTIFICATION_TYPES.map((meta) => {
             const reasonId = `lock-reason-${meta.type}`;
+            const copy = notificationTypeCopy(meta.type, t);
             return (
               <tr key={meta.type} className={meta.locked ? styles.lockedRow : undefined}>
                 <th scope="row" className={styles.typeCell}>
                   <span className={styles.typeLabel}>
-                    {meta.label}
-                    {meta.locked && <span className={styles.lockBadge}>Always on</span>}
+                    {copy.label}
+                    {meta.locked && <span className={styles.lockBadge}>{t('notifications.grid.alwaysOn', 'Always on')}</span>}
                   </span>
-                  <span className={styles.typeDescription}>{meta.description}</span>
-                  {meta.locked && meta.lockedReason && (
+                  <span className={styles.typeDescription}>{copy.description}</span>
+                  {meta.locked && copy.lockedReason && (
                     <span id={reasonId} className={styles.lockReason}>
-                      {meta.lockedReason}
+                      {copy.lockedReason}
                     </span>
                   )}
                 </th>
@@ -74,8 +79,11 @@ export function PreferenceGrid({ preferences, saving, onChange }: PreferenceGrid
                           role="switch"
                           checked={checked}
                           disabled={meta.locked || saving}
-                          aria-label={`${meta.label} via ${CHANNEL_LABELS[channel]}`}
-                          aria-describedby={meta.locked && meta.lockedReason ? reasonId : undefined}
+                          aria-label={t('notifications.grid.switchAria', '{type} via {channel}', {
+                            type: copy.label,
+                            channel: channelLabel(channel, t),
+                          })}
+                          aria-describedby={meta.locked && copy.lockedReason ? reasonId : undefined}
                           onChange={(event) => onChange(meta.type, channel, event.target.checked)}
                         />
                         <span className={styles.track} aria-hidden="true">

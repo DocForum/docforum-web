@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import App from '../../../App';
+import { IntlProvider } from 'react-intl';
+import esMessages from '../../../i18n/messages/es.json';
+import { renderAppAt, type RenderAppResult } from '../../../test/render-app';
 import { FeatureFlagsConsole } from './FeatureFlagsConsole';
 import { FLAGS_KEY } from '../hooks/useFeatureFlags';
 import { ApiError } from '../../../services/api-client';
@@ -97,19 +99,21 @@ function LocationProbe() {
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: 'admin-token',
-    user: { id: role === 'admin' ? ME : `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: role === 'admin' ? ME : `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 
-function renderConsole(path = '/admin/flags') {
+function renderConsole(path = '/admin/flags', locale: 'en' | 'es' = 'en') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <FeatureFlagsConsole />
-        <LocationProbe />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <IntlProvider locale={locale} defaultLocale="en" messages={locale === 'es' ? esMessages : {}} onError={() => undefined}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <FeatureFlagsConsole />
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </IntlProvider>,
   );
   return queryClient;
 }
@@ -265,6 +269,26 @@ describe('FeatureFlagsConsole — search and filter', () => {
 });
 
 describe('FeatureFlagsConsole — toggling', () => {
+  it('traps keyboard focus in the dialog and restores it when cancelled with Escape', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+    await screen.findAllByRole('article');
+
+    const opener = switchFor('sms_notifications');
+    await user.click(opener);
+    const dialog = screen.getByRole('dialog');
+    const first = within(dialog).getByRole('link', { name: 'History' });
+    const last = within(dialog).getByRole('button', { name: 'Turn off' });
+    expect(document.activeElement).toBe(first);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(last);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('asks for confirmation, showing the change and who it reaches before and after', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -441,6 +465,18 @@ describe('FeatureFlagsConsole — editing', () => {
     expect(flagsService.updateFeatureFlag).not.toHaveBeenCalled();
   });
 
+  describe('FeatureFlagsConsole — Spanish', () => {
+    it('renders feature flags in Spanish', async () => {
+      renderConsole('/admin/flags', 'es');
+
+      await screen.findAllByRole('article');
+      expect(screen.getByRole('heading', { name: 'Indicadores de función' })).toBeInTheDocument();
+      expect(screen.getByRole('searchbox', { name: 'Buscar' })).toBeInTheDocument();
+      expect(within(cardFor('wallet_payments')).getByText('Despliegue gradual')).toBeInTheDocument();
+      expect(screen.getByText('Activada para el 25 % de pacientes.')).toBeInTheDocument();
+    });
+  });
+
   it('refuses allowlist entries that are not user ids', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -546,17 +582,13 @@ describe('FeatureFlagsConsole — editing', () => {
 });
 
 describe('/admin/flags route', () => {
+  let appRouter: RenderAppResult['router'] | undefined;
   function renderApp() {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin/flags']}>
-          <App />
-          <LocationProbe />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const result = renderAppAt('/admin/flags');
+    appRouter = result.router;
+    return result;
   }
+  const appLocation = () => appRouter!.state.location.pathname + appRouter!.state.location.search;
 
   it('is reachable by admins', async () => {
     renderApp();
@@ -567,7 +599,8 @@ describe('/admin/flags route', () => {
     signIn(role);
     renderApp();
 
-    await waitFor(() => expect(currentLocation()).toBe(`/${role}`));
+    // Generous timeout: the redirect chain loads two lazy route modules.
+    await waitFor(() => expect(appLocation()).toBe(`/${role}`), { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Feature flags' })).not.toBeInTheDocument();
     expect(flagsService.listFeatureFlags).not.toHaveBeenCalled();
   });

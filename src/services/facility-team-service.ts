@@ -1,5 +1,6 @@
 import type { Schemas } from '@docforum/api-client';
-import { api } from './api-client';
+import { api, apiFetch } from './api-client';
+import type { FulfillmentStatusUpdate, PharmacyFulfillmentRecord } from '../types/models';
 
 export function listFacilityMembers(
   facilityId: string,
@@ -57,12 +58,13 @@ export function getFulfillmentQueue(
   return api.facilityTeam.getFulfillmentQueue(facilityId, { accessToken, signal });
 }
 
-export function updateFulfillmentItem(
-  facilityId: string,
-  itemId: string,
-  action: 'fulfilled' | 'rejected',
+export function updateFulfillmentRecord(
+  recordId: string,
+  status: FulfillmentStatusUpdate,
   accessToken: string,
-  notes?: string,
-): Promise<Schemas['FulfillmentQueueItem']> {
-  return api.facilityTeam.updateFulfillmentItem(facilityId, itemId, { action, notes }, { accessToken });
+): Promise<PharmacyFulfillmentRecord> {
+  return apiFetch<PharmacyFulfillmentRecord>(
+    `/pharmacy-orders/fulfillments/${encodeURIComponent(recordId)}`,
+    { method: 'PATCH', body: { status }, accessToken },
+  );
 }

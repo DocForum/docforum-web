@@ -1,51 +1,52 @@
-import type { FulfillmentOrderType } from './facility-staff';
+// --- Phase W5 — Facility payout ledger, mapped from docforum-core's real
+// `GET /payments/facility/ledger` (scoped to the caller's facility).
+//
+// `amount`, `escrowed`, `released` and `refunded` are BigInt stroop values
+// serialized as strings — they must never round-trip through a JS number.
 
-// --- Phase W4 — Facility Payout Ledger (issue #53, docforum-core#90) ---
-
-export type EscrowPayoutStatus = 'held' | 'released' | 'refunded';
 export type PayoutAsset = 'XLM' | 'USDC';
 
-export interface EscrowTerms {
-  releaser: 'patient' | 'auto_dispense' | 'platform';
-  releaserDescription: string;
-  refundDeadline: string; // ISO timestamp
-  isApproachingDeadline: boolean; // within 48h
-  hoursUntilRefund: number;
+/** A configured payment asset. `code` is whatever docforum-core supports. */
+export interface FacilityLedgerAsset {
+  type: 'native' | 'issued';
+  code: string;
 }
 
-export interface FacilityLedgerEntry {
+export type FacilityLedgerStatus =
+  | 'created'
+  | 'funding'
+  | 'escrowed'
+  | 'released'
+  | 'refunded'
+  | 'failed';
+
+export interface FacilityLedgerItem {
   id: string;
-  facilityId: string;
+  orderType: 'prescription' | 'lab_order';
   orderId: string;
-  orderType: FulfillmentOrderType;
-  orderItemName: string;
-  patientName: string;
-  amountStroops: string; // BigInt-safe string representation
-  asset: PayoutAsset;
-  status: EscrowPayoutStatus;
-  escrowId: string;
-  contractId?: string | null;
-  fundTxHash: string;
-  releaseTxHash?: string | null;
-  refundTxHash?: string | null;
-  terms: EscrowTerms;
+  status: FacilityLedgerStatus;
+  /** Smallest unit of `assetCode`, as a string. */
+  amount: string;
+  assetCode: string;
+  asset: FacilityLedgerAsset;
+  escrowId: string | null;
+  stellarTxHash: string | null;
+  sorobanContractId: string | null;
+  refundAfter: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface AssetTotals {
-  heldStroops: string;
-  releasedStroops: string;
-  refundedStroops: string;
-}
-
-export interface FacilityPayoutTotals {
-  xlm: AssetTotals;
-  usdc: AssetTotals;
+/** Server-side lifecycle totals for one asset, over the filtered range. */
+export interface FacilityLedgerTotals {
+  asset: FacilityLedgerAsset;
+  escrowed: string;
+  released: string;
+  refunded: string;
 }
 
 export interface FacilityLedgerPage {
-  entries: FacilityLedgerEntry[];
-  nextCursor?: string | null;
-  totals: FacilityPayoutTotals;
+  items: FacilityLedgerItem[];
+  nextCursor: string | null;
+  totals: FacilityLedgerTotals[];
 }

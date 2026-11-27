@@ -39,11 +39,13 @@ export function generateSlots(
   doctorProfileId: string,
   input: SlotGenerationInput,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<SlotGenerationResult> {
   return apiFetch<SlotGenerationResult>(`/availability/doctors/${doctorProfileId}/slots/generate`, {
     method: 'POST',
     body: input,
     accessToken,
+    signal,
   });
 }
 

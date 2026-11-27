@@ -55,15 +55,23 @@ export function useJobs() {
   });
 }
 
-export function useOutboxSummary() {
+export function useOutboxDeadLetters() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
     queryKey: systemKeys.outbox(),
-    queryFn: ({ signal }) => systemService.getOutboxSummary(accessToken!, signal),
+    queryFn: ({ signal }) => systemService.getOutboxDeadLetters(accessToken!, signal),
     enabled: Boolean(accessToken),
     retry: shouldRetry,
     ...POLLING,
+  });
+}
+
+export function useClearLoginAttempts() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  return useMutation({
+    mutationFn: (email: string) => systemService.clearLoginAttempts({ email }, accessToken!),
   });
 }
 

@@ -8,7 +8,7 @@
 //    the list, detail and slot reads can each be invalidated deliberately —
 //    the reschedule flow needs exactly that control (see useReschedule: list +
 //    detail on success, slots only on 409).
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
 import * as appointmentsService from '../../../services/appointments-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { appointmentKeys } from '../../../query-keys';
@@ -29,13 +29,20 @@ export const appointmentsKeys = {
  * `keepPreviousData`: a refetch must never flash an empty list — the patient
  * always keeps seeing the appointments they already had while a fresh read is
  * in flight (the "never zero appointments mid-reschedule" constraint). */
+/** Shared by `useMyAppointments` and the route loaders that prefetch it (#112). */
+export function myAppointmentsQueryOptions(accessToken: string | null) {
+  return queryOptions({
+    queryKey: APPOINTMENTS_KEY,
+    queryFn: ({ signal }) => appointmentsService.listMyAppointments(accessToken!, signal),
+    enabled: Boolean(accessToken),
+  });
+}
+
 export function useMyAppointments() {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: APPOINTMENTS_KEY,
-    queryFn: ({ signal }) => appointmentsService.listMyAppointments(accessToken!, signal),
-    enabled: Boolean(accessToken),
+    ...myAppointmentsQueryOptions(accessToken),
     placeholderData: keepPreviousData,
   });
 }

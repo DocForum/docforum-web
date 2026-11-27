@@ -44,7 +44,7 @@ describe('NotificationList', () => {
     expect(first.getByRole('link')).toHaveAttribute('href', '/patient/appointments');
     expect(first.getByText('Appointment confirmed')).toBeInTheDocument();
     expect(first.getByText('Appointment')).toBeInTheDocument();
-    expect(first.getByRole('button', { name: /mark "appointment confirmed" as read/i })).toBeInTheDocument();
+    expect(first.getByRole('button', { name: /mark read.*appointment confirmed/i })).toBeInTheDocument();
 
     // A read row has no per-row action and is not highlighted.
     expect(items[1]).toHaveAttribute('data-unread', 'false');
@@ -63,7 +63,7 @@ describe('NotificationList', () => {
       { role: 'patient' },
     );
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /mark "result ready" as read/i }));
+    await userEvent.setup().click(screen.getByRole('button', { name: /mark read.*result ready/i }));
     expect(onMarkRead).toHaveBeenCalledWith('n1');
   });
 
