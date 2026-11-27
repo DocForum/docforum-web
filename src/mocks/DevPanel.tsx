@@ -14,7 +14,23 @@ import { activateMockRole, mockSignOut } from './roles';
 import type { Role } from '../types/models';
 
 const ROLES: Role[] = ['patient', 'doctor', 'facility', 'admin'];
-const SCENARIOS: MockScenario[] = ['normal', 'empty', 'error', 'network-once'];
+const SCENARIOS: MockScenario[] = [
+  'normal',
+  'empty',
+  'error',
+  'network-once',
+  'wallet_missing',
+  'trustline_missing',
+];
+
+const SCENARIO_LABELS: Record<MockScenario, string> = {
+  normal: 'normal',
+  empty: 'empty states',
+  error: 'errors',
+  'network-once': 'network once',
+  wallet_missing: 'no payout wallet',
+  trustline_missing: 'missing trustline',
+};
 
 let simulatedCount = 0;
 
@@ -110,7 +126,7 @@ export function DevPanel() {
                 queryClient.invalidateQueries();
               }}
             >
-              {s === 'normal' ? 'normal' : s === 'empty' ? 'empty states' : s === 'error' ? 'errors' : 'network once'}
+              {SCENARIO_LABELS[s]}
             </button>
           ))}
         </div>

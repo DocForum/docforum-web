@@ -18,10 +18,6 @@ interface Meta {
 
 type StoryObj = { render: () => ReactNode };
 
-function defineMeta(meta: Meta): Meta {
-  return meta;
-}
-
 // ─── Shared fixtures ─────────────────────────────────────────────────────
 
 interface User {
@@ -60,14 +56,14 @@ const filters: FilterDefinition[] = [
   { key: 'name', label: 'Name', type: 'text' },
 ];
 
-const meta = defineMeta({
+const meta: Meta = {
   title: 'Components/DataTable',
   component: DataTable,
   decorators: [
     (story) => <MemoryRouter>{story()}</MemoryRouter>,
   ],
   tags: ['autodocs'],
-});
+};
 
 export default meta;
 

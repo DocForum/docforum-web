@@ -134,7 +134,11 @@ describe('PatientChartPanel', () => {
     );
     renderPanel();
 
-    expect(await screen.findByText("The patient chart couldn't be loaded")).toBeInTheDocument();
+    // A GET 503 goes through the client's 3-attempt backoff (~0.45–0.9s)
+    // before the error renders, which races findByText's 1s default.
+    expect(
+      await screen.findByText("The patient chart couldn't be loaded", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   it('has no axe violations with a populated chart', async () => {

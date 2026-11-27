@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '../../../test/render';
+import { render, screen, waitFor, within } from '../../../test/render';
 import { IntegrationsView } from './IntegrationsView';
 import { ApiKeysPanel, DEFAULT_MOCK_API_KEYS } from './ApiKeysPanel';
 import { WebhooksPanel, DEFAULT_MOCK_WEBHOOKS } from './WebhooksPanel';
@@ -162,7 +162,7 @@ describe('Integrations — API keys', () => {
     });
   });
 
-  async function openRevokeDialog() {
+  it('revokes a key after confirming in the dialog', async () => {
     render(<ApiKeysPanel facilityId="fac-main" />);
 
     await screen.findByRole('heading', { name: /^api keys$/i });
@@ -170,28 +170,17 @@ describe('Integrations — API keys', () => {
     const firstKeyRow = rows.find((row) =>
       within(row).queryByText('Lab Information System'),
     )!;
-    const trigger = within(firstKeyRow).getByRole('button', { name: /^revoke$/i });
-    await userEvent.click(trigger);
 
-    const dialog = await screen.findByRole('dialog');
-    return { dialog, trigger };
-  }
+    await userEvent.click(
+      within(firstKeyRow).getByRole('button', { name: /^revoke$/i }),
+    );
 
-  it('names the key and the consequence in an accessible dialog', async () => {
-    const { dialog } = await openRevokeDialog();
-
-    expect(within(dialog).getByRole('heading', { name: /revoke api key/i })).toBeInTheDocument();
+    // The shared Dialog replaces window.confirm (issue #241).
+    const dialog = await screen.findByRole('dialog', { name: /revoke api key/i });
     expect(dialog).toHaveAccessibleDescription(/Lab Information System/);
-    expect(dialog).toHaveAccessibleDescription(/df_live_a1b2c3d4/);
-    expect(dialog).toHaveAccessibleDescription(/cannot be undone/i);
-    expect(within(dialog).getByRole('button', { name: /^revoke key$/i })).toBeInTheDocument();
-  });
-
-  it('revokes a key after confirmation', async () => {
-    const { dialog } = await openRevokeDialog();
-
-    await userEvent.click(within(dialog).getByRole('button', { name: /^revoke key$/i }));
-
+    expect(integrationsService.revokeApiKey).not.toHaveBeenCalled();
+    // A double-click must not send two revocations.
+    await userEvent.dblClick(within(dialog).getByRole('button', { name: /^revoke key$/i }));
     await waitFor(() => {
       expect(integrationsService.revokeApiKey).toHaveBeenCalledWith(
         'fac-main',
@@ -199,41 +188,58 @@ describe('Integrations — API keys', () => {
         'test-token',
       );
     });
+    expect(integrationsService.revokeApiKey).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('does not revoke when the confirmation is cancelled', async () => {
-    const { dialog } = await openRevokeDialog();
+  it('moves focus to the next key and announces it when a revoked key leaves the list', async () => {
+    let keys = DEFAULT_MOCK_API_KEYS;
+    vi.mocked(integrationsService.listApiKeys).mockImplementation(async () => keys);
+    vi.mocked(integrationsService.revokeApiKey).mockImplementation(async (_facilityId, keyId) => {
+      keys = keys.map((key) =>
+        key.id === keyId ? { ...key, revokedAt: '2026-10-20T10:00:00.000Z' } : key,
+      );
+      return { success: true, keyId };
+    });
 
-    await userEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
+    render(<ApiKeysPanel facilityId="fac-main" />);
+    await screen.findByRole('heading', { name: /^api keys$/i });
+
+    const firstRow = document.querySelector<HTMLElement>('[data-row-id="key-1"]')!;
+    await userEvent.click(within(firstRow).getByRole('button', { name: /^revoke$/i }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: /^revoke key$/i }),
+    );
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(document.querySelector('[data-row-id="key-1"]')).toBeNull();
     });
+    // Never <body>: focus lands on the row that took the revoked key's place.
+    expect(
+      (document.activeElement as HTMLElement | null)?.closest('[data-row-id]')?.getAttribute('data-row-id'),
+    ).toBe('key-2');
+    expect(
+      await screen.findByText('API key Lab Information System was revoked.', {}, { timeout: 2000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('does not revoke when the dialog is cancelled, and returns focus to Revoke', async () => {
+
+    render(<ApiKeysPanel facilityId="fac-main" />);
+    await screen.findByRole('heading', { name: /^api keys$/i });
+
+    const rows = screen.getAllByRole('row');
+    const firstKeyRow = rows.find((row) =>
+      within(row).queryByText('Lab Information System'),
+    )!;
+    const revokeButton = within(firstKeyRow).getByRole('button', { name: /^revoke$/i });
+    await userEvent.click(revokeButton);
+    const dialog = await screen.findByRole('dialog', { name: /revoke api key/i });
+    await userEvent.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(integrationsService.revokeApiKey).not.toHaveBeenCalled();
-  });
-
-  it('closes on Escape, returns focus to the trigger, and does not revoke', async () => {
-    const { trigger } = await openRevokeDialog();
-
-    await userEvent.keyboard('{Escape}');
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-    expect(trigger).toHaveFocus();
-    expect(integrationsService.revokeApiKey).not.toHaveBeenCalled();
-  });
-
-  it('sends only one revoke request when confirm is double-clicked', async () => {
-    const { dialog } = await openRevokeDialog();
-    const confirm = within(dialog).getByRole('button', { name: /^revoke key$/i });
-
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
-
-    await waitFor(() => {
-      expect(integrationsService.revokeApiKey).toHaveBeenCalledTimes(1);
-    });
+    expect(revokeButton).toHaveFocus();
   });
 
   it('does not show a created secret before creation', async () => {
@@ -428,12 +434,10 @@ describe('Integrations — Webhooks', () => {
     await screen.findByRole('heading', { name: /^webhooks$/i });
     await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
 
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveAccessibleDescription(
-      /https:\/\/lab\.example\.test\/webhooks\/docforum/,
-    );
+    const dialog = await screen.findByRole('dialog', { name: /delete webhook endpoint/i });
+    expect(dialog).toHaveAccessibleDescription(/lab\.example\.test/);
+    expect(integrationsService.deleteWebhookEndpoint).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole('button', { name: /^delete endpoint$/i }));
-
     await waitFor(() => {
       expect(integrationsService.deleteWebhookEndpoint).toHaveBeenCalledWith(
         'fac-main',
@@ -443,15 +447,47 @@ describe('Integrations — Webhooks', () => {
     });
   });
 
-  it('does not delete an endpoint when the dialog is cancelled', async () => {
+  it('does not delete when the dialog is cancelled', async () => {
     render(<WebhooksPanel facilityId="fac-main" />);
     await screen.findByRole('heading', { name: /^webhooks$/i });
     await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /delete webhook endpoint/i });
+    await userEvent.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
 
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
-
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(integrationsService.deleteWebhookEndpoint).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /^delete$/i })).toHaveFocus();
+  });
+
+  it('returns focus to the heading, and announces it, when the last endpoint is deleted', async () => {
+    let endpoints = DEFAULT_MOCK_WEBHOOKS;
+    vi.mocked(integrationsService.listWebhookEndpoints).mockImplementation(async () => endpoints);
+    vi.mocked(integrationsService.deleteWebhookEndpoint).mockImplementation(
+      async (_facilityId, endpointId) => {
+        endpoints = endpoints.filter((endpoint) => endpoint.id !== endpointId);
+        return { success: true, endpointId };
+      },
+    );
+
+    render(<WebhooksPanel facilityId="fac-main" />);
+    const heading = await screen.findByRole('heading', { name: /^webhooks$/i });
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: /^delete endpoint$/i }),
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-row-id]')).toBeNull();
+    });
+    // The list is empty: focus goes to its heading rather than <body>.
+    expect(document.activeElement).toBe(heading);
+    expect(
+      await screen.findByText(
+        'Webhook endpoint https://lab.example.test/webhooks/docforum was deleted.',
+        {},
+        { timeout: 2000 },
+      ),
+    ).toBeInTheDocument();
   });
 });
 

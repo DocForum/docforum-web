@@ -89,7 +89,7 @@ API" for the one documented local-dev cookie caveat.
   ([issue #3](https://github.com/DocForum/docforum-web/issues/3)) is still open.
 - [x] Check-in and live queue position on appointment day. Tracked as [issue #32](https://github.com/DocForum/docforum-web/issues/32) (High, 200 pts) — the visit itself comes from `docforum-core`'s real `GET /appointments/mine`; the queue, check-in and its window are an assumed contract against `docforum-core` issue #129, which has not landed.
 - [x] 'Who viewed my records' access log. Tracked as [issue #34](https://github.com/DocForum/docforum-web/issues/34) (High, 200 pts) — assumed contract against `docforum-core` issue #45 (PHI read-access log), which has not landed.
-- [x] Payment history and receipts for patients. Tracked as [issue #37](https://github.com/DocForum/docforum-web/issues/37) (High, 200 pts) — `PaymentIntent` mirrors `docforum-core`'s real Phase 5.5 shape (`amountStroops`/`escrowId` arrive as strings and are formatted with BigInt, never through `Number`); the patient list/detail routes and the `refundDeadlineAt`/`facilityName` display fields are an assumed contract against `docforum-core` issue #90, which has not landed.
+- [x] Payment history and receipts for patients. Tracked as [issue #37](https://github.com/DocForum/docforum-web/issues/37) (High, 200 pts) — `PaymentIntent` mirrors `docforum-core`'s real Phase 5.5 shape (`amountStroops`/`escrowId` arrive as strings and are formatted with BigInt, never through `Number`). Payment detail issue #272 uses real `GET /payments/intents/:id`, seeds from history cache, and maps 404 to "payment not found"; the list contract remains scoped to issue #90.
 - [x] Confirm receipt or report a problem with a fulfilled order. Tracked as [issue #35](https://github.com/DocForum/docforum-web/issues/35) (High, 200 pts) — `src/features/orders/components/OrderConfirmPanel.tsx` with confirm and dispute flows, deadline display, and window-expired state. Shows on fulfilled orders and in the dashboard "Action needed" section. Built against assumed API contracts (see ARCHITECTURE_ESSENTIALS.md "Known assumptions").
 - [x] Structured intake with an in-memory autosaved draft. Tracked as [issue #36](https://github.com/DocForum/docforum-web/issues/36) — `src/features/booking/`, `/patient/appointments/:appointmentId/intake`. Answers autosave per slot for the tab session (never browser storage), survive route changes and failed submits, and are cleared only on success. Leaving with unsent answers is guarded, and a slot that expired mid-typing (`409`/`404`) keeps the draft and explains what happened.
 - [x] Waitlist with time-boxed slot offers. Tracked as [issue #16](https://github.com/DocForum/docforum-web/issues/16) — `src/features/waitlist/`, `/patient/waitlist` plus a "Join waitlist" action on every doctor search result and on the no-match state. Offers are shown in a banner on the patient dashboard and accept or decline against the server's clock (not the device's); the preferred window can be edited with `expectedUpdatedAt` conflict handling, and leaving asks for confirmation. Built against an assumed contract; see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
@@ -102,25 +102,38 @@ API" for the one documented local-dev cookie caveat.
   `/patient/book` with that slot preselected. Times render in the patient's
   zone; the doctor's zone is labelled when the API supplies it. Empty weeks
   name the next available time.
+- [x] Appointment cancellation flow with policy-aware messaging. Tracked as [issue #15](https://github.com/DocForum/docforum-web/issues/15) (High, 200 pts) — `src/features/appointments/cancellation.ts` and `CancelAppointmentDialog` on `/appointments/:id`. The dialog reads the per-appointment policy from the API, so the copy before and after the cutoff is the backend's own: whether the slot is released, whether it counts as a late cancellation, and what happens to the referral behind a referral-origin visit. Cancelling stays available after the cutoff rather than failing with a generic error. Accessible dialog (focus trap, Escape, labelled), reason required, double-submit guard, and the detail plus every appointment list refresh on success; a `409`/`422` is explained without pretending the appointment changed. **Built against assumed shapes:** docforum-core#56 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
+- [x] Lab results viewer with abnormal-value highlighting. Tracked as [issue #24](https://github.com/DocForum/docforum-web/issues/24) (High, 200 pts) — `src/features/results/lab/`, `/patient/results` and `/patient/results/:resultId`. The list shows test, facility, date, status and flag; the detail adds the plain-language summary, a flag explanation, an accessible values table with flagged rows marked, and what happens next for abnormal/critical results (doctor notified, acknowledgement state) instead of alarming raw text. Pending results have no file; held results withhold both values and file until a doctor reviews them, as the backend decides. PDFs and images open in a lazy in-app viewer fetched as an authenticated blob (no third-party viewer, no token in a URL) and can be downloaded. **Built against assumed shapes:** docforum-core#72 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
+- [x] Follow-up requests: see and book follow-ups your doctor asked for. Tracked as [issue #31](https://github.com/DocForum/docforum-web/issues/31): patient dashboard cards show the doctor's note and suggested window; booking offers only that doctor's slots inside the window, uses the follow-up booking endpoint, and explains that the existing intake is carried over. Expired requests remain visible with a path to find another appointment.
 
 ## Phase W3 — Doctor core flow
 **Fully scoped into issues #6–#7, with #45–#49 added as doctor core-flow features.**
 - [x] Today's appointments / intake view. Tracked as [issue #6](https://github.com/DocForum/docforum-web/issues/6) (Medium, 150 pts) — `src/features/doctor-today/`, `TodayAppointments` on the doctor dashboard. Lists today's appointments in start-time order and expands each row to the patient's structured intake (lazy-loaded per appointment, with a "no intake submitted" state and doctor-scoped privacy note). Built against an assumed intake contract; see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W3".
-- [x] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — `src/features/consultation/` now includes `ConsultationOutcomePanel` under the note editor: outcome (`resolved`/`referred`/`follow_up_needed`), conditional referral specialty/reason or follow-up days, and an optional single prescription/lab order issued in the same submission. Uses the note draft as consultation notes, records sequentially with partial-success handling, and mocks all three assumed endpoints.
+- [x] Consultation screen (notes, outcome, referral/order issuance). Tracked as [issue #7](https://github.com/DocForum/docforum-web/issues/7) (High, 200 pts) — `src/features/consultation/` now includes `ConsultationOutcomePanel` under the note editor: outcome (`resolved`/`referred`/`follow_up_needed`), conditional referral targets or follow-up days, and an optional prescription/lab order issued in the same submission. Closing the visit uses `POST /orders/consultations` (#267); multi-target referrals (#266) use `POST /consultations/:consultationId/referrals`, show resolved doctors, and prevent self-referral and atomic duplicate/loop failures, while orders go through the real `/orders/consultations/:id/...` endpoints with partial-success handling.
 - [x] Doctor live queue: start and complete visits, running delay with manual override and undo window. Tracked as [issue #49](https://github.com/DocForum/docforum-web/issues/49) (High, 200 pts) — `src/features/queue/`, `QueuePanel`, optimistic start/complete with a 4s undo toast; appointment reads and visit mutations use docforum-core's `GET /appointments/doctor/today` and `PATCH /appointments/:appointmentId/{start,complete}` contract, with conflicts rolling back and refreshing.
 - [x] Doctor messages inbox across all patient threads. Tracked as [issue #47](https://github.com/DocForum/docforum-web/issues/47) (High, 200 pts) — `src/features/messaging/`, `DoctorInbox`, `UnreadBadge`, unread counts, truncated PHI previews, oldest-unanswered-first sorting, filters, pagination.
 - [x] Doctor command palette and keyboard shortcuts. Tracked as [issue #46](https://github.com/DocForum/docforum-web/issues/46) (High, 200 pts) — `src/components/CommandPalette.tsx`, `src/hooks/useKeyboardShortcuts.ts`, shortcuts help dialog, input suppression.
 - [x] Doctor practice insights: utilisation, no-shows and turnaround. Tracked as [issue #50](https://github.com/DocForum/docforum-web/issues/50) (High, 200 pts) — `src/features/insights/`, `DoctorPracticeInsightsPage`, slot utilisation by week, no-show/late-cancel rates, referral turnaround, message response time; charts with accessible table alternatives; date range selector; small-sample caveats; doctor-only data (no peer comparisons).
+- [x] Mark a visit as no-show or cancel it from the doctor's day. Tracked as [issue #264](https://github.com/DocForum/docforum-web/issues/264) (High, 200 pts) — `src/features/doctor-today/`, `TodayAppointments` on the dashboard plus a "Still expected" section in `QueuePanel`. Both actions confirm in an accessible dialog that names the patient, explain the linked referral's fate (back to pending, or expired after repeated no-shows), call `PATCH /appointments/:id/status`, and refresh today's list, the live queue and insights. No-show is withheld until the appointment's start time; `409` says the visit is no longer scheduled and refreshes the list.
+- [x] "Referrals I've sent" for doctors, including expired and loop-flagged
+  ones. Tracked as [issue #265](https://github.com/DocForum/docforum-web/issues/265):
+  `src/features/referrals/`, `DoctorReferralsPage` at `/doctor/referrals`
+  (Received/Sent tabs). Reads `GET /referrals/created`, shows target
+  doctor/specialty, status, age, expired-after-no-shows and loop-flagged
+  badges, newest needing attention first, and links to the existing referral
+  detail. Assumed target-name expansions are recorded in
+  `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W3".
+- [x] Issue prescriptions and lab orders through the real `/orders/consultations/:id` endpoints. Tracked as [issue #267](https://github.com/DocForum/docforum-web/issues/267) (High, 200 pts) — `src/features/consultation/`, `ConsultationOutcomePanel` on `/doctor/consultation/:appointmentId`. Closing the visit creates the consultation (`POST /orders/consultations`), then a Prescription tab issues one or more medications (dose, frequency, duration) and a Lab order tab issues one or more tests (urgency, optional clinical instructions), each priced from a facility catalog code or a manual XLM amount converted to stroops and sent to a `GET /facilities/eligible` facility of the right type. Issued orders show their payment intent and full detail inline with an append-only notice. The verified-profile gate is shown up front and explained on `403` with a link to `/doctor/verification`.
 
 ## Phase W4 — Facility core flow
 **Fully scoped into issues #8, #51, #52, #53, and #54.**
 - [x] Facility staff accounts: invite, list and remove. Tracked as [issue #51](https://github.com/DocForum/docforum-web/issues/51) (High, 200 pts) — `src/features/facility-team/`, `FacilityTeamPage`, owner staff invite by email with fixed roles, pending invites with resend/revoke, member removal with backend session revocation and last-owner protection, read-only staff view, and fulfillment queue action attribution (PRD §7).
 - [x] Scan-to-verify orders with the device camera. Tracked as [issue #52](https://github.com/DocForum/docforum-web/issues/52) (High, 200 pts) — `src/features/order-verify/`, `OrderVerifyPage` (`/facility/verify`), camera QR scanning via BarcodeDetector API with JS fallback, verified order states (`valid`, `superseded`, `expired`, `fulfilled`, `not_eligible`), instant jump into fulfillment queue, manual token entry fallback, camera permission and stream teardown, and 429 rate limit error handling.
-- [x] Facility payout ledger with per-order escrow status and terms. Tracked as [issue #53](https://github.com/DocForum/docforum-web/issues/53) (High, 200 pts) — `src/features/payments/`, `FacilityPaymentsPage` (`/facility/payments`), cursor-paginated ledger, escrow totals cards (held, released, refunded), BigInt-safe amount formatting for Stellar stroops across assets (XLM vs USDC), plain-language escrow terms with releasers and refund countdowns, approaching deadline warnings (< 48h), and Stellar Expert testnet transaction explorer links.
+- [x] Facility payout ledger with per-order escrow status and terms. Tracked as [issue #53](https://github.com/DocForum/docforum-web/issues/53) (High, 200 pts) — `src/features/payments/`, `FacilityPaymentsPage` (`/facility/payments`), the real `GET /payments/facility/ledger` (`#271`) with server-side status/date filters, cursor pagination and lifecycle totals, BigInt-safe amount formatting for Stellar stroops across assets (XLM vs USDC), refund deadlines with approaching warnings (< 48h), and Stellar Expert testnet transaction explorer links. No patient names or client-side totals.
 - [x] API keys and webhooks management for facility system integrations. Tracked as [issue #55](https://github.com/DocForum/docforum-web/issues/55) (High, 200 pts) — `src/features/integrations/`, `FacilityIntegrationsPage` (`/facility/integrations`). API keys list/prefix/created/last-used, create with a one-time secret (copy + warning, dropped from the mutation cache and DOM on close), revoke; webhook endpoints with URL/events, one-time HMAC signing secret, send-test and recent deliveries with status/redelivery; owner-only. Built against assumed contracts for `docforum-core`#125/#126 — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W4".
 - [x] Fulfillment queue. Tracked as [issue #8](https://github.com/DocForum/docforum-web/issues/8) (Medium, 150 pts) — `src/features/facility-queue/`, `FacilityQueuePanel` on `/facility`. Live queue with all/needs-action/done filters, status transitions (`pending` → `in_progress` → `fulfilled`/`rejected`), terminal-item protection, and staff attribution retained from #51.
-- [x] Mark fulfilled/rejected, attach lab result. Folded into issue #8 above — real multipart file upload for lab orders (PDF/JPEG/PNG, 10 MB max) through `apiFetchForm`; no URL field and no provider-specific storage fields. Assumed upload and `FulfillmentRecord` caveats recorded in `ARCHITECTURE_ESSENTIALS.md`.
-- [x] Partial fulfilment: dispense some items and route the rest elsewhere. Tracked as [issue #54](https://github.com/DocForum/docforum-web/issues/54) (High, 200 pts) — `src/features/fulfillment/` and `src/features/orders/`, item-level quantities on the facility queue with per-item dispense/reject, derived `partially_fulfilled` order badges, patient order list (`/patient/orders`) and detail (`/patient/orders/:orderId`), "Get remaining items elsewhere" routing with eligible-facility picker, dispensed-elsewhere items clearly blocked/disabled, 409 handling when another facility dispensed first, and backend-supplied payment-release rules shown verbatim (no client-side release calculation; pending docforum-core#73).
+- [x] Mark fulfilled/rejected, attach lab result. Folded into issue #8 above — real record/item PATCH calls to `PATCH /pharmacy-orders/fulfillments/...` (`#269`; `fulfilled` is server-derived and never sent), and raw-body upload for lab orders (PDF/JPEG/PNG, 10 MB max) through issue #268's create-once `POST /orders/lab-orders/:id/result` path, with magic-byte validation, upload progress, and code-specific 413/415/409/503 handling; no URL field and no provider-specific storage fields. Assumed queue-listing and upload caveats recorded in `ARCHITECTURE_ESSENTIALS.md`.
+- [x] Partial fulfilment: dispense some items and route the rest elsewhere. Tracked as [issue #54](https://github.com/DocForum/docforum-web/issues/54) (High, 200 pts) — `src/features/fulfillment/` and `src/features/orders/`, item-level quantities on the facility queue with per-item dispense/reject, derived `partially_fulfilled` order badges, patient order list (`/patient/orders`) and detail (`/patient/orders/:orderId`), "Get remaining items elsewhere" routing with eligible-facility picker, dispensed-elsewhere items clearly blocked/disabled, issue #263's `POST /pharmacy-orders/fulfillments` for full and partial routing with 400/409 handling and fresh-order recovery, and backend-supplied payment-release rules shown verbatim (no client-side release calculation; pending docforum-core#73).
 
 ## Phase W5 — Payments UI
 **Built — `docforum-core` Phase 5.5 shipped for real (custodial v1, its docs/adr/0004), so the two-layer blocker (escrow-escrow SDK → docforum-core → here) cleared.** Every call from this repo goes through `docforum-core`'s real API — hard rule 1 (no direct Stellar calls here) held throughout.
@@ -151,18 +164,35 @@ API" for the one documented local-dev cookie caveat.
 - [x] Pay with wallet: prepare → sign → submit, including the expired-transaction case. Tracked as [issue #59](https://github.com/DocForum/docforum-web/issues/59) (High, 200 pts): `src/features/payments/` (`wallet.ts`, `wallet-pay.ts`, `hooks/usePayWithWallet.ts`, `components/PayWithWallet.tsx` + `OrderWalletPayPanel.tsx` on the order card — named apart from #61's `OrderPaymentPanel`, and reusing #61's order→intent lookup so both panels share one assumed contract). Stepper UI with preparing / waiting-for-your-wallet / submitting / confirming / confirmed states; an expired prepared transaction is a normal branch that re-prepares in one tap without leaving the panel, and a wallet refusal returns to the start with no error styling. The browser only relays XDR: docforum-core prepares it, the patient's wallet signs it, docforum-core submits it (hard rule 1 — no SDK imports, no network URLs, boundary check green). Feature-flagged **off by default** (`VITE_PAY_WITH_WALLET`, ADR 0005 "an option, not the default"). **Built against assumed shapes:** docforum-core#80 (prepare) and #81 (submit) haven't landed; the wallet bridge detects an injected extension instead of a wallet kit (issue #58 is parked on core#77/#78). See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W5".
 - [ ] Link transaction hashes/escrows to the Stellar testnet explorer. Tracked as [issue #10](https://github.com/DocForum/docforum-web/issues/10) (Trivial, 100 pts). The helper this needs now exists — `src/features/payments/explorer.ts`, used by the patient receipt built for [issue #37](https://github.com/DocForum/docforum-web/issues/37) under Phase W2 and by the order payment panel (#61) — but the admin console does not link out yet, so this stays open.
 - [x] Filter patient payment history by status and date range with in-memory CSV export. Tracked as [issue #277](https://github.com/DocForum/docforum-web/issues/277): `src/pages/PaymentHistoryPage.tsx`, `src/features/payments/csv.ts`, `src/services/payment-history-service.ts`. Filters (`status`, `from`, `to`) sync to the URL via `useTableUrlState` and reset pagination on change; multi-page in-memory CSV export pages through filtered results with progress reporting, BigInt stroop amount formatting without float conversion, formula injection prevention, and explorer links.
+- [x] Warn facilities when payouts are blocked by a missing wallet or
+  trustline. Tracked as [issue #279](https://github.com/DocForum/docforum-web/issues/279):
+  persistent, actionable banner on the facility dashboard and payouts page,
+  derived from the wallet-link query plus docforum-core's
+  `FACILITY_WALLET_NOT_LINKED` / `PAYEE_TRUSTLINE_MISSING` responses, with
+  trustline guidance for non-technical staff. Clears once the link is
+  confirmed; no Stellar calls from the browser (hard rule 1).
 
 ## Phase W6 — Admin console
 Admin-only screens beyond payments. Everything goes through `docforum-core`'s admin API; admin accounts stay seeded/invited (PRD OQ-2).
 - [x] Audit and access log viewer. Tracked as [issue #71](https://github.com/DocForum/docforum-web/issues/71) (High, 200 pts) — `src/features/admin-audit/`, `AdminAuditPage` at `/admin/audit`. Two tabs: state-change events against `docforum-core`'s real `GET /admin/audit-events` (docforum-core#43), and PHI access logs against an assumed `GET /admin/access-logs` (docforum-core#45, still open — the tab says so on a `404`). Entity type/id, actor, action and date-range filters plus the page cursor all live in the URL; one 50-row page per request; entity links where an admin view exists (payment intents → `/admin?intent=`); client-side CSV export of the page on screen. The action filter is client-side within the loaded page, because the backend rejects an `action` parameter — a `docforum-core` API gap, see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 - [x] Stuck referrals console: reassign or cancel with a reason. Tracked as [issue #72](https://github.com/DocForum/docforum-web/issues/72) (High, 200 pts): `src/features/admin-referrals/`, `AdminReferralsPage` at `/admin/referrals`. Pending referrals past a 1/2/3/7-day threshold are listed oldest first with age, target specialty and stuck reason (no doctor, doctor inactive, loop flagged); loop-flagged referrals show their chain with the returning hop marked. Reassign offers only verified doctors in the target specialty (re-checked client-side, excluding the current and referring doctor) with 7-day availability; cancel tells the admin docforum-core notifies the patient. Both require a reason and send `expectedUpdatedAt`, so concurrent actions come back as conflicts and the queue refreshes. **Built against assumed shapes:** docforum-core#68 (admin referral operations) and #65 (loop chain) haven't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
-- [x] System health page: readiness, background jobs and recent failures. Tracked as [issue #73](https://github.com/DocForum/docforum-web/issues/73) (High, 200 pts): `src/features/admin-system/`, `AdminSystemPage` at `/admin/system`. Overview tiles answer "is it broken?" at a glance (API readiness, background jobs, outbox dead letters), backed by a readiness-check list (required vs optional, so a Stellar RPC outage shows as degraded, not down), one card per job with last success, last failure, next run and an overdue flag for stalled jobs, and a recent-failures list with error messages. "Run now" asks for confirmation (Cancel focused) and shows docforum-core's result in the dialog: finished with item count, failed with the error, still running, already running elsewhere (`409`), or unconfirmed after a network failure. Everything refreshes every 30 s while the tab is visible and catches up when it's shown again; each source fails on its own, a failed poll never leaves a stale "Ready" on screen, and slow readiness answers are flagged as likely cold starts. **Built against assumed shapes:** docforum-core#104 (readiness), #100 (job runner) and #94 (outbox) haven't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
+- [x] System health page: readiness, background jobs and recent failures. Tracked as [issue #73](https://github.com/DocForum/docforum-web/issues/73) (High, 200 pts): `src/features/admin-system/`, `AdminSystemPage` at `/admin/system`. Overview tiles answer "is it broken?" at a glance (API readiness, background jobs, outbox dead letters), backed by a readiness-check list (required vs optional, so a Stellar RPC outage shows as degraded, not down), one card per job with last success, last failure, next run and an overdue flag for stalled jobs, and a recent-failures list with error messages. "Run now" asks for confirmation (Cancel focused) and shows docforum-core's result in the dialog: finished with item count, failed with the error, still running, already running elsewhere (`409`), or unconfirmed after a network failure. Everything refreshes every 30 s while the tab is visible and catches up when it's shown again; each source fails on its own, a failed poll never leaves a stale "Ready" on screen, and slow readiness answers are flagged as likely cold starts. Readiness and jobs remain assumed; the outbox tile uses `GET /admin/outbox/dead-letters` and lists recent dead letters. See `ARCHITECTURE_ESSENTIALS.md` "Phase W6 — System health".
 - [x] Feature flags console. Tracked as [issue #74](https://github.com/DocForum/docforum-web/issues/74) (High, 200 pts): `src/features/admin-flags/`, `AdminFlagsPage` at `/admin/flags`. Lists every flag with its state (on, rolling out, off), type, rollout percentage, role targeting and allowlist size, a plain-language "who it reaches" line, and who changed it last and when, taken from the audit trail. Search (key and description), state and type filters live in the URL. The switch and the edit dialog both go through a review step that shows each changed field before and after, the audience before and after, and the last change; turning a flag off is called out. Percentages must be whole numbers from 0 to 100, and allowlist entries must be user ids. Saves are optimistic. A failed save rolls back only that flag, never another save in flight, and the list refetches. `expectedUpdatedAt` turns concurrent edits into conflicts, and the dialog notices when the flag changes under it. **Built against assumed shapes:** docforum-core#132 hasn't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 - [x] Closure calendar management. Tracked as new issue (High, 200 pts): `src/features/admin-closures/`, admin closures page at `/admin/closures`. Admins can create and edit closures with a preview of affected booked appointments before saving. After saving, an affected-appointments report shows links to contact patients inside the closure period. All-day closures respect the correct time zone. Deleting a closure explains that removed slots are not recreated.
 - [x] Fulfilment disputes queue for admins. Tracked as [issue #76](https://github.com/DocForum/docforum-web/issues/76) (High, 200 pts): `src/features/admin-disputes/`, `AdminDisputesPage` at `/admin/disputes` and `AdminDisputeDetailPage` at `/admin/disputes/:id`. Open disputes are listed oldest first with order, facility, patient, age and the escrow amount blocked, across cursor pages. The detail shows the patient's report, the facility's proof and reference, a display-only timeline, and the held payment. Attachments are opened only through a signed URL minted per click (never cached or stored); a missing proof is called out before the admin can rule for the facility. Resolving asks for notes (10–500 chars) and an explicit final-confirmation checkbox, shows the exact payment consequence first (release/refund the held amount, or "no money moves" if escrow already settled), sends `expectedUpdatedAt`, and handles `409`/`404` conflicts by closing and reloading, `422` by staying open with the server's message, and network failures as unconfirmed so a final action is never blindly retried. Admin nav and dashboard link to it. **Built against assumed shapes:** docforum-core#76 hasn't landed. See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 - [x] Catalog management. Tracked as [issue #67](https://github.com/DocForum/docforum-web/issues/67) (High, 200 pts): `/admin/catalogs` provides searchable, paginated specialties, symptoms, medications and lab-test tables with create, edit and soft-retire actions, plus a symptom-to-specialty weight editor. Retirement checks and displays usage before confirmation and explains that existing records retain snapshots; slug edits warn that links may break. **Built against provisional API shapes** pending docforum-core #23, #60, #69 and #70; see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Catalog management". Added per-tab catalog query coverage.
 - [x] Per-specialty verification review: specialty claims queue. Tracked as [issue #65](https://github.com/DocForum/docforum-web/issues/65) (High, 200 pts): `src/features/admin-verification/`, `AdminVerificationPage` at `/admin/verification` (admin-guarded — distinct from the doctor verification queue above, which decides a doctor account; this one decides each claimed doctor↔specialty pair, PRD §8.1.5). Pending doctor↔specialty claims are grouped by doctor, each shown with its supporting credential (file name, type, size, upload date, viewed via blob URL so no bearer token lands in a link href) or flagged loudly when no document was attached. Approve/reject per claim in one dialog — a rejection **requires** a 10–500 character reason written for the doctor ("what to fix or resubmit"), an approval takes an optional audit note; no bulk actions, per the issue. Specialty and claim-age filters are server-side and synced to the URL. `expectedUpdatedAt` turns concurrent reviews into conflicts (`409`/`404` close and refresh, `400`/`422` keep the dialog open), retries after network failure are safe, and decisions link to the claim's audit trail. Admin nav ("Specialty claims") and the dashboard link to it; dev-mock fixtures/handlers cover the queue, filters, decisions and credential bytes. **Built against assumed shapes:** docforum-core#51 hasn't landed (plus docforum-core#23's specialty catalog for the dropdown). See `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
 - [x] Doctor verification review queue. Tracked as [issue #64](https://github.com/DocForum/docforum-web/issues/64) (High, 200 pts): `src/features/admin-verification/`, `AdminVerificationsPage` at `/admin/verifications` and `AdminVerificationDetailPage` at `/admin/verifications/:doctorProfileId` (both admin-guarded). Pending doctors are listed oldest first with submitted date, age badge (3-day/week escalation) and document count; the detail shows the profile, credential documents opened only through a per-click short-lived signed URL, and the decision history projected from docforum-core's **real** audit trail (`doctor.verification_status_changed` events, core#43). Approve/reject both require a 10–500 character reason, send `expectedUpdatedAt`, and handle `409`/`404` (another admin decided) by closing and reloading the record, `400`/`422` by staying open with the server's message; a decided doctor drops out of the pending queue on refresh. The decision goes through the **real** `PATCH /doctors/:id/verification`. Admin nav and dashboard link to it; dev-mock fixtures/handlers cover the queue, detail, documents and decisions. **Built against assumed shapes:** the queue/detail/signed-url endpoints (credential storage is core#52) — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions — Phase W6".
+- [x] Clear a user's login lockout after repeated failed sign-ins. Tracked as
+  [issue #275](https://github.com/DocForum/docforum-web/issues/275):
+  `src/features/admin-system/components/LoginLockoutsPanel.tsx` on
+  `/admin/system`, email validation and confirmation before sending the real
+  `POST /auth/login-attempts/clear`; reports only the number of throttle
+  buckets cleared, never whether an account exists.
+- [x] Admin operations overview dashboard. Tracked as [issue #68](https://github.com/DocForum/docforum-web/issues/68) (High, 200 pts) — `/admin` is now a "what needs attention" board (`src/features/admin-overview/`): one card per queue (verifications, stuck referrals, unrouted orders, stuck payments, failed jobs, disputes) with the count, the age of the oldest item and a drill-down link. A section the backend reports as unavailable renders muted with its reason, never an error page; the whole endpoint missing (`404`/`501`) keeps the individual console links and says so. Refreshes every minute while the tab is visible and catches up on focus. The payments console moved unchanged to `/admin/payments/console`, and audit/dispute links that used `/admin?intent=` were updated. **Built against assumed shape:** docforum-core#123 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
+- [x] Success metrics dashboard (PRD §10). Tracked as [issue #69](https://github.com/DocForum/docforum-web/issues/69): `/admin/metrics` shows the two currently available aggregate metrics with accessible chart and table views, definitions, local-time date boundaries and small-cell suppression. Metrics without approved instrumentation are explicitly marked not yet available.
+- [x] Admin user management: search, deactivate, reactivate and invite admins. Tracked as [issue #70](https://github.com/DocForum/docforum-web/issues/70) (High, 200 pts) — `src/features/admin-users/`, `AdminUsersPage` at `/admin/users`. Search by email or name, role and status filters and pagination live in the URL; invalid link values are dropped with a notice. The detail dialog shows role, status, live session count and timestamps, and deactivation requires a 10–500 character reason (written for the audit trail) with an explicit second confirmation. The **last-active-admin** conflict is its own explanation ("invite or reactivate another admin first"), not a generic error. Pending admin invites can be sent, listed and revoked, with an inline confirm before revoking. Lists show only the details needed to identify an account. **Built against assumed shapes:** docforum-core#39 hasn't landed — see `ARCHITECTURE_ESSENTIALS.md` "Known assumptions".
+
 ## Phase W7 — Platform quality: reliability, accessibility, performance, testing
 - [x] Search across a user's loaded appointments, orders, results and message threads (issue #126): `src/features/search-records/` builds an in-memory index from only the active acting-for profile's care-thread cache or the signed-in doctor's appointment/message caches. The header search groups keyboard-navigable results and links to the corresponding record views; logout clears React Query data and profile changes discard the active query/index. `createRecordIndex` is the replacement seam for a future authenticated backend search service; no new API contract is assumed.
 - [x] **PR malware scan** — `.github/workflows/pr-malware-scan.yml` + `.github/scripts/pr-malware-scan.cjs`, on every PR push. Flags editor/devcontainer autorun tasks, npm install hooks, typosquatted packages and Actions, non-registry dependency sources, payloads disguised as fonts/images, base64/whitespace obfuscation, exfiltration endpoints, reverse shells and miners. HIGH findings fail the `Malware scan` check, label the PR `security-review` and @mention the author; one comment per PR, updated in place. Reads the PR as data only (never checks out or runs it). Added 2026-10-20 after a VS Code autorun payload (escrow #163) and a typosquatted action (escrow #176). Manual backfill (Actions → PR malware scan → Run workflow, `prs: all`) scans PRs opened before the scanner and records a `Malware scan` commit status, which satisfies the required check.
@@ -172,8 +202,8 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [ ] Doctor, facility and admin journeys with mocked API. Tracked as [issue #94](https://github.com/DocForum/docforum-web/issues/94). Queue start, consultation sign-off, fulfillment attribution, role guards and exact payment mutation counts are covered. Doctor order issuance UI has not been built yet.
 - [x] Mock API for local development (MSW). Tracked as [issue #95](https://github.com/DocForum/docforum-web/issues/95) (High, 200 pts) — `npm run dev:mock` serves every endpoint the app uses through the normal service layer via `src/mocks/`: seeded obviously-fake fixtures, a dev-panel role switcher (patient/doctor/facility/admin), scenario toggles (empty states, forced errors), a latency slider, and a fixture reset. 26 handler tests drive the real `src/services/` layer against MSW; CI fails if mock code ever enters a production bundle (`npm run check:dist`). Documented in `CONTRIBUTING.md`.
 - [ ] Generate MSW handlers and fixtures from the backend OpenAPI spec. Tracked as [issue #96](https://github.com/DocForum/docforum-web/issues/96) (High, 200 pts) — **blocked**: depends on [docforum-core#112](https://github.com/DocForum/docforum-core/issues/112) (OpenAPI 3.1 spec generated from the Zod schemas), which is still open — there is no authoritative `openapi.json` to generate from yet. Do not fabricate one; see that issue.
-- [ ] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts).
-- [x] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts) — every page is a lazy route chunk, GSAP is skipped for reduced-motion users, `npm run check:bundle` enforces `performance-budget.json`, Lighthouse CI (`.lighthouserc.json`) gates LCP/CLS/TBT, `npm run analyze` writes the bundle treemap.
+- [x] Storybook component library with interaction and accessibility tests. Tracked as [issue #97](https://github.com/DocForum/docforum-web/issues/97) (High, 200 pts) — `.storybook/` configures the React/Vite preview and accessibility addon; shared controls have CSF stories and interaction play functions, and `npm run build-storybook` builds the catalogue.
+- [x] Performance budget: route-level code splitting, lazy GSAP, and Lighthouse CI. Tracked as [issue #99](https://github.com/DocForum/docforum-web/issues/99) (High, 200 pts) — every page is a lazy route chunk, including nested patient pages which load only when matched; GSAP is skipped for reduced-motion users, `npm run check:bundle` enforces `performance-budget.json`, Lighthouse CI (`.lighthouserc.json`) gates LCP/CLS/TBT, `npm run analyze` writes the bundle treemap.
 - [x] Public information pages with prerendering for search engines. Tracked as [issue #120](https://github.com/DocForum/docforum-web/issues/120) (High, 200 pts) — six new logged-out pages (`/how-it-works`, `/for-doctors`, `/for-facilities`, `/privacy`, `/accessibility`, `/faq`) plus the landing page, all registered once in `src/pages/public-routes.ts` (path, title, description, heading) and rendered through a shared `PublicPage` shell. Every public route is prerendered to static HTML at build time by `src/prerender/` (SSR entry rendering the real `<App/>` with an empty auth store) and `scripts/prerender.mjs` (file I/O + validation), with no new dependencies; `npm run build`/`build:pages` run it, so CI exercises the whole pipeline. Output per route: `<title>`/description/canonical/Open Graph/twitter tags, real crawlable cross-links between public pages (`/faq/` etc.), app-only routes rewritten to hash links that boot the SPA, plus `sitemap.xml` and `robots.txt` (public routes only). Prerendering must never execute authenticated code paths — the validator fails the build if `Log out` or the loading shell leaks into output. The app shell renders no `PageHeader`, auth actions or second `<h1>` on these routes. The landing page's GSAP animations are now progressive (try/catch + style cleanup, so content stays visible if GSAP fails). Privacy/Accessibility statements are PRD-sourced only and marked "Draft — pending legal review"; facility accounts are described as admin-invited (PRD OQ-2) and payouts as Stellar testnet. Path-based URLs restore into the `HashRouter` on load (`restorePublicPathIntoHash`).
 - [x] React Query key factory and cache invalidation conventions. Tracked as [issue #122](https://github.com/DocForum/docforum-web/issues/122) (High, 200 pts) — `src/query-keys.ts` (typed factory per resource, profile-scoped keys where the API scopes by profile, one invalidation root each) and `src/invalidations.ts` (the mutation → keys map, refreshed through `invalidateFor`); every query and mutation hook migrated off hand-written key arrays. Payment actions now refresh the affected intent and the facility ledgers, a confirmed visit action refreshes the dashboard appointment list and queue (the stand-in for booking until #2/#3 land and consume `appointmentKeys.list(profileId)`), and health writes stay scoped to the acting profile's one section. New tests: `query-keys.test.ts`, `invalidations.test.ts`, plus a hook-level invalidation case in `useQueue.test.tsx`. Conventions documented in `ARCHITECTURE_ESSENTIALS.md` "Query keys & cache invalidation".
 - [x] API client: request cancellation, de-duplication, timeouts and retry policy. Tracked as [issue #123](https://github.com/DocForum/docforum-web/issues/123) (High, 200 pts) — `src/services/api-client.ts` now owns the whole HTTP lifecycle: every request has a timeout (`DEFAULT_TIMEOUT_MS` 60 s, deliberately longer than a cold start so the `useSlowRequestHint` explanation isn't turned into a fake failure; slow endpoints — data-export create/download, admin job run — pass `SLOW_REQUEST_TIMEOUT_MS` 120 s) failing with a typed `ApiTimeoutError` that is distinct from `ApiError` and from an abort; identical concurrent GETs share one network request and one parsed result (keyed by URL, bearer token and timeout), with **independent cancellation per caller** — one caller walking away never fails the others, and the shared request is aborted only when its last caller does; mutations are never de-duplicated. Every service function used by a query takes an optional `AbortSignal` and every `queryFn` passes React Query's signal through, so navigating away actually stops the request; catch-all fallbacks rethrow aborts/timeouts instead of caching placeholder data (`useCareThreads`, `useFacilityLedger`). The shared `QueryClient`'s retry policy retries transient failures once and never retries a cancellation (`isAbortError`).
@@ -206,6 +236,16 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
 - [x] Translate facility insights, integrations, settings, order verification and fulfillment, tracked as [issue #251](https://github.com/DocForum/docforum-web/issues/251): all UI copy via `t()`, ICU counts/statuses, full `es` coverage and a Spanish-render test per feature.
 - [x] Translate doctor availability, referrals, results, today's appointments, patient chart and verification, tracked as [issue #252](https://github.com/DocForum/docforum-web/issues/252): all UI copy via `t()`, ICU counts/statuses, Intl weekday/month names, full `es` coverage and a Spanish-render test per feature.
 - [x] Translate notifications, search, care timeline/hub, health profile, medications and the app shell, tracked as [issue #253](https://github.com/DocForum/docforum-web/issues/253): all UI copy via `t()`, ICU counts/statuses, full `es` coverage and a Spanish-render test per feature.
+- [x] Shared file upload control with progress, cancellation and mobile camera capture. Tracked as [issue #115](https://github.com/DocForum/docforum-web/issues/115) (High, 200 pts) — `src/components/Upload.tsx`, `src/components/upload-utils.ts`, and an XHR `apiUpload` in `src/services/api-client.ts`. Signature-based image/PDF validation, a 10 MB default, client-side image downscaling, drag-and-drop plus keyboard picker, per-file progress/cancel/retry, and file contents kept in component-local state.
+
+### Footer link reliability (issue #221)
+
+Footer links previously used raw `<a href="/privacy">` which navigated outside the SPA under GitHub Pages `/docforum-web/` base path, causing a 404 and dropping the in-memory session. Both the Privacy & analytics and Admin closures "Back" links have been changed to `<Link to="...">` from `react-router-dom`, using the shared `styles.navLink` class. This ensures all in-app footer navigation stays within the router, preserves the active session, and avoids full page reloads. Labels are translated via the `useT` hook where applicable.
+
+- [x] Mobile navigation drawer is a modal dialog, closed drawer is inert. Tracked as [issue #239](https://github.com/DocForum/docforum-web/issues/239): the closed drawer carries `inert` (no tabbable descendants, no `aria-hidden-focus` violation), the open drawer is a `role="dialog"` labelled "Mobile navigation menu" around the labelled nav, uses the shared `useFocusTrap` (focus re-computed per keypress), closes on Escape, returns focus to the toggle and marks the page behind it `inert`.
+- [x] Spanish localization for patient orders and payments ([issue #250](https://github.com/DocForum/docforum-web/issues/250)) and the admin audit, disputes and feature-flag consoles ([issue #248](https://github.com/DocForum/docforum-web/issues/248)).
+- [x] Axe coverage for the admin consoles and keyboard/focus-restoration tests for resolution, flag-change, referral-reassignment and verification-decision dialogs. Tracked as [issue #247](https://github.com/DocForum/docforum-web/issues/247); `e2e/axe-allowlist.json` remains empty.
+- [x] Align live-queue appointment reads and visit mutations with docforum-core (`GET /appointments/doctor/today`, `PATCH /appointments/:appointmentId/start`, `PATCH /appointments/:appointmentId/complete`), preserving the four-second undo window and conflict rollback. Tracked as [issue #236](https://github.com/DocForum/docforum-web/issues/236). Queue-position and running-delay endpoints remain documented assumptions.
 
 ## Changelog
 
@@ -1283,3 +1323,309 @@ Admin-only screens beyond payments. Everything goes through `docforum-core`'s ad
   the shared MSW server and `renderWithProviders`, with `jest-axe` checks. The
   calendar feed input's label is now actually associated with its input, which
   the new accessibility assertion caught.
+- 2026-11-22 — ### Live queue endpoints match docforum-core (#236)
+  Starting and completing a visit now use
+  `PATCH /appointments/:appointmentId/start` and
+  `PATCH /appointments/:appointmentId/complete` (previously `POST`), and today's
+  list uses `GET /appointments/doctor/today` with no client-computed date — the
+  server scopes the day from the doctor's practice time zone. The OpenAPI
+  fixture, generated schema, typed client, MSW handlers and dev-mock queue were
+  updated together. A `409` (not scheduled / not checked in / not in progress)
+  rolls the optimistic row back and refetches, one deferred PATCH per
+  appointment is enforced (a repeated tap or a second action while the first is
+  in flight cannot send a conflicting request), and undo after the 4-second
+  window is a no-op rather than a reversing PATCH. Contract tests pin the
+  methods and paths.
+- 2026-11-22 — ### Admin accessibility and keyboard tests (#247)
+  Six admin consoles — audit trail, disputes, feature flags, stuck referrals,
+  system health and doctor verification — now have `*.a11y.test.tsx` suites that
+  run axe over the rendered page and check the labelling patterns they rely on
+  (tabs, switches, filter groups, review links). The four destructive dialogs
+  (`ResolutionDialog`, `FlagChangeDialog`, `ReassignDialog`, `DecisionDialog`)
+  have keyboard suites covering focus entering the dialog, Tab staying inside
+  the modal, Escape closing it and focus returning to the control that opened
+  it. The suites found and fixed a real defect: the resolution and verification
+  dialogs captured the opener after `autoFocus` had already moved focus, so
+  closing them dropped focus onto `<body>`. `e2e/axe-allowlist.json` stays empty
+  and the new admin routes are in `e2e/routes.ts`.
+- 2026-11-22 — ### Admin audit, disputes and feature flags in Spanish (#248)
+  The audit trail, fulfilment disputes and feature-flag consoles
+  (`src/features/admin-audit/`, `src/features/admin-disputes/`,
+  `src/features/admin-flags/`) now take every string through `useT`, including
+  filter labels, statuses, validation and resolution copy, placeholders and
+  accessibility labels. Pure helpers (`filters`, `queue`, `resolution`, `format`,
+  `flags`, `draft`, `errors`) accept an optional translator, defaulting to the
+  English ICU fallback so existing tests and non-React callers keep working.
+  Audit actions, flag keys, entity ids and user-supplied reasons stay as the API
+  sent them. CSV export headers remain stable English (documented in
+  `ARCHITECTURE_ESSENTIALS.md`), and Spanish-rendering tests cover all three
+  consoles.
+- 2026-11-22 — Patient orders and payments, plus the admin audit, disputes and feature-flag consoles, now render in Spanish. Admin Axe and dialog keyboard/focus coverage is extended, and the live queue uses docforum-core's confirmed appointment endpoints with four-second undo and conflict rollback. Closes issues #250, #248, #247 and #236.
+- 2026-11-22 — ### Patient orders and payments in Spanish (#250)
+  Patient orders and payment screens (`src/features/orders/`, `src/features/payments/`)
+  now read all copy through `useT`: headings, empty and error states, buttons,
+  placeholders, accessibility labels, fulfilment statuses and every payment
+  status. Counts and statuses use ICU plurals/selects in the catalogue, and the
+  Spanish catalogue (`src/i18n/messages/es.json`) carries the translations.
+  Clinical data — medication and test names, doses, quantities and instructions
+  — plus facility names are never translated, and raw API status ids never reach
+  the page. Tests render each screen with the Spanish catalogue and assert both
+  the translated chrome and the untouched clinical fields
+  (`*.es.test.tsx`). The API contract is unchanged.
+- 2026-11-22 — Dependents: the add form now sends only `fullName` and `dateOfBirth` to
+    docforum-core's strict `POST /patients/me/dependents`, validates the age of
+    majority (18 by default) before submitting, and shows
+    `DEPENDENT_NOT_A_MINOR` on the date-of-birth field. Acting-for health
+    screens now explain `GUARDIANSHIP_INACTIVE` as the end of the guardianship
+    handover instead of surfacing a raw 403.
+- 2026-11-22 — Orders: the patient order list and detail now show item-level fulfilment
+    progress from docforum-core's
+    `GET /pharmacy-orders/orders/:orderId/fulfillment-status?orderType=`
+    endpoint — a status badge plus "2 of 3 items dispensed" (never colour-only).
+    A partially filled order links to the existing remaining-items facility
+    picker so the rest can be collected elsewhere. Progress refreshes on focus,
+    every 30 seconds, and after routing remaining items; superseded order
+    versions never show progress, only the current version does.
+- 2026-11-22 — Doctors can now issue **multi-item prescriptions** and **lab orders** from
+    the consultation screen, against docforum-core's real endpoints
+    (`POST /orders/consultations/:consultationId/prescriptions` and
+    `.../lab-orders`). Closing the visit creates the consultation
+    (`POST /orders/consultations`), then the outcome panel offers a
+    Prescription tab (one or more medications, each with dose, frequency and
+    duration) and a Lab order tab (one or more tests, urgency and optional
+    clinical instructions).
+  - Every order carries exactly one price: a facility catalog item code priced
+    from that facility's published list, or a manual amount typed in XLM and
+    converted to integer stroops. The dispensing pharmacy / fulfilling lab is
+    chosen from `GET /facilities/eligible`, so an order can't be sent to a
+    facility that can't fulfil it.
+  - Issued orders are shown with their payment intent, full details and an
+    append-only notice, and a profile that isn't verified sees the gate up
+    front plus a link to the new `/doctor/verification` page. A `403` from the
+    API is explained in the form (with the same link), never as a generic error.
+- 2026-11-22 — Fix: the saved theme is applied on boot again, and the `visual-dark` and
+  `visual-hc` Playwright projects are back
+  ([issue #296](https://github.com/DocForum/docforum-web/issues/296)). Both were
+  part of #359 but were lost in merges from `main` before it landed, so a saved
+  dark or high-contrast choice was forgotten on reload and every screenshot in
+  the `Visual baselines` workflow failed on `<html data-theme>`.
+- 2026-11-22 — Backup and merge-artefact files (`*.bak`, `*.orig`, `*.rej`) are now caught only by CI's
+  `npm run check:no-backups` step, not by the malware scanner
+  ([issue #298](https://github.com/DocForum/docforum-web/issues/298)). A leftover
+  `.orig` from resolving a conflict is a fixable mistake, not malware: the
+  scanner rule blocked the required `Malware scan` check, stopped CI from being
+  auto-approved, and skipped scanning the file's contents. The CI step still
+  fails the `Frontend` job with instructions to delete the file.
+- 2026-11-22 — Phase W7: removed five committed editor backups (`src/App.tsx.bak` among them)
+  and made CI reject new ones ([issue #298](https://github.com/DocForum/docforum-web/issues/298)).
+  `*.bak`, `*.orig` and `*.rej` are now ignored, `npm run check:no-backups` runs
+  in the Frontend job, and the PR malware scan flags such files by name.
+- 2026-11-22 — Phase W7: ESLint now enforces three architecture rules that were review-only
+  ([issue #299](https://github.com/DocForum/docforum-web/issues/299)). Raw
+  `fetch` is limited to `src/services/api-client.ts`,
+  `event-stream-service.ts`, `src/utils/analytics.ts` and the package client;
+  browser storage is limited to the time-zone preference; `MOCK_*` fixtures are
+  limited to `src/mocks/` and tests. Existing violations carry file-level
+  disables pointing at the issue, and `check:dist` also looks for fixture
+  markers in the production bundle.
+- 2026-11-22 — Phase W7: route paths now live in one typed table,
+  `src/routes/paths.ts` ([issue #300](https://github.com/DocForum/docforum-web/issues/300)).
+  Route definitions, navigation, notification fallbacks, the patient hub and the
+  doctor dashboard build targets through `paths.*`/`patientSections`, so a renamed
+  route fails `npm run typecheck`. The unrouted `/doctor/consultation/new` action
+  now goes to the queue, the duplicate `/patient/orders` routes are gone, and new
+  hand-written `to="/…"`/`navigate('/…')` literals show up as lint warnings.
+- 2026-11-22 — Phase W7: `npm run check:contract-drift` lists every `apiFetch`-family call in
+  `src/services` and the package client against docforum-core's endpoint docs,
+  marked documented, assumed or drifted ([issue #301](https://github.com/DocForum/docforum-web/issues/301)).
+  It reads a local core checkout or fetches the pinned ref, runs warn-only in CI,
+  and reports 11 assumed / 120 drifted calls today so the drift is visible.
+- 2026-11-23 — Phase W7: footer privacy analytics link reliability
+  ([issue #221](https://github.com/DocForum/docforum-web/issues/221)).
+  Replaced raw `<a href="/privacy">` anchor in footer with `<Link to="/privacy/analytics">` using shared `styles.navLink` class, matching the Accessibility link behavior. Also replaced root-absolute `<a href="/admin/closures">` in AdminClosuresPage.tsx with `<Link to="/admin/closures">`. Footer links now render within the router, preserving session and avoiding full navigation / GitHub Pages 404. Translated labels retained.
+- 2026-11-23 — Doctor's day: scheduled visits can now be marked **no-show** or
+    **cancelled** from today's appointments list and from the queue's
+    "Still expected" rows, after a confirmation dialog that names the patient.
+    Both actions call docforum-core's
+    `PATCH /appointments/:appointmentId/status`, refresh today's list, the live
+    queue and practice insights so no-show metrics and referral cascades show
+    up immediately. No-show isn't offered before the appointment's start time,
+    and a linked referral's consequence (back to pending, or expired after
+    repeated no-shows) is stated before confirming. A `409` — someone else
+    already changed the appointment — closes the dialog, says the visit is no
+    longer scheduled, and refreshes the list.
+- 2026-11-23 — Phase W3: "Referrals I've sent" for doctors, including expired and
+  loop-flagged referrals ([issue #265](https://github.com/DocForum/docforum-web/issues/265)).
+  The doctor referrals page now has Received/Sent tabs; Sent reads
+  `GET /referrals/created`, shows target doctor/specialty, status, age and
+  badges for expired-after-no-shows (referring doctor notified) and
+  loop-flagged referrals, newest needing attention first, and links each row
+  to the existing role-scoped detail. The endpoint is unpaginated, so the
+  whole array is sorted in one pass; snapshot notes are never rendered in the
+  list. The referrals page was also mounted at `/doctor/referrals` and added
+  to doctor navigation (it existed but had no route). Mock mode seeds one row
+  per status through `GET /referrals/created`. Assumed target-name expansions
+  are recorded in `ARCHITECTURE_ESSENTIALS.md` as a docs fragment.
+- 2026-11-23 — Fulfillment writes now go through docforum-core's real pharmacy-order routes
+  ([issue #269](https://github.com/DocForum/docforum-web/issues/269)). Record
+  status is limited to `in_progress`/`rejected`; dispensing (and marking an item
+  unfulfilled) uses the item PATCH, which is one-shot. The queue refreshes on a
+  `409` and explains that the item may have been dispensed elsewhere instead of
+  offering a retry. `fulfilled` is derived server-side and the old client-side
+  fulfil action was removed.
+- 2026-11-23 — The facility payout ledger now reads the real
+  `GET /payments/facility/ledger`
+  ([issue #271](https://github.com/DocForum/docforum-web/issues/271)). Status and
+  date filters, cursor pagination and lifecycle totals are server-side; totals
+  are no longer summed in the browser. BigInt stroop amounts stay strings, the
+  ledger no longer shows patient names the API doesn't return, an
+  `INVALID_CURSOR` resets to the newest page, and the fake fallback data was
+  removed so an API failure is visible instead of masked.
+- 2026-11-23 — Admins can clear a user's login lockout from `/admin/system`
+  ([issue #275](https://github.com/DocForum/docforum-web/issues/275)). The panel
+  validates the email, asks for confirmation, and calls the real
+  `POST /auth/login-attempts/clear`; the response reports only how many throttle
+  buckets were cleared, so it cannot reveal whether an account exists. No
+  free-text reason is collected because docforum-core's audit trail records the
+  acting admin and does not accept one.
+- 2026-11-23 — Warn facilities when payouts are blocked by a missing wallet or trustline
+  ([issue #279](https://github.com/DocForum/docforum-web/issues/279)). The
+  facility dashboard and payouts page now show a persistent banner while
+  docforum-core is refusing this facility's payments, derived from the existing
+  wallet-link query plus the `FACILITY_WALLET_NOT_LINKED` and
+  `PAYEE_TRUSTLINE_MISSING` codes returned by facility payment calls. Copy is
+  written for non-technical staff — what stops working, who to ask, and what
+  "add a USDC trustline" means; the banner clears once the link is confirmed or
+  a payment call succeeds. `useFacilityLedger` now records those errors instead
+  of hiding them, and mock mode gained `no payout wallet` / `missing trustline`
+  scenarios that answer the payout-ledger read with the blocking codes so both
+  states are reproducible with `npm run dev:mock`. No Stellar calls were added
+  to this repo (hard rule 1).
+- 2026-11-23 — Phase W5: validate the Stellar address checksum before linking a payout wallet
+  ([issue #280](https://github.com/DocForum/docforum-web/issues/280)).
+  `WalletLinkForm` now rejects payout addresses whose StrKey CRC16-XModem
+  checksum fails (offline base32 + CRC16-XModem in
+  `src/features/payments/strkey.ts`, no Stellar SDK) with "This address has a
+  typo", before anything is sent to docforum-core. Muxed (`M...`) addresses
+  are rejected, lowercase input is rejected with a hint instead of being
+  uppercased, and the server remains the authority.
+- 2026-11-23 — Phase W7: unit-test the shared UI primitives, and stop the Dialog backdrop dismissing a form mid-edit ([issue #290](https://github.com/DocForum/docforum-web/issues/290)).
+  `src/components/Dialog.tsx` closes only on a primary-button press that starts on the backdrop itself: selecting text and releasing outside the panel, and right-clicking the backdrop for the context menu, no longer throw away a half-filled form. Adds `Dialog.test.tsx`, `TextField.test.tsx`, `FormError.test.tsx`, `LiveRegion.test.tsx` and `RequireFlag.test.tsx` (43 tests) over open/close, focus return, `aria-*` wiring, error association and flag gating — the primitives every role's screens build on, which had no tests of their own.
+- 2026-11-23 — Phase W7: unit-test the shared hooks that gate and hydrate the UI ([issue #291](https://github.com/DocForum/docforum-web/issues/291)).
+  Adds `useServerEvents`, `useRealtimeCacheSync`, `useOnlineStatus`, `useFocusTrap`, `useErrorText` and `useZodForm` test files (51 tests): one tab-wide SSE connection per event type with subscriptions removed on unmount, the event-to-React-Query invalidation map, queries pausing while offline and resuming on reconnect, the focus trap's containment and restore behaviour, server errors turned into translated copy that never leaks the raw message, and schema-driven form validation. These hooks sit between the API and every screen but were only exercised through the screens themselves.
+  It also takes `useUnsavedChangesGuard` from 2 tests to 18, pinning the unload warning and every click the guard has to leave alone: modifier and non-left clicks, a click another handler already cancelled, a click that is not on a link, `target="_blank"`, download links and a link to the page you are already on. Those branches were untested when the hook landed on main, and they were what held `src/hooks/**` below the floor #292 sets for it.
+- 2026-11-23 — Phase W7: put the shared components and hooks under the coverage gate ([issue #292](https://github.com/DocForum/docforum-web/issues/292)).
+  `npm run test:coverage` now measures `src/components/**` and `src/hooks/**` alongside `src/features/**` and `src/services/**`, so a primitive used by every screen can no longer lose all its tests without CI noticing. Each new folder also gets its own threshold floor in `vite.config.ts` (`src/components/**` 87/82/89/88, `src/hooks/**` 95/89/95/97) so one folder cannot slide to zero while the aggregate still clears it. Nothing was lowered to get there: the existing aggregate floors (78/70/77/79) are untouched, the two folders measure above their own floors (88.2/82.4/89.7/88.9 and 95.6/91.0/95.7/97.9), and the total measures 83.6/75.4/82.3/85.5. The hooks floor did go red once while this branch was being rebased onto a moving main — `useUnsavedChangesGuard.ts` arrived from #329 with eight untested statements — and it was cleared by testing that hook (#291), not by moving the number. Floors and what they gate are recorded in `ARCHITECTURE_ESSENTIALS.md`.
+- 2026-11-23 — Phase W4: a browser journey takes a facility owner through setup, and staff see none of it ([issue #293](https://github.com/DocForum/docforum-web/issues/293)).
+  `e2e/journeys.spec.ts` now walks the owner-only screens against the mock API — add a price version, create an API key, add a webhook endpoint, invite a staff member — and asserts the exact four `POST`s the screens send, that an API key's `df_live_…` secret and a webhook's `whsec_…` signing secret leave the DOM once their dialog is closed (the list only ever carries the prefix), and axe at every step. A second case rewrites the membership response to `staff` and checks the owner controls — invite, create key, add endpoint — are not on screen at all. These dialogs, one-time secrets and unsaved-change guards were previously only exercised unit-deep. Walking the screen is also what found the bug it fixes: the API key and webhook-delivery tables labelled their action column with `<th aria-label="Actions" />`, and axe's `empty-table-header` rule accepts only visible text, so both headers now read `Actions`.
+- 2026-11-24 — Added a shared `Upload` control for intake, lab results, facility
+  fulfillment and messaging. It supports drag-and-drop, a keyboard picker,
+  mobile camera capture, signature-based image/PDF validation, image
+  downscaling, per-file progress, cancel and retry, with file contents kept in
+  component-local state. `apiUpload` adds an XHR transport to the service layer
+  for upload progress; endpoint shapes remain documented assumptions.
+  Closes [#115](https://github.com/DocForum/docforum-web/issues/115).
+- 2026-11-24 — Phase W2: appointment cancellation with policy-aware messaging
+  ([issue #15](https://github.com/DocForum/docforum-web/issues/15)). The
+  cancellation dialog reads the per-appointment policy from `docforum-core`
+  instead of hard-coding a cutoff, explains slot release, late-cancellation
+  recording and the referral consequence before confirming, stays available
+  after the cutoff, and refreshes the appointment detail and lists on success.
+  The policy and cancel writes are assumed shapes pending docforum-core#56.
+- 2026-11-24 — Phase W2: patient lab results list and detail viewer
+  ([issue #24](https://github.com/DocForum/docforum-web/issues/24)). New
+  `/patient/results` and `/patient/results/:resultId` screens show the
+  backend's flag (normal, abnormal, critical), explain what a flagged result
+  means and what happens next, and withhold held results until a doctor
+  reviews them. PDFs and images open in a lazy in-app viewer fetched as an
+  authenticated blob, with download. Assumed shapes pending docforum-core#72.
+- 2026-11-24 — Phase W2-W5: coordinate real pharmacy routing, multi-target consultation
+  referrals, raw lab-result uploads, and payment-intent receipt details
+  (issues #263, #266, #268, and #272). The coordinated change adds 400/409,
+  422, upload, and 404 recovery copy while preserving the real API boundaries
+  and no-direct-Stellar rule.
+- 2026-11-24 — Phase W2: patients can review open and expired follow-up requests and book an
+  open request with the same doctor inside its suggested window
+  ([issue #31](https://github.com/DocForum/docforum-web/issues/31)). The existing
+  intake is carried forward; no new intake step is shown.
+- 2026-11-24 — Phase W6: admin operations overview replaces the payments console at `/admin`
+  ([issue #68](https://github.com/DocForum/docforum-web/issues/68)). The landing
+  page now shows one card per queue with count, oldest-item age and a drill-down
+  link, mutes sections the backend reports as unavailable, refreshes every minute
+  while visible, and keeps every console reachable when the aggregated endpoint
+  is not served. The payments console moved unchanged to `/admin/payments/console`.
+  Assumed shape pending docforum-core#123.
+- 2026-11-24 — Phase W6: added the admin-only `/admin/metrics` dashboard for no-show rate
+  and booking lead time, with date filtering, metric definitions, accessible
+  table alternatives, suppression indicators and explicit unavailable states
+  ([issue #69](https://github.com/DocForum/docforum-web/issues/69)).
+- 2026-11-24 — Phase W6: admin user management at `/admin/users`
+  ([issue #70](https://github.com/DocForum/docforum-web/issues/70)). Search by
+  email or name, role/status filters and pagination are URL-synced; the detail
+  dialog shows role, status and live session count, deactivation requires a
+  10–500 character reason with a second confirmation, accounts can be
+  reactivated, and admin invites can be sent, listed and revoked. The
+  last-active-admin guard is surfaced as its own explanation. Assumed shapes
+  pending docforum-core#39.
+- 2026-11-24 — Phase W7: Storybook's CSF catalogue builds cleanly, and patient hub subpages
+  load their own chunks on demand to keep the home route's Lighthouse blocking
+  time within budget ([issues #97](https://github.com/DocForum/docforum-web/issues/97)
+  and [#99](https://github.com/DocForum/docforum-web/issues/99)). The default
+  appointment-time test now follows the runtime's local time zone instead of
+  assuming UTC.
+- 2026-11-24 — Phase W7: added the Vite-powered Storybook catalogue, accessibility addon,
+  interactive stories for shared controls, contributor guidance and a Pages
+  deployment at `/storybook/` without changing the app's deploy path
+  ([issue #97](https://github.com/DocForum/docforum-web/issues/97)).
+- 2026-11-25 — Session expiry notice on login page (issue #284).
+  When a previously authenticated user's session expires and a refresh attempt
+  fails with HTTP 401 or 403, the login page now displays a notice explaining
+  that the session has expired. The notice:
+  - Uses the existing translation system (English: "Your session has expired —
+    you have been signed out. Anything you hadn't saved is gone; sign in again to
+    continue.").
+  - Is accessible (role="status").
+  - Appears alongside the existing idle-timeout notice without confusing the two
+    reasons.
+  - Is not displayed on a fresh visit where no refresh cookie/session exists.
+  The sign-out reason 'session-expired' is set by the shared sign-out helper when
+  a refresh fails, and cleared on successful login via setSession.
+  Closes #284.
+- 2026-11-25 — Router-aware unsaved-changes guard (issue #285).
+  Replaced the two existing unsaved-changes guard implementations with one
+  reusable hook (`useUnsavedChangesGuard`) that protects dirty forms against:
+  - In-app navigation blocking (links, programmatic navigate(), back/forward,
+    command palette) via React Router's useBlocker.
+  - Browser tab close/refresh protection via beforeunload.
+  - Shared accessible Dialog component (replaces window.confirm).
+  - Shared unsaved-changes store updates (idle-timeout warning continues to work).
+  The shared hook was migrated to three editors:
+  1. Facility settings — FacilitySettingsView now uses the shared guard.
+  2. Consultation notes — ConsultationNote now uses the shared guard to protect
+     draft content.
+  3. Health profile — HealthSection now uses the shared guard instead of the
+     old useUnsavedChangesWarning hook.
+  Key design decisions:
+  - The app uses createBrowserRouter (data router), so useBlocker is supported
+    without a router migration.
+  - The guard explicitly bypasses forced authentication transitions: expired
+    session sign-out, idle-timeout sign-out, and auth redirects to /login cannot
+    become trapped behind the dialog.
+  - Multiple dirty forms each maintain independent state via the shared store.
+  - On successful save, the form is marked clean and navigation blocking is
+    removed.
+  Closes #285.
+- 2026-11-26 — Phase W7: the mobile navigation drawer is now a real modal dialog when open
+  and completely inert when closed, so its links are no longer reachable by Tab
+  while it is hidden (aria-hidden-focus, aria-modal on a nav). Closes issue
+  #239.
+  `src/components/Layout.tsx` marks the closed drawer `inert` and every part of
+  the page behind the open drawer `inert`; the open drawer is a labelled
+  `role="dialog"` ("Mobile navigation menu") that contains the labelled nav,
+  uses the shared `useFocusTrap` so focus cannot escape and links added later
+  are still covered, closes on Escape, and returns focus to the menu toggle.
+  `src/components/Layout.test.tsx` asserts the closed drawer's `inert` attribute
+  (happy-dom does not implement inert) and that Tab wraps inside the open dialog
+  with Escape restoring focus to the toggle; `e2e/accessibility.spec.ts`
+  confirms the tab order and axe (`aria-hidden-focus`) at phone width in both
+  states.

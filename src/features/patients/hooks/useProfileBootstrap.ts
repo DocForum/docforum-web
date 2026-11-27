@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as patientsService from '../../../services/patients-service';
 import { useAuthStore } from '../../../store/auth-store';
 import { useProfileStore } from '../../../store/profile-store';
+import { profileKeys } from '../../../query-keys';
 
 /** Loads the signed-in patient's own profile and seeds the acting-for store.
  * Without this `selectedProfileId` stays null and every profile-scoped read
@@ -13,7 +14,7 @@ export function useProfileBootstrap() {
   const setProfiles = useProfileStore((state) => state.setProfiles);
 
   const query = useQuery({
-    queryKey: ['patient-profiles', 'me'],
+    queryKey: profileKeys.me(),
     queryFn: () => patientsService.getMyPatientProfile(accessToken!),
     enabled: Boolean(accessToken),
   });

@@ -33,7 +33,7 @@ export function CatalogConsole() {
   const retire = useMutation({ mutationFn: () => service.retireCatalogItem(catalog, retiring!.id, token), onSuccess: () => { setRetiring(null); setNotice('Item retired. Existing records keep their saved snapshots.'); void refresh(); } });
   const startEdit = (item: AdminCatalogItem) => { setEditing(item); setDraft({ name: item.name, slug: item.slug, description: item.description ?? '' }); };
 
-  return <main className={styles.page}>
+  return <div className={styles.page}>
     <header><p className={styles.eyebrow}>ADMIN</p><h1>Catalog management</h1><p>Curate the controlled vocabularies used for search, routing and fulfilment.</p></header>
     <div className={styles.tabs} role="tablist" aria-label="Catalogs">{TABS.map((item) => <button key={item.key} role="tab" aria-selected={tab === item.key} className={tab === item.key ? styles.activeTab : ''} onClick={() => { setTab(item.key); setPage(1); setEditing(null); setNotice(''); }}>{item.label}</button>)}</div>
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
@@ -44,7 +44,7 @@ export function CatalogConsole() {
       <nav className={styles.pager} aria-label="Catalog pages"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {Math.max(1, Math.ceil((query.data?.total ?? 0) / PAGE_SIZE))}</span><button disabled={page * PAGE_SIZE >= (query.data?.total ?? 0)} onClick={() => setPage((value) => value + 1)}>Next</button></nav>
     </>}
     {retiring && <div className={styles.backdrop}><section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="retire-title"><h2 id="retire-title">Retire {retiring.name}?</h2>{usage.isLoading ? <p>Checking usage…</p> : usage.error ? <p role="alert">Usage count could not be verified. <button onClick={() => void usage.refetch()}>Try again</button> before retiring.</p> : <p>This item is used by {usage.data?.usageCount ?? retiring.usageCount} {((usage.data?.usageCount ?? retiring.usageCount) === 1) ? 'record' : 'records'}. Retiring prevents new use; existing records keep their saved snapshots.</p>}{retire.error && <p role="alert" className={styles.warning}>Retirement failed. Refresh the catalog and try again.</p>}<div className={styles.formActions}><Button disabled={usage.isLoading || Boolean(usage.error)} loading={retire.isPending} onClick={() => retire.mutate()}>Confirm retirement</Button><Button variant="secondary" onClick={() => setRetiring(null)}>Cancel</Button></div></section></div>}
-  </main>;
+  </div>;
 }
 
 function MappingEditor({ symptom, token, onSaved }: { symptom: AdminCatalogItem; token: string; onSaved: () => void }) {

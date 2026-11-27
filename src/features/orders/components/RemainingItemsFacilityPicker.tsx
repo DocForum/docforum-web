@@ -66,7 +66,20 @@ export function RemainingItemsFacilityPicker({
         );
         return;
       }
-      setRouteError(t('orders.picker.routeError', 'Could not route the remaining items. Try again shortly.'));
+      if (err instanceof ApiError && err.status === 400) {
+        setRouteError(
+          t(
+            'orders.picker.routeInvalid',
+            'One or more items are not in this order anymore. Refresh the order and review the remaining items.',
+          ),
+        );
+        return;
+      }
+      setRouteError(
+        err instanceof Error
+          ? err.message
+          : t('orders.picker.routeError', 'Could not route the remaining items. Try again shortly.'),
+      );
     }
   };
 

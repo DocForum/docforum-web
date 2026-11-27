@@ -10,7 +10,8 @@ import {
   MOCK_CSRF_TOKEN,
   PATIENT_USER,
 } from '../fixtures';
-import { notFound, paramId, respond } from '../helpers';
+import { badRequest, notFound, paramId, respond } from '../helpers';
+import { db } from '../db';
 import { useMockStore } from '../mock-store';
 import type { AccountInvite, Role, User } from '../../types/models';
 
@@ -20,15 +21,31 @@ const PERSONAS: Record<Role, User> = {
   facility: FACILITY_USER,
   admin: ADMIN_USER,
 };
+let adminEnrollmentComplete = false;
+let twoFactorEnabled = true;
+const TWO_FACTOR_USER: User = { ...PATIENT_USER, email: 'two-factor@docforum.org' };
+const ENROLLMENT_CODES = ['AAAAA-11111', 'BBBBB-22222', 'CCCCC-33333', 'DDDDD-44444', 'EEEEE-55555', 'FFFFF-66666', 'GGGGG-77777', 'HHHHH-88888', 'IIIII-99999', 'JJJJJ-00000'];
+
+export function resetAuthMockState() {
+  adminEnrollmentComplete = false;
+  twoFactorEnabled = true;
+}
 
 /** The seeded persona for a role, used by the dev panel role switcher. */
 export function personaForRole(role: Role): User {
-  return PERSONAS[role];
+  return withVerification(PERSONAS[role]);
+}
+
+/** Apply any mock email-verification override (issue #388). */
+function withVerification(user: User): User {
+  const overrides = db.emailVerification.verifiedAt;
+  return overrides.has(user.email) ? { ...user, emailVerifiedAt: overrides.get(user.email) ?? null } : user;
 }
 
 /** Find a seeded persona by email (so logging in as one "just works"). */
 export function personaByEmail(email: string): User | undefined {
-  return Object.values(PERSONAS).find((user) => user.email === email);
+  const persona = Object.values(PERSONAS).find((user) => user.email === email);
+  return persona ? withVerification(persona) : undefined;
 }
 
 function sessionFor(user: User) {
@@ -109,10 +126,13 @@ export const authHandlers = [
         return HttpResponse.json({ message: 'Mock API: email and password are required' }, { status: 400 });
       }
       const role: Role = body.role === 'doctor' ? 'doctor' : 'patient';
+      // A brand-new account starts unverified (issue #388).
+      db.emailVerification.verifiedAt.set(body.email, null);
       return sessionFor({
         ...PERSONAS[role],
         id: `usr-mock-${role}-new`,
         email: body.email,
+        emailVerifiedAt: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -129,17 +149,149 @@ export const authHandlers = [
       if (!body.email || !body.password) {
         return HttpResponse.json({ message: 'Mock API: email and password are required' }, { status: 400 });
       }
+      if (body.email === 'two-factor@docforum.org' && twoFactorEnabled) {
+        return { mfaRequired: true, mfaToken: 'mock-mfa-token' };
+      }
+      if (body.email === 'admin-enrollment@docforum.org' && !adminEnrollmentComplete) {
+        return { enrollmentRequired: true, enrollmentToken: 'mock-enrollment-token' };
+      }
+      if (body.email === 'admin-enrollment@docforum.org') {
+        return { mfaRequired: true, mfaToken: 'mock-admin-mfa-token' };
+      }
       // Any seeded persona email logs in as that persona directly.
       const known = personaByEmail(body.email);
       if (known) return sessionFor(known);
       // Anything else logs in as the dev panel's active role, keeping the
       // submitted email so the UI feels real.
       const role = useMockStore.getState().activeRole;
-      return sessionFor({ ...PERSONAS[role], email: body.email });
+      return sessionFor(withVerification({ ...PERSONAS[role], email: body.email }));
+    }),
+  ),
+
+  http.post(
+    '*/auth/2fa/verify',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { mfaToken?: string; code?: string };
+      if (body.mfaToken === 'expired-mfa-token') {
+        return HttpResponse.json({ code: 'INVALID_MFA_TOKEN', message: 'Verification expired' }, { status: 401 });
+      }
+      const code = body.code?.replace(/\s+/g, '').toUpperCase();
+      if (code !== '123456' && !ENROLLMENT_CODES.includes(code ?? '')) {
+        return HttpResponse.json({ code: 'INVALID_TOTP_CODE', message: 'Invalid authenticator code' }, { status: 401 });
+      }
+      const user = body.mfaToken === 'mock-admin-mfa-token' ? ADMIN_USER : TWO_FACTOR_USER;
+      return sessionFor(user);
+    }),
+  ),
+
+  http.post(
+    '*/auth/2fa/setup',
+    respond('json', () => ({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUri: 'otpauth://totp/DocForum:mock@example.test?secret=JBSWY3DPEHPK3PXP&issuer=DocForum',
+    })),
+  ),
+
+  http.post(
+    '*/auth/2fa/enable',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { code?: string };
+      if (body.code !== '123456') {
+        return HttpResponse.json({ code: 'INVALID_TOTP_CODE', message: 'Invalid authenticator code' }, { status: 400 });
+      }
+      adminEnrollmentComplete = true;
+      twoFactorEnabled = true;
+      return { recoveryCodes: ENROLLMENT_CODES };
+    }),
+  ),
+
+  http.get(
+    '*/auth/2fa/status',
+    respond('json', () => ({ enabled: twoFactorEnabled, unusedRecoveryCodes: twoFactorEnabled ? 10 : 0 })),
+  ),
+
+  http.post(
+    '*/auth/2fa/disable',
+    respond('void', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { code?: string };
+      if (body.code !== '123456') {
+        return HttpResponse.json({ code: 'INVALID_TOTP_CODE', message: 'Invalid authenticator code' }, { status: 401 });
+      }
+      twoFactorEnabled = false;
+      return null;
+    }),
+  ),
+
+  http.post(
+    '*/auth/password-reset/request',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { email?: string };
+      if (body.email === 'rate-limited@docforum.org') {
+        return HttpResponse.json(
+          { message: 'Too many requests' },
+          { status: 429, headers: { 'Retry-After': '60' } },
+        );
+      }
+      return HttpResponse.json({ message: 'If that account exists, an email was sent.' }, { status: 202 });
+    }),
+  ),
+
+  http.post(
+    '*/auth/password-reset/confirm',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { token?: string; newPassword?: string };
+      if (!body.token || body.token === 'invalid-token') {
+        return HttpResponse.json({ message: 'Invalid or expired link' }, { status: 400 });
+      }
+      return { message: 'Password updated' };
     }),
   ),
 
   http.post('*/auth/logout', respond('void', () => null)),
+
+  // Email verification (issue #388). Tokens are single-use; `invalid*` and
+  // `expired*` tokens exercise the two failure states. The mock has no real
+  // identity, so a valid token verifies the dev panel's active persona.
+  http.post(
+    '*/auth/verify-email',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { token?: string };
+      const { usedTokens, verifiedAt } = db.emailVerification;
+      if (!body.token || body.token.startsWith('invalid') || usedTokens.has(body.token)) {
+        return HttpResponse.json(
+          { code: 'INVALID_VERIFICATION_TOKEN', message: 'Verification link is invalid' },
+          { status: 400 },
+        );
+      }
+      if (body.token.startsWith('expired')) {
+        return HttpResponse.json(
+          { code: 'VERIFICATION_TOKEN_EXPIRED', message: 'Verification link has expired' },
+          { status: 400 },
+        );
+      }
+      usedTokens.add(body.token);
+      const emailVerifiedAt = new Date().toISOString();
+      verifiedAt.set(PERSONAS[useMockStore.getState().activeRole].email, emailVerifiedAt);
+      return { emailVerifiedAt };
+    }),
+  ),
+
+  http.post(
+    '*/auth/verify-email/resend',
+    respond('json', ({ request }) => {
+      if (!request.headers.get('authorization')) {
+        return HttpResponse.json({ code: 'UNAUTHORIZED', message: 'Sign in required' }, { status: 401 });
+      }
+      const persona = personaForRole(useMockStore.getState().activeRole);
+      if (persona.emailVerifiedAt !== null) {
+        return HttpResponse.json(
+          { code: 'EMAIL_ALREADY_VERIFIED', message: 'Email is already verified' },
+          { status: 409 },
+        );
+      }
+      return { resendAfterSeconds: 60 };
+    }),
+  ),
 
   http.post(
     '*/auth/refresh',
@@ -207,6 +359,31 @@ export const authHandlers = [
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+    }),
+  ),
+
+  // Admin login-lockout clear (issue #275, docforum-core Phase 8 #35).
+  // `cleared` is the number of throttle buckets removed; an unknown email
+  // is 0, never a 404, so the response can't reveal whether an account
+  // exists.
+  http.post(
+    '*/auth/login-attempts/clear',
+    respond('json', async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as {
+        email?: string;
+        ip?: string;
+      };
+      const email = body.email?.trim().toLowerCase() || null;
+      const ip = body.ip?.trim() || null;
+      if (!email && !ip) return badRequest('email or ip is required');
+
+      const matched = db.loginAttempts.filter(
+        (attempt) =>
+          (email !== null && attempt.email.toLowerCase() === email) ||
+          (ip !== null && attempt.ip === ip),
+      );
+      db.loginAttempts = db.loginAttempts.filter((attempt) => !matched.includes(attempt));
+      return { cleared: matched.length };
     }),
   ),
 

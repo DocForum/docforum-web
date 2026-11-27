@@ -116,10 +116,13 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
 
   if (query.isPending) {
     return (
-      <p className={styles.status}>
-        <Spinner />
-        {t('adminDisputes.detail.loading', 'Loading dispute…')}
-      </p>
+      <div className={styles.detail}>
+        <h1 className={styles.detailTitle}>{t('adminDisputes.detail.title', 'Dispute')}</h1>
+        <p className={styles.status}>
+          <Spinner />
+          {t('adminDisputes.detail.loading', 'Loading dispute…')}
+        </p>
+      </div>
     );
   }
 
@@ -129,6 +132,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
         <Link to="/admin/disputes" className={styles.backLink}>
           {t('adminDisputes.detail.back', '← All disputes')}
         </Link>
+        <h1 className={styles.detailTitle}>{t('adminDisputes.detail.title', 'Dispute')}</h1>
         <div className={styles.errorBox} role="alert">
           <p>{describeDisputeDetailError(query.error, t)}</p>
           <Button variant="secondary" onClick={() => void query.refetch()}>
@@ -146,6 +150,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
         <Link to="/admin/disputes" className={styles.backLink}>
           {t('adminDisputes.detail.back', '← All disputes')}
         </Link>
+        <h1 className={styles.detailTitle}>{t('adminDisputes.detail.title', 'Dispute')}</h1>
         <p className={styles.empty}>{t('adminDisputes.detail.notFound', 'This dispute no longer exists.')}</p>
       </div>
     );
@@ -236,7 +241,7 @@ export function DisputeDetail({ disputeId }: { disputeId: string }) {
             <div>
               <dt>{t('adminDisputes.paymentIntent', 'Payment intent')}</dt>
               <dd>
-                <Link className={styles.mono} to={`/admin?intent=${encodeURIComponent(dispute.payment.intentId)}`}>
+                <Link className={styles.mono} to={`/admin/payments/console?intent=${encodeURIComponent(dispute.payment.intentId)}`}>
                   {dispute.payment.intentId}
                 </Link>
               </dd>

@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import * as availabilityService from '../../../services/availability-service';
 import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
 import { plainTranslate, type Translate } from '../../../i18n/useT';
-import { isoDatesBetween, slotsInTimeRange, sortByStartTime } from '../calendar';
+import { generationDates, isoDatesBetween, slotsInTimeRange, sortByStartTime } from '../calendar';
 import { doctorSlotsKey } from './useAvailabilitySlots';
 import type { IsoDate } from '../calendar';
 import type { AvailabilitySlot, BlockRangeResult, SlotGenerationResult } from '../../../types/models';
@@ -219,6 +220,8 @@ export interface GenerateSlotsVariables {
   endHour: number;
   slotLengthMinutes: number;
   timeZone: string;
+  weekdays?: readonly number[];
+  today?: IsoDate;
 }
 
 export interface GenerateSlotsOutcome {
@@ -226,6 +229,7 @@ export interface GenerateSlotsOutcome {
   skipped: number;
   requestedDays: number;
   failedDays: { date: IsoDate; message: string }[];
+  cancelled: boolean;
 }
 
 /** The real generate endpoint is single-day (core has no recurrence engine), so
@@ -234,12 +238,24 @@ export function useGenerateSlots(doctorProfileId: string | null, t: Translate = 
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = useQueryClient();
 
-  return useMutation<GenerateSlotsOutcome, Error, GenerateSlotsVariables>({
+  const controller = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  useEffect(() => () => controller.current?.abort(), []);
+
+  const mutation = useMutation<GenerateSlotsOutcome, Error, GenerateSlotsVariables>({
     mutationFn: async (input) => {
-      const dates = isoDatesBetween(input.fromDate, input.toDate);
+      const dates = input.today
+        ? generationDates(input.fromDate, input.toDate, input.weekdays ?? [0, 1, 2, 3, 4, 5, 6], input.today)
+        : isoDatesBetween(input.fromDate, input.toDate).filter((date) =>
+            (input.weekdays ?? [0, 1, 2, 3, 4, 5, 6]).includes(new Date(`${date}T12:00:00Z`).getUTCDay()),
+          );
+      const active = new AbortController();
+      controller.current = active;
+      setProgress({ completed: 0, total: dates.length });
       const failures: { date: IsoDate; message: string }[] = [];
       const aggregate: Omit<SlotGenerationResult, 'slots'> = { created: 0, skipped: 0 };
       for (const date of dates) {
+        if (active.signal.aborted) break;
         try {
           const result = await availabilityService.generateSlots(
             doctorProfileId!,
@@ -250,21 +266,26 @@ export function useGenerateSlots(doctorProfileId: string | null, t: Translate = 
               slotLengthMinutes: input.slotLengthMinutes,
             },
             accessToken!,
+            active.signal,
           );
           aggregate.created += result.created;
           aggregate.skipped += result.skipped;
           mergeGeneratedSlots(queryClient, doctorProfileId!, result.slots);
         } catch (error) {
+          if (active.signal.aborted) break;
           failures.push({
             date,
             message: error instanceof Error ? error.message : t('availability.generate.requestFailed', 'The request failed.'),
           });
         }
+        setProgress((current) => ({ ...current, completed: current.completed + 1 }));
       }
-      return { ...aggregate, requestedDays: dates.length, failedDays: failures };
+      controller.current = null;
+      return { ...aggregate, requestedDays: dates.length, failedDays: failures, cancelled: active.signal.aborted };
     },
     onSettled: () => {
       if (doctorProfileId) queryClient.invalidateQueries({ queryKey: doctorSlotsKey(doctorProfileId) });
     },
   });
+  return { ...mutation, progress, cancel: () => controller.current?.abort() };
 }

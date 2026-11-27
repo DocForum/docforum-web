@@ -106,6 +106,7 @@ export function ErrorFallback({
         : format('errors.boundary.appTitle', 'DocForum could not load');
 
   const message = format(descriptor.messageId, descriptor.defaultMessage);
+  const Heading = level === 'section' ? 'h2' : 'h1';
   const retryLabel = format('errors.actions.tryAgain', 'Try again');
 
   return (
@@ -115,7 +116,9 @@ export function ErrorFallback({
       aria-live="assertive"
       data-testid="error-boundary-fallback"
     >
-      <h2 className={styles.title}>{title ?? defaultTitle}</h2>
+      {/* A route- or app-level fallback replaces the page, so it is the page's
+          only <h1> (issue #238); a section fallback sits under the page's. */}
+      <Heading className={styles.title}>{title ?? defaultTitle}</Heading>
       <p className={styles.message}>{message}</p>
       {reference && (
         <p className={styles.reference}>

@@ -1,3 +1,4 @@
+import { useOptionalT } from '../../../i18n/useOptionalT';
 import { loopReturnIndexes } from '../queue';
 import type { ReferralChainLink } from '../../../types/models';
 import { useTimeZone } from '../../../i18n/TimeZoneProvider';
@@ -14,12 +15,17 @@ function shortDate(value: string, timeZone: string): string {
 /** The hops a loop-flagged referral took, oldest first, with the hop that
  * closed the loop called out. */
 export function ReferralChain({ chain, currentId }: { chain: ReferralChainLink[]; currentId: string }) {
+  const t = useOptionalT().t;
   const { timeZone } = useTimeZone();
   const returns = loopReturnIndexes(chain);
 
   return (
     <div className={styles.chain}>
-      <p className={styles.chainTitle}>Referral chain ({chain.length} hops)</p>
+      <p className={styles.chainTitle}>
+        {t('adminReferrals.chain.title', 'Referral chain ({count, plural, one {# hop} other {# hops}})', {
+          count: chain.length,
+        })}
+      </p>
       <ol className={styles.chainList}>
         {chain.map((link, index) => {
           const isCurrent = link.referralId === currentId;
@@ -34,8 +40,14 @@ export function ReferralChain({ chain, currentId }: { chain: ReferralChainLink[]
                 {link.targetDoctor && ` (${link.targetDoctor.fullName})`}
               </span>
               <span className={styles.chainMeta}>
-                {shortDate(link.createdAt, timeZone)} · {isCurrent ? 'this referral' : link.status}
-                {returns.has(index) && <strong className={styles.chainReturnLabel}> · returns to an earlier hop</strong>}
+                {shortDate(link.createdAt, timeZone)} ·{' '}
+                {isCurrent ? t('adminReferrals.chain.thisReferral', 'this referral') : link.status}
+                {returns.has(index) && (
+                  <strong className={styles.chainReturnLabel}>
+                    {' '}
+                    · {t('adminReferrals.chain.returns', 'returns to an earlier hop')}
+                  </strong>
+                )}
               </span>
             </li>
           );

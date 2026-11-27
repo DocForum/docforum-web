@@ -41,9 +41,54 @@ for (const { path, role } of routes) {
   });
 }
 
+// Issue #238: one meaningful <h1> per route. The app shell used to add a
+// second, route-derived <h1> ("Doctor · Apt Demo 2") on top of the page's own.
+for (const { path, role, liveStream } of routes) {
+  test(`${path} has exactly one h1, without a raw id`, async ({ page, visit }) => {
+    await visit(path, role);
+    const h1 = page.locator('h1');
+    await expect(h1.first()).toBeVisible();
+    // Wait for late data so a second <h1> would have rendered. Screens that
+    // keep the event stream open never reach `networkidle`; for those, wait
+    // for the page's own requests to settle instead.
+    if (liveStream) {
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(1_500);
+    } else {
+      await page.waitForLoadState('networkidle');
+    }
+    await expect(h1, `Expected exactly one <h1> on ${path}`).toHaveCount(1);
+
+    const text = (await h1.textContent())?.trim() ?? '';
+    expect(text, `<h1> on ${path} is empty`).not.toBe('');
+    // Dynamic route segments (fixture ids such as "apt-demo-2") must not leak
+    // into the heading, raw or title-cased.
+    for (const segment of path.split('/').filter((s) => /\d/.test(s))) {
+      const titled = segment.replace(/[-_]/g, ' ').toLowerCase();
+      expect(text.toLowerCase(), `<h1> on ${path} contains the id "${segment}"`).not.toContain(segment.toLowerCase());
+      expect(text.toLowerCase(), `<h1> on ${path} contains the id "${segment}"`).not.toContain(titled);
+    }
+    const id = await h1.getAttribute('id');
+    if (id !== null) expect(id, `<h1> id on ${path} is not a valid token`).toMatch(/^\S+$/);
+  });
+}
+
 // Issue #246: icon-only header controls meet the WCAG 2.5.8 minimum target
 // size (24×24 CSS px) and have an accessible name, at desktop and phone widths.
 const MIN_TARGET = 24;
+
+test('forced colors keeps status badges and insight bars outlined', async ({ page, visit }) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await visit('/patient', 'patient');
+  const badge = page.locator('button[aria-label^="Notifications,"] [class*="badge"]').first();
+  await expect(badge).toBeVisible();
+  expect(await badge.evaluate((element) => getComputedStyle(element).borderStyle)).not.toBe('none');
+
+  await visit('/doctor/insights', 'doctor');
+  const bar = page.locator('svg rect').first();
+  await expect(bar).toBeVisible();
+  expect(await bar.evaluate((element) => getComputedStyle(element).stroke)).not.toBe('none');
+});
 
 async function expectTarget(locator: import('@playwright/test').Locator, label: string) {
   await expect(locator, `${label} is visible`).toBeVisible();
@@ -72,6 +117,45 @@ test('header icon controls meet the 24px target size (mobile)', async ({ page, v
   await expect(close.locator('svg')).toHaveAttribute('aria-hidden', 'true');
 });
 
+// Issue #239: at phone width the closed drawer is inert (its links can't be
+// focused at all) and the open drawer is a modal dialog that Escape closes,
+// returning focus to the toggle. Axe agrees at both states.
+test('the mobile nav drawer is inert when closed and a modal dialog when open', async ({ page, visit }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit('/patient', 'patient');
+
+  const drawer = page.locator('#mobile-drawer');
+  await expect(drawer).toHaveAttribute('inert', '');
+
+  // A closed drawer link cannot take focus, so it is not in the tab order.
+  const reachedClosedDrawer = await page.evaluate(() => {
+    const link = document.querySelector<HTMLElement>('#mobile-drawer a[href]');
+    link?.focus();
+    return document.activeElement === link;
+  });
+  expect(reachedClosedDrawer).toBe(false);
+
+  const closedScan = await new AxeBuilder({ page }).analyze();
+  expect(closedScan.violations.map((violation) => violation.id)).not.toContain('aria-hidden-focus');
+
+  const toggle = page.getByRole('button', { name: 'Toggle navigation menu' });
+  await toggle.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Mobile navigation menu' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  expect(
+    await page.evaluate(() => Boolean(document.getElementById('mobile-drawer')?.contains(document.activeElement))),
+  ).toBe(true);
+
+  const openScan = await new AxeBuilder({ page }).analyze();
+  expect(openScan.violations.map((violation) => violation.id)).not.toContain('aria-hidden-focus');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(toggle).toBeFocused();
+});
+
 // Issue #246: a new notification is announced once, politely; the count that
 // was already there on load is not.
 test('a new notification is announced in a polite live region', async ({ page, visit }) => {
@@ -92,6 +176,35 @@ test('a new notification is announced in a polite live region', async ({ page, v
     `1 new notification. ${before + 1} unread.`,
   );
   await expect(page.getByRole('status').filter({ hasText: '1 new notification.' })).toHaveAttribute('aria-live', 'polite');
+});
+
+// Issue #237 (WCAG 2.4.2 Page Titled): every route names its own tab, the
+// names are unique across the app, and none of them carries patient data.
+test('every route has a unique, descriptive document title', async ({ page, visit }) => {
+  test.slow();
+  // Unique per role: a patient and a doctor never see each other's tabs, so
+  // the two sides of one message thread may share a title. An `aliasOf` URL
+  // is the same screen as its target and shares its title on purpose.
+  const titles = new Map<string, string[]>();
+
+  for (const { path, role, aliasOf } of routes) {
+    await visit(path, role);
+    await expect(page.locator('main h1, main h2, #root h1, #root h2').first()).toBeVisible();
+
+    const title = (await page.title()).trim();
+    expect(title, `${path} has a document title`).not.toBe('');
+    expect(title, `${path} title names the product`).toContain('DocForum');
+    // Generic labels only: a record screen is titled after the record *type*,
+    // never after the patient, medication or appointment it shows.
+    expect(title, `${path} title leaks patient data`).not.toMatch(/Placeholder|Example \(fake\)|Tyke|Junior/);
+
+    if (aliasOf) continue;
+    const key = `${role} ${title}`;
+    titles.set(key, [...(titles.get(key) ?? []), path]);
+  }
+
+  const duplicate = [...titles].filter(([, paths]) => paths.length > 1);
+  expect(duplicate, 'routes that share a document title').toEqual([]);
 });
 
 for (const { path, role } of reflowRoutes) {

@@ -3,18 +3,36 @@
 // packages/api-client/openapi/ — contract drift is a compile error here.
 import type { Schemas } from '@docforum/api-client';
 import { api, apiFetch } from './api-client';
-import type { AccountInvite, ActiveSession, RevokeOtherSessionsResult } from '../types/models';
+import type {
+  AccountInvite,
+  ActiveSession,
+  EmailVerificationResendResult,
+  EmailVerificationResult,
+  EnrollmentRequiredResponse,
+  MfaRequiredResponse,
+  PasswordResetMessage,
+  RevokeOtherSessionsResult,
+  TwoFactorEnableResult,
+  TwoFactorSetup,
+  TwoFactorStatus,
+} from '../types/models';
 
 export type AuthSession = Schemas['AuthSession'] & { csrfToken?: string };
 export type SignupInput = Schemas['SignupInput'];
 export type LoginInput = Schemas['LoginInput'];
 
+export type LoginResult = AuthSession | MfaRequiredResponse | EnrollmentRequiredResponse;
+
+export function isAuthSession(result: LoginResult): result is AuthSession {
+  return 'user' in result && 'accessToken' in result;
+}
+
 export function signup(input: SignupInput): Promise<AuthSession> {
   return api.auth.signup(input);
 }
 
-export function login(input: LoginInput): Promise<AuthSession> {
-  return api.auth.login(input);
+export function login(input: LoginInput): Promise<LoginResult> {
+  return apiFetch<LoginResult>('/auth/login', { method: 'POST', body: input });
 }
 
 export function logout(accessToken: string, csrfToken?: string | null): Promise<void> {
@@ -22,6 +40,37 @@ export function logout(accessToken: string, csrfToken?: string | null): Promise<
     return apiFetch<void>('/auth/logout', { method: 'POST', accessToken, csrfToken });
   }
   return api.auth.logout({ accessToken });
+}
+
+export function verifyTwoFactor(mfaToken: string, code: string): Promise<AuthSession> {
+  return apiFetch<AuthSession>('/auth/2fa/verify', {
+    method: 'POST',
+    body: { mfaToken, code },
+  });
+}
+
+export function setupTwoFactor(token: string): Promise<TwoFactorSetup> {
+  return apiFetch<TwoFactorSetup>('/auth/2fa/setup', { method: 'POST', accessToken: token });
+}
+
+export function enableTwoFactor(token: string, code: string): Promise<TwoFactorEnableResult> {
+  return apiFetch<TwoFactorEnableResult>('/auth/2fa/enable', {
+    method: 'POST',
+    body: { code },
+    accessToken: token,
+  });
+}
+
+export function getTwoFactorStatus(accessToken: string): Promise<TwoFactorStatus> {
+  return apiFetch<TwoFactorStatus>('/auth/2fa/status', { accessToken });
+}
+
+export function disableTwoFactor(accessToken: string, code: string): Promise<void> {
+  return apiFetch<void>('/auth/2fa/disable', {
+    method: 'POST',
+    body: { code },
+    accessToken,
+  });
 }
 
 /** Silent re-auth using docforum-core's httpOnly refresh cookie. The cookie
@@ -134,4 +183,36 @@ export function revokeSession(sessionId: string, accessToken: string): Promise<v
 export async function revokeOtherSessions(accessToken: string): Promise<RevokeOtherSessionsResult> {
   const result = await apiFetch<{ revoked: number }>('/auth/sessions', { method: 'DELETE', accessToken });
   return { revokedCount: result.revoked };
+}
+
+// Password reset (issue #387), implemented in docforum-core's auth module
+// (routes/index.ts, controllers/index.ts, services/password-reset.ts).
+export function requestPasswordReset(email: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/request', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export function confirmPasswordReset(token: string, newPassword: string): Promise<PasswordResetMessage> {
+  return apiFetch<PasswordResetMessage>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: { token, newPassword },
+  });
+}
+
+// Email verification (issue #388). Contract source: docforum-core
+// backend/src/modules/auth/routes/index.ts and controllers/index.ts.
+export function verifyEmail(token: string): Promise<EmailVerificationResult> {
+  return apiFetch<EmailVerificationResult>('/auth/verify-email', {
+    method: 'POST',
+    body: { token },
+  });
+}
+
+export function resendVerificationEmail(accessToken: string): Promise<EmailVerificationResendResult> {
+  return apiFetch<EmailVerificationResendResult>('/auth/verify-email/resend', {
+    method: 'POST',
+    accessToken,
+  });
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/useT';
+import { useUnsavedChangesStore } from '../store/unsaved-changes-store';
 
 interface PendingNavigation {
   anchor: HTMLAnchorElement;
@@ -40,9 +41,11 @@ export interface UnsavedChangesGuardOptions {
  */
 export function useUnsavedChangesGuard(
   isDirty: boolean,
-  options: UnsavedChangesGuardOptions = {},
+  messageOrOptions: string | UnsavedChangesGuardOptions = {},
 ): UnsavedChangesGuard {
   const t = useT();
+  const options: UnsavedChangesGuardOptions =
+    typeof messageOrOptions === 'string' ? { message: messageOrOptions } : messageOrOptions;
   const confirmWith = options.confirmWith ?? 'browser';
   const message =
     options.message ??
@@ -55,6 +58,17 @@ export function useUnsavedChangesGuard(
   const pendingRef = useRef<PendingNavigation | null>(null);
   pendingRef.current = pending;
   const bypassRef = useRef(false);
+  const markDirty = useUnsavedChangesStore((state) => state.markDirty);
+  const markClean = useUnsavedChangesStore((state) => state.markClean);
+
+  // Shared unsaved-changes registration (#402): the session-timeout warning
+  // and sign-out read this store. Only register while dirty, so the cleanup
+  // runs on unmount or a genuine dirty→clean transition.
+  useEffect(() => {
+    if (!isDirty) return;
+    markDirty();
+    return () => markClean();
+  }, [isDirty, markDirty, markClean]);
 
   useEffect(() => {
     if (!isDirty) return;

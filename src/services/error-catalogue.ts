@@ -130,6 +130,25 @@ const CATALOGUE: Record<string, Entry> = {
     actionMessageId: 'errors.actions.retry',
     defaultActionMessage: 'Try again',
   },
+  INVALID_TOTP_CODE: {
+    messageId: 'errors.invalidTotpCode',
+    defaultMessage: 'That authenticator or recovery code is incorrect or has already been used.',
+    action: 'retry',
+    actionMessageId: 'errors.actions.retry',
+    defaultActionMessage: 'Try again',
+  },
+  INVALID_MFA_TOKEN: {
+    messageId: 'errors.invalidMfaToken',
+    defaultMessage: 'Your two-factor sign-in step expired. Sign in again to request a new code.',
+    action: 'reauthenticate',
+    actionMessageId: 'errors.actions.signIn',
+    defaultActionMessage: 'Sign in',
+  },
+  TWO_FACTOR_ALREADY_ENABLED: {
+    messageId: 'errors.twoFactorAlreadyEnabled',
+    defaultMessage: 'Two-factor authentication is already enabled.',
+    action: 'none',
+  },
 
   // Email verification (Phase 8, issue #34)
   EMAIL_NOT_VERIFIED: {
@@ -463,6 +482,37 @@ const CATALOGUE: Record<string, Entry> = {
     defaultActionMessage: 'Reload list',
   },
 };
+
+/** docforum-core refuses to create or settle a facility's payments while no
+ * payout wallet is linked (issue #279). */
+export const FACILITY_WALLET_NOT_LINKED = 'FACILITY_WALLET_NOT_LINKED';
+
+/** docforum-core refuses to settle because the linked payout wallet has no
+ * trustline for the payout asset (issue #279). */
+export const PAYEE_TRUSTLINE_MISSING = 'PAYEE_TRUSTLINE_MISSING';
+
+/** docforum-core codes that mean this facility's payout setup is incomplete
+ * (issue #279). */
+export const PAYOUT_BLOCK_CODES = [FACILITY_WALLET_NOT_LINKED, PAYEE_TRUSTLINE_MISSING] as const;
+export type PayoutBlockCode = (typeof PAYOUT_BLOCK_CODES)[number];
+
+export function isPayoutBlockCode(value: string | null | undefined): value is PayoutBlockCode {
+  return Boolean(value && (PAYOUT_BLOCK_CODES as readonly string[]).includes(value));
+}
+
+/**
+ * The payout-block code carried by `error`, or `null` for anything else.
+ *
+ * Branches only on the backend's machine-readable code (the transport exposes
+ * it as `ApiError.code`, with the raw body as a fallback) — never on the
+ * message text, and never by asking Stellar from the browser (hard rule 1).
+ */
+export function getPayoutBlockCode(error: unknown): PayoutBlockCode | null {
+  if (!(error instanceof ApiError)) return null;
+  const bodyCode = (error.body as { code?: unknown } | undefined)?.code;
+  const code = error.code ?? (typeof bodyCode === 'string' ? bodyCode : null);
+  return isPayoutBlockCode(code) ? code : null;
+}
 
 /** HTTP-status fallback when the backend did not send a code. */
 const STATUS_CODES: Record<number, string> = {

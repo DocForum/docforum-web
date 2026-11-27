@@ -274,6 +274,23 @@ describe('generating slots over a date range', () => {
     timeZone: 'Africa/Lagos',
   };
 
+  it('cancels the active request and does not start another day', async () => {
+    const generateSlots = vi.mocked(availabilityService.generateSlots);
+    generateSlots.mockImplementation((_doctor, _input, _token, signal) => new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    const queryClient = createQueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderMutation(() => useGenerateSlots(DOCTOR), queryClient);
+    result.current.mutate(variables);
+    await waitFor(() => expect(generateSlots).toHaveBeenCalledTimes(1));
+    result.current.cancel();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.cancelled).toBe(true);
+    expect(generateSlots).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
   it('sends one single-day request per day in the range', async () => {
     const generateSlots = vi.mocked(availabilityService.generateSlots);
     generateSlots.mockResolvedValue({ created: 0, skipped: 0, slots: [] });

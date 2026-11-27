@@ -1,12 +1,15 @@
 /* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateApiKeyDialog } from './CreateApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '../hooks/useIntegrations';
 import { useT } from '../../../i18n/useT';
@@ -46,13 +49,8 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
   const { locale } = useIntl();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<FacilityApiKey | null>(null);
-  const [refocusAfterRevoke, setRefocusAfterRevoke] = useState<{ id: string; index: number } | null>(
-    null,
-  );
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
   // Blocks a second mutate from a double-click before React re-renders the
-  // button into its pending state (issue #241).
+  // confirm button into its pending state (issue #241).
   const revokeInFlightRef = useRef(false);
   const { data: keysData, isLoading, isError, error, refetch } = useApiKeys(facilityId);
   const revokeMutation = useRevokeApiKey(facilityId);
@@ -64,29 +62,31 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
     ? errorText(error) ?? 'API keys could not be loaded.'
     : null;
 
-  // Once the revoked row is actually gone, move focus to the row that took its
-  // place, or to the list heading when no keys are left (issue #241).
-  useEffect(() => {
-    if (!refocusAfterRevoke) return;
-    if (activeKeys.some((k) => k.id === refocusAfterRevoke.id)) return;
-    const buttons = tableRef.current?.querySelectorAll<HTMLButtonElement>('[data-revoke-key]');
-    const next = buttons && buttons.length > 0
-      ? buttons[Math.min(refocusAfterRevoke.index, buttons.length - 1)]
-      : null;
-    (next ?? headingRef.current)?.focus();
-    setRefocusAfterRevoke(null);
-  }, [activeKeys, refocusAfterRevoke]);
+  const listRef = useRef<HTMLTableSectionElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    activeKeys.map((key) => key.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
 
+  // Revoking is confirmed in the shared Dialog (issue #241), which returns
+  // focus to the Revoke button when it closes. Once the revoked key leaves
+  // the active list, focus moves to the next key (or the heading) and the
+  // result is announced (issue #245).
   const confirmRevoke = () => {
     if (!pendingRevoke || revokeInFlightRef.current) return;
     revokeInFlightRef.current = true;
-    const revoked = pendingRevoke;
-    const index = activeKeys.findIndex((key) => key.id === revoked.id);
-    revokeMutation.mutate(revoked.id, {
+    const { id: keyId, name: keyName } = pendingRevoke;
+    rememberRemovedRow(keyId);
+    revokeMutation.mutate(keyId, {
       onSuccess: () => {
         setPendingRevoke(null);
-        setRefocusAfterRevoke({ id: revoked.id, index: Math.max(index, 0) });
+        announce(
+          t('integrations.apiKeys.revokedAnnounce', 'API key {name} was revoked.', { name: keyName }),
+        );
       },
+      onError: () => forgetRemovedRow(),
       onSettled: () => {
         revokeInFlightRef.current = false;
       },
@@ -118,6 +118,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
         <h2 ref={headingRef} tabIndex={-1}>
           {t('integrations.apiKeys.title', 'API Keys')}
@@ -139,7 +140,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
           action={{ label: 'Create your first key', onClick: () => setCreateDialogOpen(true) }}
         />
       ) : (
-        <div className={styles.tableWrapper} ref={tableRef}>
+        <div className={styles.tableWrapper}>
           <table className={styles.dataTable}>
             <thead>
               <tr>
@@ -148,12 +149,12 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                 <th>{t('integrations.apiKeys.colScopes', 'Scopes')}</th>
                 <th>{t('integrations.apiKeys.colCreated', 'Created')}</th>
                 <th>{t('integrations.apiKeys.colLastUsed', 'Last used')}</th>
-                <th aria-label={t('integrations.common.actions', 'Actions')} />
+                <th>{t('integrations.common.actions', 'Actions')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={listRef}>
               {activeKeys.map((key) => (
-                <tr key={key.id}>
+                <tr key={key.id} data-row-id={key.id}>
                   <td>{key.name}</td>
                   <td>
                     <span className={styles.prefixCell}>{key.prefix}…</span>
@@ -180,7 +181,6 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
                   <td className={styles.actionCell}>
                     <Button
                       variant="danger"
-                      data-revoke-key
                       onClick={() => setPendingRevoke(key)}
                       loading={revokeMutation.isPending && revokeMutation.variables === key.id}
                     >
@@ -256,11 +256,7 @@ export function ApiKeysPanel({ facilityId }: ApiKeysPanelProps) {
           >
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button
-            variant="danger"
-            onClick={confirmRevoke}
-            loading={revokeMutation.isPending}
-          >
+          <Button variant="danger" onClick={confirmRevoke} loading={revokeMutation.isPending}>
             {t('integrations.revokeKey.confirm', 'Revoke key')}
           </Button>
         </div>

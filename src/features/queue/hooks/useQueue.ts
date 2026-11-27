@@ -1,14 +1,19 @@
 import { useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as queueService from '../../../services/queue-service';
+import type { AppointmentStatusUpdate } from '../../../services/queue-service';
+import { ApiError } from '../../../services/api-client';
 import { useAuthStore } from '../../../store/auth-store';
 import { invalidateFor } from '../../../invalidations';
 import { appointmentKeys, queueKeys } from '../../../query-keys';
+import { useRealtimeLive } from '../../../hooks/useRealtimeLive';
 import type { QueueEntry } from '../../../types/models';
 
 const APPOINTMENTS_KEY = appointmentKeys.today();
 const QUEUE_KEY = queueKeys.today();
 const RUNNING_DELAY_KEY = queueKeys.runningDelay();
+const QUEUE_POLL_MS = 30_000;
+
 type VisitMutationVariables = {
   appointmentId: string;
   previousStatus: QueueEntry['status'];
@@ -29,23 +34,54 @@ export function useAppointments() {
 
 export function useQueue() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  // Refetch periodically so newly checked-in patients appear live.
+  const realtimeLive = useRealtimeLive();
   return useQuery({
     queryKey: QUEUE_KEY,
     queryFn: ({ signal }) => queueService.listQueue(accessToken!, signal),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000,
+    refetchInterval: realtimeLive ? false : QUEUE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
 export function useRunningDelay() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const realtimeLive = useRealtimeLive();
   return useQuery({
     queryKey: RUNNING_DELAY_KEY,
     queryFn: ({ signal }) => queueService.getRunningDelay(accessToken!, signal),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000,
+    refetchInterval: realtimeLive ? false : QUEUE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
+}
+
+/**
+ * Mark a scheduled visit no-show or cancel it. docforum-core cascades to any
+ * linked referral, so every screen that shows today's work is refreshed:
+ * today's list, the live queue, and practice insights (no-show rates).
+ */
+export function useAppointmentStatusAction() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { appointmentId: string; status: AppointmentStatusUpdate }) =>
+      queueService.updateAppointmentStatus(input.appointmentId, input.status, accessToken!),
+    onSuccess: () => refreshToday(queryClient),
+    onError: (error) => {
+      // A 409 means someone else acted first; refresh so the row matches the
+      // server instead of leaving a stale scheduled visit on screen.
+      if (error instanceof ApiError && error.status === 409) refreshToday(queryClient);
+    },
+  });
+}
+
+function refreshToday(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });
+  void queryClient.invalidateQueries({ queryKey: QUEUE_KEY });
+  void queryClient.invalidateQueries({ queryKey: ['doctor', 'insights'] });
+  void queryClient.invalidateQueries({ queryKey: ['appointments'] });
 }
 
 export function useUpdateRunningDelay() {

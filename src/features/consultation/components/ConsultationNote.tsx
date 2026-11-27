@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useConsultationNote, useSignOffNote, useAddAddendum } from '../hooks/useConsultationNote';
 import { useAppointment } from "../../appointment/hooks/useAppointment";
 import { useNavigate } from "react-router-dom";
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { Button } from '../../../components/Button';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
@@ -41,9 +42,11 @@ export function ConsultationNote({ appointmentId: appointmentIdProp }: Consultat
   const [addendumContent, setAddendumContent] = useState('');
   const [confirmingSignOff, setConfirmingSignOff] = useState(false);
   const [editing, setEditing] = useState(!query.data?.signedAt);
-
   const note = query.data;
-  const signed = Boolean(note?.signedAt);
+  const isDirty = editing && draft.trim() !== note?.content?.trim();
+  useUnsavedChangesGuard(isDirty);
+
+const signed = Boolean(note?.signedAt);
 
   // Keep the draft in sync once the note loads.
   useEffect(() => {

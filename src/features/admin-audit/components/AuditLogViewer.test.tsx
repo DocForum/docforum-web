@@ -63,7 +63,7 @@ function LocationProbe() {
 function signIn(role: Role) {
   useAuthStore.setState({
     accessToken: 'admin-token',
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 
@@ -284,7 +284,10 @@ describe('AuditLogViewer — rows', () => {
     renderViewer();
     await screen.findByText('appointment.booked');
 
-    expect(screen.getByRole('link', { name: 'pi-42' })).toHaveAttribute('href', '/admin?intent=pi-42');
+    expect(screen.getByRole('link', { name: 'pi-42' })).toHaveAttribute(
+      'href',
+      '/admin/payments/console?intent=pi-42',
+    );
     // Appointments have no admin-facing view, so the id is plain text.
     expect(screen.queryByRole('link', { name: 'appt-1' })).not.toBeInTheDocument();
     expect(screen.getByText('appt-1')).toBeInTheDocument();

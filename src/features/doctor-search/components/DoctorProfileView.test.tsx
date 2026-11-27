@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { render, screen } from '../../../test/render';
@@ -29,11 +29,24 @@ const SLOT: AvailabilitySlot = {
   updatedAt: '2026-11-01T00:00:00.000Z',
 };
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // Pin "today" to the week before the fixture slot (Tue 24 November) so
+  // "Next week" lands on it whenever this suite runs. Only Date is faked:
+  // timers stay real so userEvent and findBy keep working.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-17T08:00:00.000Z'));
   window.localStorage.setItem('docforum-time-zone', 'UTC');
   vi.mocked(directoryService.getPublicDoctor).mockResolvedValue(DOCTOR);
   vi.mocked(appointmentsService.getOpenSlots).mockResolvedValue([SLOT]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function renderProfile() {
@@ -57,6 +70,11 @@ describe('DoctorProfileView', () => {
   });
 
   it('hands a selected slot off to the booking flow with the slot preselected', async () => {
+    // The slot fixture is 24 Nov 2026. Pin the clock to the previous week so
+    // "Next week" always contains it, rather than the test rotting as time
+    // passes.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-17T12:00:00.000Z'));
     const user = userEvent.setup();
     renderProfile();
 

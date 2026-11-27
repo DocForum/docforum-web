@@ -1,12 +1,15 @@
 /* eslint-disable no-restricted-syntax -- Existing DEFAULT_MOCK_* fixture tracked by #299; it moves to src/mocks/ or goes when the real endpoint lands. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';
+import { LiveRegion } from '../../../components/LiveRegion';
 import { EmptyState } from '../../../components/states/EmptyState';
 import { InlineError } from '../../../components/states/InlineError';
 import { Skeleton } from '../../../components/states/Skeleton';
 import { useErrorMessage } from '../../../hooks/useErrorText';
+import { useAnnouncer } from '../../../hooks/useAnnouncer';
+import { useRowRemovalFocus } from '../../../hooks/useRowRemovalFocus';
 import { CreateWebhookDialog } from './CreateWebhookDialog';
 import { WebhookDeliveries } from './WebhookDeliveries';
 import {
@@ -44,13 +47,8 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<WebhookEndpoint | null>(null);
-  const [refocusAfterDelete, setRefocusAfterDelete] = useState<{ id: string; index: number } | null>(
-    null,
-  );
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   // Blocks a second mutate from a double-click before React re-renders the
-  // button into its pending state (issue #241).
+  // confirm button into its pending state (issue #241).
   const deleteInFlightRef = useRef(false);
   const { data: endpointsData, isLoading, isError, error, refetch } = useWebhookEndpoints(facilityId);
   const deleteMutation = useDeleteWebhookEndpoint(facilityId);
@@ -62,32 +60,34 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
     ? errorText(error) ?? 'Webhook endpoints could not be loaded.'
     : null;
 
-  // After the endpoint disappears, focus the next Delete button, or the list
-  // heading when none are left (issue #241).
-  useEffect(() => {
-    if (!refocusAfterDelete) return;
-    if (endpoints.some((endpoint) => endpoint.id === refocusAfterDelete.id)) return;
-    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>('[data-delete-endpoint]');
-    const next = buttons && buttons.length > 0
-      ? buttons[Math.min(refocusAfterDelete.index, buttons.length - 1)]
-      : null;
-    (next ?? headingRef.current)?.focus();
-    setRefocusAfterDelete(null);
-  }, [endpoints, refocusAfterDelete]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const { message, announce } = useAnnouncer();
+  const { rememberRemovedRow, forgetRemovedRow } = useRowRemovalFocus(
+    endpoints.map((endpoint) => endpoint.id),
+    { containerRef: listRef, fallbackRef: headingRef },
+  );
 
+  // Deleting is confirmed in the shared Dialog (issue #241), which returns
+  // focus to the Delete button when it closes. Once the endpoint's card is
+  // gone, focus moves to the neighbouring endpoint (or the heading) and the
+  // deletion is announced (issue #245).
   const confirmDelete = () => {
     if (!pendingDelete || deleteInFlightRef.current) return;
     deleteInFlightRef.current = true;
-    const endpoint = pendingDelete;
-    const index = endpoints.findIndex((candidate) => candidate.id === endpoint.id);
-    deleteMutation.mutate(endpoint.id, {
+    const { id: endpointId, url } = pendingDelete;
+    rememberRemovedRow(endpointId);
+    if (expandedEndpointId === endpointId) {
+      setExpandedEndpointId(null);
+    }
+    deleteMutation.mutate(endpointId, {
       onSuccess: () => {
         setPendingDelete(null);
-        if (expandedEndpointId === endpoint.id) {
-          setExpandedEndpointId(null);
-        }
-        setRefocusAfterDelete({ id: endpoint.id, index: Math.max(index, 0) });
+        announce(
+          t('integrations.webhooks.deletedAnnounce', 'Webhook endpoint {url} was deleted.', { url }),
+        );
       },
+      onError: () => forgetRemovedRow(),
       onSettled: () => {
         deleteInFlightRef.current = false;
       },
@@ -131,6 +131,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
 
   return (
     <div className={styles.card}>
+      <LiveRegion message={message} />
       <div className={styles.cardHeader}>
         <h2 ref={headingRef} tabIndex={-1}>
           {t('integrations.webhooks.title', 'Webhooks')}
@@ -161,7 +162,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
           style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
         >
           {endpoints.map((endpoint) => (
-            <div key={endpoint.id} className={styles.webhookCard}>
+            <div key={endpoint.id} className={styles.webhookCard} data-row-id={endpoint.id}>
               <div className={styles.webhookCardHeader}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minWidth: 0 }}>
                   <span className={styles.webhookUrl}>{endpoint.url}</span>
@@ -194,7 +195,6 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
                   </Button>
                   <Button
                     variant="danger"
-                    data-delete-endpoint
                     onClick={() => setPendingDelete(endpoint)}
                     loading={deleteMutation.isPending && deleteMutation.variables === endpoint.id}
                   >
@@ -248,11 +248,7 @@ export function WebhooksPanel({ facilityId }: WebhooksPanelProps) {
           >
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button
-            variant="danger"
-            onClick={confirmDelete}
-            loading={deleteMutation.isPending}
-          >
+          <Button variant="danger" onClick={confirmDelete} loading={deleteMutation.isPending}>
             {t('integrations.deleteWebhook.confirm', 'Delete endpoint')}
           </Button>
         </div>

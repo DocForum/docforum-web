@@ -3,6 +3,7 @@ import { DataExportSection } from '../features/account/components/DataExportSect
 import { DeleteAccountSection } from '../features/account/components/DeleteAccountSection';
 import { ActingForBanner } from '../features/dependents/components/ActingForBanner';
 import { SessionsSection } from '../features/account/components/SessionsSection';
+import { TwoFactorSection } from '../features/account/components/TwoFactorSection';
 import { CalendarSubscriptionSection } from '../features/settings/components/CalendarSubscriptionSection';
 import { TimeZonePreference } from '../i18n/components/TimeZonePreference';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -41,6 +42,10 @@ export function AccountSettingsPage() {
 
       <ErrorBoundary level="section">
         <SessionsSection />
+      </ErrorBoundary>
+
+      <ErrorBoundary level="section">
+        <TwoFactorSection />
       </ErrorBoundary>
 
       <ErrorBoundary level="section">

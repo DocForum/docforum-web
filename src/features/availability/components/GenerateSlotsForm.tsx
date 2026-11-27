@@ -12,6 +12,7 @@ import {
   addDays,
   daysBetween,
   formatMinutesAsClock,
+  generationDates,
   isValidIsoDate,
   todayInZone,
 } from '../calendar';
@@ -20,6 +21,18 @@ import type { GenerateSlotsOutcome } from '../hooks/useSlotManagement';
 import styles from './GenerateSlotsForm.module.css';
 
 const SLOT_LENGTHS = [15, 20, 30, 45, 60] as const;
+/** Monday-first weekday checkboxes; `value` uses JavaScript's Sunday=0. */
+function weekdayOptions(t: Translate): { value: number; label: string }[] {
+  return [
+    { value: 1, label: t('availability.generate.weekday.mon', 'Mon') },
+    { value: 2, label: t('availability.generate.weekday.tue', 'Tue') },
+    { value: 3, label: t('availability.generate.weekday.wed', 'Wed') },
+    { value: 4, label: t('availability.generate.weekday.thu', 'Thu') },
+    { value: 5, label: t('availability.generate.weekday.fri', 'Fri') },
+    { value: 6, label: t('availability.generate.weekday.sat', 'Sat') },
+    { value: 0, label: t('availability.generate.weekday.sun', 'Sun') },
+  ];
+}
 
 interface Props {
   doctorProfileId: string | null;
@@ -34,6 +47,7 @@ interface FieldErrors {
   toDate?: string;
   hours?: string;
   slotLength?: string;
+  weekdays?: string;
 }
 
 function validate(
@@ -43,10 +57,13 @@ function validate(
     startHour: number;
     endHour: number;
     slotLengthMinutes: number;
+    weekdays: readonly number[];
   },
   t: Translate,
 ): FieldErrors {
   const errors: FieldErrors = {};
+
+  if (values.weekdays.length === 0) errors.weekdays = t('availability.generate.weekdayRequired', 'Choose at least one weekday.');
 
   if (!isValidIsoDate(values.fromDate)) {
     errors.fromDate = t('availability.generate.fromRequired', 'Choose the first date to generate for.');
@@ -99,22 +116,24 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(13);
   const [slotLength, setSlotLength] = useState<number>(30);
+  const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [outcome, setOutcome] = useState<GenerateSlotsOutcome | null>(null);
 
   const dayCount =
-    isValidIsoDate(fromDate) && isValidIsoDate(toDate) ? Math.max(0, daysBetween(fromDate, toDate) + 1) : 0;
+    isValidIsoDate(fromDate) && isValidIsoDate(toDate) && toDate >= fromDate
+      ? generationDates(fromDate, toDate, weekdays, today).length : 0;
   const hours = Array.from({ length: 24 }, (_, index) => index);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength }, t);
+    const errors = validate({ fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength, weekdays }, t);
     setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) return;
 
     setOutcome(null);
     generate.mutate(
-      { fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength, timeZone },
+      { fromDate, toDate, startHour, endHour, slotLengthMinutes: slotLength, timeZone, weekdays, today },
       { onSuccess: setOutcome },
     );
   }
@@ -214,6 +233,21 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
         </div>
       </div>
 
+      <fieldset className={styles.weekdays} aria-describedby={fieldErrors.weekdays ? 'generate-weekday-error' : undefined}>
+        <legend className={styles.label}>{t('availability.generate.weekdays', 'Weekdays')}</legend>
+        {weekdayOptions(t).map((day) => (
+          <label key={day.value} className={styles.weekday}>
+            <input type="checkbox" checked={weekdays.includes(day.value)} onChange={(event) => {
+              setWeekdays((current) => event.target.checked
+                ? [...current, day.value]
+                : current.filter((value) => value !== day.value));
+            }} />
+            {day.label}
+          </label>
+        ))}
+      </fieldset>
+      {fieldErrors.weekdays && <div id="generate-weekday-error"><FormError message={fieldErrors.weekdays} /></div>}
+
       <FormError message={fieldErrors.hours ?? null} />
       <FormError message={fieldErrors.slotLength ?? null} />
 
@@ -221,7 +255,7 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
         {dayCount > 0
           ? t(
               'availability.generate.requestCount',
-              'Sends {count, plural, one {# request} other {# requests}} — one per day. Overlapping times are skipped, not duplicated.',
+              'Sends {count, plural, one {# request} other {# requests}} — one per selected future day. Overlapping times are skipped, not duplicated.',
               { count: dayCount },
             )
           : t('availability.generate.pickRange', 'Pick a range of dates to see how many requests this will send.')}
@@ -229,9 +263,22 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
 
       <FormError message={mutationMessage} />
 
+      {generate.isPending && (
+        <p role="status" aria-live="polite">
+          {t('availability.generate.progress', 'Processed {done} of {total} days.', {
+            done: generate.progress.completed, total: generate.progress.total,
+          })}
+        </p>
+      )}
+
       {outcome && (
         <p className={styles.result} role="status">
-          {outcome.failedDays.length > 0
+          {outcome.cancelled
+            ? t('availability.generate.cancelled', 'Stopped after {done} of {total} selected days. Created {created} slots; {skipped} were already covered.', {
+                done: generate.progress.completed, total: outcome.requestedDays,
+                created: outcome.created, skipped: outcome.skipped,
+              })
+            : outcome.failedDays.length > 0
             ? t(
                 'availability.generate.outcomePartial',
                 'Generated on {ok} of {requested} days — {failed, plural, one {# day failed} other {# days failed}}: {message}',
@@ -258,6 +305,8 @@ export function GenerateSlotsForm({ doctorProfileId, timeZone, now = new Date() 
       <Button type="submit" loading={generate.isPending} disabled={!doctorProfileId}>
         {t('availability.generate.title', 'Generate slots')}
       </Button>
+      {generate.isPending && <Button type="button" variant="secondary" onClick={generate.cancel}>{t('availability.generate.cancel', 'Cancel generation')}</Button>}
+      <p className={styles.hint}>{t('availability.generate.retry', 'You can retry the whole range after a failure; already covered times are skipped.')}</p>
     </form>
   );
 }

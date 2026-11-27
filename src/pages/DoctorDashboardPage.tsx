@@ -115,7 +115,6 @@ export function DoctorDashboardPage() {
       <header className={styles.dashboardHeader}>
         <h1>{t('doctor.title', 'Doctor dashboard')}</h1>
         <div className={styles.dashboardHeaderRight}>
-          <UnreadBadge />
           <Button variant="secondary" onClick={() => navigate(paths.doctor.insights)}>
             {t('doctor.insightsButton', 'Practice insights')}
           </Button>

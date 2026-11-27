@@ -16,7 +16,7 @@ vi.mock('../../../services/disputes-service');
 function signIn(role: Role = 'admin') {
   useAuthStore.setState({
     accessToken: 'admin-token',
-    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, createdAt: '', updatedAt: '' },
+    user: { id: `${role}-1`, email: `${role}@docforum.org`, role, emailVerifiedAt: null, createdAt: '', updatedAt: '' },
   });
 }
 

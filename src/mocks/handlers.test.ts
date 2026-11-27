@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 // only resets the in-memory database between cases.
 import { db, resetDb } from './db';
 import { useMockStore } from './mock-store';
-import { DOCTOR_USER, MOCK_ACCESS_TOKEN } from './fixtures';
+import { DOCTOR_USER, MOCK_ACCESS_TOKEN, PATIENT_USER } from './fixtures';
 import { ApiError, apiFetch } from '../services/api-client';
 /** A date of birth exactly `years` ago today: minors vs. the age of majority. */
 function dateYearsAgo(years: number): string {
@@ -21,7 +21,6 @@ function dateYearsAgo(years: number): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
-
 import * as authService from '../services/auth-service';
 import * as accountService from '../services/account-service';
 import * as adminClosuresService from '../services/admin-closures-service';
@@ -36,6 +35,9 @@ import * as facilityTeamService from '../services/facility-team-service';
 import * as fulfillmentService from '../services/fulfillment-service';
 import * as healthService from '../services/health-profile-service';
 import * as insightsService from '../services/insights-service';
+import * as adminMetricsService from '../services/admin-metrics-service';
+import * as appointmentsService from '../services/appointments-service';
+import * as followUpsService from '../services/follow-ups-service';
 import * as integrationsService from '../services/integrations-service';
 import * as messagingService from '../services/messaging-service';
 import * as myFlagsService from '../services/my-flags-service';
@@ -46,15 +48,62 @@ import * as paymentHistoryService from '../services/payment-history-service';
 import * as paymentsService from '../services/payments-service';
 import * as prescriptionsService from '../services/prescriptions-service';
 import * as queueService from '../services/queue-service';
+import * as referralsService from '../services/referrals-service';
 import * as searchService from '../services/search-service';
 import * as verificationService from '../services/admin-verification-service';
 import * as auditService from '../services/audit-service';
 import * as sessionTimeoutService from '../services/session-timeout-service';
+import * as systemHealthService from '../services/system-health-service';
 import { FACILITY_ID, PATIENT_PROFILE_ID } from './fixtures';
 
 beforeEach(() => {
   resetDb();
   useMockStore.setState({ scenario: 'normal', latencyMs: 0, activeRole: 'patient', flagOverrides: {} });
+});
+
+describe('email verification', () => {
+  it('verifies an email with a single-use token', async () => {
+    db.emailVerification.verifiedAt.set(PATIENT_USER.email, null);
+    const result = await authService.verifyEmail('valid-verification-token');
+    expect(result.emailVerifiedAt).toEqual(expect.any(String));
+    await expect(authService.verifyEmail('valid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'INVALID_VERIFICATION_TOKEN',
+    });
+    const session = await authService.login({ email: PATIENT_USER.email, password: 'anything' });
+    expect('user' in session && session.user.emailVerifiedAt).toBe(result.emailVerifiedAt);
+    await expect(authService.verifyEmail('invalid-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'INVALID_VERIFICATION_TOKEN',
+    });
+    await expect(authService.verifyEmail('expired-verification-token')).rejects.toMatchObject({
+      status: 400,
+      code: 'VERIFICATION_TOKEN_EXPIRED',
+    });
+  });
+
+  it('resends verification for unverified users and handles already verified users', async () => {
+    db.emailVerification.verifiedAt.set(PATIENT_USER.email, null);
+    await expect(authService.resendVerificationEmail(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      resendAfterSeconds: 60,
+    });
+
+    useMockStore.setState({ activeRole: 'doctor' });
+    await expect(authService.resendVerificationEmail(MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 409,
+      code: 'EMAIL_ALREADY_VERIFIED',
+    });
+  });
+
+  it('starts a newly signed-up account unverified', async () => {
+    const session = await authService.signup({
+      role: 'patient',
+      email: 'fresh@example.test',
+      password: 'x',
+      fullName: 'Fresh Person (fake)',
+    });
+    expect(session.user.emailVerifiedAt).toBeNull();
+  });
 });
 
 describe('auth', () => {
@@ -63,6 +112,8 @@ describe('auth', () => {
       email: DOCTOR_USER.email,
       password: 'whatever',
     });
+    expect(authService.isAuthSession(session)).toBe(true);
+    if (!authService.isAuthSession(session)) throw new Error('Expected normal login session');
     expect(session.user.role).toBe('doctor');
     expect(session.accessToken).toBe(MOCK_ACCESS_TOKEN);
   });
@@ -73,13 +124,83 @@ describe('auth', () => {
       email: 'someone@example.test',
       password: 'whatever',
     });
+    expect(authService.isAuthSession(session)).toBe(true);
+    if (!authService.isAuthSession(session)) throw new Error('Expected normal login session');
     expect(session.user.role).toBe('doctor');
     expect(session.user.email).toBe('someone@example.test');
+  });
+
+  it('returns an MFA challenge instead of a session for a protected account', async () => {
+    const result = await authService.login({ email: 'two-factor@docforum.org', password: 'whatever' });
+    expect(result).toEqual({ mfaRequired: true, mfaToken: 'mock-mfa-token' });
+  });
+
+  it('requires an admin without enrollment to enrol before a session exists', async () => {
+    const result = await authService.login({ email: 'admin-enrollment@docforum.org', password: 'whatever' });
+    expect(result).toEqual({ enrollmentRequired: true, enrollmentToken: 'mock-enrollment-token' });
+  });
+
+  it('verifies a TOTP or recovery code and returns a normal session', async () => {
+    const session = await authService.verifyTwoFactor('mock-mfa-token', '123456');
+    expect(session.user.email).toBe('two-factor@docforum.org');
+    expect(session.accessToken).toBe(MOCK_ACCESS_TOKEN);
+  });
+
+  it('returns the documented code for a wrong or expired MFA attempt', async () => {
+    await expect(authService.verifyTwoFactor('mock-mfa-token', '000000')).rejects.toMatchObject({
+      status: 401,
+      body: { code: 'INVALID_TOTP_CODE' },
+    });
+    await expect(authService.verifyTwoFactor('expired-mfa-token', '123456')).rejects.toMatchObject({
+      status: 401,
+      body: { code: 'INVALID_MFA_TOKEN' },
+    });
+  });
+
+  it('sets up and enables two-factor authentication with one-time recovery codes', async () => {
+    await expect(authService.setupTwoFactor('mock-enrollment-token')).resolves.toMatchObject({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUri: expect.stringContaining('otpauth://totp/'),
+    });
+    const result = await authService.enableTwoFactor('mock-enrollment-token', '123456');
+    expect(result.recoveryCodes).toHaveLength(10);
+    const adminLogin = await authService.login({ email: 'admin-enrollment@docforum.org', password: 'whatever' });
+    expect(adminLogin).toEqual({ mfaRequired: true, mfaToken: 'mock-admin-mfa-token' });
+  });
+
+  it('reports status and disables two-factor authentication with a valid code', async () => {
+    await expect(authService.getTwoFactorStatus(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      enabled: true,
+      unusedRecoveryCodes: 10,
+    });
+    await expect(authService.disableTwoFactor(MOCK_ACCESS_TOKEN, '123456')).resolves.toBeNull();
+    await expect(authService.getTwoFactorStatus(MOCK_ACCESS_TOKEN)).resolves.toEqual({
+      enabled: false,
+      unusedRecoveryCodes: 0,
+    });
   });
 
   it('rejects missing credentials with a 400 envelope', async () => {
     await expect(
       authService.login({ email: '', password: '' }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('clears login lockouts without revealing whether an account exists', async () => {
+    const cleared = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(cleared.cleared).toBe(1);
+
+    const again = await systemHealthService.clearLoginAttempts(
+      { email: 'locked.out@example.test' },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(again.cleared).toBe(0);
+
+    await expect(
+      systemHealthService.clearLoginAttempts({}, MOCK_ACCESS_TOKEN),
     ).rejects.toMatchObject({ status: 400 });
   });
 
@@ -178,6 +299,30 @@ describe('auth', () => {
   });
 });
 
+describe('password reset', () => {
+  it('uses the same password-reset request confirmation for any email', async () => {
+    await expect(authService.requestPasswordReset('known@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+    await expect(authService.requestPasswordReset('unknown@example.test')).resolves.toEqual({
+      message: 'If that account exists, an email was sent.',
+    });
+  });
+
+  it('surfaces password-reset throttling and confirms valid reset tokens', async () => {
+    await expect(authService.requestPasswordReset('rate-limited@docforum.org')).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 60,
+    });
+    await expect(authService.confirmPasswordReset('valid-token', 'password123')).resolves.toEqual({
+      message: 'Password updated',
+    });
+    await expect(authService.confirmPasswordReset('invalid-token', 'password123')).rejects.toMatchObject({
+      status: 400,
+    });
+  });
+});
+
 describe('dependents', () => {
   it('lists seeded dependents and adds a new one', async () => {
     const seeded = await dependentsService.listDependents(MOCK_ACCESS_TOKEN);
@@ -212,6 +357,38 @@ describe('dependents', () => {
       MOCK_ACCESS_TOKEN,
     );
     expect(created.fullName).toBe('Seventeen (fake)');
+  });
+
+  describe('follow-up requests (issue #31)', () => {
+    it('lists open and expired requests and books a matching slot once', async () => {
+      const requests = await followUpsService.listMyFollowUps(MOCK_ACCESS_TOKEN);
+      expect(requests.map(({ status }) => status)).toEqual(['open', 'expired']);
+
+      const open = requests[0];
+      const slots = await appointmentsService.getOpenSlots(open.doctorProfileId);
+      const slot = slots[0];
+      expect(Date.parse(slot.startTime)).toBeGreaterThanOrEqual(Date.parse(open.windowStart));
+      expect(Date.parse(slot.endTime)).toBeLessThanOrEqual(Date.parse(open.windowEnd));
+
+      const result = await followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN);
+      expect(result.followUp).toMatchObject({ status: 'booked', bookedAppointmentId: result.appointment.id });
+      expect(result.appointment).toMatchObject({ origin: 'follow_up' });
+      expect(result.followUp.intakeFormId).toBe(open.intakeFormId);
+      await expect(
+        followUpsService.bookFollowUp(open.id, slot.id, MOCK_ACCESS_TOKEN),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+  });
+
+  describe('admin success metrics (issue #69)', () => {
+    it('returns aggregate measures and clearly unavailable cells through the mock API', async () => {
+      const from = '2026-10-01T00:00:00.000Z';
+      const to = '2026-11-01T00:00:00.000Z';
+      const metrics = await adminMetricsService.getAdminSuccessMetrics(from, to, MOCK_ACCESS_TOKEN);
+      expect(metrics.window).toEqual({ from, to, timeZone: 'UTC' });
+      expect(metrics.metrics.noShowRate).toMatchObject({ status: 'available', denominator: 55 });
+      expect(metrics.metrics.referralCompletionRate.status).toBe('not_yet_available');
+    });
   });
 
   it('rejects a dependent at the age of majority', async () => {
@@ -399,10 +576,15 @@ describe('consultation notes', () => {
 
     const referral = await consultationService.createConsultationReferral(
       record.id,
-      { targetSpecialty: 'Cardiology', reason: 'Demo referral reason (fake).' },
+      {
+        targets: [{
+          targetSpecialtyId: 'spc-cardio',
+          snapshotNotes: 'Demo referral reason (fake).',
+        }],
+      },
       MOCK_ACCESS_TOKEN,
     );
-    expect(referral.status).toBe('pending');
+    expect(referral[0].status).toBe('pending');
 
     const order = await consultationService.issueConsultationOrder(
       record.id,
@@ -410,6 +592,27 @@ describe('consultation notes', () => {
       MOCK_ACCESS_TOKEN,
     );
     expect(order.medicationOrTest).toBe('Demo blood panel (fake)');
+  });
+});
+
+describe('referrals I\'ve sent (issue #265)', () => {
+  it('serves an empty received-referral inbox so the Received tab loads in mock mode', async () => {
+    const inbox = await referralsService.listReferrals(
+      { status: null, cursor: null, limit: 20 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(inbox).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('lists the doctor-created referrals from every status, newest first, with both attention flags', async () => {
+    const referrals = await referralsService.listCreatedReferrals(MOCK_ACCESS_TOKEN);
+
+    expect(referrals.map((referral) => referral.status)).toEqual(
+      expect.arrayContaining(['pending', 'accepted', 'declined', 'completed', 'expired', 'cancelled']),
+    );
+    expect(referrals.some((referral) => referral.referringDoctorNotifiedAt !== null)).toBe(true);
+    expect(referrals.some((referral) => referral.loopFlaggedAt !== null)).toBe(true);
+    expect(referrals[0].createdAt >= referrals[referrals.length - 1].createdAt).toBe(true);
   });
 });
 
@@ -436,12 +639,12 @@ describe('patient orders', () => {
     expect(selected.selectedFacility?.id).toBe(FACILITY_ID);
 
     await expect(
-      ordersService.selectFulfillingFacility(
+      ordersService.routeRemainingItems(
         'ord-demo-rx-102',
-        { facilityId: FACILITY_ID, expectedVersion: 1 },
+        { facilityId: FACILITY_ID, itemIds: ['missing-item'] },
         MOCK_ACCESS_TOKEN,
       ),
-    ).rejects.toMatchObject({ status: 409 });
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 
@@ -582,6 +785,35 @@ describe('doctor queue', () => {
     await expect(queueService.completeVisit('apt-demo-4', MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
       status: 409,
     });
+  });
+
+  it('marks a scheduled appointment no-show, then 409s further changes', async () => {
+    const updated = await queueService.updateAppointmentStatus(
+      'apt-demo-4',
+      'no_show',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(updated.status).toBe('no_show');
+    expect(updated.referral?.priorNoShows).toBe(1);
+
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-4', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // A visit that already started is no longer scheduled either.
+    await expect(
+      queueService.updateAppointmentStatus('apt-demo-2', 'cancelled', MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects an unknown status with 400', async () => {
+    await expect(
+      queueService.updateAppointmentStatus(
+        'apt-demo-4',
+        'postponed' as queueService.AppointmentStatusUpdate,
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('applies the running-delay override', async () => {
@@ -814,44 +1046,62 @@ describe('facility team', () => {
     expect(removed.sessionsRevoked).toBe(true);
   });
 
-  it('fulfills queue items with attribution', async () => {
+  it('updates fulfillment records and dispenses items with attribution', async () => {
     const queue = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
     expect(queue).toHaveLength(5);
 
-    const updated = await facilityTeamService.updateFulfillmentItem(
-      FACILITY_ID,
-      'fuq-demo-1',
-      'fulfilled',
-      MOCK_ACCESS_TOKEN,
-      'Demo note (fake)',
-    );
-    expect(updated.status).toBe('fulfilled');
-    expect(updated.attribution?.performedByRole).toBe('owner');
-    expect(updated.attribution?.action).toBe('dispensed');
-  });
-});
-
-describe('facility fulfillment queue', () => {
-  it('moves items in progress, refuses closed items, and attaches lab results', async () => {
-    const moved = await fulfillmentService.updateFulfillmentStatus(
-      FACILITY_ID,
-      'fuq-demo-1',
+    const moved = await facilityTeamService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
       'in_progress',
       MOCK_ACCESS_TOKEN,
     );
     expect(moved.status).toBe('in_progress');
-    expect(moved.attribution?.action).toBe('verified');
+
+    const dispensed = await fulfillmentService.dispenseFulfillmentItem(
+      'ful-req-demo-rx-1',
+      'fit-demo-rx1-vit',
+      { quantity: 10 },
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(dispensed.record.status).toBe('partially_fulfilled');
+    expect(dispensed.orderStatus).toBe('partially_fulfilled');
+
+    const after = await facilityTeamService.getFulfillmentQueue(FACILITY_ID, MOCK_ACCESS_TOKEN);
+    const item = after.find((entry) => entry.id === 'fuq-demo-5');
+    expect(item?.status).toBe('fulfilled');
+    expect(item?.attribution?.performedByRole).toBe('owner');
+    expect(item?.attribution?.action).toBe('dispensed');
+
+    // One-shot item: replaying the PATCH is a 409, never a second dispense.
+    await expect(
+      fulfillmentService.dispenseFulfillmentItem(
+        'ful-req-demo-rx-1',
+        'fit-demo-rx1-vit',
+        { quantity: 10 },
+        MOCK_ACCESS_TOKEN,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('facility fulfillment queue', () => {
+  it('moves records in progress, refuses closed records, and attaches lab results', async () => {
+    const moved = await fulfillmentService.updateFulfillmentRecord(
+      'ful-req-demo-lab-1',
+      'in_progress',
+      MOCK_ACCESS_TOKEN,
+    );
+    expect(moved.status).toBe('in_progress');
 
     await expect(
-      fulfillmentService.updateFulfillmentStatus(
-        FACILITY_ID,
-        'fuq-demo-3',
+      fulfillmentService.updateFulfillmentRecord(
+        'ful-req-demo-rx-2',
         'rejected',
         MOCK_ACCESS_TOKEN,
       ),
     ).rejects.toMatchObject({ status: 409 });
 
-    const file = new File(['demo lab result'], 'demo-result.pdf', {
+    const file = new File(['%PDF-1.4 demo lab result'], 'demo-result.pdf', {
       type: 'application/pdf',
     });
     const uploaded = await fulfillmentService.uploadFulfillmentLabResult(
@@ -860,7 +1110,7 @@ describe('facility fulfillment queue', () => {
       file,
       MOCK_ACCESS_TOKEN,
     );
-    expect(uploaded.labResult?.fileName).toBe('demo-result.pdf');
+    expect(uploaded.labResult?.fileName).toBe('lab-result.pdf');
     expect(uploaded.labResult?.sizeBytes).toBe(file.size);
 
     await expect(
@@ -1077,6 +1327,38 @@ describe('facility settings and prices', () => {
         },
         MOCK_ACCESS_TOKEN,
       ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('facility payout ledger', () => {
+  it('filters and paginates server-side and returns lifecycle totals', async () => {
+    const page = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { limit: 2 });
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeTruthy();
+    expect(page.items[0]).toMatchObject({
+      orderType: expect.any(String),
+      status: expect.any(String),
+      amount: expect.any(String),
+      assetCode: expect.any(String),
+    });
+    expect(page.totals.length).toBeGreaterThan(0);
+
+    const escrowed = await paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, {
+      status: 'escrowed',
+    });
+    expect(escrowed.items.every((item) => item.status === 'escrowed')).toBe(true);
+
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN, { cursor: 'not-a-cursor' }),
+    ).rejects.toMatchObject({ status: 400, code: 'INVALID_CURSOR' });
+
+    // The service never sends `facilityId`; a raw request that does is
+    // rejected by the strict query shape.
+    await expect(
+      apiFetch('/payments/facility/ledger?facilityId=someone-else', {
+        accessToken: MOCK_ACCESS_TOKEN,
+      }),
     ).rejects.toMatchObject({ status: 400 });
   });
 });
@@ -1456,6 +1738,28 @@ describe('dev panel scenarios', () => {
     await expect(
       searchService.searchDoctors({ specialtyIds: ['spc-derm'] }, MOCK_ACCESS_TOKEN),
     ).resolves.toEqual([]);
+  });
+
+  it('simulates a missing payout wallet (FACILITY_WALLET_NOT_LINKED)', async () => {
+    useMockStore.setState({ scenario: 'wallet_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'FACILITY_WALLET_NOT_LINKED' });
+  });
+
+  it('simulates a missing trustline (PAYEE_TRUSTLINE_MISSING)', async () => {
+    useMockStore.setState({ scenario: 'trustline_missing' });
+
+    await expect(paymentsService.getOwnWalletLink(MOCK_ACCESS_TOKEN)).resolves.toMatchObject({
+      facilityId: FACILITY_ID,
+    });
+    await expect(
+      paymentsService.getFacilityPayoutLedger(MOCK_ACCESS_TOKEN),
+    ).rejects.toMatchObject({ status: 400, code: 'PAYEE_TRUSTLINE_MISSING' });
   });
 
   it('delays responses by the configured latency', async () => {
